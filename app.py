@@ -354,22 +354,30 @@ if st.session_state.navegacion == "Registro":
         with col_dom3:
             colonia = st.text_input("Colonia *")
 
-        derechohabiencia = st.selectbox(
-            "Derechohabiencia *",
-            options=[
-                "SELECCIONE UNA OPCIÓN",
-                "IMSS",
-                "ISSSTE",
-                "IMSS-BIENESTAR",
-                "PEMEX",
-                "SEDENA",
-                "SEMAR",
-                "ISSFAM",
-                "IMSS / IMSS-BIENESTAR",
-                "NINGUNA / INSABI / IMSS BIENESTAR (Población Abierta)",
-                "OTRA",
-            ],
+        # Apartado de Derechohabiencia condicional (Sí/No)
+        cuenta_derechohabiencia = st.radio(
+            "¿Cuenta con derechohabiencia? *",
+            options=["NO", "SÍ"],
+            horizontal=True,
         )
+
+        derechohabiencia = "NINGUNA / POBLACIÓN ABIERTA"
+        if cuenta_derechohabiencia == "SÍ":
+            derechohabiencia = st.selectbox(
+                "Especifique la Institución de Derechohabiencia *",
+                options=[
+                    "SELECCIONE UNA OPCIÓN",
+                    "IMSS",
+                    "ISSSTE",
+                    "IMSS-BIENESTAR",
+                    "PEMEX",
+                    "SEDENA",
+                    "SEMAR",
+                    "ISSFAM",
+                    "IMSS / IMSS-BIENESTAR",
+                    "OTRA",
+                ],
+            )
 
         # --- BLOQUE 4: OCUPACIÓN ---
         st.markdown(
@@ -478,6 +486,10 @@ if st.session_state.navegacion == "Registro":
                 st.error(
                     "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
                 )
+            elif cuenta_derechohabiencia == "SÍ" and derechohabiencia == "SELECCIONE UNA OPCIÓN":
+                st.error(
+                    "Por favor seleccione la institución de derechohabiencia."
+                )
             elif (
                 not paterno
                 or not nombres
@@ -486,7 +498,6 @@ if st.session_state.navegacion == "Registro":
                 or not calle
                 or not numero
                 or not colonia
-                or derechohabiencia == "SELECCIONE UNA OPCIÓN"
                 or ocupacion == "SELECCIONE UNA OPCIÓN"
             ):
                 st.error(
@@ -508,6 +519,7 @@ if st.session_state.navegacion == "Registro":
                     "embarazo": (planes_o_embarazo == "SÍ"),
                     "ocupacion": ocupacion,
                     "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
+                    "derechohabiencia": derechohabiencia,
                     "tiene_comorbilidades": any(
                         [
                             vih,
