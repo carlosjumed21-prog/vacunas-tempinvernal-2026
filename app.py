@@ -9,15 +9,16 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual limpio y profesional
+# Estilo visual limpio, profesional y recuadros llamativos
 st.markdown(
     """
     <style>
         .main-header { font-size: 1.8rem; font-weight: 700; color: #1e3d59; margin-bottom: 0.2rem; }
         .sub-header { font-size: 1rem; color: #576574; margin-bottom: 1.5rem; }
         .section-title { font-size: 1.2rem; font-weight: 600; color: #17b978; margin-top: 1.2rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3rem; }
+        .card-edad { background-color: #e0f2fe; border: 2px solid #0284c7; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #0369a1; font-size: 1.1rem; margin-bottom: 10px; }
+        .card-grupo { background-color: #dcfce7; border: 2px solid #16a34a; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #15803d; font-size: 1.1rem; margin-bottom: 10px; }
         .card-recomendacion { background-color: #f8fafc; border-left: 5px solid #17b978; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
-        .card-alerta { background-color: #fff5f5; border-left: 5px solid #e53e3e; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -147,7 +148,6 @@ if st.session_state.navegacion == "Registro":
             )
 
         # Generación automática de Folio (AA/MM/DD + Consecutivo ###)
-        # Si cambia el día respecto al último consecutivo registrado, reiniciamos el contador a 1
         hoy_actual = fecha_registro
         if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
             st.session_state.fecha_ultimo_consecutivo = hoy_actual
@@ -179,9 +179,10 @@ if st.session_state.navegacion == "Registro":
 
         col_fn1, col_fn2 = st.columns(2)
         with col_fn1:
+            # Sin fecha por defecto para forzar selección explícita (usamos value=None inicializado de forma segura o fecha actual sin selección previa)
             fecha_nacimiento = st.date_input(
                 "Fecha de Nacimiento [DD/MM/AAAA] *",
-                value=datetime.date(1990, 1, 1),
+                value=None,
                 min_value=datetime.date(1900, 1, 1),
                 max_value=datetime.date.today(),
                 format="DD/MM/YYYY",
@@ -202,33 +203,22 @@ if st.session_state.navegacion == "Registro":
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-        calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
-            fecha_nacimiento, fecha_aplicacion
-        )
+        # Cálculo de edad interactivo con base en la fecha seleccionada
+        if fecha_nacimiento:
+            calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
+                fecha_nacimiento, fecha_aplicacion
+            )
+        else:
+            calc_anos, calc_meses, calc_dias = 0, 0, 0
 
         st.markdown(
-            '<div class="section-title">Edades Calculadas / Ajustables</div>',
+            '<div class="section-title">Edad Calculada Automáticamente</div>',
             unsafe_allow_html=True,
         )
-        col_e1, col_e2, col_e3 = st.columns(3)
-        with col_e1:
-            edad_anos = st.number_input(
-                "Años", min_value=0, max_value=120, value=calc_anos
-            )
-        with col_e2:
-            edad_meses = st.number_input(
-                "Meses (adicionales / menores de 1 año)",
-                min_value=0,
-                max_value=11,
-                value=calc_meses,
-            )
-        with col_e3:
-            edad_dias = st.number_input(
-                "Días (adicionales / recién nacidos)",
-                min_value=0,
-                max_value=30,
-                value=calc_dias,
-            )
+        st.markdown(
+            f'<div class="card-edad">📅 {calc_anos} Años, {calc_meses} Meses, {calc_dias} Días</div>',
+            unsafe_allow_html=True,
+        )
 
         # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
         st.markdown(
@@ -323,49 +313,52 @@ if st.session_state.navegacion == "Registro":
             )
             hipertension = st.checkbox("Hipertensión Arterial Esencial")
 
-        # Autodetección de Grupo Objetivo
-        edad_total_meses = (edad_anos * 12) + edad_meses
-        grupo_sugerido = ""
+        # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
+        edad_total_meses = (calc_anos * 12) + calc_meses
+
+        grupo_sugerido = "Población general / Otro"
         if 6 <= edad_total_meses <= 59:
             grupo_sugerido = "6 a 59 meses"
-        elif edad_anos >= 60:
+        elif calc_anos >= 60:
             grupo_sugerido = "60 y más"
-        elif 5 <= edad_anos <= 11:
+        elif 5 <= calc_anos <= 11:
             grupo_sugerido = "5 a 11 años (Dosis única COVID-19)"
         elif emb or planes_o_embarazo == "Sí":
             grupo_sugerido = "Embarazadas"
         elif personal_salud_riesgo or ocupacion == "Personal de salud":
             grupo_sugerido = "Personal de Salud"
-        else:
-            grupo_sugerido = "Población general / Otro"
 
         st.markdown(
             '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
             unsafe_allow_html=True,
         )
-        lista_grupos = [
-            "",
-            "6 a 59 meses",
-            "60 y más",
-            "5 a 11 años (Dosis única COVID-19)",
-            "Embarazadas",
-            "Personal de Salud",
-            "Población general / Otro",
-        ]
-        indice_default = (
-            lista_grupos.index(grupo_sugerido)
-            if grupo_sugerido in lista_grupos
-            else 0
-        )
-        grupo_objetivo = st.selectbox(
-            "Grupo Objetivo (Autocalculado por edad/riesgo, editable)",
-            options=lista_grupos,
-            index=indice_default,
+        st.markdown(
+            f'<div class="card-grupo">🎯 Grupo Detectado: {grupo_sugerido}</div>',
+            unsafe_allow_html=True,
         )
 
-        # --- BLOQUE 7: ESQUEMA DE VACUNACIÓN APLICADO ---
+        # --- NUEVO BLOQUE: ANTECEDENTE VACUNAL ---
         st.markdown(
-            '<div class="section-title">7. Biológicos Administrados y Lotes</div>',
+            '<div class="section-title">7. Antecedente Vacunal</div>',
+            unsafe_allow_html=True,
+        )
+        col_av1, col_av2 = st.columns(2)
+        with col_av1:
+            antecedente_covid = st.radio(
+                "¿Cuenta con alguna dosis previa de COVID-19?",
+                options=["Sí", "No", "Lo desconoce"],
+                horizontal=True,
+            )
+        with col_av2:
+            antecedente_influenza = st.radio(
+                "¿Cuenta con alguna dosis previa de Influenza?",
+                options=["Sí", "No", "Lo desconoce"],
+                horizontal=True,
+            )
+
+        # --- BLOQUE 8: ESQUEMA DE VACUNACIÓN APLICADO ---
+        st.markdown(
+            '<div class="section-title">8. Biológicos Administrados y Lotes</div>',
             unsafe_allow_html=True,
         )
         st.markdown("**Anti Influenza Estacional**")
@@ -394,7 +387,9 @@ if st.session_state.navegacion == "Registro":
         )
 
         if submitted:
-            if (
+            if not fecha_nacimiento:
+                st.error("Por favor seleccione la Fecha de Nacimiento.")
+            elif (
                 not paterno
                 or not nombres
                 or not estado_nacimiento
@@ -409,7 +404,6 @@ if st.session_state.navegacion == "Registro":
                     "Por favor complete los campos obligatorios marcados con (*)."
                 )
             else:
-                # Diccionario con los datos del paciente para migrar al state
                 nuevo_paciente = {
                     "folio": folio_automatico,
                     "nombre_completo": f"{paterno} {materno}, {nombres}",
@@ -417,9 +411,9 @@ if st.session_state.navegacion == "Registro":
                     "materno": materno,
                     "nombres": nombres,
                     "fecha_nacimiento": fecha_nacimiento,
-                    "edad_anos": edad_anos,
-                    "edad_meses": edad_meses,
-                    "edad_dias": edad_dias,
+                    "edad_anos": calc_anos,
+                    "edad_meses": calc_meses,
+                    "edad_dias": calc_dias,
                     "edad_total_meses": edad_total_meses,
                     "sexo": sexo,
                     "embarazo": emb or (planes_o_embarazo == "Sí"),
@@ -440,11 +434,12 @@ if st.session_state.navegacion == "Registro":
                             hipertension,
                         ]
                     ),
-                    "grupo_objetivo": grupo_objetivo,
+                    "grupo_objetivo": grupo_sugerido,
+                    "antecedente_covid": antecedente_covid,
+                    "antecedente_influenza": antecedente_influenza,
                     "fecha_registro": fecha_registro,
                 }
                 st.session_state.registros_censales.append(nuevo_paciente)
-                # Incrementar el consecutivo para el siguiente registro del día
                 st.session_state.contador_consecutivo += 1
 
                 st.success(
@@ -469,7 +464,6 @@ elif st.session_state.navegacion == "Consulta":
             "No hay pacientes registrados en la sesión actual. Por favor, registre al menos un paciente en el formulario de la barra lateral."
         )
     else:
-        # Buscador por Folio o Nombre
         lista_folios_nombres = [
             f"{p['folio']} - {p['nombre_completo']}"
             for p in st.session_state.registros_censales
@@ -486,7 +480,6 @@ elif st.session_state.navegacion == "Consulta":
                 if p["folio"] == folio_seleccionado
             )
 
-            # Tarjeta de Datos Generales (Sección 2 requerida)
             st.markdown(
                 '<div class="section-title">Datos Generales del Paciente (Identificación)</div>',
                 unsafe_allow_html=True,
@@ -505,6 +498,9 @@ elif st.session_state.navegacion == "Consulta":
             with col_info3:
                 st.markdown(f"**Sexo:** {paciente['sexo']}")
                 st.markdown(f"**Ocupación:** {paciente['ocupacion']}")
+                st.markdown(
+                    f"**Grupo Objetivo:** {paciente['grupo_objetivo']}"
+                )
 
             st.markdown("---")
             st.markdown(
@@ -512,33 +508,41 @@ elif st.session_state.navegacion == "Consulta":
                 unsafe_allow_html=True,
             )
 
-            # --- MOTOR DE LÓGICA CLÍNICA BASADO EN CENSIA ---
             edad_m = paciente["edad_total_meses"]
             anos = paciente["edad_anos"]
             es_embarazada = paciente["embarazo"]
             es_personal_salud = paciente["personal_salud"]
             comorb = paciente["tiene_comorbilidades"]
+            ant_inf = paciente["antecedente_influenza"]
+            ant_cov = paciente["antecedente_covid"]
 
-            # LÓGICA INFLUENZA
+            # LÓGICA INFLUENZA CON ANTECEDENTE VACUNAL
             inf_dosis = ""
             inf_via = ""
             if 6 <= edad_m <= 59:
-                inf_dosis = (
-                    "2 dosis de 0.5 mL (intervalo de 4 semanas) si es su primer año de esquema; "
-                    "o 1 dosis anual de 0.5 mL si ya cuenta con esquema completo previo."
-                )
+                if ant_inf == "Sí":
+                    inf_dosis = (
+                        "1 dosis anual de 0.5 mL (cuenta con antecedente de esquema completo)."
+                    )
+                else:
+                    inf_dosis = (
+                        "2 dosis de 0.5 mL (intervalo de 4 semanas) por no contar con antecedente previo completo en esta temporada."
+                    )
                 inf_via = "Intramuscular; en tercio medio de la cara anterolateral externa del muslo izquierdo (menores de 18 meses) o región deltoidea del brazo izquierdo (a partir de 18 meses)."
             elif 5 <= anos <= 8 and comorb:
-                inf_dosis = (
-                    "2 dosis de 0.5 mL (intervalo de 4 semanas) si no tiene esquema primario previo, o 1 dosis anual si ya lo tiene."
-                )
+                if ant_inf == "Sí":
+                    inf_dosis = "Una dosis anual de 0.5 mL."
+                else:
+                    inf_dosis = (
+                        "2 dosis de 0.5 mL con intervalo de 4 semanas (sin esquema previo)."
+                    )
                 inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
             elif (anos == 9 and comorb) or (10 <= anos <= 59 and comorb):
                 inf_dosis = "1 dosis única anual de 0.5 mL."
                 inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
             elif es_embarazada:
                 inf_dosis = (
-                    "1 dosis de 0.5 mL (aplicable en cualquier trimestre del embarazo o lactancia exclusiva)."
+                    "1 dosis de 0.5 mL (en cualquier trimestre del embarazo o lactancia)."
                 )
                 inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
             elif es_personal_salud:
@@ -546,16 +550,16 @@ elif st.session_state.navegacion == "Consulta":
                 inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
             elif anos >= 60:
                 inf_dosis = (
-                    "1 dosis anual de 0.5 mL (dar prioridad al inicio de campaña)."
+                    "1 dosis anual de 0.5 mL (prioridad al inicio de campaña)."
                 )
                 inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
             else:
                 inf_dosis = (
-                    "Fuera de grupo prioritario estricto institucional (Valorar disponibilidad o factores de riesgo clínico)."
+                    "Población fuera de grupo prioritario estricto (valorar disponibilidad)."
                 )
                 inf_via = "Intramuscular en región deltoidea."
 
-            # LÓGICA COVID-19 (Vacunas Spikevax LP.8.1 o Comirnaty LP.8.1)
+            # LÓGICA COVID-19 CON ANTECEDENTE VACUNAL
             cov_dosis = ""
             if 6 <= edad_m <= 18 and comorb:
                 cov_dosis = (
@@ -571,7 +575,7 @@ elif st.session_state.navegacion == "Consulta":
                 )
             elif 12 <= anos <= 59 and (comorb or es_personal_salud or es_embarazada):
                 cov_dosis = (
-                    "Refuerzo con Opción A (**Spikevax LP.8.1**: 0.5 mL IM) o Opción B (**Comirnaty LP.8.1**: 0.3 mL IM). Mínimo 6 meses después de su dosis más reciente. *(Nota: Aplicar solo una opción, nunca ambas).* "
+                    "Refuerzo con Opción A (**Spikevax LP.8.1**: 0.5 mL IM) o Opción B (**Comirnaty LP.8.1**: 0.3 mL IM). Mínimo 6 meses después de su dosis más reciente."
                 )
             elif anos >= 60:
                 cov_dosis = (
@@ -579,14 +583,14 @@ elif st.session_state.navegacion == "Consulta":
                 )
             else:
                 cov_dosis = (
-                    "Población general sin comorbilidades de alto riesgo reportadas en lineamiento de refuerzo estacional actual."
+                    "Población general sin comorbilidades de alto riesgo para indicación estacional de refuerzo actual."
                 )
 
-            # --- VISUALIZACIÓN DE ESCENARIOS ---
             st.markdown(
                 f"""
                 <div class="card-recomendacion">
                     <h4>💉 1. Recomendación para Influenza Estacional</h4>
+                    <p><b>Antecedente vacunal reportado:</b> {ant_inf}</p>
                     <p><b>Esquema / Dosis:</b> {inf_dosis}</p>
                     <p><b>Vía y Sitio:</b> {inf_via}</p>
                 </div>
@@ -598,6 +602,7 @@ elif st.session_state.navegacion == "Consulta":
                 f"""
                 <div class="card-recomendacion">
                     <h4>🦠 2. Recomendación para COVID-19 (LP.8.1)</h4>
+                    <p><b>Antecedente vacunal reportado:</b> {ant_cov}</p>
                     <p><b>Esquema / Dosis:</b> {cov_dosis}</p>
                 </div>
             """,
@@ -620,7 +625,7 @@ elif st.session_state.navegacion == "Consulta":
 
             if eleccion_biologico != "Ninguno (Solo evaluación)":
                 st.info(
-                    f"Escenario seleccionado: **{eleccion_biologico}**. Recuerde que si se aplican ambos biológicos de manera simultánea en extremidades superiores, debe respetarse una separación mínima de 2.5 cm en la región deltoidea."
+                    f"Escenario seleccionado: **{eleccion_biologico}**. Si se aplican ambos biológicos de manera simultánea en extremidades superiores, recuerde respetar una separación mínima de 2.5 cm en la región deltoidea."
                 )
                 if st.button("Confirmar aplicación y finalizar registro"):
                     st.success(
