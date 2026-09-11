@@ -28,10 +28,42 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+def calcular_edad_detallada(fecha_nac, fecha_ref):
+    """Calcula la diferencia exacta en años, meses y días entre dos fechas."""
+    if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
+        return 0, 0, 0
+
+    anos = fecha_ref.year - fecha_nac.year
+    meses = fecha_ref.month - fecha_nac.month
+    dias = fecha_ref.day - fecha_nac.day
+
+    if dias < 0:
+        meses -= 1
+        mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
+        anio_anterior = (
+            fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
+        )
+        dias_mes_anterior = (
+            datetime.date(anio_anterior, mes_anterior + 1, 1)
+            - datetime.timedelta(days=1)
+        ).day
+        dias += dias_mes_anterior
+
+    if meses < 0:
+        anos -= 1
+        meses += 12
+
+    return max(0, anos), max(0, meses), max(0, dias)
+
+
 with st.form("form_censo_vacunacion"):
 
     # --- DATOS GENERALES Y FECHA DE APLICACIÓN ---
-    st.markdown('<div class="section-title">1. Datos Generales y Fecha</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-title">1. Datos Generales y Fecha</div>',
+        unsafe_allow_html=True,
+    )
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         fecha_aplicacion = st.date_input(
@@ -53,46 +85,49 @@ with st.form("form_censo_vacunacion"):
     with col_n3:
         nombres = st.text_input("Nombre(s) *")
 
-    col_d1, col_d2, col_d3 = st.columns(3)
-    with col_d1:
-        dia_nac = st.selectbox(
-            "Día de Nacimiento", options=[""] + [str(i).zfill(2) for i in range(1, 32)]
+    col_fn1, col_fn2 = st.columns(2)
+    with col_fn1:
+        fecha_nacimiento = st.date_input(
+            "Fecha de Nacimiento *",
+            value=datetime.date(1990, 1, 1),
+            min_value=datetime.date(1900, 1, 1),
+            max_value=datetime.date.today(),
         )
-    with col_d2:
-        mes_nac = st.selectbox(
-            "Mes de Nacimiento",
-            options=[
-                "",
-                "Enero",
-                "Febrero",
-                "Marzo",
-                "Abril",
-                "Mayo",
-                "Junio",
-                "Julio",
-                "Agosto",
-                "Septiembre",
-                "Octubre",
-                "Noviembre",
-                "Diciembre",
-            ],
-        )
-    with col_d3:
-        anio_nac = st.number_input(
-            "Año de Nacimiento", min_value=1900, max_value=2026, value=1990, step=1
+    with col_fn2:
+        sexo = st.selectbox(
+            "Sexo *", options=["", "Masculino", "Femenino", "Otro"]
         )
 
+    # Cálculo automático de edad en Años, Meses y Días
+    calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
+        fecha_nacimiento, fecha_aplicacion
+    )
+
+    st.markdown(
+        '<div class="section-title">Edades Calculadas / Ajustables</div>',
+        unsafe_allow_html=True,
+    )
     col_e1, col_e2, col_e3 = st.columns(3)
     with col_e1:
-        edad_anos = st.number_input("Edad (Años)", min_value=0, max_value=120, value=0)
+        edad_anos = st.number_input(
+            "Años", min_value=0, max_value=120, value=calc_anos
+        )
     with col_e2:
         edad_meses = st.number_input(
-            "Edad (Meses - menores de 1 año)", min_value=0, max_value=11, value=0
+            "Meses (adicionales / menores de 1 año)",
+            min_value=0,
+            max_value=11,
+            value=calc_meses,
         )
     with col_e3:
-        sexo = st.selectbox("Sexo *", options=["", "Masculino", "Femenino"])
+        edad_dias = st.number_input(
+            "Días (adicionales / recién nacidos)",
+            min_value=0,
+            max_value=30,
+            value=calc_dias,
+        )
 
-    # --- DOMICILIO Y DERECHOHABIENCIA ---
+    # --- DOMICILIO Y DERECHOHABIENCIAPATRON ---
     st.markdown(
         '<div class="section-title">3. Domicilio y Afiliación</div>',
         unsafe_allow_html=True,
@@ -120,24 +155,9 @@ with st.form("form_censo_vacunacion"):
         ],
     )
 
-    # --- GRUPO OBJETIVO ---
+    # --- GRUPOS DE RIESGO Y COMORBILIDADES (Colocados antes para evaluar la regla automática) ---
     st.markdown(
-        '<div class="section-title">4. Grupo Objetivo</div>', unsafe_allow_html=True
-    )
-    grupo_objetivo = st.selectbox(
-        "Seleccione el Grupo Objetivo",
-        options=[
-            "",
-            "6 a 59 meses",
-            "60 y más",
-            "5 a 11 años (Dosis única COVID-19)",
-            "Población general / Otro",
-        ],
-    )
-
-    # --- GRUPOS DE RIESGO Y COMORBILIDADES ---
-    st.markdown(
-        '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
+        '<div class="section-title">4. Grupos de Riesgo y Comorbilidades</div>',
         unsafe_allow_html=True,
     )
     col_r1, col_r2 = st.columns(2)
@@ -160,7 +180,51 @@ with st.form("form_censo_vacunacion"):
         inmunosupresion = st.checkbox(
             "Inmunosupresión adquirida (excepto VIH)"
         )
-        hipertension = st.checkbox("Hipertensión Arterial Esencial")
+        hipertension = st.checkbox("HipertenSIÓN Arterial Esencial")
+
+    # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
+    # Convertir edad total en meses aproximados para evaluar el rango 6 a 59 meses
+    edad_total_meses = (edad_anos * 12) + edad_meses
+
+    grupo_sugerido = ""
+    if 6 <= edad_total_meses <= 59:
+        grupo_sugerido = "6 a 59 meses"
+    elif edad_anos >= 60:
+        grupo_sugerido = "60 y más"
+    elif 5 <= edad_anos <= 11:
+        grupo_sugerido = "5 a 11 años (Dosis única COVID-19)"
+    elif emb:
+        grupo_sugerido = "Embarazadas"
+    elif personal_salud:
+        grupo_sugerido = "Personal de Salud"
+    else:
+        grupo_sugerido = "Población general / Otro"
+
+    # --- GRUPO OBJETIVO ---
+    st.markdown(
+        '<div class="section-title">5. Grupo Objetivo (Detectado Automáticamente)</div>',
+        unsafe_allow_html=True,
+    )
+    lista_grupos = [
+        "",
+        "6 a 59 meses",
+        "60 y más",
+        "5 a 11 años (Dosis única COVID-19)",
+        "Embarazadas",
+        "Personal de Salud",
+        "Población general / Otro",
+    ]
+
+    # Asignar por defecto el índice del grupo sugerido si existe en la lista
+    indice_default = (
+        lista_grupos.index(grupo_sugerido) if grupo_sugerido in lista_grupos else 0
+    )
+
+    grupo_objetivo = st.selectbox(
+        "Grupo Objetivo (Autocalculado por edad/riesgo, editable)",
+        options=lista_grupos,
+        index=indice_default,
+    )
 
     # --- ESQUEMA DE VACUNACIÓN ---
     st.markdown(
@@ -199,7 +263,6 @@ with st.form("form_censo_vacunacion"):
                 "Por favor complete los campos obligatorios marcados con (*)."
             )
         else:
-            # Aquí puedes conectar la lógica para guardar en Google Sheets usando gspread o almacenar en CSV local/base de datos.
             st.success(
-                "¡Registro capturado exitosamente y agregado al censo nominal!"
+                f"¡Registro exitoso! Edad: {edad_anos}a {edad_meses}m | Grupo Objetivo: {grupo_objetivo}"
             )
