@@ -417,7 +417,6 @@ if st.session_state.navegacion == "Registro":
         # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
         edad_total_meses = (calc_anos * 12) + calc_meses
 
-        # Sin valor por defecto: se mantiene en blanco hasta que se seleccione fecha o criterios reales
         grupo_sugerido = ""
         if fecha_nacimiento is not None:
             if 6 <= edad_total_meses <= 59:
@@ -444,7 +443,7 @@ if st.session_state.navegacion == "Registro":
             )
         else:
             st.markdown(
-                f'<div class="card-grupo">🎯 GRUPO DETECTADO: {grupo_sugerido}</div>',
+                f'<div class="card-grupo">{grupo_sugerido}</div>',
                 unsafe_allow_html=True,
             )
 
