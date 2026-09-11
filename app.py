@@ -181,7 +181,6 @@ if st.session_state.navegacion == "Registro":
 
     col_fn1, col_fn2 = st.columns(2)
     with col_fn1:
-        # Al cambiar esta fecha, Streamlit refresca automáticamente la interfaz y calcula la edad al instante
         fecha_nacimiento = st.date_input(
             "Fecha de Nacimiento [DD/MM/AAAA] *",
             value=None,
@@ -222,7 +221,6 @@ if st.session_state.navegacion == "Registro":
         unsafe_allow_html=True,
     )
 
-    # A partir de aquí envolvemos el resto de campos y el botón de guardado en el formulario
     with st.form("form_censo_vacunacion_resto"):
 
         # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
@@ -361,31 +359,6 @@ if st.session_state.navegacion == "Registro":
                 horizontal=True,
             )
 
-        # --- ESQUEMA DE VACUNACIÓN APLICADO ---
-        st.markdown(
-            '<div class="section-title">8. Biológicos Administrados y Lotes</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("**Anti Influenza Estacional**")
-        col_inf1, col_inf2 = st.columns(2)
-        with col_inf1:
-            esquema_influenza = st.selectbox(
-                "Tipo de Dosis / Esquema Influenza",
-                options=["", "DOSIS ANUAL", "DOSIS ÚNICA", "1ª DOSIS", "2ª DOSIS"],
-            )
-        with col_inf2:
-            lote_influenza = st.text_input("No. de Lote - Influenza")
-
-        st.markdown("**Contra la COVID-19**")
-        col_cov1, col_cov2 = st.columns(2)
-        with col_cov1:
-            esquema_covid = st.selectbox(
-                "Tipo de Dosis / Esquema COVID-19",
-                options=["", "1ª DOSIS", "2ª DOSIS", "REFUERZO", "DOSIS ÚNICA"],
-            )
-        with col_cov2:
-            lote_covid = st.text_input("No. de Lote - COVID-19")
-
         st.markdown("---")
         submitted = st.form_submit_button(
             "Guardar y Enviar al Módulo de Consulta", use_container_width=True
@@ -460,7 +433,7 @@ elif st.session_state.navegacion == "Consulta":
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">Evaluación automatizada de esquemas para Influenza y COVID-19 (Temporada Invernal)</p>',
+        '<p class="sub-header">Evaluación automatizada de esquemas y registro de dosis aplicada</p>',
         unsafe_allow_html=True,
     )
 
@@ -614,25 +587,71 @@ elif st.session_state.navegacion == "Consulta":
                 unsafe_allow_html=True,
             )
 
+            # --- REGISTRO DE DOSIS APLICADA EN EL DÍA (MIGRADO AQUÍ) ---
             st.markdown(
-                '<div class="section-title">Selección de Aplicación y Escenarios de Cierre</div>',
+                '<div class="section-title">Registro de Biológicos Administrados y Lotes (Dosis del Día)</div>',
                 unsafe_allow_html=True,
             )
-            eleccion_biologico = st.radio(
-                "¿Qué biológico(s) se decidió aplicar al paciente en esta visita?",
-                [
-                    "Ninguno (Solo evaluación)",
-                    "Solo Influenza Estacional",
-                    "Solo COVID-19",
-                    "Ambos (Influenza y COVID-19 de forma simultánea)",
-                ],
-            )
 
-            if eleccion_biologico != "Ninguno (Solo evaluación)":
-                st.info(
-                    f"Escenario seleccionado: **{eleccion_biologico}**. Si se aplican ambos biológicos de manera simultánea en extremidades superiores, recuerde respetar una separación mínima de 2.5 cm en la región deltoidea."
-                )
-                if st.button("Confirmar aplicación y finalizar registro"):
-                    st.success(
-                        "¡Aplicación registrada correctamente en el censo nominal del día!"
+            with st.form("form_registro_aplicacion_dia"):
+                st.markdown("**Anti Influenza Estacional**")
+                col_inf1, col_inf2 = st.columns(2)
+                with col_inf1:
+                    esquema_influenza = st.selectbox(
+                        "Tipo de Dosis / Esquema Influenza",
+                        options=[
+                            "",
+                            "DOSIS ANUAL",
+                            "DOSIS ÚNICA",
+                            "1ª DOSIS",
+                            "2ª DOSIS",
+                        ],
                     )
+                with col_inf2:
+                    lote_influenza = st.text_input("No. de Lote - Influenza")
+
+                st.markdown("**Contra la COVID-19**")
+                col_cov1, col_cov2 = st.columns(2)
+                with col_cov1:
+                    esquema_covid = st.selectbox(
+                        "Tipo de Dosis / Esquema COVID-19",
+                        options=[
+                            "",
+                            "1ª DOSIS",
+                            "2ª DOSIS",
+                            "REFUERZO",
+                            "DOSIS ÚNICA",
+                        ],
+                    )
+                with col_cov2:
+                    lote_covid = st.text_input("No. de Lote - COVID-19")
+
+                st.markdown("---")
+                eleccion_biologico = st.radio(
+                    "¿Qué biológico(s) se decidió aplicar al paciente en esta visita?",
+                    [
+                        "Ninguno (Solo evaluación)",
+                        "Solo Influenza Estacional",
+                        "Solo COVID-19",
+                        "Ambos (Influenza y COVID-19 de forma simultánea)",
+                    ],
+                )
+
+                btn_guardar_aplicacion = st.form_submit_button(
+                    "Confirmar aplicación y finalizar registro del día",
+                    use_container_width=True,
+                )
+
+                if btn_guardar_aplicacion:
+                    if eleccion_biologico == "Ninguno (Solo evaluación)":
+                        st.warning(
+                            "Se guardó la evaluación clínica sin aplicación de biológico."
+                        )
+                    else:
+                        st.success(
+                            f"¡Aplicación registrada correctamente! Biológico(s) administrado(s): **{eleccion_biologico}** (Folio: {paciente['folio']})."
+                        )
+                        if "Ambos" in eleccion_biologico:
+                            st.info(
+                                "Recuerde que al aplicar ambos biológicos de manera simultánea en extremidades superiores, se respetó una separación mínima de 2.5 cm en la región deltoidea."
+                            )
