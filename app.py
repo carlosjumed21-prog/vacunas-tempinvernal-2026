@@ -7,13 +7,18 @@ st.set_page_config(
     page_title="Censo Nominal - Vacunación", page_icon="💉", layout="centered"
 )
 
-# Estilo visual limpio y profesional adaptado a entorno médico
+# Estilo visual limpio, profesional y personalización para formato de fecha visual
 st.markdown(
     """
     <style>
         .main-header { font-size: 1.8rem; font-weight: 700; color: #1e3d59; margin-bottom: 0.2rem; }
         .sub-header { font-size: 1rem; color: #576574; margin-bottom: 1.5rem; }
         .section-title { font-size: 1.2rem; font-weight: 600; color: #17b978; margin-top: 1.2rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3rem; }
+        
+        /* Ajustes visuales para forzar la visualización amigable de fecha en componentes de entrada */
+        input[type="date"] {
+            text-transform: lowercase;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -104,13 +109,13 @@ with st.form("form_censo_vacunacion"):
     col_g1, col_g2, col_g3 = st.columns(3)
     with col_g1:
         fecha_registro = st.date_input(
-            "Fecha de Registro (dd/mm/aaaa)",
+            "Fecha de Registro",
             value=datetime.date.today(),
             format="DD/MM/YYYY",
         )
     with col_g2:
         fecha_aplicacion = st.date_input(
-            "Fecha de Aplicación (dd/mm/aaaa)",
+            "Fecha de Aplicación",
             value=datetime.date.today(),
             format="DD/MM/YYYY",
         )
@@ -132,11 +137,7 @@ with st.form("form_censo_vacunacion"):
 
     col_fn1, col_fn2 = st.columns(2)
     with col_fn1:
-        # Se muestra la indicación visual previa del formato dd/mm/aaaa
-        st.markdown(
-            "<span style='font-size: 0.85rem; color: #576574;'>Ejemplo de formato previo: dd/mm/aaaa</span>",
-            unsafe_allow_html=True,
-        )
+        # Se remueve el texto de ejemplo previo y se mantiene estrictamente el parámetro format="DD/MM/YYYY"
         fecha_nacimiento = st.date_input(
             "Fecha de Nacimiento *",
             value=datetime.date(1990, 1, 1),
@@ -253,7 +254,6 @@ with st.form("form_censo_vacunacion"):
     col_r1, col_r2 = st.columns(2)
 
     with col_r1:
-        # Si se indicó embarazo previamente, se puede reflejar o mantener conectado
         emb = st.checkbox(
             "Embarazadas", value=(True if planes_o_embarazo == "Sí" else False)
         )
