@@ -67,7 +67,9 @@ with st.form("form_censo_vacunacion"):
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         fecha_aplicacion = st.date_input(
-            "Fecha de Aplicación", value=datetime.date.today()
+            "Fecha de Aplicación (dd/mm/aaaa)",
+            value=datetime.date.today(),
+            format="DD/MM/YYYY",
         )
     with col_f2:
         folio_reg = st.text_input("No. de Registro / Censo (Opcional)")
@@ -88,10 +90,11 @@ with st.form("form_censo_vacunacion"):
     col_fn1, col_fn2 = st.columns(2)
     with col_fn1:
         fecha_nacimiento = st.date_input(
-            "Fecha de Nacimiento *",
+            "Fecha de Nacimiento (dd/mm/aaaa) *",
             value=datetime.date(1990, 1, 1),
             min_value=datetime.date(1900, 1, 1),
             max_value=datetime.date.today(),
+            format="DD/MM/YYYY",
         )
     with col_fn2:
         sexo = st.selectbox(
@@ -127,15 +130,17 @@ with st.form("form_censo_vacunacion"):
             value=calc_dias,
         )
 
-    # --- DOMICILIO Y DERECHOHABIENCIAPATRON ---
+    # --- DOMICILIO SEPARADO (CALLE Y NÚMERO) Y DERECHOHABIENCIA ---
     st.markdown(
         '<div class="section-title">3. Domicilio y Afiliación</div>',
         unsafe_allow_html=True,
     )
-    col_dom1, col_dom2 = st.columns([2, 1])
+    col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
     with col_dom1:
-        calle_num = st.text_input("Calle y No. *")
+        calle = st.text_input("Calle *")
     with col_dom2:
+        numero = st.text_input("No. (Ext / Int) *")
+    with col_dom3:
         colonia = st.text_input("Colonia *")
 
     derechohabiencia = st.selectbox(
@@ -155,7 +160,7 @@ with st.form("form_censo_vacunacion"):
         ],
     )
 
-    # --- GRUPOS DE RIESGO Y COMORBILIDADES (Colocados antes para evaluar la regla automática) ---
+    # --- GRUPOS DE RIESGO Y COMORBILIDADES ---
     st.markdown(
         '<div class="section-title">4. Grupos de Riesgo y Comorbilidades</div>',
         unsafe_allow_html=True,
@@ -180,10 +185,9 @@ with st.form("form_censo_vacunacion"):
         inmunosupresion = st.checkbox(
             "Inmunosupresión adquirida (excepto VIH)"
         )
-        hipertension = st.checkbox("HipertenSIÓN Arterial Esencial")
+        hipertension = st.checkbox("Hipertensión Arterial Esencial")
 
     # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
-    # Convertir edad total en meses aproximados para evaluar el rango 6 a 59 meses
     edad_total_meses = (edad_anos * 12) + edad_meses
 
     grupo_sugerido = ""
@@ -215,7 +219,6 @@ with st.form("form_censo_vacunacion"):
         "Población general / Otro",
     ]
 
-    # Asignar por defecto el índice del grupo sugerido si existe en la lista
     indice_default = (
         lista_grupos.index(grupo_sugerido) if grupo_sugerido in lista_grupos else 0
     )
@@ -258,11 +261,14 @@ with st.form("form_censo_vacunacion"):
     )
 
     if submitted:
-        if not paterno or not nombres or not calle_num or not derechohabiencia:
+        if not paterno or not nombres or not calle or not numero or not colonia or not derechohabiencia:
             st.error(
                 "Por favor complete los campos obligatorios marcados con (*)."
             )
         else:
+            f_nac_str = fecha_nacimiento.strftime("%d/%m/%Y")
+            f_app_str = fecha_aplicacion.strftime("%d/%m/%Y")
+
             st.success(
-                f"¡Registro exitoso! Edad: {edad_anos}a {edad_meses}m | Grupo Objetivo: {grupo_objetivo}"
+                f"¡Registro exitoso! Domicilio: {calle} #{numero}, Col. {colonia}"
             )
