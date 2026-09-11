@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual institucional, barra lateral roja y tipografía grande/amigable
+# Estilo visual institucional, barra lateral roja, tipografía grande y traducción de placeholders
 st.markdown(
     """
     <style>
@@ -115,6 +115,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Script de JavaScript para traducir los selectores de "Choose an option" a español de forma automática
+st.markdown(
+    """
+    <script>
+        const observer = new MutationObserver((mutations) => {
+            document.querySelectorAll('div[data-baseweb="select"] span').forEach(el => {
+                if (el.innerText === "Choose an option") {
+                    el.innerText = "SELECCIONE UNA OPCIÓN";
+                }
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+""",
+    unsafe_allow_html=True,
+)
+
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
     """Calcula la diferencia exacta en años, meses y días entre dos fechas."""
@@ -157,7 +174,7 @@ if "navegacion" not in st.session_state:
     st.session_state.navegacion = "Registro"
 
 estados_mexico = [
-    "",
+    "SELECCIONE UN ESTADO",
     "AGUASCALIENTES",
     "BAJA CALIFORNIA",
     "BAJA CALIFORNIA SUR",
@@ -276,7 +293,9 @@ if st.session_state.navegacion == "Registro":
             format="DD/MM/YYYY",
         )
     with col_fn2:
-        sexo = st.selectbox("Sexo *", options=["", "HOMBRE", "MUJER"])
+        sexo = st.selectbox(
+            "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
+        )
 
     planes_o_embarazo = "NO"
     if sexo == "MUJER":
@@ -338,7 +357,7 @@ if st.session_state.navegacion == "Registro":
         derechohabiencia = st.selectbox(
             "Derechohabiencia *",
             options=[
-                "",
+                "SELECCIONE UNA OPCIÓN",
                 "IMSS",
                 "ISSSTE",
                 "IMSS-BIENESTAR",
@@ -360,7 +379,7 @@ if st.session_state.navegacion == "Registro":
         ocupacion = st.selectbox(
             "Seleccione su Ocupación *",
             options=[
-                "",
+                "SELECCIONE UNA OPCIÓN",
                 "PERSONAL DE SALUD",
                 "JUBILADO/A",
                 "MAESTRO/A",
@@ -449,16 +468,16 @@ if st.session_state.navegacion == "Registro":
             elif (
                 not paterno
                 or not nombres
-                or not estado_nacimiento
-                or not estado_residencia
+                or estado_nacimiento == "SELECCIONE UN ESTADO"
+                or estado_residencia == "SELECCIONE UN ESTADO"
                 or not calle
                 or not numero
                 or not colonia
-                or not derechohabiencia
-                or not ocupacion
+                or derechohabiencia == "SELECCIONE UNA OPCIÓN"
+                or ocupacion == "SELECCIONE UNA OPCIÓN"
             ):
                 st.error(
-                    "Por favor complete los campos obligatorios marcados con (*)."
+                    "Por favor complete los campos obligatorios y seleccione una opción válida en los menús desplegables (*)."
                 )
             else:
                 nuevo_paciente = {
@@ -678,7 +697,7 @@ elif st.session_state.navegacion == "Consulta":
                     esquema_influenza = st.selectbox(
                         "Tipo de Dosis / Esquema Influenza",
                         options=[
-                            "",
+                            "SELECCIONE UNA OPCIÓN",
                             "DOSIS ANUAL",
                             "DOSIS ÚNICA",
                             "1ª DOSIS",
@@ -694,7 +713,7 @@ elif st.session_state.navegacion == "Consulta":
                     esquema_covid = st.selectbox(
                         "Tipo de Dosis / Esquema COVID-19",
                         options=[
-                            "",
+                            "SELECCIONE UNA OPCIÓN",
                             "1ª DOSIS",
                             "2ª DOSIS",
                             "REFUERZO",
