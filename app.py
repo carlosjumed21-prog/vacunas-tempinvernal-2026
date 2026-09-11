@@ -417,26 +417,36 @@ if st.session_state.navegacion == "Registro":
         # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
         edad_total_meses = (calc_anos * 12) + calc_meses
 
-        grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "6 A 59 MESES"
-        elif calc_anos >= 60:
-            grupo_sugerido = "60 Y MÁS"
-        elif 5 <= calc_anos <= 11:
-            grupo_sugerido = "5 A 11 AÑOS (Dosis única COVID-19)"
-        elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "EMBARAZADAS"
-        elif ocupacion == "PERSONAL DE SALUD":
-            grupo_sugerido = "PERSONAL DE SALUD"
+        # Sin valor por defecto: se mantiene en blanco hasta que se seleccione fecha o criterios reales
+        grupo_sugerido = ""
+        if fecha_nacimiento is not None:
+            if 6 <= edad_total_meses <= 59:
+                grupo_sugerido = "6 A 59 MESES"
+            elif calc_anos >= 60:
+                grupo_sugerido = "60 Y MÁS"
+            elif 5 <= calc_anos <= 11:
+                grupo_sugerido = "5 A 11 AÑOS (Dosis única COVID-19)"
+            elif planes_o_embarazo == "SÍ":
+                grupo_sugerido = "EMBARAZADAS"
+            elif ocupacion == "PERSONAL DE SALUD":
+                grupo_sugerido = "PERSONAL DE SALUD"
+            else:
+                grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
         st.markdown(
             '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
             unsafe_allow_html=True,
         )
-        st.markdown(
-            f'<div class="card-grupo">🎯 GRUPO DETECTADO: {grupo_sugerido}</div>',
-            unsafe_allow_html=True,
-        )
+        if grupo_sugerido == "":
+            st.markdown(
+                '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">⏳ PENDIENTE DE SELECCIONAR FECHA DE NACIMIENTO</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="card-grupo">🎯 GRUPO DETECTADO: {grupo_sugerido}</div>',
+                unsafe_allow_html=True,
+            )
 
         # --- ANTECEDENTE VACUNAL ---
         st.markdown(
@@ -465,6 +475,10 @@ if st.session_state.navegacion == "Registro":
         if submitted:
             if not fecha_nacimiento:
                 st.error("Por favor seleccione la Fecha de Nacimiento.")
+            elif grupo_sugerido == "":
+                st.error(
+                    "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
+                )
             elif (
                 not paterno
                 or not nombres
