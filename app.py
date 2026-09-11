@@ -9,13 +9,21 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual institucional, fondo personalizado y tipografía grande/amigable
+# Estilo visual institucional, barra lateral roja y tipografía grande/amigable
 st.markdown(
     """
     <style>
         /* Fondo general de la plataforma */
         .stApp {
             background-color: #fbf9f4;
+        }
+
+        /* Color de fondo y tipografía de la barra lateral (Rojo institucional #611232) */
+        [data-testid="stSidebar"] {
+            background-color: #611232 !important;
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stRadio div {
+            color: #ffffff !important;
         }
 
         /* Tipografía y cabeceras grandes y legibles */
