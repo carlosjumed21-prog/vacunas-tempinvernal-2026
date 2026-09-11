@@ -291,14 +291,6 @@ if st.session_state.navegacion == "Registro":
         col_r1, col_r2 = st.columns(2)
 
         with col_r1:
-            emb = st.checkbox(
-                "Embarazadas",
-                value=(True if planes_o_embarazo == "SÍ" else False),
-            )
-            personal_salud_riesgo = st.checkbox(
-                "Personal de Salud",
-                value=(True if ocupacion == "PERSONAL DE SALUD" else False),
-            )
             vih = st.checkbox("VIH / Sida")
             diabetes = st.checkbox("Diabetes Mellitus")
             obesidad = st.checkbox("Obesidad Mórbida")
@@ -326,9 +318,9 @@ if st.session_state.navegacion == "Registro":
             grupo_sugerido = "60 Y MÁS"
         elif 5 <= calc_anos <= 11:
             grupo_sugerido = "5 A 11 AÑOS (Dosis única COVID-19)"
-        elif emb or planes_o_embarazo == "SÍ":
+        elif planes_o_embarazo == "SÍ":
             grupo_sugerido = "EMBARAZADAS"
-        elif personal_salud_riesgo or ocupacion == "PERSONAL DE SALUD":
+        elif ocupacion == "PERSONAL DE SALUD":
             grupo_sugerido = "PERSONAL DE SALUD"
 
         st.markdown(
@@ -394,10 +386,9 @@ if st.session_state.navegacion == "Registro":
                     "edad_dias": calc_dias,
                     "edad_total_meses": edad_total_meses,
                     "sexo": sexo,
-                    "embarazo": emb or (planes_o_embarazo == "SÍ"),
+                    "embarazo": (planes_o_embarazo == "SÍ"),
                     "ocupacion": ocupacion,
-                    "personal_salud": personal_salud_riesgo
-                    or (ocupacion == "PERSONAL DE SALUD"),
+                    "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
                     "tiene_comorbilidades": any(
                         [
                             vih,
@@ -587,7 +578,7 @@ elif st.session_state.navegacion == "Consulta":
                 unsafe_allow_html=True,
             )
 
-            # --- REGISTRO DE DOSIS APLICADA EN EL DÍA (MIGRADO AQUÍ) ---
+            # --- REGISTRO DE DOSIS APLICADA EN EL DÍA ---
             st.markdown(
                 '<div class="section-title">Registro de Biológicos Administrados y Lotes (Dosis del Día)</div>',
                 unsafe_allow_html=True,
