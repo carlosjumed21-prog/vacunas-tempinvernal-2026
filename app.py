@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual limpio, profesional y recuadros llamativos
+# Estilo visual limpio, profesional y forzado a MAYÚSCULAS en cuadros de texto
 st.markdown(
     """
     <style>
@@ -19,6 +19,10 @@ st.markdown(
         .card-edad { background-color: #e0f2fe; border: 2px solid #0284c7; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #0369a1; font-size: 1.1rem; margin-bottom: 10px; }
         .card-grupo { background-color: #dcfce7; border: 2px solid #16a34a; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #15803d; font-size: 1.1rem; margin-bottom: 10px; }
         .card-recomendacion { background-color: #f8fafc; border-left: 5px solid #17b978; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
+        
+        input[type="text"] {
+            text-transform: uppercase !important;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -67,38 +71,38 @@ if "navegacion" not in st.session_state:
 
 estados_mexico = [
     "",
-    "Aguascalientes",
-    "Baja California",
-    "Baja California Sur",
-    "Campeche",
-    "Chiapas",
-    "Chihuahua",
-    "Ciudad de México",
-    "Coahuila",
-    "Colima",
-    "Durango",
-    "Estado de México",
-    "Guanajuato",
-    "Guerrero",
-    "Hidalgo",
-    "Jalisco",
-    "Michoacán",
-    "Morelos",
-    "Nayarit",
-    "Nuevo León",
-    "Oaxaca",
-    "Puebla",
-    "Querétaro",
-    "Quintana Roo",
-    "San Luis Potosí",
-    "Sinaloa",
-    "Sonora",
-    "Tabasco",
-    "Tamaulipas",
-    "Tlaxcala",
-    "Veracruz",
-    "Yucatán",
-    "Zacatecas",
+    "AGUASCALIENTES",
+    "BAJA CALIFORNIA",
+    "BAJA CALIFORNIA SUR",
+    "CAMPECHE",
+    "CHIAPAS",
+    "CHIHUAHUA",
+    "CIUDAD DE MÉXICO",
+    "COAHUILA",
+    "COLIMA",
+    "DURANGO",
+    "ESTADO DE MÉXICO",
+    "GUANAJUATO",
+    "GUERRERO",
+    "HIDALGO",
+    "JALISCO",
+    "MICHOACÁN",
+    "MORELOS",
+    "NAYARIT",
+    "NUEVO LEÓN",
+    "OAXACA",
+    "PUEBLA",
+    "QUERÉTARO",
+    "QUINTANA ROO",
+    "SAN LUIS POTOSÍ",
+    "SINALOA",
+    "SONORA",
+    "TABASCO",
+    "TAMAULIPAS",
+    "TLAXCALA",
+    "VERACRUZ",
+    "YUCATÁN",
+    "ZACATECAS",
 ]
 
 # --- BARRA LATERAL DE NAVEGACIÓN ---
@@ -126,99 +130,100 @@ if st.session_state.navegacion == "Registro":
         unsafe_allow_html=True,
     )
 
-    with st.form("form_censo_vacunacion"):
+    # --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+    st.markdown(
+        '<div class="section-title">1. Datos Generales y Fechas</div>',
+        unsafe_allow_html=True,
+    )
+    col_g1, col_g2, col_g3 = st.columns(3)
+    with col_g1:
+        fecha_registro = st.date_input(
+            "Fecha de Registro [DD/MM/AAAA]",
+            value=datetime.date.today(),
+            format="DD/MM/YYYY",
+        )
+    with col_g2:
+        fecha_aplicacion = st.date_input(
+            "Fecha de Aplicación [DD/MM/AAAA]",
+            value=datetime.date.today(),
+            format="DD/MM/YYYY",
+        )
 
-        # --- BLOQUE 1: DATOS GENERALES ---
+    # Generación automática de Folio (AA/MM/DD + Consecutivo ###)
+    hoy_actual = fecha_registro
+    if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
+        st.session_state.fecha_ultimo_consecutivo = hoy_actual
+        st.session_state.contador_consecutivo = 1
+
+    aa_mm_dd = hoy_actual.strftime("%y/%m/%d")
+    folio_automatico = (
+        f"{aa_mm_dd}-{str(st.session_state.contador_consecutivo).zfill(3)}"
+    )
+
+    with col_g3:
         st.markdown(
-            '<div class="section-title">1. Datos Generales y Fechas</div>',
+            f"**No. de Registro / Censo (Auto)**<br>`{folio_automatico}`",
             unsafe_allow_html=True,
         )
-        col_g1, col_g2, col_g3 = st.columns(3)
-        with col_g1:
-            fecha_registro = st.date_input(
-                "Fecha de Registro [DD/MM/AAAA]",
-                value=datetime.date.today(),
-                format="DD/MM/YYYY",
-            )
-        with col_g2:
-            fecha_aplicacion = st.date_input(
-                "Fecha de Aplicación [DD/MM/AAAA]",
-                value=datetime.date.today(),
-                format="DD/MM/YYYY",
-            )
 
-        # Generación automática de Folio (AA/MM/DD + Consecutivo ###)
-        hoy_actual = fecha_registro
-        if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
-            st.session_state.fecha_ultimo_consecutivo = hoy_actual
-            st.session_state.contador_consecutivo = 1
+    # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
+    st.markdown(
+        '<div class="section-title">2. Identificación del Paciente</div>',
+        unsafe_allow_html=True,
+    )
+    col_n1, col_n2, col_n3 = st.columns(3)
+    with col_n1:
+        paterno = st.text_input("Apellido Paterno *")
+    with col_n2:
+        materno = st.text_input("Apellido Materno *")
+    with col_n3:
+        nombres = st.text_input("Nombre(s) *")
 
-        aa_mm_dd = hoy_actual.strftime("%y/%m/%d")
-        folio_automatico = (
-            f"{aa_mm_dd}-{str(st.session_state.contador_consecutivo).zfill(3)}"
+    col_fn1, col_fn2 = st.columns(2)
+    with col_fn1:
+        # Al cambiar esta fecha, Streamlit refresca automáticamente la interfaz y calcula la edad al instante
+        fecha_nacimiento = st.date_input(
+            "Fecha de Nacimiento [DD/MM/AAAA] *",
+            value=None,
+            min_value=datetime.date(1900, 1, 1),
+            max_value=datetime.date.today(),
+            format="DD/MM/YYYY",
         )
+    with col_fn2:
+        sexo = st.selectbox("Sexo *", options=["", "HOMBRE", "MUJER"])
 
-        with col_g3:
-            st.markdown(
-                f"**No. de Registro / Censo (Auto)**<br>`{folio_automatico}`",
-                unsafe_allow_html=True,
-            )
-
-        # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
+    planes_o_embarazo = "NO"
+    if sexo == "MUJER":
         st.markdown(
-            '<div class="section-title">2. Identificación del Paciente</div>',
+            "<div style='background-color: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
             unsafe_allow_html=True,
         )
-        col_n1, col_n2, col_n3 = st.columns(3)
-        with col_n1:
-            paterno = st.text_input("Apellido Paterno *")
-        with col_n2:
-            materno = st.text_input("Apellido Materno *")
-        with col_n3:
-            nombres = st.text_input("Nombre(s) *")
-
-        col_fn1, col_fn2 = st.columns(2)
-        with col_fn1:
-            # Sin fecha por defecto para forzar selección explícita (usamos value=None inicializado de forma segura o fecha actual sin selección previa)
-            fecha_nacimiento = st.date_input(
-                "Fecha de Nacimiento [DD/MM/AAAA] *",
-                value=None,
-                min_value=datetime.date(1900, 1, 1),
-                max_value=datetime.date.today(),
-                format="DD/MM/YYYY",
-            )
-        with col_fn2:
-            sexo = st.selectbox("Sexo *", options=["", "Hombre", "Mujer"])
-
-        planes_o_embarazo = "No"
-        if sexo == "Mujer":
-            st.markdown(
-                "<div style='background-color: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
-                unsafe_allow_html=True,
-            )
-            planes_o_embarazo = st.radio(
-                "¿Está embarazada o tiene planes de embarazo?",
-                options=["No", "Sí"],
-                horizontal=True,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # Cálculo de edad interactivo con base en la fecha seleccionada
-        if fecha_nacimiento:
-            calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
-                fecha_nacimiento, fecha_aplicacion
-            )
-        else:
-            calc_anos, calc_meses, calc_dias = 0, 0, 0
-
-        st.markdown(
-            '<div class="section-title">Edad Calculada Automáticamente</div>',
-            unsafe_allow_html=True,
+        planes_o_embarazo = st.radio(
+            "¿Está embarazada o tiene planes de embarazo?",
+            options=["NO", "SÍ"],
+            horizontal=True,
         )
-        st.markdown(
-            f'<div class="card-edad">📅 {calc_anos} Años, {calc_meses} Meses, {calc_dias} Días</div>',
-            unsafe_allow_html=True,
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Cálculo interactivo inmediato de la edad
+    if fecha_nacimiento:
+        calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
+            fecha_nacimiento, fecha_aplicacion
         )
+    else:
+        calc_anos, calc_meses, calc_dias = 0, 0, 0
+
+    st.markdown(
+        '<div class="section-title">Edad Calculada Automáticamente</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="card-edad">📅 {calc_anos} AÑOS, {calc_meses} MESES, {calc_dias} DÍAS</div>',
+        unsafe_allow_html=True,
+    )
+
+    # A partir de aquí envolvemos el resto de campos y el botón de guardado en el formulario
+    with st.form("form_censo_vacunacion_resto"):
 
         # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
         st.markdown(
@@ -271,12 +276,12 @@ if st.session_state.navegacion == "Registro":
             "Seleccione su Ocupación *",
             options=[
                 "",
-                "Personal de salud",
-                "Jubilado/a",
-                "Maestro/a",
-                "Administrativo/a",
-                "Trabajo en guardería",
-                "Otras profesiones",
+                "PERSONAL DE SALUD",
+                "JUBILADO/A",
+                "MAESTRO/A",
+                "ADMINISTRATIVO/A",
+                "TRABAJO EN GUARDERÍA",
+                "OTRAS PROFESIONES",
             ],
         )
 
@@ -290,11 +295,11 @@ if st.session_state.navegacion == "Registro":
         with col_r1:
             emb = st.checkbox(
                 "Embarazadas",
-                value=(True if planes_o_embarazo == "Sí" else False),
+                value=(True if planes_o_embarazo == "SÍ" else False),
             )
             personal_salud_riesgo = st.checkbox(
                 "Personal de Salud",
-                value=(True if ocupacion == "Personal de salud" else False),
+                value=(True if ocupacion == "PERSONAL DE SALUD" else False),
             )
             vih = st.checkbox("VIH / Sida")
             diabetes = st.checkbox("Diabetes Mellitus")
@@ -316,28 +321,28 @@ if st.session_state.navegacion == "Registro":
         # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
         edad_total_meses = (calc_anos * 12) + calc_meses
 
-        grupo_sugerido = "Población general / Otro"
+        grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
         if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "6 a 59 meses"
+            grupo_sugerido = "6 A 59 MESES"
         elif calc_anos >= 60:
-            grupo_sugerido = "60 y más"
+            grupo_sugerido = "60 Y MÁS"
         elif 5 <= calc_anos <= 11:
-            grupo_sugerido = "5 a 11 años (Dosis única COVID-19)"
-        elif emb or planes_o_embarazo == "Sí":
-            grupo_sugerido = "Embarazadas"
-        elif personal_salud_riesgo or ocupacion == "Personal de salud":
-            grupo_sugerido = "Personal de Salud"
+            grupo_sugerido = "5 A 11 AÑOS (Dosis única COVID-19)"
+        elif emb or planes_o_embarazo == "SÍ":
+            grupo_sugerido = "EMBARAZADAS"
+        elif personal_salud_riesgo or ocupacion == "PERSONAL DE SALUD":
+            grupo_sugerido = "PERSONAL DE SALUD"
 
         st.markdown(
             '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            f'<div class="card-grupo">🎯 Grupo Detectado: {grupo_sugerido}</div>',
+            f'<div class="card-grupo">🎯 GRUPO DETECTADO: {grupo_sugerido}</div>',
             unsafe_allow_html=True,
         )
 
-        # --- NUEVO BLOQUE: ANTECEDENTE VACUNAL ---
+        # --- ANTECEDENTE VACUNAL ---
         st.markdown(
             '<div class="section-title">7. Antecedente Vacunal</div>',
             unsafe_allow_html=True,
@@ -346,17 +351,17 @@ if st.session_state.navegacion == "Registro":
         with col_av1:
             antecedente_covid = st.radio(
                 "¿Cuenta con alguna dosis previa de COVID-19?",
-                options=["Sí", "No", "Lo desconoce"],
+                options=["SÍ", "NO", "LO DESCONOCE"],
                 horizontal=True,
             )
         with col_av2:
             antecedente_influenza = st.radio(
                 "¿Cuenta con alguna dosis previa de Influenza?",
-                options=["Sí", "No", "Lo desconoce"],
+                options=["SÍ", "NO", "LO DESCONOCE"],
                 horizontal=True,
             )
 
-        # --- BLOQUE 8: ESQUEMA DE VACUNACIÓN APLICADO ---
+        # --- ESQUEMA DE VACUNACIÓN APLICADO ---
         st.markdown(
             '<div class="section-title">8. Biológicos Administrados y Lotes</div>',
             unsafe_allow_html=True,
@@ -366,7 +371,7 @@ if st.session_state.navegacion == "Registro":
         with col_inf1:
             esquema_influenza = st.selectbox(
                 "Tipo de Dosis / Esquema Influenza",
-                options=["", "Dosis Anual", "Dosis Única", "1a Dosis", "2a Dosis"],
+                options=["", "DOSIS ANUAL", "DOSIS ÚNICA", "1ª DOSIS", "2ª DOSIS"],
             )
         with col_inf2:
             lote_influenza = st.text_input("No. de Lote - Influenza")
@@ -376,7 +381,7 @@ if st.session_state.navegacion == "Registro":
         with col_cov1:
             esquema_covid = st.selectbox(
                 "Tipo de Dosis / Esquema COVID-19",
-                options=["", "1a Dosis", "2a Dosis", "Refuerzo", "Dosis Única"],
+                options=["", "1ª DOSIS", "2ª DOSIS", "REFUERZO", "DOSIS ÚNICA"],
             )
         with col_cov2:
             lote_covid = st.text_input("No. de Lote - COVID-19")
@@ -406,20 +411,20 @@ if st.session_state.navegacion == "Registro":
             else:
                 nuevo_paciente = {
                     "folio": folio_automatico,
-                    "nombre_completo": f"{paterno} {materno}, {nombres}",
-                    "paterno": paterno,
-                    "materno": materno,
-                    "nombres": nombres,
+                    "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+                    "paterno": paterno.upper(),
+                    "materno": materno.upper(),
+                    "nombres": nombres.upper(),
                     "fecha_nacimiento": fecha_nacimiento,
                     "edad_anos": calc_anos,
                     "edad_meses": calc_meses,
                     "edad_dias": calc_dias,
                     "edad_total_meses": edad_total_meses,
                     "sexo": sexo,
-                    "embarazo": emb or (planes_o_embarazo == "Sí"),
+                    "embarazo": emb or (planes_o_embarazo == "SÍ"),
                     "ocupacion": ocupacion,
                     "personal_salud": personal_salud_riesgo
-                    or (ocupacion == "Personal de salud"),
+                    or (ocupacion == "PERSONAL DE SALUD"),
                     "tiene_comorbilidades": any(
                         [
                             vih,
@@ -493,7 +498,7 @@ elif st.session_state.navegacion == "Consulta":
                     f"**Nacimiento:** {paciente['fecha_nacimiento'].strftime('%d/%m/%Y')}"
                 )
                 st.markdown(
-                    f"**Edad:** {paciente['edad_anos']} años, {paciente['edad_meses']} meses"
+                    f"**Edad:** {paciente['edad_anos']} AÑOS, {paciente['edad_meses']} MESES"
                 )
             with col_info3:
                 st.markdown(f"**Sexo:** {paciente['sexo']}")
@@ -520,7 +525,7 @@ elif st.session_state.navegacion == "Consulta":
             inf_dosis = ""
             inf_via = ""
             if 6 <= edad_m <= 59:
-                if ant_inf == "Sí":
+                if ant_inf == "SÍ":
                     inf_dosis = (
                         "1 dosis anual de 0.5 mL (cuenta con antecedente de esquema completo)."
                     )
@@ -530,7 +535,7 @@ elif st.session_state.navegacion == "Consulta":
                     )
                 inf_via = "Intramuscular; en tercio medio de la cara anterolateral externa del muslo izquierdo (menores de 18 meses) o región deltoidea del brazo izquierdo (a partir de 18 meses)."
             elif 5 <= anos <= 8 and comorb:
-                if ant_inf == "Sí":
+                if ant_inf == "SÍ":
                     inf_dosis = "Una dosis anual de 0.5 mL."
                 else:
                     inf_dosis = (
