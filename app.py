@@ -57,24 +57,67 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
     return max(0, anos), max(0, meses), max(0, dias)
 
 
+# Lista oficial de los 32 estados de la República Mexicana
+estados_mexico = [
+    "",
+    "Aguascalientes",
+    "Baja California",
+    "Baja California Sur",
+    "Campeche",
+    "Chiapas",
+    "Chihuahua",
+    "Ciudad de México",
+    "Coahuila",
+    "Colima",
+    "Durango",
+    "Estado de México",
+    "Guanajuato",
+    "Guerrero",
+    "Hidalgo",
+    "Jalisco",
+    "Michoacán",
+    "Morelos",
+    "Nayarit",
+    "Nuevo León",
+    "Oaxaca",
+    "Puebla",
+    "Querétaro",
+    "Quintana Roo",
+    "San Luis Potosí",
+    "Sinaloa",
+    "Sonora",
+    "Tabasco",
+    "Tamaulipas",
+    "Tlaxcala",
+    "Veracruz",
+    "Yucatán",
+    "Zacatecas",
+]
+
 with st.form("form_censo_vacunacion"):
 
-    # --- DATOS GENERALES Y FECHA DE APLICACIÓN ---
+    # --- BLOQUE 1: DATOS GENERALES, FECHA DE REGISTRO Y APLICACIÓN ---
     st.markdown(
-        '<div class="section-title">1. Datos Generales y Fecha</div>',
+        '<div class="section-title">1. Datos Generales y Fechas</div>',
         unsafe_allow_html=True,
     )
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
+    col_g1, col_g2, col_g3 = st.columns(3)
+    with col_g1:
+        fecha_registro = st.date_input(
+            "Fecha de Registro (dd/mm/aaaa)",
+            value=datetime.date.today(),
+            format="DD/MM/YYYY",
+        )
+    with col_g2:
         fecha_aplicacion = st.date_input(
             "Fecha de Aplicación (dd/mm/aaaa)",
             value=datetime.date.today(),
             format="DD/MM/YYYY",
         )
-    with col_f2:
+    with col_g3:
         folio_reg = st.text_input("No. de Registro / Censo (Opcional)")
 
-    # --- IDENTIFICACIÓN DEL PACIENTE ---
+    # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y SEXO ---
     st.markdown(
         '<div class="section-title">2. Identificación del Paciente</div>',
         unsafe_allow_html=True,
@@ -89,17 +132,34 @@ with st.form("form_censo_vacunacion"):
 
     col_fn1, col_fn2 = st.columns(2)
     with col_fn1:
+        # Se muestra la indicación visual previa del formato dd/mm/aaaa
+        st.markdown(
+            "<span style='font-size: 0.85rem; color: #576574;'>Ejemplo de formato previo: dd/mm/aaaa</span>",
+            unsafe_allow_html=True,
+        )
         fecha_nacimiento = st.date_input(
-            "Fecha de Nacimiento (dd/mm/aaaa) *",
+            "Fecha de Nacimiento *",
             value=datetime.date(1990, 1, 1),
             min_value=datetime.date(1900, 1, 1),
             max_value=datetime.date.today(),
             format="DD/MM/YYYY",
         )
     with col_fn2:
-        sexo = st.selectbox(
-            "Sexo *", options=["", "Masculino", "Femenino", "Otro"]
+        sexo = st.selectbox("Sexo *", options=["", "Hombre", "Mujer"])
+
+    # Condicional de embarazo / planes de embarazo si es Mujer
+    planes_o_embarazo = "No"
+    if sexo == "Mujer":
+        st.markdown(
+            "<div style='background-color: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
+            unsafe_allow_html=True,
         )
+        planes_o_embarazo = st.radio(
+            "¿Está embarazada o tiene planes de embarazo?",
+            options=["No", "Sí"],
+            horizontal=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Cálculo automático de edad en Años, Meses y Días
     calc_anos, calc_meses, calc_dias = calcular_edad_detallada(
@@ -130,11 +190,19 @@ with st.form("form_censo_vacunacion"):
             value=calc_dias,
         )
 
-    # --- DOMICILIO SEPARADO (CALLE Y NÚMERO) Y DERECHOHABIENCIA ---
+    # --- BLOQUE 3: DOMICILIO, ESTADOS Y AFILIACIÓN ---
     st.markdown(
-        '<div class="section-title">3. Domicilio y Afiliación</div>',
+        '<div class="section-title">3. Domicilio, Estados y Afiliación</div>',
         unsafe_allow_html=True,
     )
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        estado_nacimiento = st.text_input("Estado de Nacimiento *")
+    with col_d2:
+        estado_residencia = st.selectbox(
+            "Estado de Residencia (Entidad Federativa) *", options=estados_mexico
+        )
+
     col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
     with col_dom1:
         calle = st.text_input("Calle *")
@@ -160,16 +228,39 @@ with st.form("form_censo_vacunacion"):
         ],
     )
 
-    # --- GRUPOS DE RIESGO Y COMORBILIDADES ---
+    # --- BLOQUE 4: OCUPACIÓN ---
     st.markdown(
-        '<div class="section-title">4. Grupos de Riesgo y Comorbilidades</div>',
+        '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
+    )
+    ocupacion = st.selectbox(
+        "Seleccione su Ocupación *",
+        options=[
+            "",
+            "Personal de salud",
+            "Jubilado/a",
+            "Maestro/a",
+            "Administrativo/a",
+            "Trabajo en guardería",
+            "Otras profesiones",
+        ],
+    )
+
+    # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
+    st.markdown(
+        '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
         unsafe_allow_html=True,
     )
     col_r1, col_r2 = st.columns(2)
 
     with col_r1:
-        emb = st.checkbox("Embarazadas")
-        personal_salud = st.checkbox("Personal de Salud")
+        # Si se indicó embarazo previamente, se puede reflejar o mantener conectado
+        emb = st.checkbox(
+            "Embarazadas", value=(True if planes_o_embarazo == "Sí" else False)
+        )
+        personal_salud_riesgo = st.checkbox(
+            "Personal de Salud",
+            value=(True if ocupacion == "Personal de salud" else False),
+        )
         vih = st.checkbox("VIH / Sida")
         diabetes = st.checkbox("Diabetes Mellitus")
         obesidad = st.checkbox("Obesidad Mórbida")
@@ -197,16 +288,16 @@ with st.form("form_censo_vacunacion"):
         grupo_sugerido = "60 y más"
     elif 5 <= edad_anos <= 11:
         grupo_sugerido = "5 a 11 años (Dosis única COVID-19)"
-    elif emb:
+    elif emb or planes_o_embarazo == "Sí":
         grupo_sugerido = "Embarazadas"
-    elif personal_salud:
+    elif personal_salud_riesgo or ocupacion == "Personal de salud":
         grupo_sugerido = "Personal de Salud"
     else:
         grupo_sugerido = "Población general / Otro"
 
     # --- GRUPO OBJETIVO ---
     st.markdown(
-        '<div class="section-title">5. Grupo Objetivo (Detectado Automáticamente)</div>',
+        '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
         unsafe_allow_html=True,
     )
     lista_grupos = [
@@ -229,9 +320,9 @@ with st.form("form_censo_vacunacion"):
         index=indice_default,
     )
 
-    # --- ESQUEMA DE VACUNACIÓN ---
+    # --- BLOQUE 7: ESQUEMA DE VACUNACIÓN ---
     st.markdown(
-        '<div class="section-title">6. Biológicos Administrados y Lotes</div>',
+        '<div class="section-title">7. Biológicos Administrados y Lotes</div>',
         unsafe_allow_html=True,
     )
 
@@ -261,14 +352,25 @@ with st.form("form_censo_vacunacion"):
     )
 
     if submitted:
-        if not paterno or not nombres or not calle or not numero or not colonia or not derechohabiencia:
+        if (
+            not paterno
+            or not nombres
+            or not estado_nacimiento
+            or not estado_residencia
+            or not calle
+            or not numero
+            or not colonia
+            or not derechohabiencia
+            or not ocupacion
+        ):
             st.error(
                 "Por favor complete los campos obligatorios marcados con (*)."
             )
         else:
+            f_reg_str = fecha_registro.strftime("%d/%m/%Y")
             f_nac_str = fecha_nacimiento.strftime("%d/%m/%Y")
             f_app_str = fecha_aplicacion.strftime("%d/%m/%Y")
 
             st.success(
-                f"¡Registro exitoso! Domicilio: {calle} #{numero}, Col. {colonia}"
+                f"¡Registro guardado con éxito! Registro: {f_reg_str} | Nacimiento: {f_nac_str} | Ocupación: {ocupacion}"
             )
