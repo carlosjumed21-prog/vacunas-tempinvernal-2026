@@ -438,7 +438,7 @@ if st.session_state.navegacion == "Registro":
         )
         if grupo_sugerido == "":
             st.markdown(
-                '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">⏳ PENDIENTE DE SELECCIONAR FECHA DE NACIMIENTO</div>',
+                '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
                 unsafe_allow_html=True,
             )
         else:
