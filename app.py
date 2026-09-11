@@ -51,12 +51,18 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
     return max(0, anos), max(0, meses), max(0, dias)
 
 
-# Inicializar la base de datos temporal en memoria (Session State) para almacenar los registros
+# Inicializar la base de datos temporal en memoria y contadores consecutivos
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
 
+if "contador_consecutivo" not in st.session_state:
+    st.session_state.contador_consecutivo = 1
+
+if "fecha_ultimo_consecutivo" not in st.session_state:
+    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
+
 if "navegacion" not in st.session_state:
-    st.session_state.navegacion = "Registro"  # Opciones: "Registro" o "Consulta"
+    st.session_state.navegacion = "Registro"
 
 estados_mexico = [
     "",
@@ -139,10 +145,23 @@ if st.session_state.navegacion == "Registro":
                 value=datetime.date.today(),
                 format="DD/MM/YYYY",
             )
+
+        # Generación automática de Folio (AA/MM/DD + Consecutivo ###)
+        # Si cambia el día respecto al último consecutivo registrado, reiniciamos el contador a 1
+        hoy_actual = fecha_registro
+        if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
+            st.session_state.fecha_ultimo_consecutivo = hoy_actual
+            st.session_state.contador_consecutivo = 1
+
+        aa_mm_dd = hoy_actual.strftime("%y/%m/%d")
+        folio_automatico = (
+            f"{aa_mm_dd}-{str(st.session_state.contador_consecutivo).zfill(3)}"
+        )
+
         with col_g3:
-            folio_reg = st.text_input(
-                "No. de Registro / Censo",
-                value=f"CENSO-{datetime.datetime.now().strftime('%H%M%S')}",
+            st.markdown(
+                f"**No. de Registro / Censo (Auto)**<br>`{folio_automatico}`",
+                unsafe_allow_html=True,
             )
 
         # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
@@ -392,7 +411,7 @@ if st.session_state.navegacion == "Registro":
             else:
                 # Diccionario con los datos del paciente para migrar al state
                 nuevo_paciente = {
-                    "folio": folio_reg,
+                    "folio": folio_automatico,
                     "nombre_completo": f"{paterno} {materno}, {nombres}",
                     "paterno": paterno,
                     "materno": materno,
@@ -425,9 +444,12 @@ if st.session_state.navegacion == "Registro":
                     "fecha_registro": fecha_registro,
                 }
                 st.session_state.registros_censales.append(nuevo_paciente)
+                # Incrementar el consecutivo para el siguiente registro del día
+                st.session_state.contador_consecutivo += 1
+
                 st.success(
-                "¡Paciente registrado y migrado exitosamente! Seleccione en la barra lateral el **'Módulo de Consulta y Guía CENSIA'** para buscarlo y ver sus esquemas recomendados."
-            )
+                    f"¡Paciente registrado con Folio {folio_automatico}! Seleccione en la barra lateral el **'Módulo de Consulta y Guía CENSIA'** para buscarlo."
+                )
 
 # ==========================================
 # VISTA 2: MÓDULO DE CONSULTA Y RECOMENDACIÓN CENSIA
