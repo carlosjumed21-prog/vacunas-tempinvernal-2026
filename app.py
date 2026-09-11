@@ -9,16 +9,23 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual limpio, profesional y forzado a MAYÚSCULAS en cuadros de texto
+# Estilo visual institucional basado en la paleta corporativa
 st.markdown(
     """
     <style>
-        .main-header { font-size: 1.8rem; font-weight: 700; color: #1e3d59; margin-bottom: 0.2rem; }
-        .sub-header { font-size: 1rem; color: #576574; margin-bottom: 1.5rem; }
-        .section-title { font-size: 1.2rem; font-weight: 600; color: #17b978; margin-top: 1.2rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3rem; }
-        .card-edad { background-color: #e0f2fe; border: 2px solid #0284c7; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #0369a1; font-size: 1.1rem; margin-bottom: 10px; }
-        .card-grupo { background-color: #dcfce7; border: 2px solid #16a34a; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #15803d; font-size: 1.1rem; margin-bottom: 10px; }
-        .card-recomendacion { background-color: #f8fafc; border-left: 5px solid #17b978; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
+        /* Tipografía general y colores institucionales */
+        .main-header { font-size: 1.8rem; font-weight: 700; color: #1e5b4f; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 8px; }
+        .sub-header { font-size: 1rem; color: #611232; margin-bottom: 1.5rem; font-weight: 600; }
+        .section-title { font-size: 1.2rem; font-weight: 600; color: #1e5b4f; margin-top: 1.2rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.3rem; }
+        
+        /* Tarjetas informativas con identidad cromática */
+        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #611232; font-size: 1.1rem; margin-bottom: 10px; }
+        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem; margin-bottom: 10px; }
+        .card-recomendacion { background-color: #f8fafc; border-left: 5px solid #1e5b4f; padding: 15px; border-radius: 5px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        /* Botones y elementos de interfaz */
+        .stButton>button { background-color: #1e5b4f; color: white; font-weight: bold; border-radius: 4px; }
+        .stButton>button:hover { background-color: #002f2a; color: white; }
         
         input[type="text"] {
             text-transform: uppercase !important;
@@ -194,7 +201,7 @@ if st.session_state.navegacion == "Registro":
     planes_o_embarazo = "NO"
     if sexo == "MUJER":
         st.markdown(
-            "<div style='background-color: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
+            "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
             unsafe_allow_html=True,
         )
         planes_o_embarazo = st.radio(
@@ -291,22 +298,22 @@ if st.session_state.navegacion == "Registro":
         col_r1, col_r2 = st.columns(2)
 
         with col_r1:
-            vih = st.checkbox("VIH / Sida")
-            diabetes = st.checkbox("Diabetes Mellitus")
-            obesidad = st.checkbox("Obesidad Mórbida")
-            cardiopatias = st.checkbox("Cardiopatías Agudas o Crónicas")
+            vih = st.checkbox("VIH / SIDA")
+            diabetes = st.checkbox("DIABETES MELLITUS")
+            obesidad = st.checkbox("OBESIDAD MÓRBIDA")
+            cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+            epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
 
         with col_r2:
-            epoc = st.checkbox("Enfermedad Pulmonar Crónica (EPOC / Asma)")
-            cancer = st.checkbox("Cáncer")
+            cancer = st.checkbox("CÁNCER")
             congenitas = st.checkbox(
-                "Enfermedades cardíacas/pulmonares congénitas u otros (salicilatos)"
+                "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
             )
-            insuficiencia_renal = st.checkbox("Insuficiencia Renal")
+            insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
             inmunosupresion = st.checkbox(
-                "Inmunosupresión adquirida (excepto VIH)"
+                "INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)"
             )
-            hipertension = st.checkbox("Hipertensión Arterial Esencial")
+            hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
 
         # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
         edad_total_meses = (calc_anos * 12) + calc_meses
