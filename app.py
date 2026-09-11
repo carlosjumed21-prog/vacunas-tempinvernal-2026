@@ -9,26 +9,98 @@ st.set_page_config(
     layout="centered",
 )
 
-# Estilo visual institucional basado en la paleta corporativa
+# Estilo visual institucional, fondo personalizado y tipografía grande/amigable
 st.markdown(
     """
     <style>
-        /* Tipografía general y colores institucionales */
-        .main-header { font-size: 1.8rem; font-weight: 700; color: #1e5b4f; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 8px; }
-        .sub-header { font-size: 1rem; color: #611232; margin-bottom: 1.5rem; font-weight: 600; }
-        .section-title { font-size: 1.2rem; font-weight: 600; color: #1e5b4f; margin-top: 1.2rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.3rem; }
-        
-        /* Tarjetas informativas con identidad cromática */
-        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #611232; font-size: 1.1rem; margin-bottom: 10px; }
-        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem; margin-bottom: 10px; }
-        .card-recomendacion { background-color: #f8fafc; border-left: 5px solid #1e5b4f; padding: 15px; border-radius: 5px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        
-        /* Botones y elementos de interfaz */
-        .stButton>button { background-color: #1e5b4f; color: white; font-weight: bold; border-radius: 4px; }
-        .stButton>button:hover { background-color: #002f2a; color: white; }
-        
+        /* Fondo general de la plataforma */
+        .stApp {
+            background-color: #fbf9f4;
+        }
+
+        /* Tipografía y cabeceras grandes y legibles */
+        .main-header { 
+            font-size: 2.2rem !important; 
+            font-weight: 800 !important; 
+            color: #1e5b4f !important; 
+            margin-bottom: 0.2rem; 
+            border-bottom: 3px solid #a57f2c; 
+            padding-bottom: 10px; 
+        }
+        .sub-header { 
+            font-size: 1.2rem !important; 
+            color: #611232 !important; 
+            margin-bottom: 1.5rem; 
+            font-weight: 700 !important; 
+        }
+        .section-title { 
+            font-size: 1.4rem !important; 
+            font-weight: 700 !important; 
+            color: #1e5b4f !important; 
+            margin-top: 1.5rem; 
+            margin-bottom: 0.8rem; 
+            border-bottom: 2px solid #e6d194; 
+            padding-bottom: 0.4rem; 
+        }
+
+        /* Aumento de tamaño para etiquetas y textos de formularios */
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label {
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+            color: #161a1d !important;
+        }
+
+        /* Tarjetas informativas con identidad cromática y texto grande */
+        .card-edad { 
+            background-color: #f7f4eb; 
+            border: 2px solid #a57f2c; 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+            font-weight: 800; 
+            color: #611232; 
+            font-size: 1.3rem !important; 
+            margin-bottom: 15px; 
+        }
+        .card-grupo { 
+            background-color: #e8f0ec; 
+            border: 2px solid #1e5b4f; 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+            font-weight: 800; 
+            color: #1e5b4f; 
+            font-size: 1.3rem !important; 
+            margin-bottom: 15px; 
+        }
+        .card-recomendacion { 
+            background-color: #ffffff; 
+            border-left: 6px solid #1e5b4f; 
+            padding: 18px; 
+            border-radius: 6px; 
+            margin-bottom: 15px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+            font-size: 1.1rem !important;
+        }
+
+        /* Botones institucionales destacados */
+        .stButton>button { 
+            background-color: #1e5b4f !important; 
+            color: white !important; 
+            font-size: 1.2rem !important;
+            font-weight: bold !important; 
+            border-radius: 6px !important;
+            padding: 0.6rem 1rem !important;
+        }
+        .stButton>button:hover { 
+            background-color: #002f2a !important; 
+            color: white !important; 
+        }
+
+        /* Forzar mayúsculas automáticamente en inputs de texto */
         input[type="text"] {
             text-transform: uppercase !important;
+            font-size: 1.1rem !important;
         }
     </style>
 """,
@@ -63,7 +135,7 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
     return max(0, anos), max(0, meses), max(0, dias)
 
 
-# Inicializar la base de datos temporal en memoria y contadores consecutivos
+# Inicializar base de datos temporal en memoria y contadores consecutivos
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
 
@@ -201,7 +273,7 @@ if st.session_state.navegacion == "Registro":
     planes_o_embarazo = "NO"
     if sexo == "MUJER":
         st.markdown(
-            "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 10px; border-radius: 5px; margin-bottom: 10px;'>",
+            "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
             unsafe_allow_html=True,
         )
         planes_o_embarazo = st.radio(
