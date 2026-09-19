@@ -145,13 +145,12 @@ else:
             " el censo."
         )
       else:
-        # --- LUPA DE BÚSQUEDA INTERACTIVA ---
+        # Lupa interactiva que muestra todo el listado de forma predeterminada
         query_busqueda = st.text_input(
             "🔍 Buscar por Folio, Apellido o Nombre:",
             placeholder="Escriba parte del folio o apellido...",
         )
 
-        # Filtrar pacientes en tiempo real según la consulta
         if query_busqueda.strip():
           q_clean = query_busqueda.strip().upper()
           pacientes_filtrados = [
@@ -175,7 +174,7 @@ else:
               for p in pacientes_filtrados
           ]
           seleccion_paciente = st.selectbox(
-              "Seleccione del listado filtrado:", options=opciones_busqueda
+              "Seleccione del listado:", options=opciones_busqueda
           )
 
           if seleccion_paciente:
