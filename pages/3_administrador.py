@@ -250,8 +250,50 @@ else:
     ]
     st.rerun()
 
-  # --- BOTÓN DE AUTORIZACIÓN COLOCADO AQUÍ ARRIBA PARA ACCESO DIRECTO ---
+  st.markdown(
+      '<div class="section-title">2. Configuración de Fecha y Horario de'
+      " Atención</div>",
+      unsafe_allow_html=True,
+  )
+  col_f1, col_f2, col_f3 = st.columns(3)
+  with col_f1:
+    fecha_admin = st.date_input(
+        "Fecha de Aplicación:",
+        value=st.session_state.config_fecha_aplicacion,
+        format="DD/MM/YYYY",
+    )
+    st.session_state.config_fecha_aplicacion = fecha_admin
+  with col_f2:
+    hora_ini = st.time_input(
+        "Hora de Inicio:", value=st.session_state.config_hora_inicio
+    )
+    st.session_state.config_hora_inicio = hora_ini
+  with col_f3:
+    hora_fin = st.time_input(
+        "Hora de Cierre:", value=st.session_state.config_hora_fin
+    )
+    st.session_state.config_hora_fin = hora_fin
+
+  st.markdown(
+      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
+      unsafe_allow_html=True,
+  )
+  consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
+  query_mapa = urllib.parse.quote(consulta_mapa)
+  url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
+  st.components.v1.iframe(url_embed_maps, height=300)
+
   st.markdown("<br>", unsafe_allow_html=True)
+  direccion_oficial_input = st.text_area(
+      "📍 Dirección Oficial Principal:",
+      value=st.session_state.config_direccion_oficial,
+      height=80,
+  )
+  st.session_state.config_direccion_oficial = direccion_oficial_input
+
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # --- BOTÓN DE AUTORIZACIÓN COLOCADO ABAJO ---
   if st.button(
       "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
       use_container_width=True,
@@ -294,8 +336,8 @@ else:
     except Exception as e:
       st.error(
           "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
-          f" hoja 'CENSO NOMINAL' exista y el correo de servicio tenga"
-          f" permisos: {e}"
+          f" hoja 'CENSO NOMINAL' exista y el secreto 'gpex' esté configurado"
+          f" correctamente en Streamlit Cloud: {e}"
       )
 
   # Mostrar enlace directo de confirmación y visualización si la jornada está autorizada
@@ -321,47 +363,6 @@ else:
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
-
-  st.markdown(
-      '<div class="section-title">2. Configuración de Fecha y Horario de'
-      " Atención</div>",
-      unsafe_allow_html=True,
-  )
-  col_f1, col_f2, col_f3 = st.columns(3)
-  with col_f1:
-    fecha_admin = st.date_input(
-        "Fecha de Aplicación:",
-        value=st.session_state.config_fecha_aplicacion,
-        format="DD/MM/YYYY",
-    )
-    st.session_state.config_fecha_aplicacion = fecha_admin
-  with col_f2:
-    hora_ini = st.time_input(
-        "Hora de Inicio:", value=st.session_state.config_hora_inicio
-    )
-    st.session_state.config_hora_inicio = hora_ini
-  with col_f3:
-    hora_fin = st.time_input(
-        "Hora de Cierre:", value=st.session_state.config_hora_fin
-    )
-    st.session_state.config_hora_fin = hora_fin
-
-  st.markdown(
-      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
-      unsafe_allow_html=True,
-  )
-  consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
-  query_mapa = urllib.parse.quote(consulta_mapa)
-  url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
-  st.components.v1.iframe(url_embed_maps, height=300)
-
-  st.markdown("<br>", unsafe_allow_html=True)
-  direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Principal:",
-      value=st.session_state.config_direccion_oficial,
-      height=80,
-  )
-  st.session_state.config_direccion_oficial = direccion_oficial_input
 
   st.markdown(
       '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
