@@ -513,12 +513,13 @@ curp_algoritmica = generar_curp_algoritmica(
     digitos_faltantes,
 )
 
-est_nac_seleccionado = (
-    estado_nacimiento.upper()
-    if estado_nacimiento != "SELECCIONE UN ESTADO"
-    else "CDMX"
-)
-curp_con_nacimiento = f"{curp_algoritmica}/{est_nac_seleccionado}"
+if (
+    estado_nacimiento != "SELECCIONE UN ESTADO"
+    and "COMPLETA" not in curp_algoritmica
+):
+  curp_con_nacimiento = f"{curp_algoritmica}/{estado_nacimiento.upper()}"
+else:
+  curp_con_nacimiento = curp_algoritmica
 
 with col_info2:
   st.markdown(
@@ -721,7 +722,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # Cálculo exacto de la fila y el folio único al momento del registro
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
       conteo_pacientes = 0
