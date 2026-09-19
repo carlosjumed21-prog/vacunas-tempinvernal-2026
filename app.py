@@ -192,13 +192,12 @@ def generar_curp_algoritmica(
 
     curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}{siglo_part}"
 
-    # Si el operador ingresa los 2 dígitos faltantes, se anexan; si no, por defecto se usan "00"
-    sufijo = (
-        limpiar_texto(digitos_extra)[:2]
-        if digitos_extra
-        and len(limpiar_texto(digitos_extra)) >= 2
-        else "00"
-    )
+    extra_limpio = limpiar_texto(digitos_extra)
+    if len(extra_limpio) >= 2:
+        sufijo = extra_limpio[:2]
+    else:
+        sufijo = "00"
+
     return f"{curp_16}{sufijo}"
 
 
@@ -333,7 +332,6 @@ with col_info1:
         unsafe_allow_html=True,
     )
 
-# Campo opcional para completar los 2 dígitos faltantes de la CURP en tiempo real
 digitos_faltantes = st.text_input(
     "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP oficial)",
     max_chars=2,
