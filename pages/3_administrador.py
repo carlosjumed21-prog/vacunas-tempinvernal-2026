@@ -1,7 +1,6 @@
 import datetime
 import io
 import urllib.parse
-import pandas as qrcode
 import qrcode
 import streamlit as st
 
@@ -39,12 +38,11 @@ if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
 if "config_busqueda_mapa" not in st.session_state:
   st.session_state.config_busqueda_mapa = (
-      "Centro Medico Nacional 20 de Noviembre, Ciudad de Mexico"
+      "Ermita Iztapalapa 67, Ermita, Benito Juarez, Ciudad de Mexico"
   )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
-      "Avenida Felix Cuevas 540, Del Valle Sur, Benito Juarez, 03100 Ciudad de"
-      " Mexico, CDMX"
+      "Ermita Iztapalapa 67, Ermita, Benito Juarez, Ciudad de Mexico"
   )
 
 if not st.session_state.autenticado_admin:
@@ -135,39 +133,34 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Seleccionador Oficial de Ubicación (Google'
-      " Maps)</div>",
+      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
       unsafe_allow_html=True,
   )
 
-  # Buscador operativo para el widget de Google Maps
+  # Buscador para actualizar el mapa interactivo
   busqueda_input = st.text_input(
-      "🔍 Buscar lugar en el mapa interactivo:",
+      "🔍 Buscador (Escribe el lugar para ubicarlo en el mapa):",
       value=st.session_state.config_busqueda_mapa,
-      placeholder="Ej. CMF Ermita, o Centro Medico Nacional 20 de Noviembre",
+      placeholder="Ej. Ermita Iztapalapa 67, Benito Juárez, CDMX",
   )
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Renderizado oficial del mapa interactivo de Google Maps
+  # Renderizado del mapa interactivo
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
     )
-    st.components.v1.iframe(url_embed_maps, height=310)
+    st.components.v1.iframe(url_embed_maps, height=300)
 
-  # Botón inteligente: Al presionarlo, captura la dirección formalizada del widget de mapas
-  if st.button("📍 Capturar Dirección Oficial del Widget de Mapas"):
-    # Asignamos formalmente la dirección validada por Google que arroja el buscador del mapa
-    st.session_state.config_direccion_oficial = f"Ubicación Oficial Verificada: {busqueda_input} (CDMX / México)"
-    st.success("¡Dirección oficial obtenida del widget de mapas con éxito!")
-    st.rerun()
+  st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo final que almacena la Dirección Oficial lista para el comprobante
+  # Campo libre y oficial para colocar la dirección exacta que arroja Google Maps
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Asignada (Lista para Reportes y Comprobante):",
+      "📍 Dirección Oficial Completa (Copia aquí la dirección exacta que ves en"
+      " el mapa):",
       value=st.session_state.config_direccion_oficial,
-      placeholder="La dirección oficial aparecerá aquí al capturarla del mapa...",
+      placeholder="Ej. Ermita Iztapalapa 67, Ermita, Benito Juárez, CDMX",
       height=80,
   )
   st.session_state.config_direccion_oficial = direccion_oficial_input
