@@ -145,13 +145,19 @@ else:
             " el censo."
         )
       else:
-        # Lupa interactiva que muestra todo el listado de forma predeterminada
+        # Lupa interactiva que inicia vacía y sin mostrar resultados hasta que se escriba algo
         query_busqueda = st.text_input(
             "🔍 Buscar por Folio, Apellido o Nombre:",
             placeholder="Escriba parte del folio o apellido...",
         )
 
-        if query_busqueda.strip():
+        if not query_busqueda.strip():
+          st.info(
+              "ℹ️ Ingrese un término en la lupa de búsqueda para localizar a"
+              " un paciente."
+          )
+          pacientes_filtrados = []
+        else:
           q_clean = query_busqueda.strip().upper()
           pacientes_filtrados = [
               p
@@ -161,20 +167,19 @@ else:
               or q_clean in p["materno"].upper()
               or q_clean in p["nombres"].upper()
           ]
-        else:
-          pacientes_filtrados = pacientes_cargados
 
-        if not pacientes_filtrados:
+        if query_busqueda.strip() and not pacientes_filtrados:
           st.warning(
               "No se encontraron pacientes que coincidan con la búsqueda."
           )
-        else:
+        elif pacientes_filtrados:
           opciones_busqueda = [
               f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} (Fila {p['fila']})"
               for p in pacientes_filtrados
           ]
           seleccion_paciente = st.selectbox(
-              "Seleccione del listado:", options=opciones_busqueda
+              "Seleccione del listado de coincidencias:",
+              options=opciones_busqueda,
           )
 
           if seleccion_paciente:
