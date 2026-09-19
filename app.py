@@ -2,6 +2,7 @@ import datetime
 import urllib.parse
 import unicodedata
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Configuración de la página
 st.set_page_config(
@@ -28,8 +29,6 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-comprobante { background-color: #ffffff; border: 3px solid #1e5b4f; padding: 25px; border-radius: 12px; color: #161a1d; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-            .folio-grande { font-size: 2rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 10px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 15px 0; }
             
             [data-testid="stSidebar"] { background-color: #611232 !important; }
             [data-testid="stSidebar"] * { color: #ffffff !important; }
@@ -57,8 +56,6 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-comprobante { background-color: #ffffff; border: 3px solid #1e5b4f; padding: 25px; border-radius: 12px; color: #161a1d; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-            .folio-grande { font-size: 2rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 10px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 15px 0; }
             
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
@@ -70,19 +67,19 @@ else:
 
 # Inicializar variables de estado compartido si no existen
 if "registros_censales" not in st.session_state:
-  st.session_state.registros_censales = []
+    st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
-  st.session_state.contador_consecutivo = 1
+    st.session_state.contador_consecutivo = 1
 if "fecha_ultimo_consecutivo" not in st.session_state:
-  st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
+    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 if "tipo_jornada" not in st.session_state:
-  st.session_state.tipo_jornada = "I"
+    st.session_state.tipo_jornada = "I"
 if "siglas_unidad" not in st.session_state:
-  st.session_state.siglas_unidad = "ERM"
+    st.session_state.siglas_unidad = "ERM"
 if "nombre_unidad" not in st.session_state:
-  st.session_state.nombre_unidad = "ERMITA"
+    st.session_state.nombre_unidad = "ERMITA"
 if "ultimo_paciente_registrado" not in st.session_state:
-  st.session_state.ultimo_paciente_registrado = None
+    st.session_state.ultimo_paciente_registrado = None
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -250,38 +247,107 @@ estados_mexico = [
 ]
 
 
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON CAPTURA DE PANTALLA EN IMAGEN ---
+# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON COMPONENTE HTML/JS AISLADO ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
-    # Usamos .format() en lugar de f-string para evitar conflictos con las llaves de JavaScript
-    html_comprobante = """
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <div id="comprobante-captura" class="card-comprobante" style="margin-bottom: 10px; padding: 20px;">
-            <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO - CAMPAÑA INVERNAL</h3>
-            <p style="margin: 5px 0;"><b>Unidad Médica:</b> {unidad}</p>
-            <p style="margin: 5px 0;"><b>Paciente:</b> {nombre}</p>
-            <p style="margin: 5px 0;"><b>CURP:</b> {curp}</p>
-            <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {grupo}</p>
-            <div class="folio-grande">FOLIO: {folio}</div>
-            <hr style="border: 1px solid #e6d194; margin: 10px 0;">
-            <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {fecha}</p>
-            <p style="margin: 5px 0;">⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
-            <p style="font-size: 0.85rem; color: #666; text-align: center; margin-top: 10px;">Sistema VIGILE - Comprobante Oficial de Campaña</p>
-        </div>
+    msg_wa = (
+        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
+        f"Unidad: {st.session_state.nombre_unidad}\n"
+        f"Folio: *{p['folio']}*\n"
+        f"Paciente: {p['nombre_completo']}\n"
+        f"CURP: {p['curp_algoritmica']}\n"
+        f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
+        f"¡Preséntese en el módulo con este comprobante!"
+    )
+    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
 
-        <script>
-        function descargarCaptura() {{
-            const elemento = document.getElementById('comprobante-captura');
-            html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                const enlace = document.createElement('a');
-                enlace.download = 'Comprobante_{folio}.png';
-                enlace.href = canvas.toDataURL('image/png');
-                enlace.click();
-            }});
-        }}
-        </script>
+    # Componente HTML independiente para manejar html2canvas sin restricciones
+    html_comprobante_component = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <style>
+            body {{
+                font-family: sans-serif;
+                margin: 0;
+                padding: 5px;
+                background-color: transparent;
+            }}
+            .card-comprobante {{
+                background-color: #ffffff;
+                border: 3px solid #1e5b4f;
+                padding: 20px;
+                border-radius: 12px;
+                color: #161a1d;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                margin-bottom: 15px;
+            }}
+            .folio-grande {{
+                font-size: 1.8rem !important;
+                font-weight: 900 !important;
+                color: #611232 !important;
+                text-align: center;
+                background-color: #f7f4eb;
+                padding: 10px;
+                border-radius: 6px;
+                border: 2px dashed #a57f2c;
+                margin: 15px 0;
+            }}
+            .btn-container {{
+                display: flex;
+                gap: 10px;
+            }}
+            .btn {{
+                flex: 1;
+                padding: 0.7rem 1rem;
+                font-size: 1rem;
+                font-weight: bold;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+            }}
+            .btn-img {{ background-color: #1e5b4f; color: white; }}
+            .btn-wa {{ background-color: #25D366; color: white; }}
+        </style>
+        </head>
+        <body>
+            <div id="comprobante-captura" class="card-comprobante">
+                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO</h3>
+                <p style="margin: 5px 0;"><b>Unidad Médica:</b> {unidad}</p>
+                <p style="margin: 5px 0;"><b>Paciente:</b> {nombre}</p>
+                <p style="margin: 5px 0;"><b>CURP:</b> {curp}</p>
+                <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {grupo}</p>
+                <div class="folio-grande">FOLIO: {folio}</div>
+                <hr style="border: 1px solid #e6d194; margin: 10px 0;">
+                <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {fecha}</p>
+                <p style="margin: 5px 0;">⏰ <b>Horario:</b> Lunes a Viernes 08:00 a 14:00 hrs</p>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen</button>
+                <a class="btn btn-wa" href="{url_wa}" target="_blank">💬 WhatsApp</a>
+            </div>
+
+            <script>
+            function descargarCaptura() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    const enlace = document.createElement('a');
+                    enlace.download = 'Comprobante_{folio}.png';
+                    enlace.href = canvas.toDataURL('image/png');
+                    enlace.click();
+                }});
+            }}
+            </script>
+        </body>
+        </html>
         """.format(
         unidad=st.session_state.nombre_unidad,
         nombre=p["nombre_completo"],
@@ -289,41 +355,11 @@ def mostrar_modal_comprobante():
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
         fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
+        url_wa=url_whatsapp,
     )
 
-    st.markdown(html_comprobante, unsafe_allow_html=True)
-
-    col_m1, col_m2 = st.columns(2)
-
-    with col_m1:
-      st.markdown(
-          '<button onclick="descargarCaptura()"'
-          ' style="background-color: #1e5b4f; color: white; border: none;'
-          " padding: 0.6rem 1rem; font-size: 1rem; font-weight: bold;"
-          " border-radius: 6px; width: 100%; text-align: center; cursor:"
-          ' pointer;">📸 Descargar Imagen</button>',
-          unsafe_allow_html=True,
-      )
-
-    with col_m2:
-      msg_wa = (
-          f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
-          f"Unidad: {st.session_state.nombre_unidad}\n"
-          f"Folio: *{p['folio']}*\n"
-          f"Paciente: {p['nombre_completo']}\n"
-          f"CURP: {p['curp_algoritmica']}\n"
-          f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
-          f"¡Preséntese en el módulo con este comprobante!"
-      )
-      url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
-      st.markdown(
-          f'<a href="{url_whatsapp}" target="_blank"><button'
-          ' style="background-color: #25D366; color: white; border: none;'
-          " padding: 0.6rem 1rem; font-size: 1rem; font-weight: bold;"
-          " border-radius: 6px; width: 100%; text-align: center; cursor:"
-          ' pointer;">💬 WhatsApp</button></a>',
-          unsafe_allow_html=True,
-      )
+    # Renderizamos el componente aislado con altura exacta para que no aparezcan barras de desplazamiento
+    components.html(html_comprobante_component, height=420)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
