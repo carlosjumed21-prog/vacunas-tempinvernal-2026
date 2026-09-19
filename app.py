@@ -7,23 +7,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
 
-# Configuración de la página
+# Configuración única de la página
 st.set_page_config(
     page_title="Censo Nominal - Vacunación e Invernal",
     page_icon="💉",
     layout="centered",
 )
-
-# --- NAVEGACIÓN FORMAL DE LA INTERFAZ ---
-pg = st.navigation([
-    st.Page(
-        "app.py", title="Registro de Pacientes", icon="👤", default=True
-    ),
-    st.Page("pages/2_consulta_censia.py", title="Registro de Dosis", icon="💉"),
-    st.Page("pages/3_administrador.py", title="Administrador", icon="⚙️"),
-])
-
-pg.run()
 
 # --- 1. CAPTURA Y PERSISTENCIA DE PARÁMETROS DE LA URL EN SESSION_STATE ---
 params = st.query_params
