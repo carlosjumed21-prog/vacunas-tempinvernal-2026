@@ -222,7 +222,6 @@ estados_mexico = [
     "COAHUILA",
     "COLIMA",
     "DURANGO",
-    "DURANGO",
     "ESTADO DE MÉXICO",
     "GUANAJUATO",
     "GUERRERO",
@@ -378,6 +377,24 @@ def mostrar_modal_comprobante():
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
     ):
       st.session_state.ultimo_paciente_registrado = None
+      # Limpiar las llaves de los inputs para reiniciar físicamente el formulario
+      for key in [
+          "input_paterno",
+          "input_materno",
+          "input_nombres",
+          "input_fnac",
+          "input_sexo",
+          "input_estnac",
+          "input_estres",
+          "input_calle",
+          "input_num",
+          "input_col",
+          "input_derecho",
+          "input_ocupacion",
+          "input_digitos",
+      ]:
+        if key in st.session_state:
+          del st.session_state[key]
       st.rerun()
 
 
@@ -432,11 +449,11 @@ st.markdown(
 )
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
-  paterno = st.text_input("Apellido Paterno *")
+  paterno = st.text_input("Apellido Paterno *", key="input_paterno")
 with col_n2:
-  materno = st.text_input("Apellido Materno *")
+  materno = st.text_input("Apellido Materno *", key="input_materno")
 with col_n3:
-  nombres = st.text_input("Nombre(s) *")
+  nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
 col_fn1, col_fn2, col_fn3 = st.columns(3)
 with col_fn1:
@@ -446,14 +463,17 @@ with col_fn1:
       min_value=datetime.date(1900, 1, 1),
       max_value=datetime.date.today(),
       format="DD/MM/YYYY",
+      key="input_fnac",
   )
 with col_fn2:
   sexo = st.selectbox(
-      "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
+      "Sexo *",
+      options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
+      key="input_sexo",
   )
 with col_fn3:
   estado_nacimiento = st.selectbox(
-      "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
+      "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
   )
 
 planes_o_embarazo = "NO"
@@ -467,6 +487,7 @@ if sexo == "MUJER":
       "¿Está embarazada o tiene planes de embarazo?",
       options=["NO", "SÍ"],
       horizontal=True,
+      key="input_embarazo",
   )
   st.markdown("</div>", unsafe_allow_html=True)
 
@@ -489,6 +510,7 @@ digitos_faltantes = st.text_input(
     " oficial)",
     max_chars=2,
     placeholder="Ej. A1",
+    key="input_digitos",
 )
 
 curp_algoritmica = generar_curp_algoritmica(
@@ -516,20 +538,21 @@ st.markdown(
 estado_residencia = st.selectbox(
     "Estado de Residencia (Entidad Federativa) *",
     options=estados_mexico,
-    key="est_res",
+    key="input_estres",
 )
 
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
-  calle = st.text_input("Calle *")
+  calle = st.text_input("Calle *", key="input_calle")
 with col_dom2:
-  numero = st.text_input("No. (Ext / Int) *")
+  numero = st.text_input("No. (Ext / Int) *", key="input_num")
 with col_dom3:
-  colonia = st.text_input("Colonia *")
+  colonia = st.text_input("Colonia *", key="input_col")
 
 cuenta_derechohabiencia = st.selectbox(
     "¿Cuenta con derechohabiencia? *",
     options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
+    key="input_derecho",
 )
 
 # --- BLOQUE 4: OCUPACIÓN ---
@@ -547,6 +570,7 @@ ocupacion = st.selectbox(
         "TRABAJO EN GUARDERÍA",
         "OTRAS PROFESIONES",
     ],
+    key="input_ocupacion",
 )
 
 # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
@@ -557,22 +581,24 @@ st.markdown(
 col_r1, col_r2 = st.columns(2)
 
 with col_r1:
-  vih = st.checkbox("VIH / SIDA")
-  diabetes = st.checkbox("DIABETES MELLITUS")
-  obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-  cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-  epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
+  vih = st.checkbox("VIH / SIDA", key="com_vih")
+  diabetes = st.checkbox("DIABETES MELLITUS", key="com_diab")
+  obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="com_obes")
+  cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="com_card")
+  epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)", key="com_epoc")
 
 with col_r2:
-  cancer = st.checkbox("CÁNCER")
+  cancer = st.checkbox("CÁNCER", key="com_canc")
   congenitas = st.checkbox(
-      "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+      "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS", key="com_cong"
   )
-  insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-  inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
-  hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+  insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="com_iren")
+  inmunosupresion = st.checkbox(
+      "INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)", key="com_inmu"
+  )
+  hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL", key="com_hipt")
   discapacidades = st.checkbox(
-      "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
+      "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)", key="com_disc"
   )
 
 # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
