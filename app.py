@@ -403,7 +403,7 @@ with st.form("form_censo_vacunacion_resto"):
         inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
         hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
 
-    # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
+    # --- LÓGICA ORIGINAL RESTAURADA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
     edad_total_meses = (calc_anos * 12) + calc_meses
     tiene_comorb = any(
         [
@@ -427,11 +427,7 @@ with st.form("form_censo_vacunacion_resto"):
         elif calc_anos >= 60:
             grupo_sugerido = "60 Y MÁS"
         elif 5 <= calc_anos <= 11:
-            grupo_sugerido = (
-                "5 A 11 AÑOS (Riesgo / Comorbilidad / Indicación)"
-                if tiene_comorb
-                else "5 A 11 AÑOS"
-            )
+            grupo_sugerido = "5 A 11 AÑOS"
         elif planes_o_embarazo == "SÍ":
             grupo_sugerido = "EMBARAZADAS"
         elif ocupacion == "PERSONAL DE SALUD":
