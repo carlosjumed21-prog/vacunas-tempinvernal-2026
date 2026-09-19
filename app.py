@@ -335,151 +335,144 @@ with col_info2:
         unsafe_allow_html=True,
     )
 
-with st.form("form_censo_vacunacion_resto"):
+# --- BLOQUE 3: DOMICILIO Y AFILIACIÓN (FUERA DEL FORMULARIO PARA REACTIVIDAD) ---
+st.markdown(
+    '<div class="section-title">3. Domicilio y Afiliación</div>',
+    unsafe_allow_html=True,
+)
+estado_residencia = st.selectbox(
+    "Estado de Residencia (Entidad Federativa) *",
+    options=estados_mexico,
+    key="est_res",
+)
 
-    # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
-    st.markdown(
-        '<div class="section-title">3. Domicilio y Afiliación</div>',
-        unsafe_allow_html=True,
+col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
+with col_dom1:
+    calle = st.text_input("Calle *")
+with col_dom2:
+    numero = st.text_input("No. (Ext / Int) *")
+with col_dom3:
+    colonia = st.text_input("Colonia *")
+
+cuenta_derechohabiencia = st.radio(
+    "¿Cuenta con derechohabiencia? *", options=["NO", "SÍ"], horizontal=True
+)
+
+# --- BLOQUE 4: OCUPACIÓN (FUERA DEL FORMULARIO) ---
+st.markdown(
+    '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
+)
+ocupacion = st.selectbox(
+    "Seleccione su Ocupación *",
+    options=[
+        "SELECCIONE UNA OPCIÓN",
+        "PERSONAL DE SALUD",
+        "JUBILADO/A",
+        "MAESTRO/A",
+        "ADMINISTRATIVO/A",
+        "TRABAJO EN GUARDERÍA",
+        "OTRAS PROFESIONES",
+    ],
+)
+
+# --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES (FUERA DEL FORMULARIO) ---
+st.markdown(
+    '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
+    unsafe_allow_html=True,
+)
+col_r1, col_r2 = st.columns(2)
+
+with col_r1:
+    vih = st.checkbox("VIH / SIDA")
+    diabetes = st.checkbox("DIABETES MELLITUS")
+    obesidad = st.checkbox("OBESIDAD MÓRBIDA")
+    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+    epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
+
+with col_r2:
+    cancer = st.checkbox("CÁNCER")
+    congenitas = st.checkbox(
+        "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
     )
-    estado_residencia = st.selectbox(
-        "Estado de Residencia (Entidad Federativa) *",
-        options=estados_mexico,
-        key="est_res",
+    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
+    inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+    discapacidades = st.checkbox(
+        "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
     )
 
-    col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-    with col_dom1:
-        calle = st.text_input("Calle *")
-    with col_dom2:
-        numero = st.text_input("No. (Ext / Int) *")
-    with col_dom3:
-        colonia = st.text_input("Colonia *")
+# --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
+edad_total_meses = (calc_anos * 12) + calc_meses
+tiene_comorb = any(
+    [
+        vih,
+        diabetes,
+        obesidad,
+        cardiopatias,
+        epoc,
+        cancer,
+        congenitas,
+        insuficiencia_renal,
+        inmunosupresion,
+        hipertension,
+        discapacidades,
+    ]
+)
 
-    cuenta_derechohabiencia = st.radio(
-        "¿Cuenta con derechohabiencia? *",
-        options=["NO", "SÍ"],
-        horizontal=True,
-    )
-
-    # --- BLOQUE 4: OCUPACIÓN ---
-    st.markdown(
-        '<div class="section-title">4. Ocupación</div>',
-        unsafe_allow_html=True,
-    )
-    ocupacion = st.selectbox(
-        "Seleccione su Ocupación *",
-        options=[
-            "SELECCIONE UNA OPCIÓN",
-            "PERSONAL DE SALUD",
-            "JUBILADO/A",
-            "MAESTRO/A",
-            "ADMINISTRATIVO/A",
-            "TRABAJO EN GUARDERÍA",
-            "OTRAS PROFESIONES",
-        ],
-    )
-
-    # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
-    st.markdown(
-        '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
-        unsafe_allow_html=True,
-    )
-    col_r1, col_r2 = st.columns(2)
-
-    with col_r1:
-        vih = st.checkbox("VIH / SIDA")
-        diabetes = st.checkbox("DIABETES MELLITUS")
-        obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-        cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-        epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
-
-    with col_r2:
-        cancer = st.checkbox("CÁNCER")
-        congenitas = st.checkbox(
-            "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+grupo_sugerido = ""
+if fecha_nacimiento is not None:
+    if 6 <= edad_total_meses <= 59:
+        grupo_sugerido = "6 A 59 MESES"
+    elif calc_anos >= 60:
+        grupo_sugerido = "60 Y MÁS"
+    elif planes_o_embarazo == "SÍ":
+        grupo_sugerido = "PERSONAS GESTANTES"
+    elif ocupacion == "PERSONAL DE SALUD":
+        grupo_sugerido = "PERSONAL DE SALUD"
+    elif vih:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
+    elif diabetes:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
+    elif obesidad:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
+    elif cardiopatias:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
+    elif epoc:
+        grupo_sugerido = (
+            "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
         )
-        insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-        inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
-        hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
-        discapacidades = st.checkbox(
-            "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
-        )
-
-    # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
-    edad_total_meses = (calc_anos * 12) + calc_meses
-    tiene_comorb = any(
-        [
-            vih,
-            diabetes,
-            obesidad,
-            cardiopatias,
-            epoc,
-            cancer,
-            congenitas,
-            insuficiencia_renal,
-            inmunosupresion,
-            hipertension,
-            discapacidades,
-        ]
-    )
-
-    grupo_sugerido = ""
-    if fecha_nacimiento is not None:
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "6 A 59 MESES"
-        elif calc_anos >= 60:
-            grupo_sugerido = "60 Y MÁS"
-        elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "PERSONAS GESTANTES"
-        elif ocupacion == "PERSONAL DE SALUD":
-            grupo_sugerido = "PERSONAL DE SALUD"
-        elif vih:
-            grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
-        elif diabetes:
-            grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
-        elif obesidad:
-            grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
-        elif cardiopatias:
-            grupo_sugerido = (
-                "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
-            )
-        elif epoc:
-            grupo_sugerido = (
-                "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
-            )
-        elif cancer:
-            grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
-        elif congenitas:
-            grupo_sugerido = (
-                "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-            )
-        elif insuficiencia_renal:
-            grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
-        elif inmunosupresion:
-            grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
-        elif hipertension:
-            grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
-        elif discapacidades:
-            grupo_sugerido = "DISCAPACIDADES"
-        else:
-            grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
-
-    st.markdown(
-        '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
-        unsafe_allow_html=True,
-    )
-    if grupo_sugerido == "":
-        st.markdown(
-            '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
-            unsafe_allow_html=True,
-        )
+    elif cancer:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
+    elif congenitas:
+        grupo_sugerido = "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+    elif insuficiencia_renal:
+        grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
+    elif inmunosupresion:
+        grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
+    elif hipertension:
+        grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
+    elif discapacidades:
+        grupo_sugerido = "DISCAPACIDADES"
     else:
-        st.markdown(
-            f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
-            unsafe_allow_html=True,
-        )
+        grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
+st.markdown(
+    '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
+    unsafe_allow_html=True,
+)
+if grupo_sugerido == "":
+    st.markdown(
+        '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
+        unsafe_allow_html=True,
+    )
+
+# --- FORMULARIO PARA ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
+with st.form("form_censo_vacunacion_guardar"):
     # --- ANTECEDENTE VACUNAL ---
     st.markdown(
         '<div class="section-title">7. Antecedente Vacunal</div>',
