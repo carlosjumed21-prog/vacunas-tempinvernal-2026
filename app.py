@@ -1,8 +1,10 @@
 import datetime
+import json
 import urllib.parse
-import unicodedata
+import gspread
 import streamlit as st
 import streamlit.components.v1 as components
+from google.oauth2.service_account import Credentials
 
 # Configuración de la página
 st.set_page_config(
@@ -11,13 +13,12 @@ st.set_page_config(
     layout="centered",
 )
 
-# Leer los parámetros de la URL para modo operativo por QR
+# Leer los parámetros de la URL para modo operativo por QR / Multi-unidad
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
 if "unidad" in params:
   sigla_url = params.get("unidad")
-  # Diccionario inverso para recuperar el nombre de la unidad según las siglas
   mapa_siglas_inverso = {
       "20N": "20 DE NOVIEMBRE",
       "CHU": "CHURUBUSCO",
@@ -35,7 +36,6 @@ if "unidad" in params:
       "TLA": "TLALPAN",
       "VAO": "VILLA ALVARO OBREGON",
       "XOC": "XOCHIMILCO",
-      # Compatibilidad con versiones anteriores
       "NOV": "20 DE NOVIEMBRE",
       "ZAR": "ZARAGOZA",
       "GFAR": "GÓMEZ FARÍAS",
@@ -46,6 +46,12 @@ if "unidad" in params:
 
 if "jornada" in params:
   st.session_state.tipo_jornada = params.get("jornada", "I")
+
+if "fecha" in params:
+  st.session_state.fecha_jornada_url = params.get("fecha")
+
+if "resp" in params:
+  st.session_state.resp_jornada_url = params.get("resp")
 
 # Estilos CSS institucionales
 if es_modo_qr:
@@ -90,7 +96,7 @@ else:
       unsafe_allow_html=True,
   )
 
-# Inicializar variables de estado compartido con los valores sincronizados del Administrador
+# Inicializar variables de estado
 if "registros_censales" not in st.session_state:
   st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
@@ -106,7 +112,6 @@ if "nombre_unidad" not in st.session_state:
 if "ultimo_paciente_registrado" not in st.session_state:
   st.session_state.ultimo_paciente_registrado = None
 
-# Variables sincronizadas con la configuración del administrador
 if "config_fecha_aplicacion" not in st.session_state:
   st.session_state.config_fecha_aplicacion = datetime.date.today()
 if "config_hora_inicio" not in st.session_state:
@@ -285,7 +290,6 @@ estados_mexico = [
 ]
 
 
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE (MODAL FLOTANTE st.dialog) ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
@@ -297,47 +301,11 @@ def mostrar_modal_comprobante():
         <meta charset="utf-8">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
-            body {{
-                font-family: sans-serif;
-                margin: 0;
-                padding: 0;
-                background-color: transparent;
-            }}
-            .card-comprobante {{
-                background-color: #ffffff;
-                border: 3px solid #1e5b4f;
-                padding: 12px;
-                border-radius: 10px;
-                color: #161a1d;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-                margin-bottom: 10px;
-            }}
-            .folio-grande {{
-                font-size: 1.3rem !important;
-                font-weight: 900 !important;
-                color: #611232 !important;
-                text-align: center;
-                background-color: #f7f4eb;
-                padding: 6px;
-                border-radius: 6px;
-                border: 2px dashed #a57f2c;
-                margin: 5px 0;
-            }}
-            .btn-container {{
-                display: flex;
-                gap: 8px;
-            }}
-            .btn {{
-                flex: 1;
-                padding: 0.65rem 0.4rem;
-                font-size: 0.85rem;
-                font-weight: bold;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                text-align: center;
-                box-sizing: border-box;
-            }}
+            body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
+            .card-comprobante {{ background-color: #ffffff; border: 3px solid #1e5b4f; padding: 12px; border-radius: 10px; color: #161a1d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; }}
+            .folio-grande {{ font-size: 1.3rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 5px 0; }}
+            .btn-container {{ display: flex; gap: 8px; }}
+            .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
             .btn-img {{ background-color: #1e5b4f; color: white; }}
         </style>
@@ -354,12 +322,10 @@ def mostrar_modal_comprobante():
                 <hr style="border: 1px solid #e6d194; margin: 3px 0;">
                 <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
             </div>
-
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
                 <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
             </div>
-
             <script>
             function compartirImagenWhatsApp() {{
                 const elemento = document.getElementById('comprobante-captura');
@@ -367,25 +333,18 @@ def mostrar_modal_comprobante():
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
-
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{
-                                files: [file],
-                                title: 'Comprobante de Vacunación',
-                                text: textoMensaje
-                            }}).catch(error => console.log('Error al compartir', error));
+                            navigator.share({{ files: [file], title: 'Comprobante', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
                             const enlace = document.createElement('a');
                             enlace.download = 'Comprobante_{folio}.png';
                             enlace.href = URL.createObjectURL(blob);
                             enlace.click();
-                            alert('Imagen descargada. Se abrirá WhatsApp para enviarla.');
                             window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
                         }}
                     }}, 'image/png');
                 }});
             }}
-
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
@@ -402,7 +361,7 @@ def mostrar_modal_comprobante():
         unidad=st.session_state.nombre_unidad,
         direccion=st.session_state.config_direccion_oficial,
         nombre=p["nombre_completo"],
-        curp=p["curp_algoritmica"],
+        curp=p["curp_con_entidad"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
         fecha=st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y"),
@@ -411,7 +370,6 @@ def mostrar_modal_comprobante():
     )
 
     components.html(html_comprobante_component, height=310)
-
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -437,7 +395,6 @@ def mostrar_modal_comprobante():
       st.rerun()
 
 
-# Activar la ventana emergente si hay un registro exitoso pendiente
 if st.session_state.ultimo_paciente_registrado is not None:
   mostrar_modal_comprobante()
 
@@ -452,7 +409,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS (Heredados del Administrador) ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
@@ -463,7 +420,6 @@ with col_g1:
       "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
   )
 with col_g2:
-  # Hereda la fecha configurada por el administrador por defecto
   fecha_aplicacion = st.date_input(
       "Fecha de Aplicación (Autorizada)",
       value=st.session_state.config_fecha_aplicacion,
@@ -548,8 +504,7 @@ with col_info1:
   )
 
 digitos_faltantes = st.text_input(
-    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP"
-    " oficial)",
+    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
     max_chars=2,
     placeholder="Ej. A1",
     key="input_digitos",
@@ -564,11 +519,19 @@ curp_algoritmica = generar_curp_algoritmica(
     estado_nacimiento,
     digitos_faltantes,
 )
+# CURP con diagonal y Estado de Nacimiento para la celda 14C
+entidad_abr = estados_curp.get(estado_nacimiento, "NE")
+curp_con_entidad = (
+    f"{curp_algoritmica}/{entidad_abr}"
+    if estado_nacimiento != "SELECCIONE UN ESTADO"
+    else curp_algoritmica
+)
+
 with col_info2:
   st.markdown(
-      f'<div class="card-curp">🆔 CURP Resultante: <br><span'
+      f'<div class="card-curp">🆔 CURP / Entidad Resultante (14C): <br><span'
       f' style="color: #611232; font-family:'
-      f' monospace;">{curp_algoritmica}</span></div>',
+      f' monospace;">{curp_con_entidad}</span></div>',
       unsafe_allow_html=True,
   )
 
@@ -643,7 +606,13 @@ with col_r2:
       "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)", key="com_disc"
   )
 
-# --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
+otros_riesgos = st.text_input(
+    "Otros grupos de riesgo / Observaciones clínicas (Mapeo AE):",
+    placeholder="Especifique si aplica otro padecimiento...",
+    key="input_otros_riesgos",
+)
+
+# --- LÓGICA DE GRUPO OBJETIVO ---
 edad_total_meses = (calc_anos * 12) + calc_meses
 tiene_comorb = any([
     vih,
@@ -666,126 +635,179 @@ if fecha_nacimiento is not None:
   elif calc_anos >= 60:
     grupo_sugerido = "60 Y MÁS"
   elif planes_o_embarazo == "SÍ":
-    grupo_sugerido = "PERSONAS GESTANTES"
+    grupo_sugerido = "EMBARAZADAS"
   elif ocupacion == "PERSONAL DE SALUD":
     grupo_sugerido = "PERSONAL DE SALUD"
   elif vih:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
+    grupo_sugerido = "VIH/sida"
   elif diabetes:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
+    grupo_sugerido = "DIABETES MELLITUS"
   elif obesidad:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
+    grupo_sugerido = "OBESIDAD MORBIDA"
   elif cardiopatias:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
-  elif epoc:
-    grupo_sugerido = (
-        "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
-    )
-  elif cancer:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
-  elif congenitas:
-    grupo_sugerido = "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-  elif insuficiencia_renal:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
-  elif inmunosupresion:
-    grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
-  elif hipertension:
-    grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
-  elif discapacidades:
-    grupo_sugerido = "DISCAPACIDADES"
+    grupo_sugerido = "CARDIOPATÍAS AGUDAS O CRÓNICAS"
   else:
-    grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
+    grupo_sugerido = "POBLACIÓN GENERAL"
 
 st.markdown(
     '<div class="section-title">6. Grupo Objetivo (Detectado'
     " Automáticamente)</div>",
     unsafe_allow_html=True,
 )
-if grupo_sugerido == "":
-  st.markdown(
-      '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px'
-      ' dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
-      unsafe_allow_html=True,
-  )
-else:
-  st.markdown(
-      f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
-      unsafe_allow_html=True,
-  )
-
-# --- 7. ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
 st.markdown(
-    '<div class="section-title">7. Antecedente Vacunal</div>',
-    unsafe_allow_html=True,
+    f'<div class="card-grupo">🎯 {grupo_sugerido}</div>', unsafe_allow_html=True
 )
-col_av1, col_av2 = st.columns(2)
-with col_av1:
-  antecedente_covid = st.radio(
-      "¿Cuenta con alguna dosis previa de COVID-19?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_cov",
-  )
-with col_av2:
-  antecedente_influenza = st.radio(
-      "¿Cuenta con alguna dosis previa de Influenza?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_inf",
-  )
 
 st.markdown("---")
 if st.button(
-    "Guardar Paciente en el Censo Nominal", use_container_width=True
+    "Guardar Paciente y Migrar a Censo Nominal", use_container_width=True
 ):
   if not fecha_nacimiento:
     st.error("Por favor seleccione la Fecha de Nacimiento.")
   elif not paterno or not nombres:
-    st.error(
-        "Por favor complete los campos obligatorios de Apellido Paterno y"
-        " Nombre(s)."
-    )
+    st.error("Complete Apellido Paterno y Nombre(s).")
   elif sexo == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor seleccione una opción válida en el campo Sexo.")
+    st.error("Seleccione una opción en Sexo.")
   elif estado_nacimiento == "SELECCIONE UN ESTADO":
-    st.error("Por favor seleccione un Estado de Nacimiento válido.")
+    st.error("Seleccione un Estado de Nacimiento válido.")
   elif estado_residencia == "SELECCIONE UN ESTADO":
-    st.error("Por favor seleccione un Estado de Residencia válido.")
-  elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor indique si cuenta con derechohabiencia.")
+    st.error("Seleccione un Estado de Residencia válido.")
   elif not calle or not numero or not colonia:
-    st.error("Por favor complete los campos obligatorios del domicilio.")
+    st.error("Complete los datos obligatorios del domicilio.")
   elif ocupacion == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor seleccione una Ocupación válida.")
+    st.error("Seleccione una Ocupación válida.")
   else:
-    nuevo_paciente = {
-        "folio": folio_automatico,
-        "curp_algoritmica": curp_algoritmica,
-        "nombre_completo": (
-            f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
-        ),
-        "paterno": paterno.upper(),
-        "materno": materno.upper(),
-        "nombres": nombres.upper(),
-        "fecha_nacimiento": fecha_nacimiento,
-        "estado_nacimiento": estado_nacimiento,
-        "edad_anos": calc_anos,
-        "edad_meses": calc_meses,
-        "edad_dias": calc_dias,
-        "edad_total_meses": edad_total_meses,
-        "sexo": sexo,
-        "embarazo": (planes_o_embarazo == "SÍ"),
-        "ocupacion": ocupacion,
-        "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-        "derechohabiencia": cuenta_derechohabiencia,
-        "tiene_comorbilidades": tiene_comorb,
-        "grupo_objetivo": grupo_sugerido,
-        "antecedente_covid": antecedente_covid,
-        "antecedente_influenza": antecedente_influenza,
-        "fecha_registro": fecha_registro,
-        "fecha_aplicacion": fecha_aplicacion,
-    }
-    st.session_state.registros_censales.append(nuevo_paciente)
-    st.session_state.ultimo_paciente_registrado = nuevo_paciente
-    st.session_state.contador_consecutivo += 1
-    st.rerun()
+    try:
+      fecha_hoy_str = datetime.date.today().strftime("%d%m%y")
+      siglas_actual = st.session_state.get("siglas_unidad", "20N")
+      tipo_texto_jornada = (
+          "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
+      )
+      nombre_hoja_destino = (
+          f"{siglas_actual}_{tipo_texto_jornada}_{fecha_hoy_str}"
+      )
+
+      scope = [
+          "https://spreadsheets.google.com/feeds",
+          "https://www.googleapis.com/auth/drive",
+      ]
+      if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = (
+            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        )
+      elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
+      else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+      client = gspread.authorize(creds)
+
+      sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+      spreadsheet = client.open_by_key(sheet_id)
+
+      try:
+        worksheet = spreadsheet.worksheet(nombre_hoja_destino)
+      except:
+        worksheet = spreadsheet.worksheet("CENSO NOMINAL")
+
+      # Determinar la siguiente fila disponible a partir de la fila 13
+      valores_col_c = worksheet.col_values(3)  # Columna C
+      siguiente_fila = max(13, len(valores_col_c) + 1)
+
+      # Preparar variables para mapeo exacto en filas agrupadas (ej. fila elegida y siguiente)
+      f_actual = siguiente_fila
+      f_siguiente = siguiente_fila + 1
+
+      # 1. Folio Generado (B3-B4)
+      worksheet.update(f"B{f_actual}:B{f_siguiente}", [[folio_automatico], [folio_automatico]])
+
+      # 2. Apellidos y Nombres (C13, D13, E13)
+      worksheet.update_acell(f"C{f_actual}", paterno.upper())
+      worksheet.update_acell(f"D{f_actual}", materno.upper() if materno else "")
+      worksheet.update_acell(f"E{f_actual}", nombres.upper())
+
+      # 3. Fecha de Nacimiento desglosada (F, G, H en filas 3-4)
+      dd_nac = str(fecha_nacimiento.day).zfill(2)
+      mm_nac = str(fecha_nacimiento.month).zfill(2)
+      yyyy_nac = str(fecha_nacimiento.year)
+
+      worksheet.update(f"F{f_actual}:F{f_siguiente}", [[dd_nac], [dd_nac]])
+      worksheet.update(f"G{f_actual}:G{f_siguiente}", [[mm_nac], [mm_nac]])
+      worksheet.update(f"H{f_actual}:H{f_siguiente}", [[yyyy_nac], [yyyy_nac]])
+
+      # 4. Edad desglosada (I, J en filas 3-4)
+      worksheet.update(f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]])
+      worksheet.update(f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]])
+
+      # 5. Sexo y Fecha de Aplicación (K, L en filas 3-4)
+      sexo_letra = "H" if sexo == "HOMBRE" else "M"
+      f_aplicacion_str = fecha_aplicacion.strftime("%d/%m/%Y")
+      worksheet.update(f"K{f_actual}:K{f_siguiente}", [[sexo_letra], [sexo_letra]])
+      worksheet.update(f"L{f_actual}:L{f_siguiente}", [[f_aplicacion_str], [f_aplicacion_str]])
+
+      # 6. Domicilio (M, N, O en filas 13-14)
+      dir_calle = calle.upper()
+      dir_num = numero.upper()
+      dir_col = colonia.upper()
+      worksheet.update(f"M{f_actual}:M{f_siguiente}", [[dir_calle], [dir_calle]])
+      worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
+      worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
+
+      # 7. CURP con Entidad en C14
+      worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
+
+      # 8. Grupo Objetivo (Marcado con X en P, Q, R, S, T, U, V, W, X)
+      col_grupo_map = {
+          "6 A 59 MESES": "P",
+          "60 Y MÁS": "Q",
+          "EMBARAZADAS": "S",
+          "PERSONAL DE SALUD": "T",
+          "VIH/sida": "U",
+          "DIABETES MELLITUS": "V",
+          "OBESIDAD MORBIDA": "W",
+          "CARDIOPATÍAS AGUDAS O CRÓNICAS": "X",
+      }
+      letra_col_grupo = col_grupo_map.get(grupo_sugerido, None)
+      if letra_col_grupo:
+        worksheet.update(f"{letra_col_grupo}{f_actual}:{letra_col_grupo}{f_siguiente}", [["X"], ["X"]])
+
+      # 9. Grupos de riesgo / Comorbilidades (Y, Z, AA, AB, AC, AD en filas 13-14)
+      comorb_map = {
+          "epoc": "Y",
+          "cancer": "Z",
+          "congenitas": "AA",
+          "insuficiencia_renal": "AB",
+          "inmunosupresion": "AC",
+          "hipertension": "AD",
+      }
+      for estado_activo, columna_letra in [
+          (epoc, "Y"),
+          (cancer, "Z"),
+          (congenitas, "AA"),
+          (insuficiencia_renal, "AB"),
+          (inmunosupresion, "AC"),
+          (hipertension, "AD"),
+      ]:
+        if estado_activo:
+          worksheet.update(f"{columna_letra}{f_actual}:{columna_letra}{f_siguiente}", [["X"], ["X"]])
+
+      # 10. Otros grupos de riesgo (AE en filas 13-14)
+      if otros_riesgos:
+        worksheet.update(f"AE{f_actual}:AE{f_siguiente}", [[otros_riesgos.upper()], [otros_riesgos.upper()]])
+
+      nuevo_paciente = {
+          "folio": folio_automatico,
+          "curp_con_entidad": curp_con_entidad,
+          "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+          "grupo_objetivo": grupo_sugerido,
+      }
+      st.session_state.registros_censales.append(nuevo_paciente)
+      st.session_state.ultimo_paciente_registrado = nuevo_paciente
+      st.session_state.contador_consecutivo += 1
+      st.rerun()
+
+    except Exception as e:
+      st.error(f"Error al conectar con Google Sheets para migrar el dato: {e}")
