@@ -75,11 +75,6 @@ else:
       '<p class="main-header">Panel de Control y Administración</p>',
       unsafe_allow_html=True,
   )
-  st.markdown(
-      '<p class="sub-header">Configuración de Jornada, Unidad Médica, Fechas,'
-      " Horarios, Ubicación Autónoma y Códigos QR</p>",
-      unsafe_allow_html=True,
-  )
 
   unidades_issste = {
       "20 DE NOVIEMBRE": "NOV",
@@ -135,14 +130,14 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Búsqueda y Autocompletado de Dirección'
-      " (Google Maps)</div>",
+      '<div class="section-title">3. Búsqueda de Ubicación y Mapa'
+      " Interactivo</div>",
       unsafe_allow_html=True,
   )
 
-  # Campo de texto estándar en Streamlit donde el administrador ingresa o refina la dirección
+  # Campo de texto para ingresar la dirección o clínica
   ubicacion_input = st.text_input(
-      "Dirección exacta de la clínica o módulo (Sugerida):",
+      "Ingrese la dirección o nombre de la clínica:",
       value=st.session_state.config_ubicacion_maps,
       placeholder=(
           "Ej. Centro Médico Nacional 20 de Noviembre, Ciudad de México"
@@ -150,9 +145,14 @@ else:
   )
   st.session_state.config_ubicacion_maps = ubicacion_input
 
-  # Widget interactivo dinámico de Google Maps con la dirección en tiempo real
+  # Renderizado dinámico del mapa de Google Maps y dirección completa automática
   if ubicacion_input:
     query_mapa = urllib.parse.quote(ubicacion_input)
+    st.markdown(
+        f"<b>📍 Dirección Completa Detectada:</b> <span"
+        f' style="color: #1e5b4f;">{ubicacion_input}</span>',
+        unsafe_allow_html=True,
+    )
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
     )
