@@ -331,82 +331,61 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- BOTÓN DE AUTORIZACIÓN (ROJO INSTITUCIONAL) UBICADO DEBAJO DEL BLOQUE 4 ---
-  st.markdown(
-      """
-    <style>
-    div.stButton > button:first-of-type {
-        background-color: #a6192e !important;
-        color: white !important;
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-    }
-    </style>
-    """,
-      unsafe_allow_html=True,
-  )
+  # --- AUTOMATIZACIÓN EN GOOGLE SHEETS AL CARGAR / CONFIGURAR ---
+  try:
+    fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
+    nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
 
-  if st.button(
-      "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
-      use_container_width=True,
-  ):
-    try:
-      fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
-      nombre_nueva_hoja = (
-          f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+      raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+      creds_dict = (
+          json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+      )
+    elif "gpex" in st.secrets:
+      creds_dict = dict(st.secrets["gpex"])
+    else:
+      primera_llave = list(st.secrets.keys())[0]
+      creds_dict = dict(st.secrets[primera_llave])
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+
+    sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+    spreadsheet = client.open_by_key(sheet_id)
+
+    hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+    if nombre_nueva_hoja not in hojas_existentes:
+      plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+      nueva_hoja = spreadsheet.duplicate_sheet(
+          plantilla.id, new_sheet_name=nombre_nueva_hoja
+      )
+      # Reordenar para que la Hoja 1 ('CENSO NOMINAL') quede antes y luego la nueva
+      spreadsheet.reorder_worksheets(
+          [plantilla, nueva_hoja]
+          + [
+              h
+              for h in spreadsheet.worksheets()
+              if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
+          ]
       )
 
-      scope = [
-          "https://spreadsheets.google.com/feeds",
-          "https://www.googleapis.com/auth/drive",
-      ]
+    st.session_state.jornada_autorizada = True
+    st.session_state.nombre_unidad = unidad_sel
+    st.session_state.siglas_unidad = siglas_unidad
+    st.session_state.nombre_hoja_destino = nombre_nueva_hoja
 
-      if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = (
-            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        )
-      elif "gpex" in st.secrets:
-        creds_dict = dict(st.secrets["gpex"])
-      else:
-        primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+  except Exception as e:
+    st.warning(
+        "Aviso de sincronización con Google Sheets: Verifique permisos del"
+        f" correo de servicio. Detalle: {e}"
+    )
 
-      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-      client = gspread.authorize(creds)
-
-      sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
-      spreadsheet = client.open_by_key(sheet_id)
-
-      hojas_existentes = [h.title for h in spreadsheet.worksheets()]
-      if nombre_nueva_hoja not in hojas_existentes:
-        # Duplicar tomando la Hoja 1 (Plantilla base "CENSO NOMINAL")
-        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
-        nueva_hoja = spreadsheet.duplicate_sheet(
-            plantilla.id, new_sheet_name=nombre_nueva_hoja
-        )
-        # Ordenar la hoja recién creada dejándola inmediatamente después de la Hoja 1 (índice 1)
-        spreadsheet.reorder_worksheets([plantilla, nueva_hoja] + [h for h in spreadsheet.worksheets() if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]])
-
-      # Guardar parámetros oficiales en session_state
-      st.session_state.jornada_autorizada = True
-      st.session_state.nombre_unidad = unidad_sel
-      st.session_state.siglas_unidad = siglas_unidad
-      st.session_state.nombre_hoja_destino = nombre_nueva_hoja
-
-      st.success(
-          "¡Jornada autorizada y hoja generada con éxito! Actualizando panel..."
-      )
-      st.rerun()
-
-    except Exception as e:
-      st.error(
-          "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
-          " hoja 'CENSO NOMINAL' exista y que el correo de servicio"
-          f" tenga permisos de Editor. Detalle: {e}"
-      )
-
-  # Mostrar enlace directo de confirmación y visualización si la jornada está autorizada
+  # --- RECUADRO VERDE DE CONFIRMACIÓN Y ENLACE DIRECTO ---
   if st.session_state.jornada_autorizada:
     st.markdown(
         "<div style='background-color: #e8f0ec; border: 2px solid #1e5b4f;"
