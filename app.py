@@ -47,6 +47,8 @@ if "config_direccion_oficial" not in st.session_state:
   )
 if "jornada_autorizada" not in st.session_state:
   st.session_state.jornada_autorizada = False
+if "nombre_hoja_destino" not in st.session_state:
+  st.session_state.nombre_hoja_destino = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -322,7 +324,7 @@ else:
         # Localizar la plantilla base "CENSO NOMINAL"
         plantilla = spreadsheet.worksheet("CENSO NOMINAL")
         # Duplicarla con el nombre específico de la jornada
-        nueva_hoja = spreadsheet.duplicate_sheet(
+        spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
         )
         st.success(
@@ -335,10 +337,6 @@ else:
       st.session_state.nombre_unidad = unidad_sel
       st.session_state.siglas_unidad = siglas_unidad
       st.session_state.nombre_hoja_destino = nombre_nueva_hoja
-      st.success(
-          "🔒 ¡Jornada autorizada correctamente! Los registros se migrarán a"
-          f" la hoja: {nombre_nueva_hoja}"
-      )
 
     except Exception as e:
       st.error(
@@ -346,6 +344,30 @@ else:
           f" hoja 'CENSO NOMINAL' exista y el correo de servicio tenga"
           f" permisos: {e}"
       )
+
+  # Mostrar enlace directo de confirmación y visualización si la jornada está autorizada
+  if st.session_state.jornada_autorizada:
+    st.markdown(
+        "<div style='background-color: #e8f0ec; border: 2px solid #1e5b4f;"
+        " padding: 15px; border-radius: 8px; margin-top: 15px; text-align:"
+        " center;'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"### 🟢 Jornada Autorizada y Activa<br>Hoja de Destino:"
+        f" **{st.session_state.nombre_hoja_destino}**",
+        unsafe_allow_html=True,
+    )
+    url_sheet_directa = (
+        "https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit?usp=sharing"
+    )
+    st.markdown(
+        f"🔗 <a href='{url_sheet_directa}' target='_blank'"
+        " style='color: #1e5b4f; font-weight: bold; font-size: 1.1rem;'>Hacer clic"
+        " aquí para visualizar el Google Sheets creado</a>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
   st.markdown(
       '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
