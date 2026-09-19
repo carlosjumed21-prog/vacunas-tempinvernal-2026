@@ -534,7 +534,6 @@ estado_residencia = st.selectbox(
     key="input_estres",
 )
 
-# CURP automática / Municipio seleccionado en el menú desplegable (Celda 14C)
 municipio_residencia = (
     estado_residencia.upper()
     if estado_residencia != "SELECCIONE UN ESTADO"
