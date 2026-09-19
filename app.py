@@ -65,7 +65,7 @@ else:
         unsafe_allow_html=True,
     )
 
-# Inicializar variables de estado compartido si no existen
+# Inicializar variables de estado compartido si não existen
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
@@ -247,23 +247,21 @@ estados_mexico = [
 ]
 
 
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON COMPONENTE HTML/JS AISLADO ---
+# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON COMPONENTE HTML/JS PARA COMPARTIR IMAGEN ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
-    msg_wa = (
+    texto_whatsapp = (
         f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
         f"Unidad: {st.session_state.nombre_unidad}\n"
         f"Folio: *{p['folio']}*\n"
         f"Paciente: {p['nombre_completo']}\n"
         f"CURP: {p['curp_algoritmica']}\n"
         f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
-        f"¡Preséntese en el módulo con este comprobante!"
+        f"¡Presentar este comprobante en el módulo!"
     )
-    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
 
-    # Componente HTML independiente para manejar html2canvas sin restricciones
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -332,7 +330,7 @@ def mostrar_modal_comprobante():
 
             <div class="btn-container">
                 <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen</button>
-                <a class="btn btn-wa" href="{url_wa}" target="_blank">💬 WhatsApp</a>
+                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 Enviar por WhatsApp</button>
             </div>
 
             <script>
@@ -345,6 +343,30 @@ def mostrar_modal_comprobante():
                     enlace.click();
                 }});
             }}
+
+            function compartirImagenWhatsApp() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    canvas.toBlob(blob => {{
+                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
+                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                            navigator.share({{
+                                files: [file],
+                                title: 'Comprobante de Vacunación',
+                                text: `{texto_wa}`
+                            }}).catch(error => console.log('Error al compartir', error));
+                        }} else {{
+                            // Fallback para navegadores que no soportan compartir archivos directamente
+                            const enlace = document.createElement('a');
+                            enlace.download = 'Comprobante_{folio}.png';
+                            enlace.href = URL.createObjectURL(blob);
+                            enlace.click();
+                            alert('Imagen descargada en tu dispositivo. Ahora se abrirá WhatsApp.');
+                            window.open('https://wa.me/?text=' + encodeURIComponent(`{texto_wa}`), '_blank');
+                        }}
+                    }}, 'image/png');
+                }});
+            }}
             </script>
         </body>
         </html>
@@ -355,10 +377,9 @@ def mostrar_modal_comprobante():
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
         fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
-        url_wa=url_whatsapp,
+        texto_wa=texto_whatsapp.replace("\n", "\\n"),
     )
 
-    # Renderizamos el componente aislado con altura exacta para que no aparezcan barras de desplazamiento
     components.html(html_comprobante_component, height=420)
 
     st.markdown("<br>", unsafe_allow_html=True)
