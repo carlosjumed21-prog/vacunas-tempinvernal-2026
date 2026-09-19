@@ -1,4 +1,5 @@
 import datetime
+import urllib.parse
 import unicodedata
 import streamlit as st
 
@@ -13,7 +14,7 @@ st.set_page_config(
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Estilos CSS institucionales (incluyendo el color de la barra lateral y tarjetas)
+# Estilos CSS institucionales y de tarjetas dinámicas
 if es_modo_qr:
     st.markdown(
         """
@@ -27,6 +28,13 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-comprobante { background-color: #ffffff; border: 3px solid #1e5b4f; padding: 25px; border-radius: 12px; color: #161a1d; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+            .folio-grande { font-size: 2rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 10px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 15px 0; }
+            
+            /* Forzar color guinda en la barra lateral (sidebar) y sus textos */
+            [data-testid="stSidebar"] { background-color: #611232 !important; }
+            [data-testid="stSidebar"] * { color: #ffffff !important; }
+
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -51,6 +59,9 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-comprobante { background-color: #ffffff; border: 3px solid #1e5b4f; padding: 25px; border-radius: 12px; color: #161a1d; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+            .folio-grande { font-size: 2rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 10px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 15px 0; }
+            
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -72,6 +83,8 @@ if "siglas_unidad" not in st.session_state:
     st.session_state.siglas_unidad = "ERM"
 if "nombre_unidad" not in st.session_state:
     st.session_state.nombre_unidad = "ERMITA"
+if "ultimo_paciente_registrado" not in st.session_state:
+    st.session_state.ultimo_paciente_registrado = None
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -249,6 +262,83 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- VENTANA EMERGENTE / MODAL DE COMPROBANTE SI ACABA DE REGISTRARSE ---
+if st.session_state.ultimo_paciente_registrado is not None:
+  p = st.session_state.ultimo_paciente_registrado
+  st.markdown("---")
+  st.markdown(
+      '<div style="background-color: #e8f0ec; padding: 10px; border-radius:'
+      ' 6px; text-align: center; font-weight: bold; color: #1e5b4f; font-size:'
+      ' 1.2rem; margin-bottom: 15px;">🎉 ¡REGISTRO EXITOSO! COMPROBANTE'
+      " DIGITAL</div>",
+      unsafe_allow_html=True,
+  )
+
+  texto_comprobante = f"""
+    <div class="card-comprobante">
+        <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO - CAMPAÑA INVERNAL</h3>
+        <p><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
+        <p><b>Nombre del Paciente:</b> {p['nombre_completo']}</p>
+        <p><b>CURP:</b> {p['curp_algoritmica']}</p>
+        <p><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
+        <div class="folio-grande">FOLIO: {p['folio']}</div>
+        <hr style="border: 1px solid #e6d194;">
+        <p>📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
+        <p>⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
+        <p style="font-size: 0.9rem; color: #666; text-align: center; margin-top: 15px;">Conserve este comprobante para su validación en el módulo.</p>
+    </div>
+    """
+  st.markdown(texto_comprobante, unsafe_allow_html=True)
+
+  # Botones de acción: Descargar y Compartir por WhatsApp
+  col_btn1, col_btn2, col_btn3 = st.columns(3)
+
+  with col_btn1:
+    # Botón para descargar como archivo de texto plano con los datos del comprobante
+    contenido_txt = f"""SISTEMA VIGILE - COMPROBANTE DE VACUNACION
+Unidad: {st.session_state.nombre_unidad}
+Folio: {p['folio']}
+Paciente: {p['nombre_completo']}
+CURP: {p['curp_algoritmica']}
+Grupo: {p['grupo_objetivo']}
+Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
+"""
+    st.download_button(
+        label="📥 Descargar",
+        data=contenido_txt,
+        file_name=f"Comprobante_{p['folio']}.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
+
+  with col_btn2:
+    # Mensaje codificado para WhatsApp
+    msg_wa = (
+        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
+        f"Unidad: {st.session_state.nombre_unidad}\n"
+        f"Folio: *{p['folio']}*\n"
+        f"Paciente: {p['nombre_completo']}\n"
+        f"CURP: {p['curp_algoritmica']}\n"
+        f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
+        f"¡Preséntese en el módulo con este comprobante!"
+    )
+    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
+    st.markdown(
+        f'<a href="{url_whatsapp}" target="_blank"><button'
+        ' style="background-color: #25D366; color: white; border: none; padding:'
+        ' 0.6rem 1rem; font-size: 1.1rem; font-weight: bold; border-radius: 6px;'
+        ' width: 100%; text-align: center; cursor: pointer;">💬'
+        " WhatsApp</button></a>",
+        unsafe_allow_html=True,
+    )
+
+  with col_btn3:
+    if st.button("➕ Nuevo Registro", use_container_width=True):
+      st.session_state.ultimo_paciente_registrado = None
+      st.rerun()
+
+  st.markdown("---")
+
 # --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas</div>',
@@ -305,9 +395,9 @@ with col_fn2:
       "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
   )
 with col_fn3:
-  estado_nacimiento = st.selectbox(
-      "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
-  )
+    estado_nacimiento = st.selectbox(
+        "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
+    )
 
 planes_o_embarazo = "NO"
 if sexo == "MUJER":
@@ -317,7 +407,7 @@ if sexo == "MUJER":
       unsafe_allow_html=True,
   )
   planes_o_embarazo = st.radio(
-      "¿Está embarazada o tiene plans de embarazo?",
+      "¿Está embarazada o tiene planes de embarazo?",
       options=["NO", "SÍ"],
       horizontal=True,
   )
@@ -573,11 +663,9 @@ with st.form("form_censo_vacunacion_guardar"):
           "antecedente_covid": antecedente_covid,
           "antecedente_influenza": antecedente_influenza,
           "fecha_registro": fecha_registro,
+          "fecha_aplicacion": fecha_aplicacion,
       }
       st.session_state.registros_censales.append(nuevo_paciente)
+      st.session_state.ultimo_paciente_registrado = nuevo_paciente
       st.session_state.contador_consecutivo += 1
-
-      st.success(
-          f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y"
-          f" CURP **{curp_algoritmica}**!"
-      )
+      st.rerun()
