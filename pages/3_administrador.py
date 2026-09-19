@@ -299,8 +299,8 @@ else:
       unsafe_allow_html=True,
   )
 
-  # URL base apuntando directamente a la página principal (app.py) con sus parámetros correctos
-  base_url = "https://vacunas-invernal.streamlit.app/"
+  # URL oficial correcta para la aplicación desplegada
+  base_url = "https://medprev-vacunas-invernal.streamlit.app/"
   link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
 
   st.info(
@@ -308,7 +308,7 @@ else:
   )
   st.code(link_generado, language="text")
 
-  # Botón de acceso directo para abrir el formulario en una nueva pestaña con los parámetros listos
+  # Botón de acceso directo para abrir el formulario operativo
   st.markdown(
       f"""
     <div style="text-align: center; margin-bottom: 20px;">
@@ -385,6 +385,7 @@ else:
         nueva_hoja = spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
         )
+        # Ordenar: Plantilla (Hoja 1) seguida de la nueva hoja creada
         spreadsheet.reorder_worksheets(
             [plantilla, nueva_hoja]
             + [
