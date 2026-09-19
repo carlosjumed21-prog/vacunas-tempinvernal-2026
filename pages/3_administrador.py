@@ -46,6 +46,8 @@ if "config_direccion_oficial" not in st.session_state:
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
       " México, CDMX"
   )
+if "config_responsable" not in st.session_state:
+  st.session_state.config_responsable = ""
 if "jornada_autorizada" not in st.session_state:
   st.session_state.jornada_autorizada = False
 if "nombre_hoja_destino" not in st.session_state:
@@ -254,10 +256,19 @@ else:
     st.rerun()
 
   st.markdown(
-      '<div class="section-title">2. Configuración de Fecha y Horario de'
-      " Atención</div>",
+      '<div class="section-title">2. Responsable de la Jornada y'
+      " Fechas</div>",
       unsafe_allow_html=True,
   )
+
+  # Campo para responsable con conversión automática a MAYÚSCULAS
+  responsable_input = st.text_input(
+      "👤 Nombre del responsable de vacunación:",
+      value=st.session_state.config_responsable,
+      placeholder="Escriba el nombre completo...",
+  )
+  st.session_state.config_responsable = responsable_input.upper()
+
   col_f1, col_f2, col_f3 = st.columns(3)
   with col_f1:
     fecha_admin = st.date_input(
@@ -299,16 +310,17 @@ else:
       unsafe_allow_html=True,
   )
 
-  # URL base apuntando directamente a la raíz (app.py) con los parámetros limpios de unidad y jornada
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
-  link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
+  # Pasamos también el responsable y la fecha en la URL para que la app los reciba automáticamente si es necesario
+  fecha_url_str = st.session_state.config_fecha_aplicacion.strftime("%Y-%m-%d")
+  resp_encoded = urllib.parse.quote(st.session_state.config_responsable)
+  link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}"
 
   st.info(
       "Enlace operativo listo para compartir con brigadas o imprimir en QR:"
   )
   st.code(link_generado, language="text")
 
-  # Botón de acceso rápido directo al formulario operativo personalizado
   st.markdown(
       f"""
     <div style="text-align: center; margin-bottom: 20px;">
@@ -395,6 +407,22 @@ else:
         )
 
       hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+
+      # --- INSERCIÓN DE METADATOS OFICIALES EN CELDAS ESPECÍFICAS DE LA HOJA ---
+      fecha_formato_oficial = (
+          st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y")
+      )
+      responsable_oficial = st.session_state.config_responsable
+
+      hoja_activa.update("D6", "CDMX")
+      hoja_activa.update("M6", "ISSSTE")
+      hoja_activa.update("U6", "Delegación Sur")
+      hoja_activa.update("AC6", "CDMX")
+      hoja_activa.update("D7", "CDMX")
+      hoja_activa.update("D8", unidad_sel)
+      hoja_activa.update("AC8", fecha_formato_oficial)
+      hoja_activa.update("E9", responsable_oficial)
+
       gid_activo = hoja_activa.id
 
       st.session_state.jornada_autorizada = True
@@ -404,18 +432,19 @@ else:
       st.session_state.gid_hoja_destino = str(gid_activo)
 
       st.success(
-          "¡Jornada autorizada y hoja generada con éxito en Google Sheets!"
+          "¡Jornada autorizada, metadatos institucionales inyectados y hoja"
+          " generada con éxito!"
       )
       st.rerun()
 
     except Exception as e:
       st.error(
-          "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
-          " hoja 'CENSO NOMINAL' exista y que el correo de servicio tenga"
-          f" permisos de Editor. Detalle: {e}"
+          "Error al configurar Google Sheets. Asegúrate de que la hoja 'CENSO"
+          " NOMINAL' exista y que el correo de servicio tenga permisos de"
+          f" Editor. Detalle: {e}"
       )
 
-  # --- RECUADRO VERDE DE CONFIRMACIÓN CON ENLACE DIRECTO A LA PESTAÑA EXACTA ---
+  # --- RECUADRO VERDE DE CONFIRMACIÓN ---
   if st.session_state.jornada_autorizada:
     gid_param = (
         f"#gid={st.session_state.gid_hoja_destino}"
@@ -429,7 +458,7 @@ else:
         <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
             <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADA AUTORIZADA Y ACTIVA</h3>
             <p style="font-size: 1.1rem; color: #161a1d; margin-bottom: 12px;">
-                La hoja de destino <b>{st.session_state.nombre_hoja_destino}</b> se encuentra lista y sincronizada para recibir registros.
+                La hoja <b>{st.session_state.nombre_hoja_destino}</b> cuenta con sus metadatos institucionales y está lista para recibir registros.
             </p>
             <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1.05rem;">
                 🔗 Visualizar y Consultar Hoja en Google Sheets
@@ -440,8 +469,6 @@ else:
     )
 
   st.markdown("---")
-
-  # --- BOTÓN DE CERRAR SESIÓN ---
   if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
     st.session_state.autenticado_admin = False
     st.rerun()
