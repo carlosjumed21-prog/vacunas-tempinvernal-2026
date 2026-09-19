@@ -50,6 +50,8 @@ if "jornada_autorizada" not in st.session_state:
   st.session_state.jornada_autorizada = False
 if "nombre_hoja_destino" not in st.session_state:
   st.session_state.nombre_hoja_destino = ""
+if "gid_hoja_destino" not in st.session_state:
+  st.session_state.gid_hoja_destino = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -331,7 +333,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- AUTOMATIZACIÓN EN GOOGLE SHEETS AL CARGAR / CONFIGURAR ---
+  # --- AUTOMATIZACIÓN EN GOOGLE SHEETS Y OBTENCIÓN DE GID EXACTO ---
   try:
     fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
     nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
@@ -364,7 +366,6 @@ else:
       nueva_hoja = spreadsheet.duplicate_sheet(
           plantilla.id, new_sheet_name=nombre_nueva_hoja
       )
-      # Reordenar para que la Hoja 1 ('CENSO NOMINAL') quede antes y luego la nueva
       spreadsheet.reorder_worksheets(
           [plantilla, nueva_hoja]
           + [
@@ -374,10 +375,15 @@ else:
           ]
       )
 
+    # Obtener la hoja destino actual y su id único (gid) para abrirla directamente en esa pestaña
+    hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+    gid_activo = hoja_activa.id
+
     st.session_state.jornada_autorizada = True
     st.session_state.nombre_unidad = unidad_sel
     st.session_state.siglas_unidad = siglas_unidad
     st.session_state.nombre_hoja_destino = nombre_nueva_hoja
+    st.session_state.gid_hoja_destino = str(gid_activo)
 
   except Exception as e:
     st.warning(
@@ -385,7 +391,7 @@ else:
         f" correo de servicio. Detalle: {e}"
     )
 
-  # --- RECUADRO VERDE DE CONFIRMACIÓN Y ENLACE DIRECTO ---
+  # --- RECUADRO VERDE DE CONFIRMACIÓN CON ENLACE DIRECTO A LA PESTAÑA ESPECÍFICA ---
   if st.session_state.jornada_autorizada:
     st.markdown(
         "<div style='background-color: #e8f0ec; border: 2px solid #1e5b4f;"
@@ -398,13 +404,19 @@ else:
         f" **{st.session_state.nombre_hoja_destino}**",
         unsafe_allow_html=True,
     )
-    url_sheet_directa = (
-        "https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit?usp=sharing"
+
+    # Construir la URL directa incluyendo el parámetro gid de la pestaña específica
+    gid_param = (
+        f"#gid={st.session_state.gid_hoja_destino}"
+        if st.session_state.gid_hoja_destino
+        else ""
     )
+    url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit{gid_param}"
+
     st.markdown(
         f"🔗 <a href='{url_sheet_directa}' target='_blank'"
         " style='color: #1e5b4f; font-weight: bold; font-size: 1.1rem;'>Hacer clic"
-        " aquí para visualizar el Google Sheets creado</a>",
+        " aquí para visualizar la hoja exacta en Google Sheets</a>",
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
