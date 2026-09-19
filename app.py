@@ -40,7 +40,6 @@ mapa_siglas_inverso = {
     "GFAR": "GÓMEZ FARÍAS",
 }
 
-# Guardar o recuperar Unidad
 if "unidad" in params:
   sigla_url = params.get("unidad")
   if sigla_url in mapa_siglas_inverso:
@@ -50,13 +49,11 @@ elif "siglas_unidad" not in st.session_state:
   st.session_state.siglas_unidad = "20N"
   st.session_state.nombre_unidad = "20 DE NOVIEMBRE"
 
-# Guardar o recuperar Jornada
 if "jornada" in params:
   st.session_state.tipo_jornada = params.get("jornada", "I")
 elif "tipo_jornada" not in st.session_state:
   st.session_state.tipo_jornada = "I"
 
-# Guardar o recuperar Fecha de Aplicación
 if "fecha" in params:
   st.session_state.fecha_jornada_url = params.get("fecha")
 elif "fecha_jornada_url" not in st.session_state:
@@ -64,7 +61,6 @@ elif "fecha_jornada_url" not in st.session_state:
       "%Y-%m-%d"
   )
 
-# Guardar o recuperar Responsable
 if "resp" in params:
   st.session_state.resp_jornada_url = params.get("resp")
 elif "resp_jornada_url" not in st.session_state:
@@ -357,7 +353,7 @@ def mostrar_modal_comprobante():
         """.format(
         unidad=st.session_state.nombre_unidad,
         nombre=p["nombre_completo"],
-        curp=p["curp_con_entidad"],
+        curp=p["curp_con_municipio"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
     )
@@ -418,7 +414,6 @@ with col_g1:
       disabled=True,
   )
 
-# Parsear fecha almacenada de forma persistente en session_state
 try:
   val_fecha_app = datetime.datetime.strptime(
       st.session_state.fecha_jornada_url, "%Y-%m-%d"
@@ -527,15 +522,6 @@ curp_algoritmica = generar_curp_algoritmica(
     estado_nacimiento,
     digitos_faltantes,
 )
-curp_con_entidad = curp_algoritmica
-
-with col_info2:
-  st.markdown(
-      f'<div class="card-curp">🆔 CURP Resultante (14C): <br><span'
-      f' style="color: #611232; font-family:'
-      f' monospace;">{curp_con_entidad}</span></div>',
-      unsafe_allow_html=True,
-  )
 
 # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
 st.markdown(
@@ -543,10 +529,26 @@ st.markdown(
     unsafe_allow_html=True,
 )
 estado_residencia = st.selectbox(
-    "Estado de Residencia (Entidad Federativa) *",
+    "Estado de Residencia / Municipio *",
     options=estados_mexico,
     key="input_estres",
 )
+
+# CURP automática / Municipio seleccionado en el menú desplegable (Celda 14C)
+municipio_residencia = (
+    estado_residencia.upper()
+    if estado_residencia != "SELECCIONE UN ESTADO"
+    else "CDMX"
+)
+curp_con_municipio = f"{curp_algoritmica}/{municipio_residencia}"
+
+with col_info2:
+  st.markdown(
+      f'<div class="card-curp">🆔 CURP / Municipio (14C): <br><span'
+      f' style="color: #611232; font-family:'
+      f' monospace;">{curp_con_municipio}</span></div>',
+      unsafe_allow_html=True,
+  )
 
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
@@ -697,7 +699,6 @@ if st.button(
     st.error("Seleccione una Ocupación válida.")
   else:
     try:
-      # Nombre de la hoja de destino generado con la fecha persistente
       fecha_jornada_dt = datetime.datetime.strptime(
           st.session_state.fecha_jornada_url, "%Y-%m-%d"
       ).date()
@@ -736,7 +737,6 @@ if st.button(
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # Cálculo de fila basado estrictamente en la Columna C desde la fila 13
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
       for idx, val in enumerate(columna_c_vals[12:], start=13):
@@ -798,8 +798,8 @@ if st.button(
       worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
       worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
 
-      # 7. CURP (Fila 14, Columna C)
-      worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
+      # 7. CURP / Municipio (Fila 14, Columna C)
+      worksheet.update_acell(f"C{f_siguiente}", curp_con_municipio)
 
       # 8. Grupo Objetivo (Filas 13-14, Columnas P a X)
       col_grupo_map = {
@@ -843,7 +843,7 @@ if st.button(
 
       nuevo_paciente = {
           "folio": folio_automatico,
-          "curp_con_entidad": curp_con_entidad,
+          "curp_con_municipio": curp_con_municipio,
           "nombre_completo": (
               f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
           ),
