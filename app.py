@@ -27,6 +27,7 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-vacunas { background-color: #fef6e4; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; font-weight: 700; color: #161a1d; font-size: 1.1rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -46,6 +47,7 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-vacunas { background-color: #fef6e4; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; font-weight: 700; color: #161a1d; font-size: 1.1rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -402,8 +404,11 @@ with st.form("form_censo_vacunacion_resto"):
         insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
         inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
         hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+        discapacidades = st.checkbox(
+            "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
+        )
 
-    # --- LÓGICA ORIGINAL RESTAURADA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
+    # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
     edad_total_meses = (calc_anos * 12) + calc_meses
     tiene_comorb = any(
         [
@@ -417,6 +422,7 @@ with st.form("form_censo_vacunacion_resto"):
             insuficiencia_renal,
             inmunosupresion,
             hipertension,
+            discapacidades,
         ]
     )
 
@@ -426,14 +432,36 @@ with st.form("form_censo_vacunacion_resto"):
             grupo_sugerido = "6 A 59 MESES"
         elif calc_anos >= 60:
             grupo_sugerido = "60 Y MÁS"
-        elif 5 <= calc_anos <= 11:
-            grupo_sugerido = "5 A 11 AÑOS"
         elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "EMBARAZADAS"
+            grupo_sugerido = "PERSONAS GESTANTES"
         elif ocupacion == "PERSONAL DE SALUD":
             grupo_sugerido = "PERSONAL DE SALUD"
-        elif 12 <= calc_anos <= 59 and tiene_comorb:
-            grupo_sugerido = "12 A 59 AÑOS CON COMORBILIDAD"
+        elif vih:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
+        elif diabetes:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
+        elif obesidad:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
+        elif cardiopatias:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
+        elif epoc:
+            grupo_sugerido = (
+                "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
+            )
+        elif cancer:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
+        elif congenitas:
+            grupo_sugerido = (
+                "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+            )
+        elif insuficiencia_renal:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
+        elif inmunosupresion:
+            grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
+        elif hipertension:
+            grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
+        elif discapacidades:
+            grupo_sugerido = "DISCAPACIDADES"
         else:
             grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
@@ -443,7 +471,8 @@ with st.form("form_censo_vacunacion_resto"):
     )
     if grupo_sugerido == "":
         st.markdown(
-            '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
+            '<div class="card-grupo" style="background-color: #fbf9f4; border:'
+            " 2px dashed #a57f2c; color: #611232;\">POR DESIGNAR</div>",
             unsafe_allow_html=True,
         )
     else:
@@ -451,6 +480,79 @@ with st.form("form_censo_vacunacion_resto"):
             f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
             unsafe_allow_html=True,
         )
+
+    # --- MATRIZ DE VACUNACIÓN SIMULTÁNEA (CUADRO 9 - LINEAMIENTOS 2025-2026) ---
+    # Evaluamos qué biológicos aplican conforme a la norma técnica del CENSIA
+    aplica_influenza = True
+    aplica_covid = False
+    aplica_neumococo = False
+
+    if 6 <= edad_total_meses <= 59:
+        aplica_covid = (
+            tiene_comorb  # En niños < 5 años solo aplica si tienen comorbilidad[cite: 3]
+        )
+        aplica_neumococo = (
+            False  # Se rige por esquema de vacunación específico (2-4-12 meses)[cite: 3]
+        )
+    elif calc_anos >= 60:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif planes_o_embarazo == "SÍ":
+        aplica_covid = True
+        aplica_neumococo = False
+    elif ocupacion == "PERSONAL DE SALUD":
+        aplica_covid = True
+        aplica_neumococo = False
+    elif vih:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif diabetes:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif obesidad:
+        aplica_covid = True
+        aplica_neumococo = False
+    elif cardiopatias:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif epoc:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif cancer:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif congenitas:
+        aplica_covid = False
+        aplica_neumococo = False
+    elif insuficiencia_renal:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif inmunosupresion:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif hipertension:
+        aplica_influenza = False
+        aplica_covid = True
+        aplica_neumococo = False
+    elif discapacidades:
+        aplica_influenza = False
+        aplica_covid = True
+        aplica_neumococo = False
+
+    st.markdown(
+        '<div class="section-title">Biológicos Indicados (Cuadro 9 - CENSIA)'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    texto_vacunas = f"""
+    - **Influenza Estacional (2025-2026):** {"✅ SÍ APLICA" if aplica_influenza else "❌ NO APLICA"}[cite: 3]<br>
+    - **COVID-19 (LP.8.1):** {"✅ SÍ APLICA" if aplica_covid else "❌ NO APLICA"}[cite: 3]<br>
+    - **Neumococo (20-valente / 13-valente):** {"✅ SÍ APLICA" if aplica_neumococo else "❌ NO APLICA"}[cite: 3]
+    """
+    st.markdown(
+        f'<div class="card-vacunas">{texto_vacunas}</div>',
+        unsafe_allow_html=True,
+    )
 
     # --- ANTECEDENTE VACUNAL ---
     st.markdown(
@@ -481,7 +583,8 @@ with st.form("form_censo_vacunacion_resto"):
             st.error("Por favor seleccione la Fecha de Nacimiento.")
         elif grupo_sugerido == "":
             st.error(
-                "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
+                "Por favor complete la fecha de nacimiento para determinar el"
+                " grupo objetivo."
             )
         elif (
             not paterno
@@ -494,13 +597,16 @@ with st.form("form_censo_vacunacion_resto"):
             or ocupacion == "SELECCIONE UNA OPCIÓN"
         ):
             st.error(
-                "Por favor complete los campos obligatorios y seleccione una opción válida en los menús desplegables (*)."
+                "Por favor complete los campos obligatorios y seleccione una"
+                " opción válida en los menús desplegables (*)."
             )
         else:
             nuevo_paciente = {
                 "folio": folio_automatico,
                 "curp_algoritmica": curp_algoritmica,
-                "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+                "nombre_completo": (
+                    f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
+                ),
                 "paterno": paterno.upper(),
                 "materno": materno.upper(),
                 "nombres": nombres.upper(),
@@ -517,6 +623,9 @@ with st.form("form_censo_vacunacion_resto"):
                 "derechohabiencia": cuenta_derechohabiencia,
                 "tiene_comorbilidades": tiene_comorb,
                 "grupo_objetivo": grupo_sugerido,
+                "aplica_influenza": aplica_influenza,
+                "aplica_covid": aplica_covid,
+                "aplica_neumococo": aplica_neumococo,
                 "antecedente_covid": antecedente_covid,
                 "antecedente_influenza": antecedente_influenza,
                 "fecha_registro": fecha_registro,
