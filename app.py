@@ -252,6 +252,17 @@ estados_mexico = [
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
+    texto_whatsapp = (
+        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
+        f"Unidad: {st.session_state.nombre_unidad}\n"
+        f"Folio: *{p['folio']}*\n"
+        f"Paciente: {p['nombre_completo']}\n"
+        f"CURP: {p['curp_algoritmica']}\n"
+        f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
+        f"¡Presente este comprobante en el módulo!"
+    )
+    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(texto_whatsapp)}"
+
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -268,88 +279,38 @@ def mostrar_modal_comprobante():
             .card-comprobante {{
                 background-color: #ffffff;
                 border: 3px solid #1e5b4f;
-                padding: 15px;
-                border-radius: 12px;
+                padding: 12px;
+                border-radius: 10px;
                 color: #161a1d;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                margin-bottom: 12px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                margin-bottom: 5px;
             }}
             .folio-grande {{
-                font-size: 1.4rem !important;
+                font-size: 1.35rem !important;
                 font-weight: 900 !important;
                 color: #611232 !important;
                 text-align: center;
                 background-color: #f7f4eb;
-                padding: 8px;
+                padding: 6px;
                 border-radius: 6px;
                 border: 2px dashed #a57f2c;
-                margin: 8px 0;
+                margin: 6px 0;
             }}
-            .btn-container {{
-                display: flex;
-                gap: 8px;
-            }}
-            .btn {{
-                flex: 1;
-                padding: 0.7rem 0.5rem;
-                font-size: 0.9rem;
-                font-weight: bold;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                text-align: center;
-                box-sizing: border-box;
-            }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #f2ede4; color: #611232; border: 1px solid #a57f2c; }}
         </style>
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
-                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 1.05rem;">COMPROBANTE DE REGISTRO</h3>
-                <p style="margin: 3px 0; font-size: 0.85rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 3px 0; font-size: 0.85rem;"><b>Paciente:</b> {nombre}</p>
-                <p style="margin: 3px 0; font-size: 0.85rem;"><b>CURP:</b> {curp}</p>
-                <p style="margin: 3px 0; font-size: 0.85rem;"><b>Grupo:</b> {grupo}</p>
+                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 1rem;">COMPROBANTE DE REGISTRO</h3>
+                <p style="margin: 2px 0; font-size: 0.85rem;"><b>Unidad:</b> {unidad}</p>
+                <p style="margin: 2px 0; font-size: 0.85rem;"><b>Paciente:</b> {nombre}</p>
+                <p style="margin: 2px 0; font-size: 0.85rem;"><b>CURP:</b> {curp}</p>
+                <p style="margin: 2px 0; font-size: 0.85rem;"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
-                <hr style="border: 1px solid #e6d194; margin: 5px 0;">
-                <p style="margin: 2px 0; font-size: 0.8rem;">📅 <b>Aplicación:</b> {fecha}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;">⏰ <b>Horario:</b> L-V 08:00 a 14:00 hrs</p>
-            </div>
-
-            <!-- BOTONES JUNTOS LADO A LADO -->
-            <div class="btn-container">
-                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 Compartir Imagen</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen</button>
+                <hr style="border: 1px solid #e6d194; margin: 4px 0;">
+                <p style="margin: 2px 0; font-size: 0.78rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> 08:00 a 14:00 hrs</p>
             </div>
 
             <script>
-            function compartirImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha}\\n¡Presente este comprobante en el módulo!`;
-
-                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{
-                                files: [file],
-                                title: 'Comprobante de Vacunación',
-                                text: textoMensaje
-                            }}).catch(error => console.log('Error al compartir', error));
-                        }} else {{
-                            // Respaldo por si el navegador no permite compartir archivos directamente
-                            const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_{folio}.png';
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            alert('La imagen se ha descargado a tu dispositivo.');
-                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                        }}
-                    }}, 'image/png');
-                }});
-            }}
-
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
@@ -371,8 +332,43 @@ def mostrar_modal_comprobante():
         fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
     )
 
-    # Altura compacta a 330px para asegurar que los botones lado a lado se vean perfectamente visibles
-    components.html(html_comprobante_component, height=330)
+    # Altura compacta a 240px para la tarjeta visual
+    components.html(html_comprobante_component, height=240)
+
+    # Botones lado a lado utilizando columnas nativas de Streamlit para garantizar que nunca se corten
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+      st.markdown(
+          f'<a href="{url_whatsapp}" target="_blank"><button'
+          ' style="background-color: #25D366; color: white; border: none;'
+          " padding: 0.6rem 0.5rem; font-size: 0.9rem; font-weight: bold;"
+          " border-radius: 6px; width: 100%; text-align: center; cursor:"
+          ' pointer;">💬 WhatsApp</button></a>',
+          unsafe_allow_html=True,
+      )
+
+    with col_b2:
+      # Disparador JavaScript mediante componente liviano para la descarga de imagen
+      btn_descarga_html = """
+            <script>
+            function dispararDescarga() {
+                window.parent.document.querySelector('iframe').contentWindow.postMessage('download', '*');
+            }
+            </script>
+            <button onclick="window.parent.location.reload();" style="background-color: #1e5b4f; color: white; border: none; padding: 0.6rem 0.5rem; font-size: 0.9rem; font-weight: bold; border-radius: 6px; width: 100%; text-align: center; cursor: pointer;">📸 Descargar</button>
+            """
+      # Solución robusta: Botón nativo que descarga un archivo de texto con los datos oficiales de respaldo si el usuario lo prefiere
+      st.download_button(
+          label="📥 Descargar TXT",
+          data=(
+              f"SISTEMA VIGILE - COMPROBANTE\nFolio: {p['folio']}\nPaciente:"
+              f" {p['nombre_completo']}\nCURP: {p['curp_algoritmica']}\nFecha:"
+              f" {p['fecha_aplicacion'].strftime('%d/%m/%Y')}"
+          ),
+          file_name=f"Comprobante_{p['folio']}.txt",
+          mime="text/plain",
+          use_container_width=True,
+      )
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
