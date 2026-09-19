@@ -102,7 +102,59 @@ def limpiar_texto(texto):
     return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
 
 
-def generar_curp_estimada(
+def obtener_primera_vocal_interna(palabra):
+    vocales = "AEIOU"
+    for letra in palabra[1:]:
+        if letra in vocales:
+            return letra
+    return "X"
+
+
+def obtener_primera_consonante_interna(palabra):
+    consonantes = "BCDFGHJKLMNPQRSTVWXYZ"
+    for letra in palabra[1:]:
+        if letra in consonantes:
+            return letra
+    return "X"
+
+
+estados_curp = {
+    "AGUASCALIENTES": "AS",
+    "BAJA CALIFORNIA": "BC",
+    "BAJA CALIFORNIA SUR": "BS",
+    "CAMPECHE": "CC",
+    "CHIAPAS": "CS",
+    "CHIHUAHUA": "CH",
+    "CIUDAD DE MÉXICO": "DF",
+    "COAHUILA": "CL",
+    "COLIMA": "CM",
+    "DURANGO": "DG",
+    "ESTADO DE MÉXICO": "MC",
+    "GUANAJUATO": "GT",
+    "GUERRERO": "GR",
+    "HIDALGO": "HG",
+    "JALISCO": "JC",
+    "MICHOACÁN": "MN",
+    "MORELOS": "MS",
+    "NAYARIT": "NT",
+    "NUEVO LEÓN": "NL",
+    "OAXACA": "OC",
+    "PUEBLA": "PL",
+    "QUERÉTARO": "QT",
+    "QUINTANA ROO": "QR",
+    "SAN LUIS POTOSÍ": "SP",
+    "SINALOA": "SL",
+    "SONORA": "SR",
+    "TABASCO": "TC",
+    "TAMAULIPAS": "TS",
+    "TLAXCALA": "TL",
+    "VERACRUZ": "VZ",
+    "YUCATÁN": "YN",
+    "ZACATECAS": "ZS",
+}
+
+
+def generar_curp_algoritmica(
     paterno, materno, nombres, fecha_nac, sexo, est_nac
 ):
     p = limpiar_texto(paterno)
@@ -110,32 +162,36 @@ def generar_curp_estimada(
     n = limpiar_texto(nombres)
 
     if not p or not n or not fecha_nac:
-        return "COMPLETA APELLIDOS, NOMBRE Y FECHA"
+        return "COMPLETA DATOS Y FECHA"
 
-    # 1 y 2. Primeras 2 letras de apellidos (si no hay materno, X)
-    p_part = p[:2] if len(p) >= 2 else (p + "X")[:2]
-    m_part = m[:2] if len(m) >= 2 else "X"
+    nombres_lista = n.split()
+    primer_nombre = nombres_lista[0] if nombres_lista else "X"
+    if (
+        len(nombres_lista) > 1
+        and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]
+    ):
+        primer_nombre = nombres_lista[1]
 
-    # 3. Primeras 2 letras del nombre
-    n_part = n[:2] if len(n) >= 2 else (n + "X")[:2]
+    c1 = p[0] if p else "X"
+    c2 = obtener_primera_vocal_interna(p)
+    c3 = m[0] if m else "X"
+    c4 = primer_nombre[0] if primer_nombre else "X"
 
-    # 4. Fecha de nacimiento AAMMDD
     yy = str(fecha_nac.year)[-2:]
     mm = str(fecha_nac.month).zfill(2)
     dd = str(fecha_nac.day).zfill(2)
-    fecha_part = f"{yy}{mm}{dd}"
+    fec_part = f"{yy}{mm}{dd}"
 
-    # 5. Sexo (H o M)
     sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
+    est_part = estados_curp.get(est_nac, "NE")
 
-    # 6. Entidad federativa de nacimiento (2 letras)
-    if est_nac and est_nac != "SELECCIONE UN ESTADO":
-        est_part = limpiar_texto(est_nac)[:2]
-    else:
-        est_part = "NE"
+    c14 = obtener_primera_consonante_interna(p)
+    c15 = obtener_primera_consonante_interna(m) if m else "X"
+    c16 = obtener_primera_consonante_interna(primer_nombre)
+    siglo_part = "0" if fecha_nac.year < 2000 else "A"
 
-    curp_base = f"{p_part}{m_part}{n_part}{fecha_part}{sexo_part}{est_part}"
-    return f"{curp_base}XXXXXX00"
+    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}{siglo_part}"
+    return f"{curp_16}00"
 
 
 estados_mexico = [
@@ -212,7 +268,7 @@ with col_g3:
         unsafe_allow_html=True,
     )
 
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP PROVISIONAL ---
+# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
@@ -269,13 +325,13 @@ with col_info1:
         unsafe_allow_html=True,
     )
 
-curp_provisional = generar_curp_estimada(
+curp_algoritmica = generar_curp_algoritmica(
     paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento
 )
 with col_info2:
     st.markdown(
-        f'<div class="card-curp">🆔 CURP Est.: <br><span style="color:'
-        f' #611232; font-family: monospace;">{curp_provisional}</span></div>',
+        f'<div class="card-curp">🆔 CURP Algorítmica: <br><span'
+        f' style="color: #611232; font-family: monospace;">{curp_algoritmica}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -447,7 +503,7 @@ with st.form("form_censo_vacunacion_resto"):
         else:
             nuevo_paciente = {
                 "folio": folio_automatico,
-                "curp_estimada": curp_provisional,
+                "curp_algoritmica": curp_algoritmica,
                 "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
                 "paterno": paterno.upper(),
                 "materno": materno.upper(),
@@ -473,5 +529,5 @@ with st.form("form_censo_vacunacion_resto"):
             st.session_state.contador_consecutivo += 1
 
             st.success(
-                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Provisional **{curp_provisional}**!"
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Provisional **{curp_algoritmica}**!"
             )
