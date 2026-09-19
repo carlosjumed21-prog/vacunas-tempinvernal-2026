@@ -1,5 +1,4 @@
 import datetime
-import json
 import unicodedata
 import urllib.parse
 import gspread
@@ -279,6 +278,7 @@ estados_mexico = [
 ]
 
 
+# --- VENTANA EMERGENTE CON TUS BOTONES ORIGINALES DE COMPROBANTE ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
@@ -303,10 +303,13 @@ def mostrar_modal_comprobante():
             <div id="comprobante-captura" class="card-comprobante">
                 <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
+                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Ubicación:</b> {direccion}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
+                <hr style="border: 1px solid #e6d194; margin: 3px 0;">
+                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
@@ -318,7 +321,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n¡Presente este comprobante en el módulo!`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -345,13 +348,21 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
         unidad=st.session_state.nombre_unidad,
+        direccion=st.session_state.get(
+            "config_direccion_oficial", "UNIDAD MÉDICA ISSSTE"
+        ),
         nombre=p["nombre_completo"],
         curp=p["curp_con_entidad"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
+        fecha=st.session_state.get(
+            "config_fecha_aplicacion", datetime.date.today()
+        ).strftime("%d/%m/%Y"),
+        h_ini="08:00",
+        h_fin="14:00",
     )
 
-    components.html(html_comprobante_component, height=270)
+    components.html(html_comprobante_component, height=310)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -393,16 +404,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS (BLOQUEADOS / AUTOMÁTICOS) ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS (Bloqueados / Automáticos) ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
 )
 col_g1, col_g2, col_g3 = st.columns(3)
-
 with col_g1:
   fecha_registro = st.date_input(
-      "Fecha de Registro (Actual)",
+      "Fecha de Registro",
       value=datetime.date.today(),
       format="DD/MM/YYYY",
       disabled=True,
@@ -441,7 +451,7 @@ with col_g3:
       unsafe_allow_html=True,
   )
 
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
+# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
@@ -731,15 +741,20 @@ if st.button(
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
+      # 1. Folio Generado (B)
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_automatico], [folio_automatico]],
       )
+
+      # 2. Apellidos y Nombres (C, D, E)
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
-      worksheet_acell_materno = materno.upper() if materno else ""
-      worksheet.update_acell(f"D{f_actual}", worksheet_acell_materno)
+      worksheet.update_acell(
+          f"D{f_actual}", materno.upper() if materno else ""
+      )
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
+      # 3. Fecha de Nacimiento desglosada (F, G, H en filas 3-4 del mapeo oficial)
       dd_nac = str(fecha_nacimiento.day).zfill(2)
       mm_nac = str(fecha_nacimiento.month).zfill(2)
       yyyy_nac = str(fecha_nacimiento.year)
@@ -748,6 +763,7 @@ if st.button(
       worksheet.update(f"G{f_actual}:G{f_siguiente}", [[mm_nac], [mm_nac]])
       worksheet.update(f"H{f_actual}:H{f_siguiente}", [[yyyy_nac], [yyyy_nac]])
 
+      # 4. Edad desglosada (I, J)
       worksheet.update(
           f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
       )
@@ -755,6 +771,7 @@ if st.button(
           f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
       )
 
+      # 5. Sexo y Fecha de Aplicación (K, L)
       sexo_letra = "H" if sexo == "HOMBRE" else "M"
       f_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
       worksheet.update(
@@ -765,6 +782,7 @@ if st.button(
           [[f_aplicacion_str], [f_aplicacion_str]],
       )
 
+      # 6. Domicilio (M, N, O)
       dir_calle = calle.upper()
       dir_num = numero.upper()
       dir_col = colonia.upper()
@@ -772,8 +790,10 @@ if st.button(
       worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
       worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
 
+      # 7. CURP en C14
       worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
 
+      # 8. Grupo Objetivo (P, Q, R, S, T, U, V, W, X)
       col_grupo_map = {
           "6 A 59 MESES": "P",
           "60 Y MÁS": "Q",
@@ -791,6 +811,7 @@ if st.button(
             [["X"], ["X"]],
         )
 
+      # 9. Comorbilidades / Grupos de riesgo (Y, Z, AA, AB, AC, AD)
       for estado_activo, columna_letra in [
           (epoc, "Y"),
           (cancer, "Z"),
@@ -805,6 +826,7 @@ if st.button(
               [["X"], ["X"]],
           )
 
+      # 10. Derechohabiencia (AM)
       worksheet.update(
           f"AM{f_actual}:AM{f_siguiente}",
           [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
