@@ -8,7 +8,7 @@ st.set_page_config(
     layout="centered",
 )
 
-# Ocultar completamente la barra lateral para usuarios operativos
+# Ocultar completamente la barra lateral para usuarios operativos y definir estilos institucionales
 st.markdown(
     """
     <style>
@@ -19,6 +19,7 @@ st.markdown(
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
+        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
         .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -27,7 +28,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inicializar variables de estado compartido por defecto si no existen
+# Inicializar variables de estado compartido si no existen
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
@@ -113,7 +114,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- DATOS GENERALES ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas</div>',
     unsafe_allow_html=True,
@@ -142,7 +143,7 @@ with col_g3:
         unsafe_allow_html=True,
     )
 
-# --- IDENTIFICACIÓN DEL PACIENTE ---
+# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
@@ -171,35 +172,50 @@ with col_fn2:
 
 planes_o_embarazo = "NO"
 if sexo == "MUJER":
+    st.markdown(
+        "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
+        unsafe_allow_html=True,
+    )
     planes_o_embarazo = st.radio(
         "¿Está embarazada o tiene planes de embarazo?",
         options=["NO", "SÍ"],
         horizontal=True,
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
+# Cálculo interactivo inmediato de la edad
 calc_anos, calc_meses, calc_dias = (
     calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
     if fecha_nacimiento
     else (0, 0, 0)
+)
+
+st.markdown(
+    '<div class="section-title">Edad Calculada Automáticamente</div>',
+    unsafe_allow_html=True,
 )
 st.markdown(
     f'<div class="card-edad">📅 {calc_anos} AÑOS, {calc_meses} MESES, {calc_dias} DÍAS</div>',
     unsafe_allow_html=True,
 )
 
-with st.form("form_registro_paciente"):
+with st.form("form_censo_vacunacion_resto"):
+
+    # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
     st.markdown(
-        '<div class="section-title">3. Domicilio y Afiliación</div>',
+        '<div class="section-title">3. Domicilio, Estados y Afiliación</div>',
         unsafe_allow_html=True,
     )
     col_d1, col_d2 = st.columns(2)
     with col_d1:
         estado_nacimiento = st.selectbox(
-            "Estado de Nacimiento *", options=estados_mexico
+            "Estado de Nacimiento *", options=estados_mexico, key="est_nac"
         )
     with col_d2:
         estado_residencia = st.selectbox(
-            "Estado de Residencia *", options=estados_mexico
+            "Estado de Residencia (Entidad Federativa) *",
+            options=estados_mexico,
+            key="est_res",
         )
 
     col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
@@ -213,10 +229,11 @@ with st.form("form_registro_paciente"):
     cuenta_derechohabiencia = st.radio(
         "¿Cuenta con derechohabiencia? *", options=["NO", "SÍ"], horizontal=True
     )
+
     derechohabiencia = "NINGUNA / POBLACIÓN ABIERTA"
     if cuenta_derechohabiencia == "SÍ":
         derechohabiencia = st.selectbox(
-            "Institución de Derechohabiencia *",
+            "Especifique la Institución de Derechohabiencia *",
             options=[
                 "SELECCIONE UNA OPCIÓN",
                 "IMSS",
@@ -226,16 +243,18 @@ with st.form("form_registro_paciente"):
                 "SEDENA",
                 "SEMAR",
                 "ISSFAM",
+                "IMSS / IMSS-BIENESTAR",
                 "OTRA",
             ],
         )
 
+    # --- BLOQUE 4: OCUPACIÓN ---
     st.markdown(
-        '<div class="section-title">4. Ocupación y Comorbilidades</div>',
+        '<div class="section-title">4. Ocupación</div>',
         unsafe_allow_html=True,
     )
     ocupacion = st.selectbox(
-        "Ocupación *",
+        "Seleccione su Ocupación *",
         options=[
             "SELECCIONE UNA OPCIÓN",
             "PERSONAL DE SALUD",
@@ -247,23 +266,34 @@ with st.form("form_registro_paciente"):
         ],
     )
 
+    # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
+    st.markdown(
+        '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
+        unsafe_allow_html=True,
+    )
     col_r1, col_r2 = st.columns(2)
+
     with col_r1:
         vih = st.checkbox("VIH / SIDA")
         diabetes = st.checkbox("DIABETES MELLITUS")
         obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-        cardiopatias = st.checkbox("CARDIOPATÍAS")
-        epoc = st.checkbox("EPOC / ASMA")
+        cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+        epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
+
     with col_r2:
         cancer = st.checkbox("CÁNCER")
-        congenitas = st.checkbox("CONGÉNITAS U OTROS")
+        congenitas = st.checkbox(
+            "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+        )
         insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-        inmunosupresion = st.checkbox("INMUNOSUPRESIÓN")
-        hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL")
+        inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
+        hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
 
+    # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
     edad_total_meses = (calc_anos * 12) + calc_meses
+
     grupo_sugerido = ""
-    if fecha_nacimiento:
+    if fecha_nacimiento is not None:
         if 6 <= edad_total_meses <= 59:
             grupo_sugerido = "6 A 59 MESES"
         elif calc_anos >= 60:
@@ -277,45 +307,111 @@ with st.form("form_registro_paciente"):
         else:
             grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
-    st.markdown(f"**Grupo Objetivo Detectado:** `{grupo_sugerido or 'POR DESIGNAR'}`")
-
     st.markdown(
-        '<div class="section-title">5. Antecedente Vacunal</div>',
+        '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
+        unsafe_allow_html=True,
+    )
+    if grupo_sugerido == "":
+        st.markdown(
+            '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # --- ANTECEDENTE VACUNAL ---
+    st.markdown(
+        '<div class="section-title">7. Antecedente Vacunal</div>',
         unsafe_allow_html=True,
     )
     col_av1, col_av2 = st.columns(2)
     with col_av1:
         antecedente_covid = st.radio(
-            "Dosis previa COVID-19?", ["SÍ", "NO", "LO DESCONOCE"], horizontal=True
+            "¿Cuenta con alguna dosis previa de COVID-19?",
+            options=["SÍ", "NO", "LO DESCONOCE"],
+            horizontal=True,
         )
     with col_av2:
         antecedente_influenza = st.radio(
-            "Dosis previa Influenza?", ["SÍ", "NO", "LO DESCONOCE"], horizontal=True
+            "¿Cuenta con alguna dosis previa de Influenza?",
+            options=["SÍ", "NO", "LO DESCONOCE"],
+            horizontal=True,
         )
 
-    submitted = st.form_submit_button("Guardar Paciente", use_container_width=True)
+    st.markdown("---")
+    submitted = st.form_submit_button(
+        "Guardar Paciente en el Censo Nominal", use_container_width=True
+    )
 
     if submitted:
-        if not fecha_nacimiento or not paterno or not nombres or ocupacion == "SELECCIONE UNA OPCIÓN":
-            st.error("Por favor complete los campos obligatorios (*).")
+        if not fecha_nacimiento:
+            st.error("Por favor seleccione la Fecha de Nacimiento.")
+        elif grupo_sugerido == "":
+            st.error(
+                "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
+            )
+        elif (
+            cuenta_derechohabiencia == "SÍ"
+            and derechohabiencia == "SELECCIONE UNA OPCIÓN"
+        ):
+            st.error(
+                "Por favor seleccione la institución de derechohabiencia."
+            )
+        elif (
+            not paterno
+            or not nombres
+            or estado_nacimiento == "SELECCIONE UN ESTADO"
+            or estado_residencia == "SELECCIONE UN ESTADO"
+            or not calle
+            or not numero
+            or not colonia
+            or ocupacion == "SELECCIONE UNA OPCIÓN"
+        ):
+            st.error(
+                "Por favor complete los campos obligatorios y seleccione una opción válida en los menús desplegables (*)."
+            )
         else:
             nuevo_paciente = {
                 "folio": folio_automatico,
                 "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+                "paterno": paterno.upper(),
+                "materno": materno.upper(),
+                "nombres": nombres.upper(),
                 "fecha_nacimiento": fecha_nacimiento,
                 "edad_anos": calc_anos,
                 "edad_meses": calc_meses,
+                "edad_dias": calc_dias,
                 "edad_total_meses": edad_total_meses,
                 "sexo": sexo,
                 "embarazo": (planes_o_embarazo == "SÍ"),
                 "ocupacion": ocupacion,
                 "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
                 "derechohabiencia": derechohabiencia,
-                "tiene_comorbilidades": any([vih, diabetes, obesidad, cardiopatias, epoc, cancer, congenitas, insuficiencia_renal, inmunosupresion, hipertension]),
+                "tiene_comorbilidades": any(
+                    [
+                        vih,
+                        diabetes,
+                        obesidad,
+                        cardiopatias,
+                        epoc,
+                        cancer,
+                        congenitas,
+                        insuficiencia_renal,
+                        inmunosupresion,
+                        hipertension,
+                    ]
+                ),
                 "grupo_objetivo": grupo_sugerido,
                 "antecedente_covid": antecedente_covid,
                 "antecedente_influenza": antecedente_influenza,
+                "fecha_registro": fecha_registro,
             }
             st.session_state.registros_censales.append(nuevo_paciente)
             st.session_state.contador_consecutivo += 1
-            st.success(f"¡Paciente guardado con éxito! Folio generado: {folio_automatico}")
+
+            st.success(
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}**!"
+            )
