@@ -1,5 +1,6 @@
 import datetime
 import json
+import unicodedata
 import urllib.parse
 import gspread
 import streamlit as st
@@ -490,7 +491,7 @@ if sexo == "MUJER":
   st.markdown("</div>", unsafe_allow_html=True)
 
 calc_anos, calc_meses, calc_dias = (
-    calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
+    calcular_edad_detallada(fecha_nacimiento, val_fecha_app)
     if fecha_nacimiento
     else (0, 0, 0)
 )
@@ -725,9 +726,7 @@ if st.button(
           [[folio_automatico], [folio_automatico]],
       )
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
-      worksheet_acell_materno = (
-          materno.upper() if materno else ""
-      )  # Variable auxiliar limpia
+      worksheet_acell_materno = materno.upper() if materno else ""
       worksheet.update_acell(f"D{f_actual}", worksheet_acell_materno)
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
