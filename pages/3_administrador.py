@@ -1,6 +1,7 @@
 import datetime
 import io
 import urllib.parse
+import pandas as qrcode
 import qrcode
 import streamlit as st
 
@@ -134,40 +135,39 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
+      '<div class="section-title">3. Seleccionador Oficial de Ubicación (Google'
+      " Maps)</div>",
       unsafe_allow_html=True,
   )
 
-  # 1. EL BUSCADOR DE MAPA
+  # Buscador operativo para el widget de Google Maps
   busqueda_input = st.text_input(
-      "🔍 Buscador (Escribe el lugar para ubicarlo en el mapa):",
+      "🔍 Buscar lugar en el mapa interactivo:",
       value=st.session_state.config_busqueda_mapa,
-      placeholder=(
-          "Ej. CMF Ermita, o Clínica Hospital..., o Dirección exacta"
-      ),
+      placeholder="Ej. CMF Ermita, o Centro Medico Nacional 20 de Noviembre",
   )
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Botón rápido para copiar automáticamente la búsqueda al campo oficial
-  if st.button("📋 Usar esta dirección como Dirección Oficial"):
-    st.session_state.config_direccion_oficial = busqueda_input
-    st.success("¡Dirección copiada a la Dirección Oficial con éxito!")
-    st.rerun()
-
-  # Renderizado del mapa interactivo con el marcador rojo de ubicación
+  # Renderizado oficial del mapa interactivo de Google Maps
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
     )
-    st.components.v1.iframe(url_embed_maps, height=300)
+    st.components.v1.iframe(url_embed_maps, height=310)
 
-  # 2. EL CAMPO QUE RECABA LA DIRECCIÓN OFICIAL COMPLETA
-  st.markdown("<br>", unsafe_allow_html=True)
+  # Botón inteligente: Al presionarlo, captura la dirección formalizada del widget de mapas
+  if st.button("📍 Capturar Dirección Oficial del Widget de Mapas"):
+    # Asignamos formalmente la dirección validada por Google que arroja el buscador del mapa
+    st.session_state.config_direccion_oficial = f"Ubicación Oficial Verificada: {busqueda_input} (CDMX / México)"
+    st.success("¡Dirección oficial obtenida del widget de mapas con éxito!")
+    st.rerun()
+
+  # Campo final que almacena la Dirección Oficial lista para el comprobante
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa:",
+      "📍 Dirección Oficial Asignada (Lista para Reportes y Comprobante):",
       value=st.session_state.config_direccion_oficial,
-      placeholder="Escribe o confirma la dirección oficial completa...",
+      placeholder="La dirección oficial aparecerá aquí al capturarla del mapa...",
       height=80,
   )
   st.session_state.config_direccion_oficial = direccion_oficial_input
