@@ -13,7 +13,7 @@ st.set_page_config(
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Estilos CSS institucionales (incluyendo la personalización de las pestañas en rojo guinda)
+# Estilos CSS institucionales y de tarjetas dinámicas
 if es_modo_qr:
     st.markdown(
         """
@@ -28,10 +28,9 @@ if es_modo_qr:
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
             
-            /* Estilo para las pestañas en color rojo institucional */
-            .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-            .stTabs [data-baseweb="tab"] { background-color: #f2ede4; border-radius: 4px 4px 0px 0px; color: #611232; font-weight: 700; padding: 10px 16px; }
-            .stTabs [aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
+            /* Forzar color guinda en la barra de pestañas */
+            button[data-baseweb="tab"] { background-color: #f2ede4 !important; color: #611232 !important; font-weight: 700 !important; border-radius: 4px 4px 0px 0px !important; }
+            button[data-baseweb="tab"][aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
 
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
@@ -53,10 +52,9 @@ else:
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
 
-            /* Estilo para las pestañas en color rojo institucional */
-            .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-            .stTabs [data-baseweb="tab"] { background-color: #f2ede4; border-radius: 4px 4px 0px 0px; color: #611232; font-weight: 700; padding: 10px 16px; }
-            .stTabs [aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
+            /* Forzar color guinda en la barra de pestañas */
+            button[data-baseweb="tab"] { background-color: #f2ede4 !important; color: #611232 !important; font-weight: 700 !important; border-radius: 4px 4px 0px 0px !important; }
+            button[data-baseweb="tab"][aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
 
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
