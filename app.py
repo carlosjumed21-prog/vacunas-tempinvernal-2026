@@ -529,5 +529,5 @@ with st.form("form_censo_vacunacion_resto"):
             st.session_state.contador_consecutivo += 1
 
             st.success(
-                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Provisional **{curp_algoritmica}**!"
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Algorítmica **{curp_algoritmica}**!"
             )
