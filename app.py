@@ -27,7 +27,6 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-vacunas { background-color: #fef6e4; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; font-weight: 700; color: #161a1d; font-size: 1.1rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -47,7 +46,6 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-vacunas { background-color: #fef6e4; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; font-weight: 700; color: #161a1d; font-size: 1.1rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -482,73 +480,6 @@ with st.form("form_censo_vacunacion_resto"):
             unsafe_allow_html=True,
         )
 
-    # --- EVALUACIÓN DE BIOLÓGICOS (CUADRO 9 - LINEAMIENTOS CENSIA) ---
-    aplica_influenza = True
-    aplica_covid = False
-    aplica_neumococo = False
-
-    if 6 <= edad_total_meses <= 59:
-        aplica_covid = tiene_comorb  # En niños < 5 años solo con comorbilidad[cite: 3]
-        aplica_neumococo = False
-    elif calc_anos >= 60:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif planes_o_embarazo == "SÍ":
-        aplica_covid = True
-        aplica_neumococo = False
-    elif ocupacion == "PERSONAL DE SALUD":
-        aplica_covid = True
-        aplica_neumococo = False
-    elif vih:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif diabetes:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif obesidad:
-        aplica_covid = True
-        aplica_neumococo = False
-    elif cardiopatias:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif epoc:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif cancer:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif congenitas:
-        aplica_covid = False
-        aplica_neumococo = False
-    elif insuficiencia_renal:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif inmunosupresion:
-        aplica_covid = True
-        aplica_neumococo = True
-    elif hipertension:
-        aplica_influenza = False
-        aplica_covid = True
-        aplica_neumococo = False
-    elif discapacidades:
-        aplica_influenza = False
-        aplica_covid = True
-        aplica_neumococo = False
-
-    st.markdown(
-        '<div class="section-title">Biológicos Indicados (Cuadro 9 - CENSIA)</div>',
-        unsafe_allow_html=True,
-    )
-    texto_vacunas = f"""
-    - **Influenza Estacional (2025-2026):** {"✅ SÍ APLICA" if aplica_influenza else "❌ NO APLICA"}[cite: 3]<br>
-    - **COVID-19 (LP.8.1):** {"✅ SÍ APLICA" if aplica_covid else "❌ NO APLICA"}[cite: 3]<br>
-    - **Neumococo (20-valente / 13-valente):** {"✅ SÍ APLICA" if aplica_neumococo else "❌ NO APLICA"}[cite: 3]
-    """
-    st.markdown(
-        f'<div class="card-vacunas">{texto_vacunas}</div>',
-        unsafe_allow_html=True,
-    )
-
     # --- ANTECEDENTE VACUNAL ---
     st.markdown(
         '<div class="section-title">7. Antecedente Vacunal</div>',
@@ -614,9 +545,6 @@ with st.form("form_censo_vacunacion_resto"):
                 "derechohabiencia": cuenta_derechohabiencia,
                 "tiene_comorbilidades": tiene_comorb,
                 "grupo_objetivo": grupo_sugerido,
-                "aplica_influenza": aplica_influenza,
-                "aplica_covid": aplica_covid,
-                "aplica_neumococo": aplica_neumococo,
                 "antecedente_covid": antecedente_covid,
                 "antecedente_influenza": antecedente_influenza,
                 "fecha_registro": fecha_registro,
