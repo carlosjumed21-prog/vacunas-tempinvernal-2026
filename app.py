@@ -14,6 +14,31 @@ st.set_page_config(
     layout="centered",
 )
 
+# --- NAVEGACIÓN FORMAL DE LA INTERFAZ ---
+# Aquí defines las pestañas con sus títulos y emojis profesionales
+pg = st.navigation([
+    st.Page(
+        "app.py", title="Registro de Pacientes", icon="👤", default=True
+    ),
+    st.Page("2_consulta_censia.py", title="Registro de Dosis", icon="💉"),
+    st.Page(
+        "admin.py", title="Administrador", icon="⚙️"
+    ),  # O el nombre de tu archivo del panel de control
+])
+
+# Ejecutar el gestor de navegación
+pg.run()
+
+# --- 1. CAPTURA Y PERSISTENCIA DE PARÁMETROS DE LA URL EN SESSION_STATE ---
+# (Aquí continúa todo tu código habitual de lógica, estilos y formularios de app.py)
+
+# Configuración de la página
+st.set_page_config(
+    page_title="Censo Nominal - Vacunación e Invernal",
+    page_icon="💉",
+    layout="centered",
+)
+
 # --- 1. CAPTURA Y PERSISTENCIA DE PARÁMETROS DE LA URL EN SESSION_STATE ---
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
