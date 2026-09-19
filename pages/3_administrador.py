@@ -2,7 +2,6 @@ import datetime
 import io
 import urllib.parse
 import qrcode
-import requests
 import streamlit as st
 
 st.set_page_config(
@@ -37,16 +36,17 @@ if "config_hora_inicio" not in st.session_state:
   st.session_state.config_hora_inicio = datetime.time(8, 0)
 if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
+if "unidad_anterior" not in st.session_state:
+  st.session_state.unidad_anterior = ""
 if "config_busqueda_mapa" not in st.session_state:
   st.session_state.config_busqueda_mapa = (
-      "ISSSTE CMN 20 de Noviembre, Ciudad de México"
+      "CMN 20 de Noviembre ISSSTE, Ciudad de México"
   )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
-      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, Ciudad de México"
+      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
+      " México, CDMX"
   )
-if "unidad_anterior" not in st.session_state:
-  st.session_state.unidad_anterior = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -82,24 +82,120 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial completo de las 16 unidades médicas del ISSSTE
-  unidades_issste = {
-      "20 DE NOVIEMBRE": "20N",
-      "CHURUBUSCO": "CHU",
-      "CLIDDA": "CLI",
-      "COYOACAN": "COY",
-      "DEL VALLE": "DVA",
-      "DIVISION DEL NORTE": "DVN",
-      "DR. DARIO FERNANDEZ FIERRO": "DFF",
-      "DR. IGNACIO CHAVEZ": "ICH",
-      "ERMITA": "ERM",
-      "FUENTES BROTANTES": "FBR",
-      "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": "MPM",
-      "MILPA ALTA": "MIL",
-      "NARVARTE": "NAR",
-      "TLALPAN": "TLA",
-      "VILLA ALVARO OBREGON": "VAO",
-      "XOCHIMILCO": "XOC",
+  # Catálogo oficial de las 16 unidades con sus siglas y dirección oficial predefinida
+  unidades_issste_data = {
+      "20 DE NOVIEMBRE": {
+          "sigla": "20N",
+          "dir": (
+              "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100"
+              " Ciudad de México, CDMX"
+          ),
+      },
+      "CHURUBUSCO": {
+          "sigla": "CHU",
+          "dir": (
+              "Calzada de Tlalpan 4430, Toriello Guerra, Tlalpan, 14050 Ciudad"
+              " de México, CDMX"
+          ),
+      },
+      "CLIDDA": {
+          "sigla": "CLI",
+          "dir": (
+              "San Fernando 15, Toriello Guerra, Tlalpan, 14050 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "COYOACAN": {
+          "sigla": "COY",
+          "dir": (
+              "Avenida Cuauhtémoc 330, Del Carmen, Coyoacán, 04100 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "DEL VALLE": {
+          "sigla": "DVA",
+          "dir": (
+              "Cacho 35, Del Valle Norte, Benito Juárez, 03103 Ciudad de México,"
+              " CDMX"
+          ),
+      },
+      "DIVISION DEL NORTE": {
+          "sigla": "DVN",
+          "dir": (
+              "Avenida División del Norte 3233, Xoco, Benito Juárez, 03330"
+              " Ciudad de México, CDMX"
+          ),
+      },
+      "DR. DARIO FERNANDEZ FIERRO": {
+          "sigla": "DFF",
+          "dir": (
+              "Avenida Revolución 1182, Tlacopac, Álvaro Obregón, 01049 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "DR. IGNACIO CHAVEZ": {
+          "sigla": "ICH",
+          "dir": (
+              "Eje 1 Poniente Av. Cuauhtémoc s/n, Doctores, Cuauhtémoc, 06720"
+              " Ciudad de México, CDMX"
+          ),
+      },
+      "ERMITA": {
+          "sigla": "ERM",
+          "dir": (
+              "Ermita Iztapalapa 67, Ermita, Benito Juárez, 03590 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "FUENTES BROTANTES": {
+          "sigla": "FBR",
+          "dir": (
+              "Fuentes Brotantes s/n, Fuentes Brotantes, Tlalpan, 14410 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": {
+          "sigla": "MPM",
+          "dir": (
+              "Avenida Tláhuac s/n, San Lorenzo Tezonco, Iztapalapa, 13266 Ciudad"
+              " de México, CDMX"
+          ),
+      },
+      "MILPA ALTA": {
+          "sigla": "MIL",
+          "dir": (
+              "Prolongación Matamoros s/n, Villa Milpa Alta, Milpa Alta, 12000"
+              " Ciudad de México, CDMX"
+          ),
+      },
+      "NARVARTE": {
+          "sigla": "NAR",
+          "dir": (
+              "Avenida Cuauhtémoc 625, Narvarte Poniente, Benito Juárez, 03020"
+              " Ciudad de México, CDMX"
+          ),
+      },
+      "TLALPAN": {
+          "sigla": "TLA",
+          "dir": (
+              "Calzada de Tlalpan 4800, Toriello Guerra, Tlalpan, 14050 Ciudad de"
+              " México, CDMX"
+          ),
+      },
+      "VILLA ALVARO OBREGON": {
+          "sigla": "VAO",
+          "dir": (
+              "Calle 10 s/n, Tolteca, Álvaro Obregón, 01150 Ciudad de México,"
+              " CDMX"
+          ),
+      },
+      "XOCHIMILCO": {
+          "sigla": "XOC",
+          "dir": (
+              "Providencia s/n, Barrio San Marcos, Xochimilco, 16050 Ciudad de"
+              " México, CDMX"
+          ),
+      },
   }
 
   st.markdown(
@@ -111,9 +207,9 @@ else:
   col_c1, col_c2 = st.columns(2)
   with col_c1:
     unidad_sel = st.selectbox(
-        "Unidad Médica ISSSTE:", options=list(unidades_issste.keys())
+        "Unidad Médica ISSSTE:", options=list(unidades_issste_data.keys())
     )
-    siglas_unidad = unidades_issste[unidad_sel]
+    siglas_unidad = unidades_issste_data[unidad_sel]["sigla"]
 
   with col_c2:
     jornada_sel = st.selectbox(
@@ -123,12 +219,12 @@ else:
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
-  # Automatización: Si cambia la unidad seleccionada, actualizamos el buscador por defecto
+  # Automatización: Al cambiar la unidad en el selectbox, se actualiza en automático la dirección oficial y el mapa
   if st.session_state.unidad_anterior != unidad_sel:
     st.session_state.unidad_anterior = unidad_sel
-    st.session_state.config_busqueda_mapa = (
-        f"ISSSTE {unidad_sel}, Ciudad de México"
-    )
+    dir_sugerida = unidades_issste_data[unidad_sel]["dir"]
+    st.session_state.config_direccion_oficial = dir_sugerida
+    st.session_state.config_busqueda_mapa = f"ISSSTE {unidad_sel}, CDMX"
     st.rerun()
 
   st.markdown(
@@ -156,44 +252,17 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Buscador Inteligente y Ubicación en'
-      " Mapa</div>",
+      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
       unsafe_allow_html=True,
   )
 
-  col_b1, col_b2 = st.columns([3, 1])
-  with col_b1:
-    busqueda_input = st.text_input(
-        "🔍 Consulta de ubicación institucional:",
-        value=st.session_state.config_busqueda_mapa,
-    )
-  with col_b2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    btn_buscar = st.button("🔍 Buscar Dir.", use_container_width=True)
-
+  # Buscador sincronizado con la unidad seleccionada
+  busqueda_input = st.text_input(
+      "🔍 Ubicación en el mapa:", value=st.session_state.config_busqueda_mapa
+  )
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Autodetección de dirección exacta mediante API de geocodificación
-  if btn_buscar and busqueda_input:
-    try:
-      url_geo = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(busqueda_input)}&format=json&addressdetails=1&limit=1"
-      headers = {"User-Agent": "SistemaVIGILE-ISSSTE/1.0"}
-      response = requests.get(url_geo, headers=headers, timeout=5)
-      if response.status_code == 200:
-        resultados = response.json()
-        if resultados:
-          direccion_encontrada = resultados[0].get("display_name")
-          st.session_state.config_direccion_oficial = direccion_encontrada
-          st.success("¡Dirección exacta obtenida y autocompletada con éxito!")
-        else:
-          st.warning(
-              "No se encontró automáticamente. Puedes ajustarla o escribirla"
-              " abajo."
-          )
-    except Exception:
-      st.error("Error al consultar la dirección.")
-
-  # Renderizado del mapa interactivo
+  # Renderizado dinámico del mapa de Google Maps con la unidad seleccionada
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
@@ -203,10 +272,9 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo oficial editable con la dirección completa
+  # Campo oficial con la dirección exacta lista para comprobantes y reportes
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa (Verificada para Comprobantes y"
-      " Reportes):",
+      "📍 Dirección Oficial Completa:",
       value=st.session_state.config_direccion_oficial,
       placeholder="La dirección oficial exacta aparecerá aquí...",
       height=80,
