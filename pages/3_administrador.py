@@ -1,8 +1,10 @@
 import datetime
 import io
 import urllib.parse
+import gspread
 import qrcode
 import streamlit as st
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Panel de Administración - Censo Nominal",
@@ -43,6 +45,10 @@ if "config_direccion_oficial" not in st.session_state:
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
       " México, CDMX"
   )
+if "jornada_autorizada" not in st.session_state:
+  st.session_state.jornada_autorizada = False
+if "nombre_hoja_destino" not in st.session_state:
+  st.session_state.nombre_hoja_destino = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -78,7 +84,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial completo de las 16 unidades con siglas, dirección oficial y término de búsqueda exacta para mapas
+  # Catálogo oficial completo de las 16 unidades del ISSSTE
   unidades_issste_data = {
       "20 DE NOVIEMBRE": {
           "sigla": "20N",
@@ -235,14 +241,86 @@ else:
         format_func=lambda x: "Intramuros I" if "I" in x else "Extramuros E",
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
+    tipo_jornada_texto = "INTRA" if tipo_jornada_letra == "I" else "EXTRA"
 
-  # Sincronización automática: Al cambiar la unidad, se establece su dirección oficial y ubicación exacta en el mapa
   if st.session_state.unidad_anterior != unidad_sel:
     st.session_state.unidad_anterior = unidad_sel
     st.session_state.config_direccion_oficial = unidades_issste_data[unidad_sel][
         "dir"
     ]
     st.rerun()
+
+  # --- BOTÓN DE AUTORIZACIÓN COLOCADO AQUÍ ARRIBA PARA ACCESO DIRECTO ---
+  st.markdown("<br>", unsafe_allow_html=True)
+  if st.button(
+      "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
+      use_container_width=True,
+  ):
+    try:
+      fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
+      nombre_nueva_hoja = (
+          f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
+      )
+
+      scope = [
+          "https://spreadsheets.google.com/feeds",
+          "https://www.googleapis.com/auth/drive",
+      ]
+      creds_dict = dict(st.secrets["gpex"])
+      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+      client = gspread.authorize(creds)
+
+      sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+      spreadsheet = client.open_by_key(sheet_id)
+
+      hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+      if nombre_nueva_hoja not in hojas_existentes:
+        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+        spreadsheet.duplicate_sheet(
+            plantilla.id, new_sheet_name=nombre_nueva_hoja
+        )
+
+      # Guardar parámetros oficiales en session_state
+      st.session_state.jornada_autorizada = True
+      st.session_state.nombre_unidad = unidad_sel
+      st.session_state.siglas_unidad = siglas_unidad
+      st.session_state.nombre_hoja_destino = nombre_nueva_hoja
+
+      st.success(
+          "¡Jornada autorizada y hoja generada con éxito! Actualizando panel..."
+      )
+      st.rerun()
+
+    except Exception as e:
+      st.error(
+          "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
+          f" hoja 'CENSO NOMINAL' exista y el correo de servicio tenga"
+          f" permisos: {e}"
+      )
+
+  # Mostrar enlace directo de confirmación y visualización si la jornada está autorizada
+  if st.session_state.jornada_autorizada:
+    st.markdown(
+        "<div style='background-color: #e8f0ec; border: 2px solid #1e5b4f;"
+        " padding: 15px; border-radius: 8px; margin-top: 15px; text-align:"
+        " center;'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"### 🟢 Jornada Autorizada y Activa<br>Hoja de Destino:"
+        f" **{st.session_state.nombre_hoja_destino}**",
+        unsafe_allow_html=True,
+    )
+    url_sheet_directa = (
+        "https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit?usp=sharing"
+    )
+    st.markdown(
+        f"🔗 <a href='{url_sheet_directa}' target='_blank'"
+        " style='color: #1e5b4f; font-weight: bold; font-size: 1.1rem;'>Hacer clic"
+        " aquí para visualizar el Google Sheets creado</a>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
   st.markdown(
       '<div class="section-title">2. Configuración de Fecha y Horario de'
@@ -269,23 +347,18 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Ubicación Exacta en Mapa Interactivo</div>',
+      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
       unsafe_allow_html=True,
   )
-
-  # El mapa se posiciona y ubica automáticamente según la unidad seleccionada
   consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
   query_mapa = urllib.parse.quote(consulta_mapa)
   url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
-  st.components.v1.iframe(url_embed_maps, height=320)
+  st.components.v1.iframe(url_embed_maps, height=300)
 
   st.markdown("<br>", unsafe_allow_html=True)
-
-  # Campo oficial editable que contiene la dirección exacta vinculada y lista para usarse en el registro
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Principal (Asignada para Comprobantes y Reportes):",
+      "📍 Dirección Oficial Principal:",
       value=st.session_state.config_direccion_oficial,
-      placeholder="La dirección oficial exacta aparecerá aquí...",
       height=80,
   )
   st.session_state.config_direccion_oficial = direccion_oficial_input
@@ -303,7 +376,6 @@ else:
   )
   st.code(link_generado, language="text")
 
-  # Generación de Código QR en color Guinda institucional (#611232)
   qr = qrcode.QRCode(version=1, box_size=10, border=4)
   qr.add_data(link_generado)
   qr.make(fit=True)
