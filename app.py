@@ -11,14 +11,46 @@ st.set_page_config(
     layout="centered",
 )
 
-# Leer los parámetros de la URL para ver si el usuario entró mediante el código QR (modo operativo)
+# Leer los parámetros de la URL para modo operativo por QR
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Estilos CSS institucionales y de tarjetas dinámicas
+if "unidad" in params:
+  sigla_url = params.get("unidad")
+  # Diccionario inverso para recuperar el nombre de la unidad según las siglas
+  mapa_siglas_inverso = {
+      "20N": "20 DE NOVIEMBRE",
+      "CHU": "CHURUBUSCO",
+      "CLI": "CLIDDA",
+      "COY": "COYOACAN",
+      "DVA": "DEL VALLE",
+      "DVN": "DIVISION DEL NORTE",
+      "DFF": "DR. DARIO FERNANDEZ FIERRO",
+      "ICH": "DR. IGNACIO CHAVEZ",
+      "ERM": "ERMITA",
+      "FBR": "FUENTES BROTANTES",
+      "MPM": "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA",
+      "MIL": "MILPA ALTA",
+      "NAR": "NARVARTE",
+      "TLA": "TLALPAN",
+      "VAO": "VILLA ALVARO OBREGON",
+      "XOC": "XOCHIMILCO",
+      # Compatibilidad con versiones anteriores
+      "NOV": "20 DE NOVIEMBRE",
+      "ZAR": "ZARAGOZA",
+      "GFAR": "GÓMEZ FARÍAS",
+  }
+  if sigla_url in mapa_siglas_inverso:
+    st.session_state.nombre_unidad = mapa_siglas_inverso[sigla_url]
+    st.session_state.siglas_unidad = sigla_url
+
+if "jornada" in params:
+  st.session_state.tipo_jornada = params.get("jornada", "I")
+
+# Estilos CSS institucionales
 if es_modo_qr:
-    st.markdown(
-        """
+  st.markdown(
+      """
         <style>
             .stApp { background-color: #fbf9f4; }
             [data-testid="stSidebar"] { display: none !important; }
@@ -29,26 +61,20 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            
-            [data-testid="stSidebar"] { background-color: #611232 !important; }
-            [data-testid="stSidebar"] * { color: #ffffff !important; }
-
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         </style>
     """,
-        unsafe_allow_html=True,
-    )
+      unsafe_allow_html=True,
+  )
 else:
-    st.markdown(
-        """
+  st.markdown(
+      """
         <style>
             .stApp { background-color: #fbf9f4; }
-            
             [data-testid="stSidebar"] { background-color: #611232 !important; }
             [data-testid="stSidebar"] * { color: #ffffff !important; }
-
             .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
             .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
             .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
@@ -56,30 +82,42 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         </style>
     """,
-        unsafe_allow_html=True,
-    )
+      unsafe_allow_html=True,
+  )
 
-# Inicializar variables de estado compartido si no existen
+# Inicializar variables de estado compartido con los valores sincronizados del Administrador
 if "registros_censales" not in st.session_state:
-    st.session_state.registros_censales = []
+  st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
-    st.session_state.contador_consecutivo = 1
+  st.session_state.contador_consecutivo = 1
 if "fecha_ultimo_consecutivo" not in st.session_state:
-    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
+  st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 if "tipo_jornada" not in st.session_state:
-    st.session_state.tipo_jornada = "I"
+  st.session_state.tipo_jornada = "I"
 if "siglas_unidad" not in st.session_state:
-    st.session_state.siglas_unidad = "ERM"
+  st.session_state.siglas_unidad = "20N"
 if "nombre_unidad" not in st.session_state:
-    st.session_state.nombre_unidad = "ERMITA"
+  st.session_state.nombre_unidad = "20 DE NOVIEMBRE"
 if "ultimo_paciente_registrado" not in st.session_state:
-    st.session_state.ultimo_paciente_registrado = None
+  st.session_state.ultimo_paciente_registrado = None
+
+# Variables sincronizadas con la configuración del administrador
+if "config_fecha_aplicacion" not in st.session_state:
+  st.session_state.config_fecha_aplicacion = datetime.date.today()
+if "config_hora_inicio" not in st.session_state:
+  st.session_state.config_hora_inicio = datetime.time(8, 0)
+if "config_hora_fin" not in st.session_state:
+  st.session_state.config_hora_fin = datetime.time(14, 0)
+if "config_direccion_oficial" not in st.session_state:
+  st.session_state.config_direccion_oficial = (
+      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
+      " México, CDMX"
+  )
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -252,17 +290,6 @@ estados_mexico = [
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
-    texto_whatsapp = (
-        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
-        f"Unidad: {st.session_state.nombre_unidad}\n"
-        f"Folio: *{p['folio']}*\n"
-        f"Paciente: {p['nombre_completo']}\n"
-        f"CURP: {p['curp_algoritmica']}\n"
-        f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
-        f"¡Presente este comprobante en el módulo!"
-    )
-    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(texto_whatsapp)}"
-
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -283,7 +310,7 @@ def mostrar_modal_comprobante():
                 border-radius: 10px;
                 color: #161a1d;
                 box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-                margin-bottom: 5px;
+                margin-bottom: 10px;
             }}
             .folio-grande {{
                 font-size: 1.3rem !important;
@@ -309,8 +336,6 @@ def mostrar_modal_comprobante():
                 border: none;
                 cursor: pointer;
                 text-align: center;
-                text-decoration: none;
-                display: block;
                 box-sizing: border-box;
             }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -319,22 +344,48 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
-                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO</h3>
+                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
+                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Ubicación:</b> {direccion}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
                 <hr style="border: 1px solid #e6d194; margin: 3px 0;">
-                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> 08:00 a 14:00 hrs</p>
+                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
             </div>
 
             <div class="btn-container">
-                <a class="btn btn-wa" href="{url_wa}" target="_blank">💬 WhatsApp</a>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Img</button>
+                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
+                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
             </div>
 
             <script>
+            function compartirImagenWhatsApp() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    canvas.toBlob(blob => {{
+                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
+
+                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                            navigator.share({{
+                                files: [file],
+                                title: 'Comprobante de Vacunación',
+                                text: textoMensaje
+                            }}).catch(error => console.log('Error al compartir', error));
+                        }} else {{
+                            const enlace = document.createElement('a');
+                            enlace.download = 'Comprobante_{folio}.png';
+                            enlace.href = URL.createObjectURL(blob);
+                            enlace.click();
+                            alert('Imagen descargada. Se abrirá WhatsApp para enviarla.');
+                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
+                        }}
+                    }}, 'image/png');
+                }});
+            }}
+
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
@@ -349,16 +400,17 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
         unidad=st.session_state.nombre_unidad,
+        direccion=st.session_state.config_direccion_oficial,
         nombre=p["nombre_completo"],
         curp=p["curp_algoritmica"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
-        fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
-        url_wa=url_whatsapp,
+        fecha=st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y"),
+        h_ini=st.session_state.config_hora_inicio.strftime("%H:%M"),
+        h_fin=st.session_state.config_hora_fin.strftime("%H:%M"),
     )
 
-    # Altura compacta optimizada a 280px para garantizar que todo el contenido y botones quepan sin recortes en móviles
-    components.html(html_comprobante_component, height=280)
+    components.html(html_comprobante_component, height=310)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
@@ -400,9 +452,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS (Heredados del Administrador) ---
 st.markdown(
-    '<div class="section-title">1. Datos Generales y Fechas</div>',
+    '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
 )
 col_g1, col_g2, col_g3 = st.columns(3)
@@ -411,8 +463,11 @@ with col_g1:
       "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
   )
 with col_g2:
+  # Hereda la fecha configurada por el administrador por defecto
   fecha_aplicacion = st.date_input(
-      "Fecha de Aplicación", value=datetime.date.today(), format="DD/MM/YYYY"
+      "Fecha de Aplicación (Autorizada)",
+      value=st.session_state.config_fecha_aplicacion,
+      format="DD/MM/YYYY",
   )
 
 hoy_actual = fecha_registro
@@ -658,7 +713,7 @@ else:
       unsafe_allow_html=True,
   )
 
-# --- 7. ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO FUERA DE FORMULARIO ---
+# --- 7. ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
 st.markdown(
     '<div class="section-title">7. Antecedente Vacunal</div>',
     unsafe_allow_html=True,
