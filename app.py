@@ -246,162 +246,6 @@ estados_mexico = [
     "ZACATECAS",
 ]
 
-
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON WHATSAPP ENVIANDO IMAGEN ---
-@st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
-def mostrar_modal_comprobante():
-  p = st.session_state.ultimo_paciente_registrado
-  if p:
-    html_comprobante_component = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <style>
-            body {{
-                font-family: sans-serif;
-                margin: 0;
-                padding: 5px;
-                background-color: transparent;
-            }}
-            .card-comprobante {{
-                background-color: #ffffff;
-                border: 3px solid #1e5b4f;
-                padding: 20px;
-                border-radius: 12px;
-                color: #161a1d;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                margin-bottom: 15px;
-            }}
-            .folio-grande {{
-                font-size: 1.8rem !important;
-                font-weight: 900 !important;
-                color: #611232 !important;
-                text-align: center;
-                background-color: #f7f4eb;
-                padding: 10px;
-                border-radius: 6px;
-                border: 2px dashed #a57f2c;
-                margin: 15px 0;
-            }}
-            .btn-container {{
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }}
-            .btn {{
-                width: 100%;
-                padding: 0.9rem 1rem;
-                font-size: 1.1rem;
-                font-weight: bold;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                text-align: center;
-                box-sizing: border-box;
-            }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #f2ede4; color: #611232; border: 1px solid #a57f2c; font-size: 1rem; padding: 0.7rem; }}
-        </style>
-        </head>
-        <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO</h3>
-                <p style="margin: 5px 0;"><b>Unidad Médica:</b> {unidad}</p>
-                <p style="margin: 5px 0;"><b>Paciente:</b> {nombre}</p>
-                <p style="margin: 5px 0;"><b>CURP:</b> {curp}</p>
-                <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {grupo}</p>
-                <div class="folio-grande">FOLIO: {folio}</div>
-                <hr style="border: 1px solid #e6d194; margin: 10px 0;">
-                <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {fecha}</p>
-                <p style="margin: 5px 0;">⏰ <b>Horario:</b> Lunes a Viernes 08:00 a 14:00 hrs</p>
-            </div>
-
-            <div class="btn-container">
-                <button class="btn btn-wa" onclick="enviarImagenWhatsApp()">💬 Enviar Imagen por WhatsApp</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen de Respaldo</button>
-            </div>
-
-            <script>
-            function enviarImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha}\\n¡Presente este comprobante en el módulo!`;
-
-                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{
-                                files: [file],
-                                title: 'Comprobante de Vacunación',
-                                text: textoMensaje
-                            }}).catch(error => console.log('Error al compartir', error));
-                        }} else {{
-                            const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_{folio}.png';
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            alert('La imagen del comprobante se ha descargado. Se abrirá WhatsApp para enviarla.');
-                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                        }}
-                    }}, 'image/png');
-                }});
-            }}
-
-            function descargarCaptura() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_{folio}.png';
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }});
-            }}
-            </script>
-        </body>
-        </html>
-        """.format(
-        unidad=st.session_state.nombre_unidad,
-        nombre=p["nombre_completo"],
-        curp=p["curp_algoritmica"],
-        grupo=p["grupo_objetivo"],
-        folio=p["folio"],
-        fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
-    )
-
-    components.html(html_comprobante_component, height=440)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button(
-        "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
-    ):
-      st.session_state.ultimo_paciente_registrado = None
-      # Limpiar las llaves de los inputs para reiniciar físicamente el formulario
-      for key in [
-          "input_paterno",
-          "input_materno",
-          "input_nombres",
-          "input_fnac",
-          "input_sexo",
-          "input_estnac",
-          "input_estres",
-          "input_calle",
-          "input_num",
-          "input_col",
-          "input_derecho",
-          "input_ocupacion",
-          "input_digitos",
-      ]:
-        if key in st.session_state:
-          del st.session_state[key]
-      st.rerun()
-
-
-# Activar el modal flotante si hay un registro exitoso pendiente
-if st.session_state.ultimo_paciente_registrado is not None:
-  mostrar_modal_comprobante()
-
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
     unsafe_allow_html=True,
@@ -412,6 +256,167 @@ st.markdown(
     f'{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
     unsafe_allow_html=True,
 )
+
+# --- COMPROBANTE VISIBLE EN LA PARTE SUPERIOR (FLEXIBLE Y ADAPTADO A MÓVIL) ---
+if st.session_state.ultimo_paciente_registrado is not None:
+  p = st.session_state.ultimo_paciente_registrado
+
+  st.markdown(
+      """
+      <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+          <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">🎉 ¡REGISTRO EXITOSO!</h3>
+          <p style="text-align: center; margin-bottom: 10px; font-weight: bold; color: #611232;">COMPROBANTE DIGITAL LISTO</p>
+      </div>
+      """,
+      unsafe_allow_html=True,
+  )
+
+  html_comprobante_component = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {{
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+        }}
+        .card-comprobante {{
+            background-color: #ffffff;
+            border: 3px solid #1e5b4f;
+            padding: 18px;
+            border-radius: 12px;
+            color: #161a1d;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }}
+        .folio-grande {{
+            font-size: 1.6rem !important;
+            font-weight: 900 !important;
+            color: #611232 !important;
+            text-align: center;
+            background-color: #f7f4eb;
+            padding: 10px;
+            border-radius: 6px;
+            border: 2px dashed #a57f2c;
+            margin: 12px 0;
+        }}
+        .btn-container {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+        .btn {{
+            width: 100%;
+            padding: 0.8rem 1rem;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            box-sizing: border-box;
+        }}
+        .btn-wa {{ background-color: #25D366; color: white; }}
+        .btn-img {{ background-color: #f2ede4; color: #611232; border: 1px solid #a57f2c; }}
+    </style>
+    </head>
+    <body>
+        <div id="comprobante-captura" class="card-comprobante">
+            <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO</h3>
+            <p style="margin: 4px 0; font-size: 0.95rem;"><b>Unidad:</b> {unidad}</p>
+            <p style="margin: 4px 0; font-size: 0.95rem;"><b>Paciente:</b> {nombre}</p>
+            <p style="margin: 4px 0; font-size: 0.95rem;"><b>CURP:</b> {curp}</p>
+            <p style="margin: 4px 0; font-size: 0.95rem;"><b>Grupo:</b> {grupo}</p>
+            <div class="folio-grande">FOLIO: {folio}</div>
+            <hr style="border: 1px solid #e6d194; margin: 8px 0;">
+            <p style="margin: 4px 0; font-size: 0.9rem;">📅 <b>Fecha Aplicación:</b> {fecha}</p>
+            <p style="margin: 4px 0; font-size: 0.9rem;">⏰ <b>Horario:</b> Lunes a Viernes 08:00 a 14:00 hrs</p>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-wa" onclick="enviarImagenWhatsApp()">💬 Enviar Imagen por WhatsApp</button>
+            <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen de Respaldo</button>
+        </div>
+
+        <script>
+        function enviarImagenWhatsApp() {{
+            const elemento = document.getElementById('comprobante-captura');
+            html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                canvas.toBlob(blob => {{
+                    const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
+                    const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha}\\n¡Presente este comprobante en el módulo!`;
+
+                    if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                        navigator.share({{
+                            files: [file],
+                            title: 'Comprobante de Vacunación',
+                            text: textoMensaje
+                        }}).catch(error => console.log('Error al compartir', error));
+                    }} else {{
+                        const enlace = document.createElement('a');
+                        enlace.download = 'Comprobante_{folio}.png';
+                        enlace.href = URL.createObjectURL(blob);
+                        enlace.click();
+                        alert('La imagen se ha descargado. Se abrirá WhatsApp para enviarla.');
+                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
+                    }}
+                }}, 'image/png');
+            }});
+        }}
+
+        function descargarCaptura() {{
+            const elemento = document.getElementById('comprobante-captura');
+            html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                const enlace = document.createElement('a');
+                enlace.download = 'Comprobante_{folio}.png';
+                enlace.href = canvas.toDataURL('image/png');
+                enlace.click();
+            }});
+        }}
+        </script>
+    </body>
+    </html>
+    """.format(
+      unidad=st.session_state.nombre_unidad,
+      nombre=p["nombre_completo"],
+      curp=p["curp_algoritmica"],
+      grupo=p["grupo_objetivo"],
+      folio=p["folio"],
+      fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
+  )
+
+  # Renderizamos con altura generosa (400px) para que en celulares se vea completo sin cortes
+  components.html(html_comprobante_component, height=410)
+
+  st.markdown("<br>", unsafe_allow_html=True)
+  if st.button(
+      "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
+  ):
+    st.session_state.ultimo_paciente_registrado = None
+    for key in [
+        "input_paterno",
+        "input_materno",
+        "input_nombres",
+        "input_fnac",
+        "input_sexo",
+        "input_estnac",
+        "input_estres",
+        "input_calle",
+        "input_num",
+        "input_col",
+        "input_derecho",
+        "input_ocupacion",
+        "input_digitos",
+    ]:
+      if key in st.session_state:
+        del st.session_state[key]
+    st.rerun()
+
+  st.markdown("---")
 
 # --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
