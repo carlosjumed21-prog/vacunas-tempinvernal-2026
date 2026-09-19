@@ -2,6 +2,7 @@ import datetime
 import io
 import urllib.parse
 import qrcode
+import requests
 import streamlit as st
 
 st.set_page_config(
@@ -38,11 +39,11 @@ if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
 if "config_busqueda_mapa" not in st.session_state:
   st.session_state.config_busqueda_mapa = (
-      "Ermita Iztapalapa 67, Ermita, Benito Juarez, Ciudad de Mexico"
+      "CMF Ermita, Ermita Iztapalapa, Ciudad de México"
   )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
-      "Ermita Iztapalapa 67, Ermita, Benito Juarez, Ciudad de Mexico"
+      "Ermita Iztapalapa 67, Ermita, Benito Juárez, Ciudad de México"
   )
 
 if not st.session_state.autenticado_admin:
@@ -79,24 +80,24 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo completo de las 16 Unidades Médicas del ISSSTE
+  # Catálogo oficial completo de las 16 unidades médicas del ISSSTE solicitadas
   unidades_issste = {
-      "CMN 20 DE NOVIEMBRE": "20N",
-      "HOSPITAL REGIONAL ADOLFO LÓPEZ MATEOS": "ALM",
-      "HOSPITAL REGIONAL 1 DE OCTUBRE": "1OC",
-      "HOSPITAL REGIONAL ZARAGOZA": "ZAR",
-      "HOSPITAL REGIONAL BICENTENARIO DE LA INDEPENDENCIA": "BIC",
-      "CLÍNICA HOSPITAL DR. IGNACIO CHÁVEZ": "ICH",
-      "CLÍNICA HOSPITAL MITRA / SUR": "SUR",
-      "CMF ERMITA": "ERM",
-      "CMF CUITLÁHUAC": "CUT",
-      "CMF NANDO DE SANTIAGO": "NSN",
-      "CMF ARTURO ARTURO": "ART",
-      "CMF VALLE JOE": "VJO",
-      "CMF TACUBA": "TAC",
-      "CMF SULLIVAN": "SUL",
-      "CMF PERICENTRO": "PER",
-      "CMF VILLA": "VIL",
+      "20 DE NOVIEMBRE": "20N",
+      "CHURUBUSCO": "CHU",
+      "CLIDDA": "CLI",
+      "COYOACAN": "COY",
+      "DEL VALLE": "DVA",
+      "DIVISION DEL NORTE": "DVN",
+      "DR. DARIO FERNANDEZ FIERRO": "DFF",
+      "DR. IGNACIO CHAVEZ": "ICH",
+      "ERMITA": "ERM",
+      "FUENTES BROTANTES": "FBR",
+      "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": "MPM",
+      "MILPA ALTA": "MIL",
+      "NARVARTE": "NAR",
+      "TLALPAN": "TLA",
+      "VILLA ALVARO OBREGON": "VAO",
+      "XOCHIMILCO": "XOC",
   }
 
   st.markdown(
@@ -145,19 +146,45 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
+      '<div class="section-title">3. Buscador Inteligente y Autocompletado de'
+      " Dirección</div>",
       unsafe_allow_html=True,
   )
 
-  # Buscador interactivo para mover el mapa al instante
-  busqueda_input = st.text_input(
-      "🔍 Buscador (Escribe el lugar para ubicarlo en el mapa):",
-      value=st.session_state.config_busqueda_mapa,
-      placeholder="Ej. Ermita Iztapalapa 67, Benito Juárez, CDMX",
-  )
+  col_b1, col_b2 = st.columns([3, 1])
+  with col_b1:
+    busqueda_input = st.text_input(
+        "🔍 Escribe el nombre de la clínica o lugar:",
+        value=st.session_state.config_busqueda_mapa,
+        placeholder="Ej. CMF Ermita, o Hospital Regional Zaragoza...",
+    )
+  with col_b2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    btn_buscar = st.button("🔍 Buscar Dirección", use_container_width=True)
+
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Renderizado dinámico del widget del mapa interactivo
+  # Lógica de autocompletado mediante API pública de geocodificación
+  if btn_buscar and busqueda_input:
+    try:
+      url_geo = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(busqueda_input)}&format=json&addressdetails=1&limit=1"
+      headers = {"User-Agent": "SistemaVIGILE-ISSSTE/1.0"}
+      response = requests.get(url_geo, headers=headers, timeout=5)
+      if response.status_code == 200:
+        resultados = response.json()
+        if resultados:
+          direccion_encontrada = resultados[0].get("display_name")
+          st.session_state.config_direccion_oficial = direccion_encontrada
+          st.success("¡Dirección exacta obtenida y autocompletada con éxito!")
+        else:
+          st.warning(
+              "No se encontró una dirección exacta. Puedes ingresarla o"
+              " ajustarla manualmente abajo."
+          )
+    except Exception as e:
+      st.error("Error al consultar la dirección en el mapa.")
+
+  # Renderizado dinámico del mapa interactivo
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
@@ -167,12 +194,12 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo libre y oficial para colocar la dirección exacta que arroja Google Maps
+  # Campo oficial editable con la dirección autocompletada
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa (Copia aquí la dirección exacta que ves en"
-      " el mapa):",
+      "📍 Dirección Oficial Completa (Verificada para Comprobantes y"
+      " Reportes):",
       value=st.session_state.config_direccion_oficial,
-      placeholder="Ej. Ermita Iztapalapa 67, Ermita, Benito Juárez, CDMX",
+      placeholder="La dirección oficial exacta aparecerá aquí...",
       height=80,
   )
   st.session_state.config_direccion_oficial = direccion_oficial_input
