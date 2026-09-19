@@ -610,24 +610,16 @@ with st.form("form_censo_vacunacion_guardar"):
   )
 
   if submitted:
+    # Verificamos campos obligatorios directamente dentro del formulario
     if not fecha_nacimiento:
       st.error("Por favor seleccione la Fecha de Nacimiento.")
-    elif (
-        not paterno
-        or not nombres
-        or sexo == "SELECCIONE UNA OPCIÓN"
-        or estado_nacimiento == "SELECCIONE UN ESTADO"
-        or estado_residencia == "SELECCIONE UN ESTADO"
-        or cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN"
-        or not calle
-        or not numero
-        or not colonia
-        or ocupacion == "SELECCIONE UNA OPCIÓN"
-    ):
+    elif not paterno or not nombres:
       st.error(
-          "Por favor complete los campos obligatorios y seleccione una opción"
-          " válida en los menús desplegables (*)."
+          "Por favor complete los campos obligatorios de Apellido Paterno y"
+          " Nombre(s)."
       )
+    elif not calle or not numero or not colonia:
+      st.error("Por favor complete los campos obligatorios del domicilio.")
     else:
       nuevo_paciente = {
           "folio": folio_automatico,
