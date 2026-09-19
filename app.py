@@ -70,19 +70,19 @@ else:
 
 # Inicializar variables de estado compartido si no existen
 if "registros_censales" not in st.session_state:
-    st.session_state.registros_censales = []
+  st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
-    st.session_state.contador_consecutivo = 1
+  st.session_state.contador_consecutivo = 1
 if "fecha_ultimo_consecutivo" not in st.session_state:
-    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
+  st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 if "tipo_jornada" not in st.session_state:
-    st.session_state.tipo_jornada = "I"
+  st.session_state.tipo_jornada = "I"
 if "siglas_unidad" not in st.session_state:
-    st.session_state.siglas_unidad = "ERM"
+  st.session_state.siglas_unidad = "ERM"
 if "nombre_unidad" not in st.session_state:
-    st.session_state.nombre_unidad = "ERMITA"
+  st.session_state.nombre_unidad = "ERMITA"
 if "ultimo_paciente_registrado" not in st.session_state:
-    st.session_state.ultimo_paciente_registrado = None
+  st.session_state.ultimo_paciente_registrado = None
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -255,42 +255,47 @@ estados_mexico = [
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
-    # Renderizamos el comprobante con un ID único para la captura de pantalla
-    st.markdown(
-        f"""
+    # Usamos .format() en lugar de f-string para evitar conflictos con las llaves de JavaScript
+    html_comprobante = """
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <div id="comprobante-captura" class="card-comprobante" style="margin-bottom: 10px; padding: 20px;">
             <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO - CAMPAÑA INVERNAL</h3>
-            <p style="margin: 5px 0;"><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
-            <p style="margin: 5px 0;"><b>Paciente:</b> {p['nombre_completo']}</p>
-            <p style="margin: 5px 0;"><b>CURP:</b> {p['curp_algoritmica']}</p>
-            <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
-            <div class="folio-grande">FOLIO: {p['folio']}</div>
+            <p style="margin: 5px 0;"><b>Unidad Médica:</b> {unidad}</p>
+            <p style="margin: 5px 0;"><b>Paciente:</b> {nombre}</p>
+            <p style="margin: 5px 0;"><b>CURP:</b> {curp}</p>
+            <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {grupo}</p>
+            <div class="folio-grande">FOLIO: {folio}</div>
             <hr style="border: 1px solid #e6d194; margin: 10px 0;">
-            <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
+            <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {fecha}</p>
             <p style="margin: 5px 0;">⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
             <p style="font-size: 0.85rem; color: #666; text-align: center; margin-top: 10px;">Sistema VIGILE - Comprobante Oficial de Campaña</p>
         </div>
 
         <script>
-        function descargarCaptura() {
+        function descargarCaptura() {{
             const elemento = document.getElementById('comprobante-captura');
-            html2canvas(elemento, {{ scale: 2 } }).then(canvas => {
+            html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                 const enlace = document.createElement('a');
-                enlace.download = 'Comprobante_{p['folio']}.png';
+                enlace.download = 'Comprobante_{folio}.png';
                 enlace.href = canvas.toDataURL('image/png');
                 enlace.click();
-            });
-        }
+            }});
+        }}
         </script>
-        """,
-        unsafe_allow_html=True,
+        """.format(
+        unidad=st.session_state.nombre_unidad,
+        nombre=p["nombre_completo"],
+        curp=p["curp_algoritmica"],
+        grupo=p["grupo_objetivo"],
+        folio=p["folio"],
+        fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
     )
+
+    st.markdown(html_comprobante, unsafe_allow_html=True)
 
     col_m1, col_m2 = st.columns(2)
 
     with col_m1:
-      # Botón que activa la función de JavaScript para descargar como imagen PNG (screenshot)
       st.markdown(
           '<button onclick="descargarCaptura()"'
           ' style="background-color: #1e5b4f; color: white; border: none;'
