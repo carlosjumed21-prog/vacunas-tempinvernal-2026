@@ -13,7 +13,7 @@ st.set_page_config(
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Estilos CSS institucionales y de tarjetas dinámicas
+# Estilos CSS institucionales (incluyendo el color de la barra lateral y tarjetas)
 if es_modo_qr:
     st.markdown(
         """
@@ -27,11 +27,6 @@ if es_modo_qr:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            
-            /* Forzar color guinda en la barra de pestañas */
-            button[data-baseweb="tab"] { background-color: #f2ede4 !important; color: #611232 !important; font-weight: 700 !important; border-radius: 4px 4px 0px 0px !important; }
-            button[data-baseweb="tab"][aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
-
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -44,6 +39,11 @@ else:
         """
         <style>
             .stApp { background-color: #fbf9f4; }
+            
+            /* Forzar color guinda en la barra lateral (sidebar) y sus textos */
+            [data-testid="stSidebar"] { background-color: #611232 !important; }
+            [data-testid="stSidebar"] * { color: #ffffff !important; }
+
             .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
             .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
             .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
@@ -51,11 +51,6 @@ else:
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
             .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-
-            /* Forzar color guinda en la barra de pestañas */
-            button[data-baseweb="tab"] { background-color: #f2ede4 !important; color: #611232 !important; font-weight: 700 !important; border-radius: 4px 4px 0px 0px !important; }
-            button[data-baseweb="tab"][aria-selected="true"] { background-color: #611232 !important; color: #ffffff !important; }
-
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
             input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -80,52 +75,52 @@ if "nombre_unidad" not in st.session_state:
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
-    if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
-        return 0, 0, 0
-    anos = fecha_ref.year - fecha_nac.year
-    meses = fecha_ref.month - fecha_nac.month
-    dias = fecha_ref.day - fecha_nac.day
+  if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
+    return 0, 0, 0
+  anos = fecha_ref.year - fecha_nac.year
+  meses = fecha_ref.month - fecha_nac.month
+  dias = fecha_ref.day - fecha_nac.day
 
-    if dias < 0:
-        meses -= 1
-        mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
-        anio_anterior = (
-            fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
-        )
-        dias_mes_anterior = (
-            datetime.date(anio_anterior, mes_anterior + 1, 1)
-            - datetime.timedelta(days=1)
-        ).day
-        dias += dias_mes_anterior
+  if dias < 0:
+    meses -= 1
+    mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
+    anio_anterior = (
+        fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
+    )
+    dias_mes_anterior = (
+        datetime.date(anio_anterior, mes_anterior + 1, 1)
+        - datetime.timedelta(days=1)
+    ).day
+    dias += dias_mes_anterior
 
-    if meses < 0:
-        anos -= 1
-        meses += 12
+  if meses < 0:
+    anos -= 1
+    meses += 12
 
-    return max(0, anos), max(0, meses), max(0, dias)
+  return max(0, anos), max(0, meses), max(0, dias)
 
 
 def limpiar_texto(texto):
-    if not texto:
-        return ""
-    nfkd = unicodedata.normalize("NFKD", texto)
-    return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
+  if not texto:
+    return ""
+  nfkd = unicodedata.normalize("NFKD", texto)
+  return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
 
 
 def obtener_primera_vocal_interna(palabra):
-    vocales = "AEIOU"
-    for letra in palabra[1:]:
-        if letra in vocales:
-            return letra
-    return "X"
+  vocales = "AEIOU"
+  for letra in palabra[1:]:
+    if letra in vocales:
+      return letra
+  return "X"
 
 
 def obtener_primera_consonante_interna(palabra):
-    consonantes = "BCDFGHJKLMNPQRSTVWXYZ"
-    for letra in palabra[1:]:
-        if letra in consonantes:
-            return letra
-    return "X"
+  consonantes = "BCDFGHJKLMNPQRSTVWXYZ"
+  for letra in palabra[1:]:
+    if letra in consonantes:
+      return letra
+  return "X"
 
 
 estados_curp = {
@@ -167,47 +162,44 @@ estados_curp = {
 def generar_curp_algoritmica(
     paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""
 ):
-    p = limpiar_texto(paterno)
-    m = limpiar_texto(materno) if materno else ""
-    n = limpiar_texto(nombres)
+  p = limpiar_texto(paterno)
+  m = limpiar_texto(materno) if materno else ""
+  n = limpiar_texto(nombres)
 
-    if not p or not n or not fecha_nac:
-        return "COMPLETA DATOS Y FECHA"
+  if not p or not n or not fecha_nac:
+    return "COMPLETA DATOS Y FECHA"
 
-    nombres_lista = n.split()
-    primer_nombre = nombres_lista[0] if nombres_lista else "X"
-    if (
-        len(nombres_lista) > 1
-        and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]
-    ):
-        primer_nombre = nombres_lista[1]
+  nombres_lista = n.split()
+  primer_nombre = nombres_lista[0] if nombres_lista else "X"
+  if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
+    primer_nombre = nombres_lista[1]
 
-    c1 = p[0] if p else "X"
-    c2 = obtener_primera_vocal_interna(p)
-    c3 = m[0] if m else "X"
-    c4 = primer_nombre[0] if primer_nombre else "X"
+  c1 = p[0] if p else "X"
+  c2 = obtener_primera_vocal_interna(p)
+  c3 = m[0] if m else "X"
+  c4 = primer_nombre[0] if primer_nombre else "X"
 
-    yy = str(fecha_nac.year)[-2:]
-    mm = str(fecha_nac.month).zfill(2)
-    dd = str(fecha_nac.day).zfill(2)
-    fec_part = f"{yy}{mm}{dd}"
+  yy = str(fecha_nac.year)[-2:]
+  mm = str(fecha_nac.month).zfill(2)
+  dd = str(fecha_nac.day).zfill(2)
+  fec_part = f"{yy}{mm}{dd}"
 
-    sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
-    est_part = estados_curp.get(est_nac, "NE")
+  sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
+  est_part = estados_curp.get(est_nac, "NE")
 
-    c14 = obtener_primera_consonante_interna(p)
-    c15 = obtener_primera_consonante_interna(m) if m else "X"
-    c16 = obtener_primera_consonante_interna(primer_nombre)
+  c14 = obtener_primera_consonante_interna(p)
+  c15 = obtener_primera_consonante_interna(m) if m else "X"
+  c16 = obtener_primera_consonante_interna(primer_nombre)
 
-    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
+  curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
 
-    extra_limpio = limpiar_texto(digitos_extra)
-    if len(extra_limpio) >= 2:
-        sufijo = extra_limpio[:2]
-    else:
-        sufijo = "00"
+  extra_limpio = limpiar_texto(digitos_extra)
+  if len(extra_limpio) >= 2:
+    sufijo = extra_limpio[:2]
+  else:
+    sufijo = "00"
 
-    return f"{curp_16}{sufijo}"
+  return f"{curp_16}{sufijo}"
 
 
 estados_mexico = [
@@ -251,7 +243,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
+    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> |'
+    ' Modalidad: <b>'
+    f'{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
     unsafe_allow_html=True,
 )
 
@@ -262,27 +256,27 @@ st.markdown(
 )
 col_g1, col_g2, col_g3 = st.columns(3)
 with col_g1:
-    fecha_registro = st.date_input(
-        "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
-    )
+  fecha_registro = st.date_input(
+      "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
+  )
 with col_g2:
-    fecha_aplicacion = st.date_input(
-        "Fecha de Aplicación", value=datetime.date.today(), format="DD/MM/YYYY"
-    )
+  fecha_aplicacion = st.date_input(
+      "Fecha de Aplicación", value=datetime.date.today(), format="DD/MM/YYYY"
+  )
 
 hoy_actual = fecha_registro
 if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
-    st.session_state.fecha_ultimo_consecutivo = hoy_actual
-    st.session_state.contador_consecutivo = 1
+  st.session_state.fecha_ultimo_consecutivo = hoy_actual
+  st.session_state.contador_consecutivo = 1
 
 aammmdd = hoy_actual.strftime("%y%m%d")
 folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
 
 with col_g3:
-    st.markdown(
-        f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
+      unsafe_allow_html=True,
+  )
 
 # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
 st.markdown(
@@ -291,42 +285,43 @@ st.markdown(
 )
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
-    paterno = st.text_input("Apellido Paterno *")
+  paterno = st.text_input("Apellido Paterno *")
 with col_n2:
-    materno = st.text_input("Apellido Materno *")
+  materno = st.text_input("Apellido Materno *")
 with col_n3:
-    nombres = st.text_input("Nombre(s) *")
+  nombres = st.text_input("Nombre(s) *")
 
 col_fn1, col_fn2, col_fn3 = st.columns(3)
 with col_fn1:
-    fecha_nacimiento = st.date_input(
-        "Fecha de Nacimiento *",
-        value=None,
-        min_value=datetime.date(1900, 1, 1),
-        max_value=datetime.date.today(),
-        format="DD/MM/YYYY",
-    )
+  fecha_nacimiento = st.date_input(
+      "Fecha de Nacimiento *",
+      value=None,
+      min_value=datetime.date(1900, 1, 1),
+      max_value=datetime.date.today(),
+      format="DD/MM/YYYY",
+  )
 with col_fn2:
-    sexo = st.selectbox(
-        "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
-    )
+  sexo = st.selectbox(
+      "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
+  )
 with col_fn3:
-    estado_nacimiento = st.selectbox(
-        "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
-    )
+  estado_nacimiento = st.selectbox(
+      "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
+  )
 
 planes_o_embarazo = "NO"
 if sexo == "MUJER":
-    st.markdown(
-        "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
-        unsafe_allow_html=True,
-    )
-    planes_o_embarazo = st.radio(
-        "¿Está embarazada o tiene planes de embarazo?",
-        options=["NO", "SÍ"],
-        horizontal=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+  st.markdown(
+      "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c;"
+      " padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
+      unsafe_allow_html=True,
+  )
+  planes_o_embarazo = st.radio(
+      "¿Está embarazada o tiene plans de embarazo?",
+      options=["NO", "SÍ"],
+      horizontal=True,
+  )
+  st.markdown("</div>", unsafe_allow_html=True)
 
 calc_anos, calc_meses, calc_dias = (
     calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
@@ -336,13 +331,15 @@ calc_anos, calc_meses, calc_dias = (
 
 col_info1, col_info2 = st.columns(2)
 with col_info1:
-    st.markdown(
-        f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M, {calc_dias} D</div>',
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M,'
+      f" {calc_dias} D</div>",
+      unsafe_allow_html=True,
+  )
 
 digitos_faltantes = st.text_input(
-    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP oficial)",
+    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP"
+    " oficial)",
     max_chars=2,
     placeholder="Ej. A1",
 )
@@ -357,11 +354,12 @@ curp_algoritmica = generar_curp_algoritmica(
     digitos_faltantes,
 )
 with col_info2:
-    st.markdown(
-        f'<div class="card-curp">🆔 CURP Resultante: <br><span'
-        f' style="color: #611232; font-family: monospace;">{curp_algoritmica}</span></div>',
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      f'<div class="card-curp">🆔 CURP Resultante: <br><span'
+      f' style="color: #611232; font-family:'
+      f' monospace;">{curp_algoritmica}</span></div>',
+      unsafe_allow_html=True,
+  )
 
 # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
 st.markdown(
@@ -376,11 +374,11 @@ estado_residencia = st.selectbox(
 
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
-    calle = st.text_input("Calle *")
+  calle = st.text_input("Calle *")
 with col_dom2:
-    numero = st.text_input("No. (Ext / Int) *")
+  numero = st.text_input("No. (Ext / Int) *")
 with col_dom3:
-    colonia = st.text_input("Colonia *")
+  colonia = st.text_input("Colonia *")
 
 cuenta_derechohabiencia = st.selectbox(
     "¿Cuenta con derechohabiencia? *",
@@ -412,169 +410,174 @@ st.markdown(
 col_r1, col_r2 = st.columns(2)
 
 with col_r1:
-    vih = st.checkbox("VIH / SIDA")
-    diabetes = st.checkbox("DIABETES MELLITUS")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-    epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
+  vih = st.checkbox("VIH / SIDA")
+  diabetes = st.checkbox("DIABETES MELLITUS")
+  obesidad = st.checkbox("OBESIDAD MÓRBIDA")
+  cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+  epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
 
 with col_r2:
-    cancer = st.checkbox("CÁNCER")
-    congenitas = st.checkbox(
-        "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-    )
-    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-    inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
-    discapacidades = st.checkbox(
-        "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
-    )
+  cancer = st.checkbox("CÁNCER")
+  congenitas = st.checkbox(
+      "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+  )
+  insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
+  inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
+  hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+  discapacidades = st.checkbox(
+      "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
+  )
 
 # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
 edad_total_meses = (calc_anos * 12) + calc_meses
-tiene_comorb = any(
-    [
-        vih,
-        diabetes,
-        obesidad,
-        cardiopatias,
-        epoc,
-        cancer,
-        congenitas,
-        insuficiencia_renal,
-        inmunosupresion,
-        hipertension,
-        discapacidades,
-    ]
-)
+tiene_comorb = any([
+    vih,
+    diabetes,
+    obesidad,
+    cardiopatias,
+    epoc,
+    cancer,
+    congenitas,
+    insuficiencia_renal,
+    inmunosupresion,
+    hipertension,
+    discapacidades,
+])
 
 grupo_sugerido = ""
 if fecha_nacimiento is not None:
-    if 6 <= edad_total_meses <= 59:
-        grupo_sugerido = "6 A 59 MESES"
-    elif calc_anos >= 60:
-        grupo_sugerido = "60 Y MÁS"
-    elif planes_o_embarazo == "SÍ":
-        grupo_sugerido = "PERSONAS GESTANTES"
-    elif ocupacion == "PERSONAL DE SALUD":
-        grupo_sugerido = "PERSONAL DE SALUD"
-    elif vih:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
-    elif diabetes:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
-    elif obesidad:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
-    elif cardiopatias:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
-    elif epoc:
-        grupo_sugerido = (
-            "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
-        )
-    elif cancer:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
-    elif congenitas:
-        grupo_sugerido = "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-    elif insuficiencia_renal:
-        grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
-    elif inmunosupresion:
-        grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
-    elif hipertension:
-        grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
-    elif discapacidades:
-        grupo_sugerido = "DISCAPACIDADES"
-    else:
-        grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
+  if 6 <= edad_total_meses <= 59:
+    grupo_sugerido = "6 A 59 MESES"
+  elif calc_anos >= 60:
+    grupo_sugerido = "60 Y MÁS"
+  elif planes_o_embarazo == "SÍ":
+    grupo_sugerido = "PERSONAS GESTANTES"
+  elif ocupacion == "PERSONAL DE SALUD":
+    grupo_sugerido = "PERSONAL DE SALUD"
+  elif vih:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
+  elif diabetes:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
+  elif obesidad:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
+  elif cardiopatias:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
+  elif epoc:
+    grupo_sugerido = (
+        "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
+    )
+  elif cancer:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
+  elif congenitas:
+    grupo_sugerido = "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+  elif insuficiencia_renal:
+    grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
+  elif inmunosupresion:
+    grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
+  elif hipertension:
+    grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
+  elif discapacidades:
+    grupo_sugerido = "DISCAPACIDADES"
+  else:
+    grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
 st.markdown(
-    '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
+    '<div class="section-title">6. Grupo Objetivo (Detectado'
+    " Automáticamente)</div>",
     unsafe_allow_html=True,
 )
 if grupo_sugerido == "":
-    st.markdown(
-        '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px'
+      ' dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
+      unsafe_allow_html=True,
+  )
 else:
-    st.markdown(
-        f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
+      unsafe_allow_html=True,
+  )
 
 # --- FORMULARIO PARA ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
 with st.form("form_censo_vacunacion_guardar"):
-    # --- ANTECEDENTE VACUNAL ---
-    st.markdown(
-        '<div class="section-title">7. Antecedente Vacunal</div>',
-        unsafe_allow_html=True,
+  # --- ANTECEDENTE VACUNAL ---
+  st.markdown(
+      '<div class="section-title">7. Antecedente Vacunal</div>',
+      unsafe_allow_html=True,
+  )
+  col_av1, col_av2 = st.columns(2)
+  with col_av1:
+    antecedente_covid = st.radio(
+        "¿Cuenta con alguna dosis previa de COVID-19?",
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        horizontal=True,
     )
-    col_av1, col_av2 = st.columns(2)
-    with col_av1:
-        antecedente_covid = st.radio(
-            "¿Cuenta con alguna dosis previa de COVID-19?",
-            options=["SÍ", "NO", "LO DESCONOCE"],
-            horizontal=True,
-        )
-    with col_av2:
-        antecedente_influenza = st.radio(
-            "¿Cuenta con alguna dosis previa de Influenza?",
-            options=["SÍ", "NO", "LO DESCONOCE"],
-            horizontal=True,
-        )
-
-    st.markdown("---")
-    submitted = st.form_submit_button(
-        "Guardar Paciente en el Censo Nominal", use_container_width=True
+  with col_av2:
+    antecedente_influenza = st.radio(
+        "¿Cuenta con alguna dosis previa de Influenza?",
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        horizontal=True,
     )
 
-    if submitted:
-        if not fecha_nacimiento:
-            st.error("Por favor seleccione la Fecha de Nacimiento.")
-        elif grupo_sugerido == "":
-            st.error(
-                "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
-            )
-        elif (
-            not paterno
-            or not nombres
-            or estado_nacimiento == "SELECCIONE UN ESTADO"
-            or estado_residencia == "SELECCIONE UN ESTADO"
-            or cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN"
-            or not calle
-            or not numero
-            or not colonia
-            or ocupacion == "SELECCIONE UNA OPCIÓN"
-        ):
-            st.error(
-                "Por favor complete los campos obligatorios y seleccione una opción válida en los menús desplegables (*)."
-            )
-        else:
-            nuevo_paciente = {
-                "folio": folio_automatico,
-                "curp_algoritmica": curp_algoritmica,
-                "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
-                "paterno": paterno.upper(),
-                "materno": materno.upper(),
-                "nombres": nombres.upper(),
-                "fecha_nacimiento": fecha_nacimiento,
-                "estado_nacimiento": estado_nacimiento,
-                "edad_anos": calc_anos,
-                "edad_meses": calc_meses,
-                "edad_dias": calc_dias,
-                "edad_total_meses": edad_total_meses,
-                "sexo": sexo,
-                "embarazo": (planes_o_embarazo == "SÍ"),
-                "ocupacion": ocupacion,
-                "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-                "derechohabiencia": cuenta_derechohabiencia,
-                "tiene_comorbilidades": tiene_comorb,
-                "grupo_objetivo": grupo_sugerido,
-                "antecedente_covid": antecedente_covid,
-                "antecedente_influenza": antecedente_influenza,
-                "fecha_registro": fecha_registro,
-            }
-            st.session_state.registros_censales.append(nuevo_paciente)
-            st.session_state.contador_consecutivo += 1
+  st.markdown("---")
+  submitted = st.form_submit_button(
+      "Guardar Paciente en el Censo Nominal", use_container_width=True
+  )
 
-            st.success(
-                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP **{curp_algoritmica}**!"
-            )
+  if submitted:
+    if not fecha_nacimiento:
+      st.error("Por favor seleccione la Fecha de Nacimiento.")
+    elif grupo_sugerido == "":
+      st.error(
+          "Por favor complete la fecha de nacimiento para determinar el grupo"
+          " objetivo."
+      )
+    elif (
+        not paterno
+        or not nombres
+        or estado_nacimiento == "SELECCIONE UN ESTADO"
+        or estado_residencia == "SELECCIONE UN ESTADO"
+        or cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN"
+        or not calle
+        or not numero
+        or not colonia
+        or ocupacion == "SELECCIONE UNA OPCIÓN"
+    ):
+      st.error(
+          "Por favor complete los campos obligatorios y seleccione una opción"
+          " válida en los menús desplegables (*)."
+      )
+    else:
+      nuevo_paciente = {
+          "folio": folio_automatico,
+          "curp_algoritmica": curp_algoritmica,
+          "nombre_completo": (
+              f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
+          ),
+          "paterno": paterno.upper(),
+          "materno": materno.upper(),
+          "nombres": nombres.upper(),
+          "fecha_nacimiento": fecha_nacimiento,
+          "estado_nacimiento": estado_nacimiento,
+          "edad_anos": calc_anos,
+          "edad_meses": calc_meses,
+          "edad_dias": calc_dias,
+          "edad_total_meses": edad_total_meses,
+          "sexo": sexo,
+          "embarazo": (planes_o_embarazo == "SÍ"),
+          "ocupacion": ocupacion,
+          "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
+          "derechohabiencia": cuenta_derechohabiencia,
+          "tiene_comorbilidades": tiene_comorb,
+          "grupo_objetivo": grupo_sugerido,
+          "antecedente_covid": antecedente_covid,
+          "antecedente_influenza": antecedente_influenza,
+          "fecha_registro": fecha_registro,
+      }
+      st.session_state.registros_censales.append(nuevo_paciente)
+      st.session_state.contador_consecutivo += 1
+
+      st.success(
+          f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y"
+          f" CURP **{curp_algoritmica}**!"
+      )
