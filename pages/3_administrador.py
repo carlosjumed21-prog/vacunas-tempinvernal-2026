@@ -375,7 +375,6 @@ else:
           ]
       )
 
-    # Obtener la hoja destino actual y su id único (gid) para abrirla directamente en esa pestaña
     hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
     gid_activo = hoja_activa.id
 
@@ -391,21 +390,8 @@ else:
         f" correo de servicio. Detalle: {e}"
     )
 
-  # --- RECUADRO VERDE DE CONFIRMACIÓN CON ENLACE DIRECTO A LA PESTAÑA ESPECÍFICA ---
+  # --- RECUADRO VERDE DE AUTORIZACIÓN DE JORNADA E HIPERVÍNCULO ---
   if st.session_state.jornada_autorizada:
-    st.markdown(
-        "<div style='background-color: #e8f0ec; border: 2px solid #1e5b4f;"
-        " padding: 15px; border-radius: 8px; margin-top: 15px; text-align:"
-        " center;'>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f"### 🟢 Jornada Autorizada y Activa<br>Hoja de Destino:"
-        f" **{st.session_state.nombre_hoja_destino}**",
-        unsafe_allow_html=True,
-    )
-
-    # Construir la URL directa incluyendo el parámetro gid de la pestaña específica
     gid_param = (
         f"#gid={st.session_state.gid_hoja_destino}"
         if st.session_state.gid_hoja_destino
@@ -414,12 +400,19 @@ else:
     url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit{gid_param}"
 
     st.markdown(
-        f"🔗 <a href='{url_sheet_directa}' target='_blank'"
-        " style='color: #1e5b4f; font-weight: bold; font-size: 1.1rem;'>Hacer clic"
-        " aquí para visualizar la hoja exacta en Google Sheets</a>",
+        f"""
+        <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+            <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADA AUTORIZADA Y ACTIVA</h3>
+            <p style="font-size: 1.1rem; color: #161a1d; margin-bottom: 12px;">
+                La hoja de destino <b>{st.session_state.nombre_hoja_destino}</b> se encuentra lista y sincronizada para recibir registros.
+            </p>
+            <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1.05rem;">
+                🔗 Visualizar y Consultar Hoja en Google Sheets
+            </a>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
   st.markdown("---")
 
