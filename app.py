@@ -7,7 +7,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
 
-# Configuración única de la página
+# Configuración de la página
 st.set_page_config(
     page_title="Censo Nominal - Vacunación e Invernal",
     page_icon="💉",
@@ -19,10 +19,8 @@ pg = st.navigation([
     st.Page(
         "app.py", title="Registro de Pacientes", icon="👤", default=True
     ),
-    st.Page(
-        "2_consulta_censia.py", title="Registro de Dosis", icon="💉"
-    ),  # Asegúrate de que este archivo esté en la misma carpeta o ajusta su ruta (ej. "pages/2_consulta_censia.py")
-    st.Page("admin.py", title="Administrador", icon="⚙️"),
+    st.Page("pages/2_consulta_censia.py", title="Registro de Dosis", icon="💉"),
+    st.Page("pages/3_administrador.py", title="Administrador", icon="⚙️"),
 ])
 
 pg.run()
