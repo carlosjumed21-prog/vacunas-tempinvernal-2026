@@ -109,13 +109,8 @@ else:
       unsafe_allow_html=True,
   )
 
-# Inicializar contadores y estados
 if "registros_censales" not in st.session_state:
   st.session_state.registros_censales = []
-if "contador_consecutivo" not in st.session_state:
-  st.session_state.contador_consecutivo = 1
-if "fecha_ultimo_consecutivo" not in st.session_state:
-  st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 if "ultimo_paciente_registrado" not in st.session_state:
   st.session_state.ultimo_paciente_registrado = None
 
@@ -290,6 +285,10 @@ estados_mexico = [
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
+    curp_mostrar = p.get(
+        "curp_con_nacimiento",
+        p.get("curp_con_municipio", p.get("curp_con_entidad", "CURP")),
+    )
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -353,7 +352,7 @@ def mostrar_modal_comprobante():
         """.format(
         unidad=st.session_state.nombre_unidad,
         nombre=p["nombre_completo"],
-        curp=p["curp_con_nacimiento"],
+        curp=curp_mostrar,
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
     )
@@ -429,18 +428,9 @@ with col_g2:
       disabled=True,
   )
 
-hoy_actual = datetime.date.today()
-if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
-  st.session_state.fecha_ultimo_consecutivo = hoy_actual
-  st.session_state.contador_consecutivo = 1
-
-aammmdd = hoy_actual.strftime("%y%m%d")
-folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
-
 with col_g3:
   st.markdown(
-      f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
-      unsafe_allow_html=True,
+      "**Folio Generado (Auto)**<br>`POR ASIGNAR`", unsafe_allow_html=True
   )
 
 # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ---
@@ -523,7 +513,6 @@ curp_algoritmica = generar_curp_algoritmica(
     digitos_faltantes,
 )
 
-# CURP automática / Estado de Nacimiento seleccionado (Celda 14C)
 est_nac_seleccionado = (
     estado_nacimiento.upper()
     if estado_nacimiento != "SELECCIONE UN ESTADO"
@@ -678,9 +667,7 @@ st.markdown(
 )
 
 st.markdown("---")
-if st.button(
-    "Guardar Paciente y Migrar a Censo Nominal", use_container_width=True
-):
+if st.button("Registrarme para la jornada", use_container_width=True):
   if not fecha_nacimiento:
     st.error("Por favor seleccione la Fecha de Nacimiento.")
   elif not paterno or not nombres:
@@ -699,10 +686,7 @@ if st.button(
     st.error("Seleccione una Ocupación válida.")
   else:
     try:
-      fecha_jornada_dt = datetime.datetime.strptime(
-          st.session_state.fecha_jornada_url, "%Y-%m-%d"
-      ).date()
-      fecha_str_hoja = fecha_jornada_dt.strftime("%d%m%y")
+      fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
       siglas_actual = st.session_state.get("siglas_unidad", "20N")
       tipo_texto_jornada = (
           "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
@@ -737,14 +721,22 @@ if st.button(
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
+      # Cálculo exacto de la fila y el folio único al momento del registro
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
+      conteo_pacientes = 0
       for idx, val in enumerate(columna_c_vals[12:], start=13):
+        if val.strip() != "":
+          conteo_pacientes += 1
         if val.strip() == "":
           siguiente_fila = idx
           break
       else:
         siguiente_fila = max(13, len(columna_c_vals) + 1)
+
+      siguiente_num = conteo_pacientes + 1
+      aammmdd = val_fecha_app.strftime("%y%m%d")
+      folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(siguiente_num).zfill(3)}"
 
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
@@ -752,7 +744,7 @@ if st.button(
       # 1. Folio Generado (Fila 3-4, Columna B)
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
-          [[folio_automatico], [folio_automatico]],
+          [[folio_asignado], [folio_asignado]],
       )
 
       # 2. Apellidos y Nombres (Fila 13, Columnas C, D, E)
@@ -842,7 +834,7 @@ if st.button(
       )
 
       nuevo_paciente = {
-          "folio": folio_automatico,
+          "folio": folio_asignado,
           "curp_con_nacimiento": curp_con_nacimiento,
           "nombre_completo": (
               f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
@@ -853,7 +845,6 @@ if st.button(
       }
       st.session_state.registros_censales.append(nuevo_paciente)
       st.session_state.ultimo_paciente_registrado = nuevo_paciente
-      st.session_state.contador_consecutivo += 1
       st.rerun()
 
     except Exception as e:
