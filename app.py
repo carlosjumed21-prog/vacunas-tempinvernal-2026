@@ -371,6 +371,8 @@ def mostrar_modal_comprobante():
           "input_derecho",
           "input_ocupacion",
           "input_digitos",
+          "ant_cov",
+          "ant_inf",
       ]:
         if key in st.session_state:
           del st.session_state[key]
@@ -398,7 +400,6 @@ st.markdown(
 )
 col_g1, col_g2, col_g3 = st.columns(3)
 
-# Fecha de Registro fija con la fecha actual del sistema (bloqueada)
 with col_g1:
   fecha_registro = st.date_input(
       "Fecha de Registro (Actual)",
@@ -407,7 +408,6 @@ with col_g1:
       disabled=True,
   )
 
-# Fecha de Aplicación leída desde la URL de la Pestaña 3 (bloqueada)
 fecha_url_str = st.session_state.get("fecha_jornada_url", None)
 if fecha_url_str:
   try:
@@ -520,16 +520,11 @@ curp_algoritmica = generar_curp_algoritmica(
     estado_nacimiento,
     digitos_faltantes,
 )
-entidad_abr = estados_curp.get(estado_nacimiento, "NE")
-curp_con_entidad = (
-    f"{curp_algoritmica}/{entidad_abr}"
-    if estado_nacimiento != "SELECCIONE UN ESTADO"
-    else curp_algoritmica
-)
+curp_con_entidad = curp_algoritmica
 
 with col_info2:
   st.markdown(
-      f'<div class="card-curp">🆔 CURP / Entidad Resultante (14C): <br><span'
+      f'<div class="card-curp">🆔 CURP Resultante (14C): <br><span'
       f' style="color: #611232; font-family:'
       f' monospace;">{curp_con_entidad}</span></div>',
       unsafe_allow_html=True,
@@ -606,11 +601,26 @@ with col_r2:
       "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)", key="com_disc"
   )
 
-otros_riesgos = st.text_input(
-    "Otros grupos de riesgo / Observaciones clínicas (Mapeo AE):",
-    placeholder="Especifique si aplica otro padecimiento...",
-    key="input_otros_riesgos",
+# --- BLOQUE 6: ANTECEDENTE VACUNAL ---
+st.markdown(
+    '<div class="section-title">6. Antecedente Vacunal</div>',
+    unsafe_allow_html=True,
 )
+col_av1, col_av2 = st.columns(2)
+with col_av1:
+  antecedente_covid = st.radio(
+      "¿Cuenta con alguna dosis previa de COVID-19?",
+      options=["SÍ", "NO", "LO DESCONOCE"],
+      horizontal=True,
+      key="ant_cov",
+  )
+with col_av2:
+  antecedente_influenza = st.radio(
+      "¿Cuenta con alguna dosis previa de Influenza?",
+      options=["SÍ", "NO", "LO DESCONOCE"],
+      horizontal=True,
+      key="ant_inf",
+  )
 
 # --- LÓGICA DE GRUPO OBJETIVO ---
 edad_total_meses = (calc_anos * 12) + calc_meses
@@ -650,7 +660,7 @@ if fecha_nacimiento is not None:
     grupo_sugerido = "POBLACIÓN GENERAL"
 
 st.markdown(
-    '<div class="section-title">6. Grupo Objetivo (Detectado'
+    '<div class="section-title">7. Grupo Objetivo (Detectado'
     " Automáticamente)</div>",
     unsafe_allow_html=True,
 )
@@ -795,12 +805,6 @@ if st.button(
               [["X"], ["X"]],
           )
 
-      if otros_riesgos:
-        worksheet.update(
-            f"AE{f_actual}:AE{f_siguiente}",
-            [[otros_riesgos.upper()], [otros_riesgos.upper()]],
-        )
-
       worksheet.update(
           f"AM{f_actual}:AM{f_siguiente}",
           [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
@@ -813,6 +817,8 @@ if st.button(
               f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
           ),
           "grupo_objetivo": grupo_sugerido,
+          "antecedente_covid": antecedente_covid,
+          "antecedente_influenza": antecedente_influenza,
       }
       st.session_state.registros_censales.append(nuevo_paciente)
       st.session_state.ultimo_paciente_registrado = nuevo_paciente
