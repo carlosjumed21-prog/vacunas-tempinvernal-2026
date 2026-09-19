@@ -142,7 +142,7 @@ else:
     st.markdown(
         """
     <div class="card-admin">
-        <p><b>Instrucción:</b> Utilice el enlace predeterminado para generar el Código QR dirigido exclusivamente al formulario de registro de la Pestaña 1.</p>
+        <p><b>Instrucción:</b> El enlace generado incluirá automáticamente el parámetro de restricción para que el código QR abra exclusivamente el formulario de registro sin mostrar pestañas adicionales al personal.</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -150,17 +150,19 @@ else:
 
     url_base_default = "https://medprev-vacunas-invernal.streamlit.app/"
     url_despliegue = st.text_input(
-        "URL base de la aplicación desplegada (Raíz / Pestaña 1):",
+        "URL base de la aplicación desplegada:",
         value=url_base_default,
     )
 
     if st.button("Generar Enlace y Código QR"):
-        link_final = url_despliegue.strip()
+        # Asegurar que el link base termine sin diagonal antes de añadir el parámetro
+        base_limpia = url_despliegue.strip().rstrip("/")
+        link_final = f"{base_limpia}/?modo=registro"
 
         st.success(
             f"Parámetros listos para la unidad **{st.session_state.nombre_unidad}** en modalidad **{'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'}**."
         )
-        st.markdown(f"🔗 **Enlace directo a la Pestaña 1 (Registro):** `{link_final}`")
+        st.markdown(f"🔗 **Enlace QR exclusivo (Registro Limpio):** `{link_final}`")
 
         qr = qrcode.QRCode(
             version=1,
