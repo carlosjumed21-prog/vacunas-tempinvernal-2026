@@ -583,72 +583,79 @@ else:
       unsafe_allow_html=True,
   )
 
-# --- FORMULARIO PARA ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
-with st.form("form_censo_vacunacion_guardar"):
-  # --- ANTECEDENTE VACUNAL ---
-  st.markdown(
-      '<div class="section-title">7. Antecedente Vacunal</div>',
-      unsafe_allow_html=True,
+# --- 7. ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO FUERA DE FORMULARIO ---
+st.markdown(
+    '<div class="section-title">7. Antecedente Vacunal</div>',
+    unsafe_allow_html=True,
+)
+col_av1, col_av2 = st.columns(2)
+with col_av1:
+  antecedente_covid = st.radio(
+      "¿Cuenta con alguna dosis previa de COVID-19?",
+      options=["SÍ", "NO", "LO DESCONOCE"],
+      horizontal=True,
+      key="ant_cov",
   )
-  col_av1, col_av2 = st.columns(2)
-  with col_av1:
-    antecedente_covid = st.radio(
-        "¿Cuenta con alguna dosis previa de COVID-19?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
-        horizontal=True,
-    )
-  with col_av2:
-    antecedente_influenza = st.radio(
-        "¿Cuenta con alguna dosis previa de Influenza?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
-        horizontal=True,
-    )
-
-  st.markdown("---")
-  submitted = st.form_submit_button(
-      "Guardar Paciente en el Censo Nominal", use_container_width=True
+with col_av2:
+  antecedente_influenza = st.radio(
+      "¿Cuenta con alguna dosis previa de Influenza?",
+      options=["SÍ", "NO", "LO DESCONOCE"],
+      horizontal=True,
+      key="ant_inf",
   )
 
-  if submitted:
-    # Verificamos campos obligatorios directamente dentro del formulario
-    if not fecha_nacimiento:
-      st.error("Por favor seleccione la Fecha de Nacimiento.")
-    elif not paterno or not nombres:
-      st.error(
-          "Por favor complete los campos obligatorios de Apellido Paterno y"
-          " Nombre(s)."
-      )
-    elif not calle or not numero or not colonia:
-      st.error("Por favor complete los campos obligatorios del domicilio.")
-    else:
-      nuevo_paciente = {
-          "folio": folio_automatico,
-          "curp_algoritmica": curp_algoritmica,
-          "nombre_completo": (
-              f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
-          ),
-          "paterno": paterno.upper(),
-          "materno": materno.upper(),
-          "nombres": nombres.upper(),
-          "fecha_nacimiento": fecha_nacimiento,
-          "estado_nacimiento": estado_nacimiento,
-          "edad_anos": calc_anos,
-          "edad_meses": calc_meses,
-          "edad_dias": calc_dias,
-          "edad_total_meses": edad_total_meses,
-          "sexo": sexo,
-          "embarazo": (planes_o_embarazo == "SÍ"),
-          "ocupacion": ocupacion,
-          "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-          "derechohabiencia": cuenta_derechohabiencia,
-          "tiene_comorbilidades": tiene_comorb,
-          "grupo_objetivo": grupo_sugerido,
-          "antecedente_covid": antecedente_covid,
-          "antecedente_influenza": antecedente_influenza,
-          "fecha_registro": fecha_registro,
-          "fecha_aplicacion": fecha_aplicacion,
-      }
-      st.session_state.registros_censales.append(nuevo_paciente)
-      st.session_state.ultimo_paciente_registrado = nuevo_paciente
-      st.session_state.contador_consecutivo += 1
-      st.rerun()
+st.markdown("---")
+if st.button(
+    "Guardar Paciente en el Censo Nominal", use_container_width=True
+):
+  if not fecha_nacimiento:
+    st.error("Por favor seleccione la Fecha de Nacimiento.")
+  elif not paterno or not nombres:
+    st.error(
+        "Por favor complete los campos obligatorios de Apellido Paterno y"
+        " Nombre(s)."
+    )
+  elif sexo == "SELECCIONE UNA OPCIÓN":
+    st.error("Por favor seleccione una opción válida en el campo Sexo.")
+  elif estado_nacimiento == "SELECCIONE UN ESTADO":
+    st.error("Por favor seleccione un Estado de Nacimiento válido.")
+  elif estado_residencia == "SELECCIONE UN ESTADO":
+    st.error("Por favor seleccione un Estado de Residencia válido.")
+  elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
+    st.error("Por favor indique si cuenta con derechohabiencia.")
+  elif not calle or not numero or not colonia:
+    st.error("Por favor complete los campos obligatorios del domicilio.")
+  elif ocupacion == "SELECCIONE UNA OPCIÓN":
+    st.error("Por favor seleccione una Ocupación válida.")
+  else:
+    nuevo_paciente = {
+        "folio": folio_automatico,
+        "curp_algoritmica": curp_algoritmica,
+        "nombre_completo": (
+            f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
+        ),
+        "paterno": paterno.upper(),
+        "materno": materno.upper(),
+        "nombres": nombres.upper(),
+        "fecha_nacimiento": fecha_nacimiento,
+        "estado_nacimiento": estado_nacimiento,
+        "edad_anos": calc_anos,
+        "edad_meses": calc_meses,
+        "edad_dias": calc_dias,
+        "edad_total_meses": edad_total_meses,
+        "sexo": sexo,
+        "embarazo": (planes_o_embarazo == "SÍ"),
+        "ocupacion": ocupacion,
+        "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
+        "derechohabiencia": cuenta_derechohabiencia,
+        "tiene_comorbilidades": tiene_comorb,
+        "grupo_objetivo": grupo_sugerido,
+        "antecedente_covid": antecedente_covid,
+        "antecedente_influenza": antecedente_influenza,
+        "fecha_registro": fecha_registro,
+        "fecha_aplicacion": fecha_aplicacion,
+    }
+    st.session_state.registros_censales.append(nuevo_paciente)
+    st.session_state.ultimo_paciente_registrado = nuevo_paciente
+    st.session_state.contador_consecutivo += 1
+    st.rerun()
