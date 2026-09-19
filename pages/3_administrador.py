@@ -32,24 +32,26 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Diccionario de unidades médicas con sus respectivas siglas clave para el folio
+# Diccionario con siglas basadas en la palabra más característica (omitiendo Dr, Dra, del, de, etc.)
 unidades_issste = {
-    "20 DE NOVIEMBRE": "20NOV",
-    "CHURUBUSCO": "CHUR",
-    "CLIDDA": "CLID",
-    "COYOACAN": "COYO",
-    "DEL VALLE": "DVALL",
-    "DIVISION DEL NORTE": "DIVN",
-    "DR. DARIO FERNANDEZ FIERRO": "DFF",
-    "DR. IGNACIO CHAVEZ": "ICHAV",
-    "ERMITA": "CMFE",
-    "FUENTES BROTANTES": "FBROT",
-    "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": "MPML",
-    "MILPA ALTA": "MILPA",
-    "NARVARTE": "NARV",
-    "TLALPAN": "TLAL",
-    "VILLA ALVARO OBREGON": "VAO",
-    "XOCHIMILCO": "XOCH",
+    "20 DE NOVIEMBRE": "NOV",
+    "CHURUBUSCO": "CHU",
+    "CLIDDA": "CLI",
+    "COYOACAN": "COY",
+    "DEL VALLE": "VAL",  # Omitiendo "del", toma "VALLE"
+    "DIVISION DEL NORTE": "NOR",  # Omitiendo "del", toma "NORTE"
+    "DR. DARIO FERNANDEZ FIERRO": "DAR",  # Omitiendo "Dr.", toma "DARIO"
+    "DR. IGNACIO CHAVEZ": "CHA",  # Omitiendo "Dr.", toma "CHAVEZ"
+    "ERMITA": "ERM",
+    "FUENTES BROTANTES": "FUE",
+    "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": (
+        "MAT"
+    ),  # Omitiendo "HG Dra.", toma "MATILDE"
+    "MILPA ALTA": "MIL",
+    "NARVARTE": "NAR",
+    "TLALPAN": "TLA",
+    "VILLA ALVARO OBREGON": "ALV",  # Tomando "ALVARO" u "OBREGON"
+    "XOCHIMILCO": "XOC",
 }
 
 # Asegurar variables de estado iniciales
@@ -58,7 +60,7 @@ if "tipo_jornada" not in st.session_state:
 if "nombre_unidad" not in st.session_state:
     st.session_state.nombre_unidad = "ERMITA"
 if "siglas_unidad" not in st.session_state:
-    st.session_state.siglas_unidad = "CMFE"
+    st.session_state.siglas_unidad = "ERM"
 
 st.markdown(
     '<div class="section-title">1. Configuración de la Unidad y Jornada</div>',
@@ -66,7 +68,6 @@ st.markdown(
 )
 
 with st.form("form_config_admin"):
-    # Encontrar el índice actual para el selectbox
     nombres_unidades_lista = list(unidades_issste.keys())
     indice_actual = (
         nombres_unidades_lista.index(st.session_state.nombre_unidad)
@@ -97,7 +98,7 @@ with st.form("form_config_admin"):
             "I" if "Intramuros" in tipo_jornada_input else "E"
         )
         st.success(
-            f"¡Configuración aplicada! Unidad: **{st.session_state.nombre_unidad}** ({st.session_state.siglas_unidad}) | Prefijo activo para folios: **{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}**"
+            f"¡Configuración aplicada! Unidad: **{st.session_state.nombre_unidad}** | Estructura de folio configurada correctamente."
         )
 
 st.markdown(
@@ -105,31 +106,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 hoy_ejemplo = datetime.date.today().strftime("%y%m%d")
-ejemplo_folio = f"{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{hoy_ejemplo}-001"
+# Orden exacto: AAMMDD-[I/E][SIGLAS]-001 (Ej: 260919-IVAL-001)
+ejemplo_folio = f"{hoy_ejemplo}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-001"
 st.info(
-    f"El próximo registro que se capture en el formulario utilizará la estructura de folio: **`{ejemplo_folio}`**"
+    f"El próximo registro que se capture utilizará la estructura: **`{ejemplo_folio}`**"
 )
 
 st.markdown(
-    '<div class="section-title">3. Generador de Código QR Operativo para la Unidad</div>',
+    '<div class="section-title">3. Generador de Enlaces y Códigos QR Operativos</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
     """
 <div class="card-admin">
-    <p><b>Instrucción para el Administrador:</b> Genere el enlace y código QR correspondiente para distribuir a la unidad médica seleccionada, garantizando el control de la jornada y trazabilidad nominal.</p>
+    <p><b>Instrucción para el Administrador:</b> Generar la ficha de control operativo para la unidad seleccionada.</p>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
 url_despliegue = st.text_input(
-    "URL de la aplicación desplegada (Streamlit Cloud / Servidor Local):",
+    "URL de la aplicación desplegada:",
     value="https://tu-app-vacunacion.streamlit.app",
 )
 
 if st.button("Generar Enlace y Ficha QR"):
     st.success(
-        f"Parámetros empaquetados correctamente para la unidad **{st.session_state.nombre_unidad}** bajo la modalidad **{'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'}**."
+        f"Parámetros listos para la unidad **{st.session_state.nombre_unidad}** en modalidad **{'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'}**."
     )
-    st.markdown(f"🔗 Enlace directo configurado: `{url_despliegue}`")
+    st.markdown(f"🔗 Enlace directo: `{url_despliegue}`")
