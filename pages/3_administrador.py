@@ -299,7 +299,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  # URL oficial correcta para la aplicación desplegada
+  # URL base apuntando al dominio operativo oficial
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
   link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
 
@@ -308,7 +308,7 @@ else:
   )
   st.code(link_generado, language="text")
 
-  # Botón de acceso directo para abrir el formulario operativo
+  # Botón de acceso rápido directo al formulario operativo
   st.markdown(
       f"""
     <div style="text-align: center; margin-bottom: 20px;">
@@ -346,7 +346,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- BOTÓN DE AUTORIZACIÓN Y GENERACIÓN DE HOJA EN GOOGLE SHEETS ---
+  # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
   if st.button(
       "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
       use_container_width=True,
@@ -385,7 +385,7 @@ else:
         nueva_hoja = spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
         )
-        # Ordenar: Plantilla (Hoja 1) seguida de la nueva hoja creada
+        # Ordenar: Plantilla (Hoja 1) seguida inmediatamente de la nueva hoja creada
         spreadsheet.reorder_worksheets(
             [plantilla, nueva_hoja]
             + [
@@ -416,7 +416,7 @@ else:
           f" permisos de Editor. Detalle: {e}"
       )
 
-  # --- RECUADRO VERDE DE CONFIRMACIÓN CON HIPERVÍNCULO DIRECTO ---
+  # --- RECUADRO VERDE DE CONFIRMACIÓN CON ENLACE DIRECTO A LA PESTAÑA EXACTA ---
   if st.session_state.jornada_autorizada:
     gid_param = (
         f"#gid={st.session_state.gid_hoja_destino}"
