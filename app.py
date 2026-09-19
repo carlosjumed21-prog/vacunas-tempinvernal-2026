@@ -1,791 +1,390 @@
 import datetime
+import io
 import urllib.parse
-import unicodedata
+import gspread
+import qrcode
 import streamlit as st
-import streamlit.components.v1 as components
+from google.oauth2.service_account import Credentials
 
-# Configuración de la página
 st.set_page_config(
-    page_title="Censo Nominal - Vacunación e Invernal",
-    page_icon="💉",
+    page_title="Panel de Administración - Censo Nominal",
+    page_icon="⚙️",
     layout="centered",
 )
 
-# Leer los parámetros de la URL para modo operativo por QR
-params = st.query_params
-es_modo_qr = params.get("modo", "").lower() == "registro"
+st.markdown(
+    """
+    <style>
+        .stApp { background-color: #fbf9f4; }
+        [data-testid="stSidebar"] { background-color: #611232 !important; }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
+        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-if "unidad" in params:
-  sigla_url = params.get("unidad")
-  # Diccionario inverso para recuperar el nombre de la unidad según las siglas
-  mapa_siglas_inverso = {
-      "20N": "20 DE NOVIEMBRE",
-      "CHU": "CHURUBUSCO",
-      "CLI": "CLIDDA",
-      "COY": "COYOACAN",
-      "DVA": "DEL VALLE",
-      "DVN": "DIVISION DEL NORTE",
-      "DFF": "DR. DARIO FERNANDEZ FIERRO",
-      "ICH": "DR. IGNACIO CHAVEZ",
-      "ERM": "ERMITA",
-      "FBR": "FUENTES BROTANTES",
-      "MPM": "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA",
-      "MIL": "MILPA ALTA",
-      "NAR": "NARVARTE",
-      "TLA": "TLALPAN",
-      "VAO": "VILLA ALVARO OBREGON",
-      "XOC": "XOCHIMILCO",
-      # Compatibilidad con versiones anteriores
-      "NOV": "20 DE NOVIEMBRE",
-      "ZAR": "ZARAGOZA",
-      "GFAR": "GÓMEZ FARÍAS",
-  }
-  if sigla_url in mapa_siglas_inverso:
-    st.session_state.nombre_unidad = mapa_siglas_inverso[sigla_url]
-    st.session_state.siglas_unidad = sigla_url
+# Control de sesión para autenticación
+if "autenticado_admin" not in st.session_state:
+  st.session_state.autenticado_admin = False
 
-if "jornada" in params:
-  st.session_state.tipo_jornada = params.get("jornada", "I")
-
-# Estilos CSS institucionales
-if es_modo_qr:
-  st.markdown(
-      """
-        <style>
-            .stApp { background-color: #fbf9f4; }
-            [data-testid="stSidebar"] { display: none !important; }
-            .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-            .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-            .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-            label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-            .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
-            .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
-            .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
-            input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
-        </style>
-    """,
-      unsafe_allow_html=True,
-  )
-else:
-  st.markdown(
-      """
-        <style>
-            .stApp { background-color: #fbf9f4; }
-            [data-testid="stSidebar"] { background-color: #611232 !important; }
-            [data-testid="stSidebar"] * { color: #ffffff !important; }
-            .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-            .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-            .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-            label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-            .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
-            .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-            .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
-            .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
-            input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
-        </style>
-    """,
-      unsafe_allow_html=True,
-  )
-
-# Inicializar variables de estado compartido con los valores sincronizados del Administrador
-if "registros_censales" not in st.session_state:
-  st.session_state.registros_censales = []
-if "contador_consecutivo" not in st.session_state:
-  st.session_state.contador_consecutivo = 1
-if "fecha_ultimo_consecutivo" not in st.session_state:
-  st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
-if "tipo_jornada" not in st.session_state:
-  st.session_state.tipo_jornada = "I"
-if "siglas_unidad" not in st.session_state:
-  st.session_state.siglas_unidad = "20N"
-if "nombre_unidad" not in st.session_state:
-  st.session_state.nombre_unidad = "20 DE NOVIEMBRE"
-if "ultimo_paciente_registrado" not in st.session_state:
-  st.session_state.ultimo_paciente_registrado = None
-
-# Variables sincronizadas con la configuración del administrador
+# Variables de configuración global en session_state si no existen
 if "config_fecha_aplicacion" not in st.session_state:
   st.session_state.config_fecha_aplicacion = datetime.date.today()
 if "config_hora_inicio" not in st.session_state:
   st.session_state.config_hora_inicio = datetime.time(8, 0)
 if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
+if "unidad_anterior" not in st.session_state:
+  st.session_state.unidad_anterior = ""
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
       " México, CDMX"
   )
+if "jornada_autorizada" not in st.session_state:
+  st.session_state.jornada_autorizada = False
 
+if not st.session_state.autenticado_admin:
+  st.markdown(
+      '<p class="main-header">Acceso Restringido - Panel de Administración</p>',
+      unsafe_allow_html=True,
+  )
+  st.markdown(
+      '<p class="sub-header">Seleccione usuario autorizado e ingrese su'
+      " contraseña</p>",
+      unsafe_allow_html=True,
+  )
 
-def calcular_edad_detallada(fecha_nac, fecha_ref):
-  if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
-    return 0, 0, 0
-  anos = fecha_ref.year - fecha_nac.year
-  meses = fecha_ref.month - fecha_nac.month
-  dias = fecha_ref.day - fecha_nac.day
-
-  if dias < 0:
-    meses -= 1
-    mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
-    anio_anterior = (
-        fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
+  with st.form("form_login_admin"):
+    usuario_admin = st.selectbox(
+        "Seleccione Usuario:", options=["Seleccione...", "Admin", "EESP Wendy"]
     )
-    dias_mes_anterior = (
-        datetime.date(anio_anterior, mes_anterior + 1, 1)
-        - datetime.timedelta(days=1)
-    ).day
-    dias += dias_mes_anterior
-
-  if meses < 0:
-    anos -= 1
-    meses += 12
-
-  return max(0, anos), max(0, meses), max(0, dias)
-
-
-def limpiar_texto(texto):
-  if not texto:
-    return ""
-  nfkd = unicodedata.normalize("NFKD", texto)
-  return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
-
-
-def obtener_primera_vocal_interna(palabra):
-  vocales = "AEIOU"
-  for letra in palabra[1:]:
-    if letra in vocales:
-      return letra
-  return "X"
-
-
-def obtener_primera_consonante_interna(palabra):
-  consonantes = "BCDFGHJKLMNPQRSTVWXYZ"
-  for letra in palabra[1:]:
-    if letra in consonantes:
-      return letra
-  return "X"
-
-
-estados_curp = {
-    "AGUASCALIENTES": "AS",
-    "BAJA CALIFORNIA": "BC",
-    "BAJA CALIFORNIA SUR": "BS",
-    "CAMPECHE": "CC",
-    "CHIAPAS": "CS",
-    "CHIHUAHUA": "CH",
-    "CIUDAD DE MÉXICO": "DF",
-    "COAHUILA": "CL",
-    "COLIMA": "CM",
-    "DURANGO": "DG",
-    "ESTADO DE MÉXICO": "MC",
-    "GUANAJUATO": "GT",
-    "GUERRERO": "GR",
-    "HIDALGO": "HG",
-    "JALISCO": "JC",
-    "MICHOACÁN": "MN",
-    "MORELOS": "MS",
-    "NAYARIT": "NT",
-    "NUEVO LEÓN": "NL",
-    "OAXACA": "OC",
-    "PUEBLA": "PL",
-    "QUERÉTARO": "QT",
-    "QUINTANA ROO": "QR",
-    "SAN LUIS POTOSÍ": "SP",
-    "SINALOA": "SL",
-    "SONORA": "SR",
-    "TABASCO": "TC",
-    "TAMAULIPAS": "TS",
-    "TLAXCALA": "TL",
-    "VERACRUZ": "VZ",
-    "YUCATÁN": "YN",
-    "ZACATECAS": "ZS",
-}
-
-
-def generar_curp_algoritmica(
-    paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""
-):
-  p = limpiar_texto(paterno)
-  m = limpiar_texto(materno) if materno else ""
-  n = limpiar_texto(nombres)
-
-  if not p or not n or not fecha_nac:
-    return "COMPLETA DATOS Y FECHA"
-
-  nombres_lista = n.split()
-  primer_nombre = nombres_lista[0] if nombres_lista else "X"
-  if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
-    primer_nombre = nombres_lista[1]
-
-  c1 = p[0] if p else "X"
-  c2 = obtener_primera_vocal_interna(p)
-  c3 = m[0] if m else "X"
-  c4 = primer_nombre[0] if primer_nombre else "X"
-
-  yy = str(fecha_nac.year)[-2:]
-  mm = str(fecha_nac.month).zfill(2)
-  dd = str(fecha_nac.day).zfill(2)
-  fec_part = f"{yy}{mm}{dd}"
-
-  sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
-  est_part = estados_curp.get(est_nac, "NE")
-
-  c14 = obtener_primera_consonante_interna(p)
-  c15 = obtener_primera_consonante_interna(m) if m else "X"
-  c16 = obtener_primera_consonante_interna(primer_nombre)
-
-  curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
-
-  extra_limpio = limpiar_texto(digitos_extra)
-  if len(extra_limpio) >= 2:
-    sufijo = extra_limpio[:2]
-  else:
-    sufijo = "00"
-
-  return f"{curp_16}{sufijo}"
-
-
-estados_mexico = [
-    "SELECCIONE UN ESTADO",
-    "AGUASCALIENTES",
-    "BAJA CALIFORNIA",
-    "BAJA CALIFORNIA SUR",
-    "CAMPECHE",
-    "CHIAPAS",
-    "CHIHUAHUA",
-    "CIUDAD DE MÉXICO",
-    "COAHUILA",
-    "COLIMA",
-    "DURANGO",
-    "ESTADO DE MÉXICO",
-    "GUANAJUATO",
-    "GUERRERO",
-    "HIDALGO",
-    "JALISCO",
-    "MICHOACÁN",
-    "MORELOS",
-    "NAYARIT",
-    "NUEVO LEÓN",
-    "OAXACA",
-    "PUEBLA",
-    "QUERÉTARO",
-    "QUINTANA ROO",
-    "SAN LUIS POTOSÍ",
-    "SINALOA",
-    "SONORA",
-    "TABASCO",
-    "TAMAULIPAS",
-    "TLAXCALA",
-    "VERACRUZ",
-    "YUCATÁN",
-    "ZACATECAS",
-]
-
-
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE (MODAL FLOTANTE st.dialog) ---
-@st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
-def mostrar_modal_comprobante():
-  p = st.session_state.ultimo_paciente_registrado
-  if p:
-    html_comprobante_component = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <style>
-            body {{
-                font-family: sans-serif;
-                margin: 0;
-                padding: 0;
-                background-color: transparent;
-            }}
-            .card-comprobante {{
-                background-color: #ffffff;
-                border: 3px solid #1e5b4f;
-                padding: 12px;
-                border-radius: 10px;
-                color: #161a1d;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-                margin-bottom: 10px;
-            }}
-            .folio-grande {{
-                font-size: 1.3rem !important;
-                font-weight: 900 !important;
-                color: #611232 !important;
-                text-align: center;
-                background-color: #f7f4eb;
-                padding: 6px;
-                border-radius: 6px;
-                border: 2px dashed #a57f2c;
-                margin: 5px 0;
-            }}
-            .btn-container {{
-                display: flex;
-                gap: 8px;
-            }}
-            .btn {{
-                flex: 1;
-                padding: 0.65rem 0.4rem;
-                font-size: 0.85rem;
-                font-weight: bold;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                text-align: center;
-                box-sizing: border-box;
-            }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #1e5b4f; color: white; }}
-        </style>
-        </head>
-        <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Ubicación:</b> {direccion}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
-                <div class="folio-grande">FOLIO: {folio}</div>
-                <hr style="border: 1px solid #e6d194; margin: 3px 0;">
-                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
-            </div>
-
-            <div class="btn-container">
-                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
-            </div>
-
-            <script>
-            function compartirImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
-
-                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{
-                                files: [file],
-                                title: 'Comprobante de Vacunación',
-                                text: textoMensaje
-                            }}).catch(error => console.log('Error al compartir', error));
-                        }} else {{
-                            const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_{folio}.png';
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            alert('Imagen descargada. Se abrirá WhatsApp para enviarla.');
-                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                        }}
-                    }}, 'image/png');
-                }});
-            }}
-
-            function descargarCaptura() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_{folio}.png';
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }});
-            }}
-            </script>
-        </body>
-        </html>
-        """.format(
-        unidad=st.session_state.nombre_unidad,
-        direccion=st.session_state.config_direccion_oficial,
-        nombre=p["nombre_completo"],
-        curp=p["curp_algoritmica"],
-        grupo=p["grupo_objetivo"],
-        folio=p["folio"],
-        fecha=st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y"),
-        h_ini=st.session_state.config_hora_inicio.strftime("%H:%M"),
-        h_fin=st.session_state.config_hora_fin.strftime("%H:%M"),
+    password_admin = st.text_input("Contraseña:", type="password")
+    btn_login_admin = st.form_submit_button(
+        "Ingresar al Panel", use_container_width=True
     )
 
-    components.html(html_comprobante_component, height=310)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button(
-        "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
-    ):
-      st.session_state.ultimo_paciente_registrado = None
-      for key in [
-          "input_paterno",
-          "input_materno",
-          "input_nombres",
-          "input_fnac",
-          "input_sexo",
-          "input_estnac",
-          "input_estres",
-          "input_calle",
-          "input_num",
-          "input_col",
-          "input_derecho",
-          "input_ocupacion",
-          "input_digitos",
-      ]:
-        if key in st.session_state:
-          del st.session_state[key]
-      st.rerun()
-
-
-# Activar la ventana emergente si hay un registro exitoso pendiente
-if st.session_state.ultimo_paciente_registrado is not None:
-  mostrar_modal_comprobante()
-
-st.markdown(
-    '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> |'
-    ' Modalidad: <b>'
-    f'{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
-    unsafe_allow_html=True,
-)
-
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS (Heredados del Administrador) ---
-st.markdown(
-    '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
-    unsafe_allow_html=True,
-)
-col_g1, col_g2, col_g3 = st.columns(3)
-with col_g1:
-  fecha_registro = st.date_input(
-      "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
-  )
-with col_g2:
-  # Hereda la fecha configurada por el administrador por defecto
-  fecha_aplicacion = st.date_input(
-      "Fecha de Aplicación (Autorizada)",
-      value=st.session_state.config_fecha_aplicacion,
-      format="DD/MM/YYYY",
-  )
-
-hoy_actual = fecha_registro
-if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
-  st.session_state.fecha_ultimo_consecutivo = hoy_actual
-  st.session_state.contador_consecutivo = 1
-
-aammmdd = hoy_actual.strftime("%y%m%d")
-folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
-
-with col_g3:
-  st.markdown(
-      f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
-      unsafe_allow_html=True,
-  )
-
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
-st.markdown(
-    '<div class="section-title">2. Identificación del Paciente</div>',
-    unsafe_allow_html=True,
-)
-col_n1, col_n2, col_n3 = st.columns(3)
-with col_n1:
-  paterno = st.text_input("Apellido Paterno *", key="input_paterno")
-with col_n2:
-  materno = st.text_input("Apellido Materno *", key="input_materno")
-with col_n3:
-  nombres = st.text_input("Nombre(s) *", key="input_nombres")
-
-col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1:
-  fecha_nacimiento = st.date_input(
-      "Fecha de Nacimiento *",
-      value=None,
-      min_value=datetime.date(1900, 1, 1),
-      max_value=datetime.date.today(),
-      format="DD/MM/YYYY",
-      key="input_fnac",
-  )
-with col_fn2:
-  sexo = st.selectbox(
-      "Sexo *",
-      options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
-      key="input_sexo",
-  )
-with col_fn3:
-  estado_nacimiento = st.selectbox(
-      "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
-  )
-
-planes_o_embarazo = "NO"
-if sexo == "MUJER":
-  st.markdown(
-      "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c;"
-      " padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
-      unsafe_allow_html=True,
-  )
-  planes_o_embarazo = st.radio(
-      "¿Está embarazada o tiene planes de embarazo?",
-      options=["NO", "SÍ"],
-      horizontal=True,
-      key="input_embarazo",
-  )
-  st.markdown("</div>", unsafe_allow_html=True)
-
-calc_anos, calc_meses, calc_dias = (
-    calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
-    if fecha_nacimiento
-    else (0, 0, 0)
-)
-
-col_info1, col_info2 = st.columns(2)
-with col_info1:
-  st.markdown(
-      f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M,'
-      f" {calc_dias} D</div>",
-      unsafe_allow_html=True,
-  )
-
-digitos_faltantes = st.text_input(
-    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP"
-    " oficial)",
-    max_chars=2,
-    placeholder="Ej. A1",
-    key="input_digitos",
-)
-
-curp_algoritmica = generar_curp_algoritmica(
-    paterno,
-    materno,
-    nombres,
-    fecha_nacimiento,
-    sexo,
-    estado_nacimiento,
-    digitos_faltantes,
-)
-with col_info2:
-  st.markdown(
-      f'<div class="card-curp">🆔 CURP Resultante: <br><span'
-      f' style="color: #611232; font-family:'
-      f' monospace;">{curp_algoritmica}</span></div>',
-      unsafe_allow_html=True,
-  )
-
-# --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
-st.markdown(
-    '<div class="section-title">3. Domicilio y Afiliación</div>',
-    unsafe_allow_html=True,
-)
-estado_residencia = st.selectbox(
-    "Estado de Residencia (Entidad Federativa) *",
-    options=estados_mexico,
-    key="input_estres",
-)
-
-col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-with col_dom1:
-  calle = st.text_input("Calle *", key="input_calle")
-with col_dom2:
-  numero = st.text_input("No. (Ext / Int) *", key="input_num")
-with col_dom3:
-  colonia = st.text_input("Colonia *", key="input_col")
-
-cuenta_derechohabiencia = st.selectbox(
-    "¿Cuenta con derechohabiencia? *",
-    options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
-    key="input_derecho",
-)
-
-# --- BLOQUE 4: OCUPACIÓN ---
-st.markdown(
-    '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
-)
-ocupacion = st.selectbox(
-    "Seleccione su Ocupación *",
-    options=[
-        "SELECCIONE UNA OPCIÓN",
-        "PERSONAL DE SALUD",
-        "JUBILADO/A",
-        "MAESTRO/A",
-        "ADMINISTRATIVO/A",
-        "TRABAJO EN GUARDERÍA",
-        "OTRAS PROFESIONES",
-    ],
-    key="input_ocupacion",
-)
-
-# --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
-st.markdown(
-    '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
-    unsafe_allow_html=True,
-)
-col_r1, col_r2 = st.columns(2)
-
-with col_r1:
-  vih = st.checkbox("VIH / SIDA", key="com_vih")
-  diabetes = st.checkbox("DIABETES MELLITUS", key="com_diab")
-  obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="com_obes")
-  cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="com_card")
-  epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)", key="com_epoc")
-
-with col_r2:
-  cancer = st.checkbox("CÁNCER", key="com_canc")
-  congenitas = st.checkbox(
-      "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS", key="com_cong"
-  )
-  insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="com_iren")
-  inmunosupresion = st.checkbox(
-      "INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)", key="com_inmu"
-  )
-  hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL", key="com_hipt")
-  discapacidades = st.checkbox(
-      "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)", key="com_disc"
-  )
-
-# --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
-edad_total_meses = (calc_anos * 12) + calc_meses
-tiene_comorb = any([
-    vih,
-    diabetes,
-    obesidad,
-    cardiopatias,
-    epoc,
-    cancer,
-    congenitas,
-    insuficiencia_renal,
-    inmunosupresion,
-    hipertension,
-    discapacidades,
-])
-
-grupo_sugerido = ""
-if fecha_nacimiento is not None:
-  if 6 <= edad_total_meses <= 59:
-    grupo_sugerido = "6 A 59 MESES"
-  elif calc_anos >= 60:
-    grupo_sugerido = "60 Y MÁS"
-  elif planes_o_embarazo == "SÍ":
-    grupo_sugerido = "PERSONAS GESTANTES"
-  elif ocupacion == "PERSONAL DE SALUD":
-    grupo_sugerido = "PERSONAL DE SALUD"
-  elif vih:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
-  elif diabetes:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
-  elif obesidad:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
-  elif cardiopatias:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
-  elif epoc:
-    grupo_sugerido = (
-        "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
-    )
-  elif cancer:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
-  elif congenitas:
-    grupo_sugerido = "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-  elif insuficiencia_renal:
-    grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
-  elif inmunosupresion:
-    grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
-  elif hipertension:
-    grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
-  elif discapacidades:
-    grupo_sugerido = "DISCAPACIDADES"
-  else:
-    grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
-
-st.markdown(
-    '<div class="section-title">6. Grupo Objetivo (Detectado'
-    " Automáticamente)</div>",
-    unsafe_allow_html=True,
-)
-if grupo_sugerido == "":
-  st.markdown(
-      '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px'
-      ' dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
-      unsafe_allow_html=True,
-  )
+    if btn_login_admin:
+      if (usuario_admin == "Admin" and password_admin == "OtaniOrochi26") or (
+          usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"
+      ):
+        st.session_state.autenticado_admin = True
+        st.rerun()
+      else:
+        st.error("Contraseña incorrecta o usuario no seleccionado.")
 else:
   st.markdown(
-      f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
+      '<p class="main-header">Panel de Control y Administración</p>',
       unsafe_allow_html=True,
   )
 
-# --- 7. ANTECEDENTE VACUNAL Y BOTÓN DE GUARDADO ---
-st.markdown(
-    '<div class="section-title">7. Antecedente Vacunal</div>',
-    unsafe_allow_html=True,
-)
-col_av1, col_av2 = st.columns(2)
-with col_av1:
-  antecedente_covid = st.radio(
-      "¿Cuenta con alguna dosis previa de COVID-19?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_cov",
-  )
-with col_av2:
-  antecedente_influenza = st.radio(
-      "¿Cuenta con alguna dosis previa de Influenza?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_inf",
+  # Catálogo oficial completo de las 16 unidades del ISSSTE
+  unidades_issste_data = {
+      "20 DE NOVIEMBRE": {
+          "sigla": "20N",
+          "dir": (
+              "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100"
+              " Ciudad de México, CDMX"
+          ),
+          "mapa": (
+              "CMN 20 de Noviembre ISSSTE, Avenida Félix Cuevas, Ciudad de"
+              " México"
+          ),
+      },
+      "CHURUBUSCO": {
+          "sigla": "CHU",
+          "dir": (
+              "Calzada de Tlalpan 4430, Toriello Guerra, Tlalpan, 14050 Ciudad"
+              " de México, CDMX"
+          ),
+          "mapa": "Hospital Regional Churubusco ISSSTE, Ciudad de México",
+      },
+      "CLIDDA": {
+          "sigla": "CLI",
+          "dir": (
+              "San Fernando 15, Toriello Guerra, Tlalpan, 14050 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "CLIDDA ISSSTE San Fernando Tlalpan, Ciudad de México",
+      },
+      "COYOACAN": {
+          "sigla": "COY",
+          "dir": (
+              "Avenida Cuauhtémoc 330, Del Carmen, Coyoacán, 04100 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Coyoacán ISSSTE, CDMX",
+      },
+      "DEL VALLE": {
+          "sigla": "DVA",
+          "dir": (
+              "Cacho 35, Del Valle Norte, Benito Juárez, 03103 Ciudad de México,"
+              " CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Del Valle ISSSTE, CDMX",
+      },
+      "DIVISION DEL NORTE": {
+          "sigla": "DVN",
+          "dir": (
+              "Avenida División del Norte 3233, Xoco, Benito Juárez, 03330"
+              " Ciudad de México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar División del Norte ISSSTE",
+      },
+      "DR. DARIO FERNANDEZ FIERRO": {
+          "sigla": "DFF",
+          "dir": (
+              "Avenida Revolución 1182, Tlacopac, Álvaro Obregón, 01049 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "Clínica Hospital Dr. Darío Fernández Fierro ISSSTE",
+      },
+      "DR. IGNACIO CHAVEZ": {
+          "sigla": "ICH",
+          "dir": (
+              "Eje 1 Poniente Av. Cuauhtémoc s/n, Doctores, Cuauhtémoc, 06720"
+              " Ciudad de México, CDMX"
+          ),
+          "mapa": "Clínica Hospital Dr. Ignacio Chávez ISSSTE",
+      },
+      "ERMITA": {
+          "sigla": "ERM",
+          "dir": (
+              "Ermita Iztapalapa 67, Ermita, Benito Juárez, 03590 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "CMF Ermita ISSSTE, Ermita Iztapalapa, Ciudad de México",
+      },
+      "FUENTES BROTANTES": {
+          "sigla": "FBR",
+          "dir": (
+              "Fuentes Brotantes s/n, Fuentes Brotantes, Tlalpan, 14410 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Fuentes Brotantes ISSSTE",
+      },
+      "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": {
+          "sigla": "MPM",
+          "dir": (
+              "Avenida Tláhuac s/n, San Lorenzo Tezonco, Iztapalapa, 13266 Ciudad"
+              " de México, CDMX"
+          ),
+          "mapa": (
+              "Hospital General Dra. Matilde Petra Montoya Lafragua ISSSTE"
+          ),
+      },
+      "MILPA ALTA": {
+          "sigla": "MIL",
+          "dir": (
+              "Prolongación Matamoros s/n, Villa Milpa Alta, Milpa Alta, 12000"
+              " Ciudad de México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Milpa Alta ISSSTE",
+      },
+      "NARVARTE": {
+          "sigla": "NAR",
+          "dir": (
+              "Avenida Cuauhtémoc 625, Narvarte Poniente, Benito Juárez, 03020"
+              " Ciudad de México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Narvarte ISSSTE",
+      },
+      "TLALPAN": {
+          "sigla": "TLA",
+          "dir": (
+              "Calzada de Tlalpan 4800, Toriello Guerra, Tlalpan, 14050 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Tlalpan ISSSTE",
+      },
+      "VILLA ALVARO OBREGON": {
+          "sigla": "VAO",
+          "dir": (
+              "Calle 10 s/n, Tolteca, Álvaro Obregón, 01150 Ciudad de México,"
+              " CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Villa Álvaro Obregón ISSSTE",
+      },
+      "XOCHIMILCO": {
+          "sigla": "XOC",
+          "dir": (
+              "Providencia s/n, Barrio San Marcos, Xochimilco, 16050 Ciudad de"
+              " México, CDMX"
+          ),
+          "mapa": "Clínica de Medicina Familiar Xochimilco ISSSTE",
+      },
+  }
+
+  st.markdown(
+      '<div class="section-title">1. Configuración de Operación y'
+      " Unidad</div>",
+      unsafe_allow_html=True,
   )
 
-st.markdown("---")
-if st.button(
-    "Guardar Paciente en el Censo Nominal", use_container_width=True
-):
-  if not fecha_nacimiento:
-    st.error("Por favor seleccione la Fecha de Nacimiento.")
-  elif not paterno or not nombres:
-    st.error(
-        "Por favor complete los campos obligatorios de Apellido Paterno y"
-        " Nombre(s)."
+  col_c1, col_c2 = st.columns(2)
+  with col_c1:
+    unidad_sel = st.selectbox(
+        "Unidad Médica ISSSTE:", options=list(unidades_issste_data.keys())
     )
-  elif sexo == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor seleccione una opción válida en el campo Sexo.")
-  elif estado_nacimiento == "SELECCIONE UN ESTADO":
-    st.error("Por favor seleccione un Estado de Nacimiento válido.")
-  elif estado_residencia == "SELECCIONE UN ESTADO":
-    st.error("Por favor seleccione un Estado de Residencia válido.")
-  elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor indique si cuenta con derechohabiencia.")
-  elif not calle or not numero or not colonia:
-    st.error("Por favor complete los campos obligatorios del domicilio.")
-  elif ocupacion == "SELECCIONE UNA OPCIÓN":
-    st.error("Por favor seleccione una Ocupación válida.")
-  else:
-    nuevo_paciente = {
-        "folio": folio_automatico,
-        "curp_algoritmica": curp_algoritmica,
-        "nombre_completo": (
-            f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
-        ),
-        "paterno": paterno.upper(),
-        "materno": materno.upper(),
-        "nombres": nombres.upper(),
-        "fecha_nacimiento": fecha_nacimiento,
-        "estado_nacimiento": estado_nacimiento,
-        "edad_anos": calc_anos,
-        "edad_meses": calc_meses,
-        "edad_dias": calc_dias,
-        "edad_total_meses": edad_total_meses,
-        "sexo": sexo,
-        "embarazo": (planes_o_embarazo == "SÍ"),
-        "ocupacion": ocupacion,
-        "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-        "derechohabiencia": cuenta_derechohabiencia,
-        "tiene_comorbilidades": tiene_comorb,
-        "grupo_objetivo": grupo_sugerido,
-        "antecedente_covid": antecedente_covid,
-        "antecedente_influenza": antecedente_influenza,
-        "fecha_registro": fecha_registro,
-        "fecha_aplicacion": fecha_aplicacion,
-    }
-    st.session_state.registros_censales.append(nuevo_paciente)
-    st.session_state.ultimo_paciente_registrado = nuevo_paciente
-    st.session_state.contador_consecutivo += 1
+    siglas_unidad = unidades_issste_data[unidad_sel]["sigla"]
+
+  with col_c2:
+    jornada_sel = st.selectbox(
+        "Tipo de Jornada:",
+        options=["Intramuros I", "Extramuros E"],
+        format_func=lambda x: "Intramuros I" if "I" in x else "Extramuros E",
+    )
+    tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
+    tipo_jornada_texto = "INTRA" if tipo_jornada_letra == "I" else "EXTRA"
+
+  if st.session_state.unidad_anterior != unidad_sel:
+    st.session_state.unidad_anterior = unidad_sel
+    st.session_state.config_direccion_oficial = unidades_issste_data[unidad_sel][
+        "dir"
+    ]
+    st.rerun()
+
+  st.markdown(
+      '<div class="section-title">2. Configuración de Fecha y Horario de'
+      " Atención</div>",
+      unsafe_allow_html=True,
+  )
+  col_f1, col_f2, col_f3 = st.columns(3)
+  with col_f1:
+    fecha_admin = st.date_input(
+        "Fecha de Aplicación:",
+        value=st.session_state.config_fecha_aplicacion,
+        format="DD/MM/YYYY",
+    )
+    st.session_state.config_fecha_aplicacion = fecha_admin
+  with col_f2:
+    hora_ini = st.time_input(
+        "Hora de Inicio:", value=st.session_state.config_hora_inicio
+    )
+    st.session_state.config_hora_inicio = hora_ini
+  with col_f3:
+    hora_fin = st.time_input(
+        "Hora de Cierre:", value=st.session_state.config_hora_fin
+    )
+    st.session_state.config_hora_fin = hora_fin
+
+  st.markdown(
+      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
+      unsafe_allow_html=True,
+  )
+  consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
+  query_mapa = urllib.parse.quote(consulta_mapa)
+  url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
+  st.components.v1.iframe(url_embed_maps, height=300)
+
+  st.markdown("<br>", unsafe_allow_html=True)
+  direccion_oficial_input = st.text_area(
+      "📍 Dirección Oficial Principal:",
+      value=st.session_state.config_direccion_oficial,
+      height=80,
+  )
+  st.session_state.config_direccion_oficial = direccion_oficial_input
+
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # --- BOTÓN DE AUTORIZACIÓN: DUPLICAR PLANTILLA Y CREAR HOJA ESPECÍFICA ---
+  if st.button(
+      "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
+      use_container_width=True,
+  ):
+    try:
+      # Definir nombre de la hoja: [SIGLAS]_[INTRA/EXTRA]_[DDMMAA] (ej. ERM_INTRA_190926)
+      fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
+      nombre_nueva_hoja = (
+          f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
+      )
+
+      scope = [
+          "https://spreadsheets.google.com/feeds",
+          "https://www.googleapis.com/auth/drive",
+      ]
+      creds_dict = dict(st.secrets["gpex"])
+      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+      client = gspread.authorize(creds)
+
+      sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+      spreadsheet = client.open_by_key(sheet_id)
+
+      # Verificar si la hoja ya existe
+      hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+      if nombre_nueva_hoja in hojas_existentes:
+        st.info(f"La hoja '{nombre_nueva_hoja}' ya existe y está activa.")
+      else:
+        # Localizar la plantilla base "CENSO NOMINAL"
+        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+        # Duplicarla con el nombre específico de la jornada
+        nueva_hoja = spreadsheet.duplicate_sheet(
+            plantilla.id, new_sheet_name=nombre_nueva_hoja
+        )
+        st.success(
+            f"✅ ¡Plantilla duplicada y configurada como '{nombre_nueva_hoja}'"
+            " con éxito!"
+        )
+
+      # Guardar parámetros oficiales en session_state para app.py
+      st.session_state.jornada_autorizada = True
+      st.session_state.nombre_unidad = unidad_sel
+      st.session_state.siglas_unidad = siglas_unidad
+      st.session_state.nombre_hoja_destino = nombre_nueva_hoja
+      st.success(
+          "🔒 ¡Jornada autorizada correctamente! Los registros se migrarán a"
+          f" la hoja: {nombre_nueva_hoja}"
+      )
+
+    except Exception as e:
+      st.error(
+          "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
+          f" hoja 'CENSO NOMINAL' exista y el correo de servicio tenga"
+          f" permisos: {e}"
+      )
+
+  st.markdown(
+      '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
+      unsafe_allow_html=True,
+  )
+
+  base_url = "https://vacunas-invernal.streamlit.app/"
+  link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
+
+  st.info(
+      "Enlace operativo listo para compartir con brigadas o imprimir en QR:"
+  )
+  st.code(link_generado, language="text")
+
+  qr = qrcode.QRCode(version=1, box_size=10, border=4)
+  qr.add_data(link_generado)
+  qr.make(fit=True)
+  img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+  buf = io.BytesIO()
+  img.save(buf, format="PNG")
+  byte_im = buf.getvalue()
+
+  col_qr1, col_qr2 = st.columns([1, 2])
+  with col_qr1:
+    st.image(
+        byte_im, caption="Código QR (Guinda Institucional)", width=200
+    )
+  with col_qr2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.download_button(
+        label="📥 Descargar Imagen QR (PNG)",
+        data=byte_im,
+        file_name=f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}.png",
+        mime="image/png",
+        use_container_width=True,
+    )
+
+  st.markdown("---")
+  if st.button("Cerrar Sesión de Administrador", use_container_width=True):
+    st.session_state.autenticado_admin = False
     st.rerun()
