@@ -104,8 +104,8 @@ else:
   with col_c2:
     jornada_sel = st.selectbox(
         "Tipo de Jornada:",
-        options=["Intramuros (I)", "Extramuros (E)"],
-        format_func=lambda x: "Intramuros (I)" if "I" in x else "Extramuros (E)",
+        options=["Intramuros I", "Extramuros E"],
+        format_func=lambda x: "Intramuros I" if "I" in x else "Extramuros E",
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
@@ -148,6 +148,12 @@ else:
   )
   st.session_state.config_busqueda_mapa = busqueda_input
 
+  # Botón rápido para copiar automáticamente la búsqueda al campo oficial
+  if st.button("📋 Usar esta dirección como Dirección Oficial"):
+    st.session_state.config_direccion_oficial = busqueda_input
+    st.success("¡Dirección copiada a la Dirección Oficial con éxito!")
+    st.rerun()
+
   # Renderizado del mapa interactivo con el marcador rojo de ubicación
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
@@ -159,13 +165,9 @@ else:
   # 2. EL CAMPO QUE RECABA LA DIRECCIÓN OFICIAL COMPLETA
   st.markdown("<br>", unsafe_allow_html=True)
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa (Recabada para el Comprobante y"
-      " Reportes):",
+      "📍 Dirección Oficial Completa:",
       value=st.session_state.config_direccion_oficial,
-      placeholder=(
-          "Pega aquí o confirma la dirección exacta completa que arroja el"
-          " mapa..."
-      ),
+      placeholder="Escribe o confirma la dirección oficial completa...",
       height=80,
   )
   st.session_state.config_direccion_oficial = direccion_oficial_input
