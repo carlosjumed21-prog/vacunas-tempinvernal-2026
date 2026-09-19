@@ -79,12 +79,24 @@ else:
       unsafe_allow_html=True,
   )
 
+  # Catálogo completo de las 16 Unidades Médicas del ISSSTE
   unidades_issste = {
-      "20 DE NOVIEMBRE": "NOV",
-      "CHURUBUSCO": "CHU",
-      "ERMITA": "ERM",
-      "ZARAGOZA": "ZAR",
-      "GÓMEZ FARÍAS": "GFAR",
+      "CMN 20 DE NOVIEMBRE": "20N",
+      "HOSPITAL REGIONAL ADOLFO LÓPEZ MATEOS": "ALM",
+      "HOSPITAL REGIONAL 1 DE OCTUBRE": "1OC",
+      "HOSPITAL REGIONAL ZARAGOZA": "ZAR",
+      "HOSPITAL REGIONAL BICENTENARIO DE LA INDEPENDENCIA": "BIC",
+      "CLÍNICA HOSPITAL DR. IGNACIO CHÁVEZ": "ICH",
+      "CLÍNICA HOSPITAL MITRA / SUR": "SUR",
+      "CMF ERMITA": "ERM",
+      "CMF CUITLÁHUAC": "CUT",
+      "CMF NANDO DE SANTIAGO": "NSN",
+      "CMF ARTURO ARTURO": "ART",
+      "CMF VALLE JOE": "VJO",
+      "CMF TACUBA": "TAC",
+      "CMF SULLIVAN": "SUL",
+      "CMF PERICENTRO": "PER",
+      "CMF VILLA": "VIL",
   }
 
   st.markdown(
@@ -137,7 +149,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Buscador para actualizar el mapa interactivo
+  # Buscador interactivo para mover el mapa al instante
   busqueda_input = st.text_input(
       "🔍 Buscador (Escribe el lugar para ubicarlo en el mapa):",
       value=st.session_state.config_busqueda_mapa,
@@ -145,7 +157,7 @@ else:
   )
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Renderizado del mapa interactivo
+  # Renderizado dinámico del widget del mapa interactivo
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
