@@ -3,7 +3,6 @@ import io
 import urllib.parse
 import qrcode
 import streamlit as st
-import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Panel de Administración - Censo Nominal",
@@ -37,9 +36,14 @@ if "config_hora_inicio" not in st.session_state:
   st.session_state.config_hora_inicio = datetime.time(8, 0)
 if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
-if "config_ubicacion_maps" not in st.session_state:
-  st.session_state.config_ubicacion_maps = (
+if "config_busqueda_mapa" not in st.session_state:
+  st.session_state.config_busqueda_mapa = (
       "Centro Medico Nacional 20 de Noviembre, Ciudad de Mexico"
+  )
+if "config_direccion_oficial" not in st.session_state:
+  st.session_state.config_direccion_oficial = (
+      "Avenida Felix Cuevas 540, Del Valle Sur, Benito Juarez, 03100 Ciudad de"
+      " Mexico, CDMX"
   )
 
 if not st.session_state.autenticado_admin:
@@ -130,33 +134,41 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Búsqueda de Ubicación y Mapa'
-      " Interactivo</div>",
+      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
       unsafe_allow_html=True,
   )
 
-  # Campo de texto para ingresar la dirección o clínica
-  ubicacion_input = st.text_input(
-      "Ingrese la dirección o nombre de la clínica:",
-      value=st.session_state.config_ubicacion_maps,
+  # 1. EL BUSCADOR DE MAPA
+  busqueda_input = st.text_input(
+      "🔍 Buscador (Escribe el lugar para ubicarlo en el mapa):",
+      value=st.session_state.config_busqueda_mapa,
       placeholder=(
-          "Ej. Centro Médico Nacional 20 de Noviembre, Ciudad de México"
+          "Ej. CMF Ermita, o Clínica Hospital..., o Dirección exacta"
       ),
   )
-  st.session_state.config_ubicacion_maps = ubicacion_input
+  st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Renderizado dinámico del mapa de Google Maps y dirección completa automática
-  if ubicacion_input:
-    query_mapa = urllib.parse.quote(ubicacion_input)
-    st.markdown(
-        f"<b>📍 Dirección Completa Detectada:</b> <span"
-        f' style="color: #1e5b4f;">{ubicacion_input}</span>',
-        unsafe_allow_html=True,
-    )
+  # Renderizado del mapa interactivo con el marcador rojo de ubicación
+  if busqueda_input:
+    query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
     )
-    st.components.v1.iframe(url_embed_maps, height=320)
+    st.components.v1.iframe(url_embed_maps, height=300)
+
+  # 2. EL CAMPO QUE RECABA LA DIRECCIÓN OFICIAL COMPLETA
+  st.markdown("<br>", unsafe_allow_html=True)
+  direccion_oficial_input = st.text_area(
+      "📍 Dirección Oficial Completa (Recabada para el Comprobante y"
+      " Reportes):",
+      value=st.session_state.config_direccion_oficial,
+      placeholder=(
+          "Pega aquí o confirma la dirección exacta completa que arroja el"
+          " mapa..."
+      ),
+      height=80,
+  )
+  st.session_state.config_direccion_oficial = direccion_oficial_input
 
   st.markdown(
       '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
