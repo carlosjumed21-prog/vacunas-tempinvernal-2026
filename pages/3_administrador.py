@@ -25,172 +25,161 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Control de sesión para autenticación en Pestaña 3
+# Control de sesión para autenticación
 if "autenticado_admin" not in st.session_state:
     st.session_state.autenticado_admin = False
 
+# Variables de configuración global en session_state si no existen
+if "config_fecha_aplicacion" not in st.session_state:
+    st.session_state.config_fecha_aplicacion = datetime.date.today()
+if "config_ubicacion_maps" not in st.session_state:
+    st.session_state.config_ubicacion_maps = (
+        "Centro Medico Nacional 20 de Noviembre, Ciudad de Mexico"
+    )
+
 if not st.session_state.autenticado_admin:
-    st.markdown('<p class="main-header">Acceso Restringido - Panel de Administración</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Seleccione usuario autorizado e ingrese su contraseña</p>', unsafe_allow_html=True)
+  st.markdown(
+      '<p class="main-header">Acceso Restringido - Panel de Administración</p>',
+      unsafe_allow_html=True,
+  )
+  st.markdown(
+      '<p class="sub-header">Seleccione usuario autorizado e ingrese su'
+      " contraseña</p>",
+      unsafe_allow_html=True,
+  )
 
-    with st.form("form_login_admin"):
-        usuario_admin = st.selectbox(
-            "Seleccione Usuario:",
-            options=["Seleccione...", "Admin", "EESP Wendy"]
-        )
-        password_admin = st.text_input("Contraseña:", type="password")
-        btn_login_admin = st.form_submit_button("Ingresar al Panel", use_container_width=True)
+  with st.form("form_login_admin"):
+    usuario_admin = st.selectbox(
+        "Seleccione Usuario:", options=["Seleccione...", "Admin", "EESP Wendy"]
+    )
+    password_admin = st.text_input("Contraseña:", type="password")
+    btn_login_admin = st.form_submit_button(
+        "Ingresar al Panel", use_container_width=True
+    )
 
-        if btn_login_admin:
-            # Validar credenciales estrictas solicitadas
-            if (usuario_admin == "Admin" and password_admin == "OtaniOrochi26") or \
-               (usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"):
-                st.session_state.autenticado_admin = True
-                st.rerun()
-            else:
-                st.error("Contraseña incorrecta o usuario no seleccionado.")
+    if btn_login_admin:
+      if (usuario_admin == "Admin" and password_admin == "OtaniOrochi26") or (
+          usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"
+      ):
+        st.session_state.autenticado_admin = True
+        st.rerun()
+      else:
+        st.error("Contraseña incorrecta o usuario no seleccionado.")
 else:
-    # Contenido completo de Administración una vez logueado con éxito
-    st.markdown(
-        '<p class="main-header">Panel de Control y Administración</p>',
-        unsafe_allow_html=True,
+  st.markdown(
+      '<p class="main-header">Panel de Control y Administración</p>',
+      unsafe_allow_html=True,
+  )
+  st.markdown(
+      '<p class="sub-header">Configuración de Jornada, Unidad Médica, Fecha,'
+      " Ubicación y Códigos QR</p>",
+      unsafe_allow_html=True,
+  )
+
+  unidades_issste = {
+      "20 DE NOVIEMBRE": "NOV",
+      "CHURUBUSCO": "CHU",
+      "ERMITA": "ERM",
+      "ZARAGOZA": "ZAR",
+      "GÓMEZ FARÍAS": "GFAR",
+  }
+
+  st.markdown(
+      '<div class="section-title">1. Configuración de Operación y'
+      " Ubicación</div>",
+      unsafe_allow_html=True,
+  )
+
+  with st.container():
+    st.markdown('<div class="card-admin">', unsafe_allow_html=True)
+
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+      unidad_sel = st.selectbox(
+          "Unidad Médica ISSSTE:", options=list(unidades_issste.keys())
+      )
+      siglas_sel = unidades_issste[unidad_sel]
+
+    with col_c2:
+      jornada_sel = st.selectbox(
+          "Tipo de Jornada:",
+          options=["Intramuros (I)", "Extramuros (E)"],
+          format_func=lambda x: "Intramuros (I)" if "I" in x else "Extramuros (E)",
+      )
+      tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
+
+    # NUEVO: Fecha de Aplicación predeterminada por el administrador
+    fecha_admin = st.date_input(
+        "Fecha Oficial de Aplicación de la Vacuna:",
+        value=st.session_state.config_fecha_aplicacion,
+        format="DD/MM/YYYY",
     )
-    st.markdown(
-        '<p class="sub-header">Configuración de Jornada, Unidad Médica y Generación de Enlaces / QR</p>',
-        unsafe_allow_html=True,
+    st.session_state.config_fecha_aplicacion = fecha_admin
+
+    # NUEVO: Ubicación de la clínica para Google Maps
+    ubicacion_input = st.text_input(
+        "Dirección o Nombre del Módulo para Google Maps:",
+        value=st.session_state.config_ubicacion_maps,
+        placeholder=(
+            "Ej. Centro Médico Nacional 20 de Noviembre, Ciudad de México"
+        ),
+    )
+    st.session_state.config_ubicacion_maps = ubicacion_input
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+  # Widget interactivo de Google Maps embebido según la ubicación ingresada
+  st.markdown(
+      '<div class="section-title">2. Vista Previa del Mapa de'
+      " Ubicación</div>",
+      unsafe_allow_html=True,
+  )
+  if ubicacion_input:
+    # Generar URL segura de inserción para Google Maps
+    query_mapa = urllib.parse.quote(ubicacion_input)
+    url_embed_maps = (
+        f"https://www.google.com/maps?q={query_mapa}&output=embed"
+    )
+    st.components.v1.iframe(url_embed_maps, height=300)
+
+  st.markdown(
+      '<div class="section-title">3. Generador de Enlaces y Códigos QR para'
+      " Jornada</div>",
+      unsafe_allow_html=True,
+  )
+
+  base_url = "https://vacunas-invernal.streamlit.app/"  # Ajusta a tu URL de despliegue si es necesario
+  link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
+
+  st.info(
+      "Enlace operativo listo para compartir con brigadas o imprimir en QR:"
+  )
+  st.code(link_generado, language="text")
+
+  # Generación de Código QR visual
+  qr = qrcode.QRCode(version=1, box_size=10, border=4)
+  qr.add_data(link_generado)
+  qr.make(fit=True)
+  img = qr.make_image(fill_color="#1e5b4f", back_color="#ffffff")
+
+  buf = io.BytesIO()
+  img.save(buf, format="PNG")
+  byte_im = buf.getvalue()
+
+  col_qr1, col_qr2 = st.columns([1, 2])
+  with col_qr1:
+    st.image(byte_im, caption="Código QR de la Jornada", width=200)
+  with col_qr2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.download_button(
+        label="📥 Descargar Imagen QR (PNG)",
+        data=byte_im,
+        file_name=f"QR_Vacunacion_{siglas_sel}_{tipo_jornada_letra}.png",
+        mime="image/png",
+        use_container_width=True,
     )
 
-    unidades_issste = {
-        "20 DE NOVIEMBRE": "NOV",
-        "CHURUBUSCO": "CHU",
-        "CLIDDA": "CLI",
-        "COYOACAN": "COY",
-        "DEL VALLE": "VAL",
-        "DIVISION DEL NORTE": "NOR",
-        "DR. DARIO FERNANDEZ FIERRO": "DAR",
-        "DR. IGNACIO CHAVEZ": "CHA",
-        "ERMITA": "ERM",
-        "FUENTES BROTANTES": "FUE",
-        "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": "MAT",
-        "MILPA ALTA": "MIL",
-        "NARVARTE": "NAR",
-        "TLALPAN": "TLA",
-        "VILLA ALVARO OBREGON": "ALV",
-        "XOCHIMILCO": "XOC",
-    }
-
-    if "tipo_jornada" not in st.session_state:
-        st.session_state.tipo_jornada = "I"
-    if "nombre_unidad" not in st.session_state:
-        st.session_state.nombre_unidad = "ERMITA"
-    if "siglas_unidad" not in st.session_state:
-        st.session_state.siglas_unidad = "ERM"
-
-    st.markdown(
-        '<div class="section-title">1. Configuración de la Unidad y Jornada</div>',
-        unsafe_allow_html=True,
-    )
-
-    with st.form("form_config_admin"):
-        nombres_unidades_lista = list(unidades_issste.keys())
-        indice_actual = (
-            nombres_unidades_lista.index(st.session_state.nombre_unidad)
-            if st.session_state.nombre_unidad in nombres_unidades_lista
-            else 0
-        )
-
-        unidad_seleccionada = st.selectbox(
-            "Seleccione la Unidad Médica:",
-            options=nombres_unidades_lista,
-            index=indice_actual,
-        )
-
-        tipo_jornada_input = st.radio(
-            "Modalidad de la Jornada:",
-            options=["Intramuros (I)", "Extramuros (E)"],
-            index=0 if st.session_state.tipo_jornada == "I" else 1,
-        )
-
-        btn_guardar_config = st.form_submit_button(
-            "Actualizar Configuración de Folios", use_container_width=True
-        )
-
-        if btn_guardar_config:
-            st.session_state.nombre_unidad = unidad_seleccionada
-            st.session_state.siglas_unidad = unidades_issste[unidad_seleccionada]
-            st.session_state.tipo_jornada = (
-                "I" if "Intramuros" in tipo_jornada_input else "E"
-            )
-            st.success(
-                f"¡Configuración aplicada! Unidad: **{st.session_state.nombre_unidad}** | Estructura de folio configurada correctamente."
-            )
-
-    st.markdown(
-        '<div class="section-title">2. Vista Previa del Folio Generado</div>',
-        unsafe_allow_html=True,
-    )
-    hoy_ejemplo = datetime.date.today().strftime("%y%m%d")
-    ejemplo_folio = f"{hoy_ejemplo}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-001"
-    st.info(
-        f"El próximo registro que se capture utilizará la estructura: **`{ejemplo_folio}`**"
-    )
-
-    st.markdown(
-        '<div class="section-title">3. Generador de Enlaces y Códigos QR Operativos</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        """
-    <div class="card-admin">
-        <p><b>Instrucción:</b> El enlace generado incluirá automáticamente el parámetro de restricción para que el código QR abra exclusivamente el formulario de registro sin mostrar pestañas adicionales al personal.</p>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    url_base_default = "https://medprev-vacunas-invernal.streamlit.app/"
-    url_despliegue = st.text_input(
-        "URL base de la aplicación desplegada:",
-        value=url_base_default,
-    )
-
-    if st.button("Generar Enlace y Código QR"):
-        # Asegurar que el link base termine sin diagonal antes de añadir el parámetro
-        base_limpia = url_despliegue.strip().rstrip("/")
-        link_final = f"{base_limpia}/?modo=registro"
-
-        st.success(
-            f"Parámetros listos para la unidad **{st.session_state.nombre_unidad}** en modalidad **{'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'}**."
-        )
-        st.markdown(f"🔗 **Enlace QR exclusivo (Registro Limpio):** `{link_final}`")
-
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(link_final)
-        qr.make(fit=True)
-
-        img_qr = qr.make_image(fill_color="#611232", back_color="#ffffff")
-
-        buffer = io.BytesIO()
-        img_qr.save(buffer, format="PNG")
-        buffer.seek(0)
-
-        st.markdown("---")
-        st.markdown("#### Código QR Operativo Generado:")
-        st.image(
-            buffer,
-            caption=f"QR para {st.session_state.nombre_unidad} ({'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'})",
-            width=250,
-        )
-
-        st.download_button(
-            label="📥 Descargar Imagen QR (PNG)",
-            data=buffer,
-            file_name=f"QR_{st.session_state.siglas_unidad}_{st.session_state.tipo_jornada}.png",
-            mime="image/png",
-            use_container_width=True,
-        )
+  st.markdown("---")
+  if st.button("Cerrar Sesión de Administrador", use_container_width=True):
+    st.session_state.autenticado_admin = False
+    st.rerun()
