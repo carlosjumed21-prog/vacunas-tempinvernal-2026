@@ -112,18 +112,6 @@ if "nombre_unidad" not in st.session_state:
 if "ultimo_paciente_registrado" not in st.session_state:
   st.session_state.ultimo_paciente_registrado = None
 
-if "config_fecha_aplicacion" not in st.session_state:
-  st.session_state.config_fecha_aplicacion = datetime.date.today()
-if "config_hora_inicio" not in st.session_state:
-  st.session_state.config_hora_inicio = datetime.time(8, 0)
-if "config_hora_fin" not in st.session_state:
-  st.session_state.config_hora_fin = datetime.time(14, 0)
-if "config_direccion_oficial" not in st.session_state:
-  st.session_state.config_direccion_oficial = (
-      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
-      " México, CDMX"
-  )
-
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
   if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
@@ -314,13 +302,10 @@ def mostrar_modal_comprobante():
             <div id="comprobante-captura" class="card-comprobante">
                 <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Ubicación:</b> {direccion}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
-                <hr style="border: 1px solid #e6d194; margin: 3px 0;">
-                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
@@ -332,7 +317,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n¡Presente este comprobante en el módulo!`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -359,17 +344,13 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
         unidad=st.session_state.nombre_unidad,
-        direccion=st.session_state.config_direccion_oficial,
         nombre=p["nombre_completo"],
         curp=p["curp_con_entidad"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
-        fecha=st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y"),
-        h_ini=st.session_state.config_hora_inicio.strftime("%H:%M"),
-        h_fin=st.session_state.config_hora_fin.strftime("%H:%M"),
     )
 
-    components.html(html_comprobante_component, height=310)
+    components.html(html_comprobante_component, height=270)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -409,24 +390,43 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS (BLOQUEADOS / AUTOMÁTICOS) ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
 )
 col_g1, col_g2, col_g3 = st.columns(3)
+
+# Fecha de Registro fija con la fecha actual del sistema (bloqueada)
 with col_g1:
   fecha_registro = st.date_input(
-      "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
+      "Fecha de Registro (Actual)",
+      value=datetime.date.today(),
+      format="DD/MM/YYYY",
+      disabled=True,
   )
+
+# Fecha de Aplicación leída desde la URL de la Pestaña 3 (bloqueada)
+fecha_url_str = st.session_state.get("fecha_jornada_url", None)
+if fecha_url_str:
+  try:
+    val_fecha_app = datetime.datetime.strptime(
+        fecha_url_str, "%Y-%m-%d"
+    ).date()
+  except:
+    val_fecha_app = datetime.date.today()
+else:
+  val_fecha_app = datetime.date.today()
+
 with col_g2:
   fecha_aplicacion = st.date_input(
       "Fecha de Aplicación (Autorizada)",
-      value=st.session_state.config_fecha_aplicacion,
+      value=val_fecha_app,
       format="DD/MM/YYYY",
+      disabled=True,
   )
 
-hoy_actual = fecha_registro
+hoy_actual = datetime.date.today()
 if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
   st.session_state.fecha_ultimo_consecutivo = hoy_actual
   st.session_state.contador_consecutivo = 1
@@ -714,22 +714,23 @@ if st.button(
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # Determinar la siguiente fila disponible a partir de la fila 13
       valores_col_c = worksheet.col_values(3)
       siguiente_fila = max(13, len(valores_col_c) + 1)
 
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
-      # 1. Folio Generado (B)
-      worksheet.update(f"B{f_actual}:B{f_siguiente}", [[folio_automatico], [folio_automatico]])
-
-      # 2. Apellidos y Nombres (C, D, E)
+      worksheet.update(
+          f"B{f_actual}:B{f_siguiente}",
+          [[folio_automatico], [folio_automatico]],
+      )
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
-      worksheet.update_acell(f"D{f_actual}", materno.upper() if materno else "")
+      worksheet_acell_materno = (
+          materno.upper() if materno else ""
+      )  # Variable auxiliar limpia
+      worksheet.update_acell(f"D{f_actual}", worksheet_acell_materno)
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
-      # 3. Fecha de Nacimiento desglosada (F, G, H)
       dd_nac = str(fecha_nacimiento.day).zfill(2)
       mm_nac = str(fecha_nacimiento.month).zfill(2)
       yyyy_nac = str(fecha_nacimiento.year)
@@ -738,17 +739,23 @@ if st.button(
       worksheet.update(f"G{f_actual}:G{f_siguiente}", [[mm_nac], [mm_nac]])
       worksheet.update(f"H{f_actual}:H{f_siguiente}", [[yyyy_nac], [yyyy_nac]])
 
-      # 4. Edad desglosada (I, J)
-      worksheet.update(f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]])
-      worksheet.update(f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]])
+      worksheet.update(
+          f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
+      )
+      worksheet.update(
+          f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
+      )
 
-      # 5. Sexo y Fecha de Aplicación (K, L)
       sexo_letra = "H" if sexo == "HOMBRE" else "M"
-      f_aplicacion_str = fecha_aplicacion.strftime("%d/%m/%Y")
-      worksheet.update(f"K{f_actual}:K{f_siguiente}", [[sexo_letra], [sexo_letra]])
-      worksheet.update(f"L{f_actual}:L{f_siguiente}", [[f_aplicacion_str], [f_aplicacion_str]])
+      f_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
+      worksheet.update(
+          f"K{f_actual}:K{f_siguiente}", [[sexo_letra], [sexo_letra]]
+      )
+      worksheet.update(
+          f"L{f_actual}:L{f_siguiente}",
+          [[f_aplicacion_str], [f_aplicacion_str]],
+      )
 
-      # 6. Domicilio (M, N, O)
       dir_calle = calle.upper()
       dir_num = numero.upper()
       dir_col = colonia.upper()
@@ -756,10 +763,8 @@ if st.button(
       worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
       worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
 
-      # 7. CURP con Entidad en C14
       worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
 
-      # 8. Grupo Objetivo (P, Q, R, S, T, U, V, W, X)
       col_grupo_map = {
           "6 A 59 MESES": "P",
           "60 Y MÁS": "Q",
@@ -772,9 +777,11 @@ if st.button(
       }
       letra_col_grupo = col_grupo_map.get(grupo_sugerido, None)
       if letra_col_grupo:
-        worksheet.update(f"{letra_col_grupo}{f_actual}:{letra_col_grupo}{f_siguiente}", [["X"], ["X"]])
+        worksheet.update(
+            f"{letra_col_grupo}{f_actual}:{letra_col_grupo}{f_siguiente}",
+            [["X"], ["X"]],
+        )
 
-      # 9. Comorbilidades (Y, Z, AA, AB, AC, AD)
       for estado_activo, columna_letra in [
           (epoc, "Y"),
           (cancer, "Z"),
@@ -784,19 +791,28 @@ if st.button(
           (hipertension, "AD"),
       ]:
         if estado_activo:
-          worksheet.update(f"{columna_letra}{f_actual}:{columna_letra}{f_siguiente}", [["X"], ["X"]])
+          worksheet.update(
+              f"{columna_letra}{f_actual}:{columna_letra}{f_siguiente}",
+              [["X"], ["X"]],
+          )
 
-      # 10. Otros grupos de riesgo (AE)
       if otros_riesgos:
-        worksheet.update(f"AE{f_actual}:AE{f_siguiente}", [[otros_riesgos.upper()], [otros_riesgos.upper()]])
+        worksheet.update(
+            f"AE{f_actual}:AE{f_siguiente}",
+            [[otros_riesgos.upper()], [otros_riesgos.upper()]],
+        )
 
-      # 11. Derechohabiencia (AM en filas 13-14)
-      worksheet.update(f"AM{f_actual}:AM{f_siguiente}", [[cuenta_derechohabiencia], [cuenta_derechohabiencia]])
+      worksheet.update(
+          f"AM{f_actual}:AM{f_siguiente}",
+          [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
+      )
 
       nuevo_paciente = {
           "folio": folio_automatico,
           "curp_con_entidad": curp_con_entidad,
-          "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+          "nombre_completo": (
+              f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
+          ),
           "grupo_objetivo": grupo_sugerido,
       }
       st.session_state.registros_censales.append(nuevo_paciente)
