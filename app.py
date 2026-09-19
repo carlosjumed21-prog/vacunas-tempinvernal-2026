@@ -183,7 +183,6 @@ if sexo == "MUJER":
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Cálculo interactivo inmediato de la edad
 calc_anos, calc_meses, calc_dias = (
     calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
     if fecha_nacimiento
@@ -203,7 +202,7 @@ with st.form("form_censo_vacunacion_resto"):
 
     # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
     st.markdown(
-        '<div class="section-title">3. Domicilio, Estados y Afiliación</div>',
+        '<div class="section-title">3. Domicilio y Estados</div>',
         unsafe_allow_html=True,
     )
     col_d1, col_d2 = st.columns(2)
@@ -225,28 +224,6 @@ with st.form("form_censo_vacunacion_resto"):
         numero = st.text_input("No. (Ext / Int) *")
     with col_dom3:
         colonia = st.text_input("Colonia *")
-
-    cuenta_derechohabiencia = st.radio(
-        "¿Cuenta con derechohabiencia? *", options=["NO", "SÍ"], horizontal=True
-    )
-
-    derechohabiencia = "NINGUNA / POBLACIÓN ABIERTA"
-    if cuenta_derechohabiencia == "SÍ":
-        derechohabiencia = st.selectbox(
-            "Especifique la Institución de Derechohabiencia *",
-            options=[
-                "SELECCIONE UNA OPCIÓN",
-                "IMSS",
-                "ISSSTE",
-                "IMSS-BIENESTAR",
-                "PEMEX",
-                "SEDENA",
-                "SEMAR",
-                "ISSFAM",
-                "IMSS / IMSS-BIENESTAR",
-                "OTRA",
-            ],
-        )
 
     # --- BLOQUE 4: OCUPACIÓN ---
     st.markdown(
@@ -289,8 +266,22 @@ with st.form("form_censo_vacunacion_resto"):
         inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
         hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
 
-    # --- LÓGICA DE AUTODETECCIÓN DE GRUPO OBJETIVO ---
+    # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
     edad_total_meses = (calc_anos * 12) + calc_meses
+    tiene_comorb = any(
+        [
+            vih,
+            diabetes,
+            obesidad,
+            cardiopatias,
+            epoc,
+            cancer,
+            congenitas,
+            insuficiencia_renal,
+            inmunosupresion,
+            hipertension,
+        ]
+    )
 
     grupo_sugerido = ""
     if fecha_nacimiento is not None:
@@ -299,11 +290,17 @@ with st.form("form_censo_vacunacion_resto"):
         elif calc_anos >= 60:
             grupo_sugerido = "60 Y MÁS"
         elif 5 <= calc_anos <= 11:
-            grupo_sugerido = "5 A 11 AÑOS (Dosis única COVID-19)"
+            grupo_sugerido = (
+                "5 A 11 AÑOS (Riesgo / Comorbilidad / Indicación)"
+                if tiene_comorb
+                else "5 A 11 AÑOS"
+            )
         elif planes_o_embarazo == "SÍ":
             grupo_sugerido = "EMBARAZADAS"
         elif ocupacion == "PERSONAL DE SALUD":
             grupo_sugerido = "PERSONAL DE SALUD"
+        elif 12 <= calc_anos <= 59 and tiene_comorb:
+            grupo_sugerido = "12 A 59 AÑOS CON COMORBILIDAD"
         else:
             grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
@@ -354,13 +351,6 @@ with st.form("form_censo_vacunacion_resto"):
                 "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
             )
         elif (
-            cuenta_derechohabiencia == "SÍ"
-            and derechohabiencia == "SELECCIONE UNA OPCIÓN"
-        ):
-            st.error(
-                "Por favor seleccione la institución de derechohabiencia."
-            )
-        elif (
             not paterno
             or not nombres
             or estado_nacimiento == "SELECCIONE UN ESTADO"
@@ -389,21 +379,8 @@ with st.form("form_censo_vacunacion_resto"):
                 "embarazo": (planes_o_embarazo == "SÍ"),
                 "ocupacion": ocupacion,
                 "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-                "derechohabiencia": derechohabiencia,
-                "tiene_comorbilidades": any(
-                    [
-                        vih,
-                        diabetes,
-                        obesidad,
-                        cardiopatias,
-                        epoc,
-                        cancer,
-                        congenitas,
-                        insuficiencia_renal,
-                        inmunosupresion,
-                        hipertension,
-                    ]
-                ),
+                "derechohabiencia": "ISSSTE",  # Predeterminado institucional
+                "tiene_comorbilidades": tiene_comorb,
                 "grupo_objetivo": grupo_sugerido,
                 "antecedente_covid": antecedente_covid,
                 "antecedente_influenza": antecedente_influenza,
