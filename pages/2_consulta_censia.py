@@ -28,13 +28,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inicializar memoria de lotes para evitar sobreescribir y agilizar la operación
 if "lote_influenza_memoria" not in st.session_state:
   st.session_state.lote_influenza_memoria = ""
 if "lote_covid_memoria" not in st.session_state:
   st.session_state.lote_covid_memoria = ""
 
-# Control de sesión para autenticación en Módulo Operativo
 if "autenticado_consulta" not in st.session_state:
   st.session_state.autenticado_consulta = False
 
@@ -72,7 +70,6 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Conexión a Google Sheets para listar exclusivamente las hojas de jornada autorizadas
   try:
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -94,7 +91,6 @@ else:
     sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
     spreadsheet = client.open_by_key(sheet_id)
 
-    # Filtrar hojas válidas (excluyendo la plantilla base CENSO NOMINAL)
     todas_las_hojas = spreadsheet.worksheets()
     h_autorizadas = [
         h.title for h in todas_las_hojas if h.title != "CENSO NOMINAL"
@@ -121,14 +117,11 @@ else:
     if hoja_seleccionada:
       try:
         worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
-        # Leer todos los registros de la hoja (asumiendo datos desde la fila 13 en adelante)
         todos_los_datos = worksheet_activa.get_all_values()
 
-        # Filtrar filas que contengan pacientes (ej. columna C con apellido y B con folio)
         pacientes_cargados = []
         if len(todos_los_datos) >= 13:
           for idx, row in enumerate(todos_los_datos[12:], start=13):
-            # Validar que tenga folio (columna B / índice 1) y nombre (columna C / índice 2)
             if len(row) > 3 and row[1].strip() and row[2].strip():
               pacientes_cargados.append({
                   "fila": idx,
@@ -136,7 +129,6 @@ else:
                   "paterno": row[2].strip(),
                   "materno": row[3].strip() if len(row) > 3 else "",
                   "nombres": row[4].strip() if len(row) > 4 else "",
-                  "curp": row[2].strip() if len(row) > 2 else "",  # Referencia
               })
 
       except Exception as e:
@@ -144,7 +136,7 @@ else:
         st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
       st.markdown(
-          '<div class="section-title">2. Búsqueda de Paciente</div>',
+          '<div class="section-title">2. Lupa de Búsqueda Rápida</div>',
           unsafe_allow_html=True,
       )
       if not pacientes_cargados:
@@ -153,216 +145,222 @@ else:
             " el censo."
         )
       else:
-        opciones_busqueda = [
-            f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} (Fila {p['fila']})"
-            for p in pacientes_cargados
-        ]
-        seleccion_paciente = st.selectbox(
-            "Buscar por Folio o Nombre:", options=opciones_busqueda
+        # --- LUPA DE BÚSQUEDA INTERACTIVA ---
+        query_busqueda = st.text_input(
+            "🔍 Buscar por Folio, Apellido o Nombre:",
+            placeholder="Escriba parte del folio o apellido...",
         )
 
-        if seleccion_paciente:
-          # Extraer número de fila exacto de la selección
-          fila_idx = int(seleccion_paciente.split("(Fila ")[1].replace(")", ""))
-          fila_datos = todos_los_datos[fila_idx - 1]
+        # Filtrar pacientes en tiempo real según la consulta
+        if query_busqueda.strip():
+          q_clean = query_busqueda.strip().upper()
+          pacientes_filtrados = [
+              p
+              for p in pacientes_cargados
+              if q_clean in p["folio"].upper()
+              or q_clean in p["paterno"].upper()
+              or q_clean in p["materno"].upper()
+              or q_clean in p["nombres"].upper()
+          ]
+        else:
+          pacientes_filtrados = pacientes_cargados
 
-          # Mapeo inverso seguro de la fila de Google Sheets a variables de visualización
-          folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
-          paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
-          materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
-          nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
-          nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
-
-          # Fechas de nacimiento desde columnas F, G, H
-          dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
-          mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
-          yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
-          fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
-
-          sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-          sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
-
-          # Detectar grupo objetivo marcado con 'X' en columnas P a X
-          grupos_letras = {
-              "P": "6 A 59 MESES",
-              "Q": "60 Y MÁS",
-              "R": "5 A 11 AÑOS (COVID-19)",
-              "S": "EMBARAZADAS",
-              "T": "PERSONAL DE SALUD",
-              "U": "VIH/sida",
-              "V": "DIABETES MELLITUS",
-              "W": "OBESIDAD MORBIDA",
-              "X": "CARDIOPATÍAS AGUDAS O CRÓNICAS",
-          }
-          grupo_detectado = "POBLACIÓN GENERAL"
-          # Mapeo de letras de columna a índices de lista (P=15, Q=16, etc.)
-          col_indices = {
-              "P": 15,
-              "Q": 16,
-              "R": 17,
-              "S": 18,
-              "T": 19,
-              "U": 20,
-              "V": 21,
-              "W": 22,
-              "X": 23,
-          }
-          for letra, idx_col in col_indices.items():
-            if (
-                len(fila_datos) > idx_col
-                and fila_datos[idx_col].strip().upper() == "X"
-            ):
-              grupo_detectado = grupos_letras[letra]
-              break
-
-          st.markdown(
-              '<div class="section-title">Datos Generales del Paciente'
-              " (Censo)</div>",
-              unsafe_allow_html=True,
+        if not pacientes_filtrados:
+          st.warning(
+              "No se encontraron pacientes que coincidan con la búsqueda."
           )
-          col1, col2, col3 = st.columns(3)
-          with col1:
-            st.markdown(f"**Folio:** {folio_p}")
-            st.markdown(f"**Nombre:** {nombre_completo}")
-          with col2:
-            st.markdown(f"**Nacimiento:** {fecha_nac_str}")
-            st.markdown(f"**Sexo:** {sexo_texto}")
-          with col3:
-            st.markdown(f"**Grupo Objetivo:** {grupo_detectado}")
-            st.markdown(f"**Fila en Sheets:** #{fila_idx}")
-
-          # Criterios CENSIA automatizados para sugerencias
-          st.markdown(
-              '<div class="section-title">3. Guía y Lineamientos CENSIA</div>',
-              unsafe_allow_html=True,
+        else:
+          opciones_busqueda = [
+              f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} (Fila {p['fila']})"
+              for p in pacientes_filtrados
+          ]
+          seleccion_paciente = st.selectbox(
+              "Seleccione del listado filtrado:", options=opciones_busqueda
           )
 
-          inf_dosis = (
-              "1 dosis anual de 0.5 mL (Aplicación recomendada estacional)."
-          )
-          inf_via = "Intramuscular en región deltoidea del brazo izquierdo."
-          cov_dosis = (
-              "Refuerzo o dosis estacional actual según disponibilidad"
-              " autorizada (Spikevax / Comirnaty)."
-          )
+          if seleccion_paciente:
+            fila_idx = int(
+                seleccion_paciente.split("(Fila ")[1].replace(")", "")
+            )
+            fila_datos = todos_los_datos[fila_idx - 1]
 
-          st.markdown(
-              f"""
-                    <div class="card-recomendacion">
-                        <h4>💉 Guía para Influenza Estacional</h4>
-                        <p><b>Esquema sugerido:</b> {inf_dosis}</p>
-                        <p><b>Vía y Sitio:</b> {inf_via}</p>
-                    </div>
-                    """,
-              unsafe_allow_html=True,
-          )
+            folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
+            paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
+            materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
+            nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+            nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-          st.markdown(
-              f"""
-                    <div class="card-recomendacion">
-                        <h4>🦠 Guía para COVID-19</h4>
-                        <p><b>Esquema sugerido:</b> {cov_dosis}</p>
-                    </div>
-                    """,
-              unsafe_allow_html=True,
-          )
+            dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
+            mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
+            yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
+            fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
 
-          # --- BLOQUE DE APLICACIÓN Y ACTUALIZACIÓN DE LOTES EN GOOGLE SHEETS ---
-          st.markdown(
-              '<div class="section-title">4. Registro de Dosis Aplicadas y Lotes'
-              " (Actualización en Base de Datos)</div>",
-              unsafe_allow_html=True,
-          )
+            sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
+            sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
-          with st.form("form_aplicacion_lotes"):
-            st.markdown("##### 💉 INFLUENZA")
-            c_inf1, c_inf2, c_inf3, c_inf4 = st.columns(4)
-            with c_inf1:
-              inf_1ra = st.checkbox("1ra dosis")
-            with c_inf2:
-              inf_2da = st.checkbox("2da dosis")
-            with c_inf3:
-              inf_anual = st.checkbox("Dosis anual")
-            with c_inf4:
-              lote_inf_input = st.text_input(
-                  "Lote Influenza",
-                  value=st.session_state.lote_influenza_memoria,
-                  placeholder="Ej. A1234",
-              )
+            grupos_letras = {
+                "P": "6 A 59 MESES",
+                "Q": "60 Y MÁS",
+                "R": "5 A 11 AÑOS (COVID-19)",
+                "S": "EMBARAZADAS",
+                "T": "PERSONAL DE SALUD",
+                "U": "VIH/sida",
+                "V": "DIABETES MELLITUS",
+                "W": "OBESIDAD MORBIDA",
+                "X": "CARDIOPATÍAS AGUDAS O CRÓNICAS",
+            }
+            grupo_detectado = "POBLACIÓN GENERAL"
+            col_indices = {
+                "P": 15,
+                "Q": 16,
+                "R": 17,
+                "S": 18,
+                "T": 19,
+                "U": 20,
+                "V": 21,
+                "W": 22,
+                "X": 23,
+            }
+            for letra, idx_col in col_indices.items():
+              if (
+                  len(fila_datos) > idx_col
+                  and fila_datos[idx_col].strip().upper() == "X"
+              ):
+                grupo_detectado = grupos_letras[letra]
+                break
 
-            st.markdown("##### 🦠 COVID-19")
-            c_cov1, c_cov2, c_cov3 = st.columns(3)
-            with c_cov1:
-              cov_unica = st.checkbox("Dosis Única")
-            with c_cov2:
-              cov_refuerzo = st.checkbox("Refuerzo")
-            with c_cov3:
-              lote_cov_input = st.text_input(
-                  "Lote COVID-19",
-                  value=st.session_state.lote_covid_memoria,
-                  placeholder="Ej. C5678",
-              )
+            st.markdown(
+                '<div class="section-title">Vista Previa y Datos Generales'
+                " del Paciente</div>",
+                unsafe_allow_html=True,
+            )
+            col1, col2, col3 = st.columns(3)
+            with col1:
+              st.markdown(f"**Folio:** {folio_p}")
+              st.markdown(f"**Nombre:** {nombre_completo}")
+            with col2:
+              st.markdown(f"**Nacimiento:** {fecha_nac_str}")
+              st.markdown(f"**Sexo:** {sexo_texto}")
+            with col3:
+              st.markdown(f"**Grupo Objetivo:** {grupo_detectado}")
+              st.markdown(f"**Fila en Sheets:** #{fila_idx}")
 
-            btn_actualizar_dosis = st.form_submit_button(
-                "💾 Guardar Aplicación y Actualizar Hoja Sheets",
-                use_container_width=True,
+            st.markdown(
+                '<div class="section-title">3. Guía y Lineamientos CENSIA</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                """
+                <div class="card-recomendacion">
+                    <h4>💉 Guía para Influenza Estacional</h4>
+                    <p><b>Esquema sugerido:</b> 1 dosis anual de 0.5 mL (Aplicación recomendada estacional).</p>
+                    <p><b>Vía y Sitio:</b> Intramuscular en región deltoidea del brazo izquierdo.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                """
+                <div class="card-recomendacion">
+                    <h4>🦠 Guía para COVID-19</h4>
+                    <p><b>Esquema sugerido:</b> Refuerzo o dosis estacional actual según disponibilidad autorizada.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
-            if btn_actualizar_dosis:
-              try:
-                # Actualizar memoria persistente de lotes
-                if lote_inf_input:
-                  st.session_state.lote_influenza_memoria = (
-                      lote_inf_input.upper()
-                  )
-                if lote_cov_input:
-                  st.session_state.lote_covid_memoria = lote_cov_input.upper()
+            st.markdown(
+                '<div class="section-title">4. Registro de Dosis Aplicadas y'
+                " Lotes (Actualización en Base de Datos)</div>",
+                unsafe_allow_html=True,
+            )
 
-                f_actual = fila_idx
-                f_siguiente = fila_idx + 1
-
-                # Mapeo exacto solicitado: Filas agrupadas de dos en dos (actual y siguiente)
-                # INFLUENZA: 1ra (AF), 2da (AG), Anual (AH), Lote (AI)
-                if inf_1ra:
-                  worksheet_activa.update(
-                      f"AF{f_actual}:AF{f_siguiente}", [["X"], ["X"]]
-                  )
-                if inf_2da:
-                  worksheet_activa.update(
-                      f"AG{f_actual}:AG{f_siguiente}", [["X"], ["X"]]
-                  )
-                if inf_anual:
-                  worksheet_activa.update(
-                      f"AH{f_actual}:AH{f_siguiente}", [["X"], ["X"]]
-                  )
-                if lote_inf_input:
-                  worksheet_activa.update(
-                      f"AI{f_actual}:AI{f_siguiente}",
-                      [[lote_inf_input.upper()], [lote_inf_input.upper()]],
-                  )
-
-                # COVID: Dosis Única (AJ), Refuerzo (AK), Lote (AL)
-                if cov_unica:
-                  worksheet_activa.update(
-                      f"AJ{f_actual}:AJ{f_siguiente}", [["X"], ["X"]]
-                  )
-                if cov_refuerzo:
-                  worksheet_activa.update(
-                      f"AK{f_actual}:AK{f_siguiente}", [["X"], ["X"]]
-                  )
-                if lote_cov_input:
-                  worksheet_activa.update(
-                      f"AL{f_actual}:AL{f_siguiente}",
-                      [[lote_cov_input.upper()], [lote_cov_input.upper()]],
-                  )
-
-                st.success(
-                    f"✅ ¡Aplicación registrada y base actualizada con éxito para"
-                    f" {nombre_completo} en la hoja {hoja_seleccionada}!"
+            with st.form("form_aplicacion_lotes"):
+              st.markdown("##### 💉 INFLUENZA")
+              c_inf1, c_inf2, c_inf3, c_inf4 = st.columns(4)
+              with c_inf1:
+                inf_1ra = st.checkbox("1ra dosis")
+              with c_inf2:
+                inf_2da = st.checkbox("2da dosis")
+              with c_inf3:
+                inf_anual = st.checkbox("Dosis anual")
+              with c_inf4:
+                lote_inf_input = st.text_input(
+                    "Lote Influenza",
+                    value=st.session_state.lote_influenza_memoria,
+                    placeholder="Ej. A1234",
                 )
 
-              except Exception as e:
-                st.error(
-                    "Error al actualizar la base de datos en Google Sheets:"
-                    f" {e}"
+              st.markdown("##### 🦠 COVID-19")
+              c_cov1, c_cov2, c_cov3 = st.columns(3)
+              with c_cov1:
+                cov_unica = st.checkbox("Dosis Única")
+              with c_cov2:
+                cov_refuerzo = st.checkbox("Refuerzo")
+              with c_cov3:
+                lote_cov_input = st.text_input(
+                    "Lote COVID-19",
+                    value=st.session_state.lote_covid_memoria,
+                    placeholder="Ej. C5678",
                 )
+
+              btn_actualizar_dosis = st.form_submit_button(
+                  "💾 Guardar Aplicación y Actualizar Hoja Sheets",
+                  use_container_width=True,
+              )
+
+              if btn_actualizar_dosis:
+                try:
+                  if lote_inf_input:
+                    st.session_state.lote_influenza_memoria = (
+                        lote_inf_input.upper()
+                    )
+                  if lote_cov_input:
+                    st.session_state.lote_covid_memoria = lote_cov_input.upper()
+
+                  f_actual = fila_idx
+                  f_siguiente = fila_idx + 1
+
+                  if inf_1ra:
+                    worksheet_activa.update(
+                        f"AF{f_actual}:AF{f_siguiente}", [["X"], ["X"]]
+                    )
+                  if inf_2da:
+                    worksheet_activa.update(
+                        f"AG{f_actual}:AG{f_siguiente}", [["X"], ["X"]]
+                    )
+                  if inf_anual:
+                    worksheet_activa.update(
+                        f"AH{f_actual}:AH{f_siguiente}", [["X"], ["X"]]
+                    )
+                  if lote_inf_input:
+                    worksheet_activa.update(
+                        f"AI{f_actual}:AI{f_siguiente}",
+                        [[lote_inf_input.upper()], [lote_inf_input.upper()]],
+                    )
+
+                  if cov_unica:
+                    worksheet_activa.update(
+                        f"AJ{f_actual}:AJ{f_siguiente}", [["X"], ["X"]]
+                    )
+                  if cov_refuerzo:
+                    worksheet_activa.update(
+                        f"AK{f_actual}:AK{f_siguiente}", [["X"], ["X"]]
+                    )
+                  if lote_cov_input:
+                    worksheet_activa.update(
+                        f"AL{f_actual}:AL{f_siguiente}",
+                        [[lote_cov_input.upper()], [lote_cov_input.upper()]],
+                    )
+
+                  st.success(
+                      f"✅ ¡Aplicación registrada y base actualizada con éxito"
+                      f" para {nombre_completo} en la hoja"
+                      f" {hoja_seleccionada}!"
+                  )
+
+                except Exception as e:
+                  st.error(
+                      "Error al actualizar la base de datos en Google Sheets:"
+                      f" {e}"
+                  )
