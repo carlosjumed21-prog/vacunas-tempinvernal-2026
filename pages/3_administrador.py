@@ -299,26 +299,13 @@ else:
       unsafe_allow_html=True,
   )
 
-  # URL base apuntando al dominio operativo oficial
-  base_url = "https://medprev-vacunas-invernal.streamlit.app/"
+  base_url = "https://vacunas-invernal.streamlit.app/"
   link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
 
   st.info(
       "Enlace operativo listo para compartir con brigadas o imprimir en QR:"
   )
   st.code(link_generado, language="text")
-
-  # Botón de acceso rápido directo al formulario operativo
-  st.markdown(
-      f"""
-    <div style="text-align: center; margin-bottom: 20px;">
-        <a href="{link_generado}" target="_blank" style="background-color: #611232; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1.1rem;">
-            🚀 Ir al Formulario de Registro (Modo Operativo)
-        </a>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
 
   qr = qrcode.QRCode(version=1, box_size=10, border=4)
   qr.add_data(link_generado)
@@ -346,7 +333,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
+  # --- BOTÓN DE AUTORIZACIÓN Y GENERACIÓN DE HOJA EN GOOGLE SHEETS ---
   if st.button(
       "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
       use_container_width=True,
@@ -385,7 +372,6 @@ else:
         nueva_hoja = spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
         )
-        # Ordenar: Plantilla (Hoja 1) seguida inmediatamente de la nueva hoja creada
         spreadsheet.reorder_worksheets(
             [plantilla, nueva_hoja]
             + [
@@ -416,7 +402,7 @@ else:
           f" permisos de Editor. Detalle: {e}"
       )
 
-  # --- RECUADRO VERDE DE CONFIRMACIÓN CON ENLACE DIRECTO A LA PESTAÑA EXACTA ---
+  # --- RECUADRO VERDE DE CONFIRMACIÓN CON HIPERVÍNCULO DIRECTO ---
   if st.session_state.jornada_autorizada:
     gid_param = (
         f"#gid={st.session_state.gid_hoja_destino}"
