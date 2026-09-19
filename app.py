@@ -250,43 +250,54 @@ estados_mexico = [
 ]
 
 
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE (MODAL FLOTANTE SUPERIOR) ---
+# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON CAPTURA DE PANTALLA EN IMAGEN ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
+    # Renderizamos el comprobante con un ID único para la captura de pantalla
     st.markdown(
         f"""
-        <div class="card-comprobante" style="margin-bottom: 10px; padding: 15px;">
-            <p style="margin: 0; font-size: 1rem;"><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
-            <p style="margin: 5px 0; font-size: 1rem;"><b>Paciente:</b> {p['nombre_completo']}</p>
-            <p style="margin: 5px 0; font-size: 1rem;"><b>CURP:</b> {p['curp_algoritmica']}</p>
-            <p style="margin: 5px 0; font-size: 1rem;"><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
-            <div class="folio-grande" style="font-size: 1.8rem !important; margin: 10px 0;">FOLIO: {p['folio']}</div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <div id="comprobante-captura" class="card-comprobante" style="margin-bottom: 10px; padding: 20px;">
+            <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO - CAMPAÑA INVERNAL</h3>
+            <p style="margin: 5px 0;"><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
+            <p style="margin: 5px 0;"><b>Paciente:</b> {p['nombre_completo']}</p>
+            <p style="margin: 5px 0;"><b>CURP:</b> {p['curp_algoritmica']}</p>
+            <p style="margin: 5px 0;"><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
+            <div class="folio-grande">FOLIO: {p['folio']}</div>
             <hr style="border: 1px solid #e6d194; margin: 10px 0;">
-            <p style="margin: 5px 0; font-size: 0.95rem;">📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
-            <p style="margin: 5px 0; font-size: 0.95rem;">⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
+            <p style="margin: 5px 0;">📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
+            <p style="margin: 5px 0;">⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
+            <p style="font-size: 0.85rem; color: #666; text-align: center; margin-top: 10px;">Sistema VIGILE - Comprobante Oficial de Campaña</p>
         </div>
+
+        <script>
+        function descargarCaptura() {
+            const elemento = document.getElementById('comprobante-captura');
+            html2canvas(elemento, {{ scale: 2 } }).then(canvas => {
+                const enlace = document.createElement('a');
+                enlace.download = 'Comprobante_{p['folio']}.png';
+                enlace.href = canvas.toDataURL('image/png');
+                enlace.click();
+            });
+        }
+        </script>
         """,
         unsafe_allow_html=True,
     )
 
     col_m1, col_m2 = st.columns(2)
+
     with col_m1:
-      contenido_txt = f"""SISTEMA VIGILE - COMPROBANTE DE VACUNACION
-Unidad: {st.session_state.nombre_unidad}
-Folio: {p['folio']}
-Paciente: {p['nombre_completo']}
-CURP: {p['curp_algoritmica']}
-Grupo: {p['grupo_objetivo']}
-Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
-"""
-      st.download_button(
-          label="📥 Guardar Comprobante",
-          data=contenido_txt,
-          file_name=f"Comprobante_{p['folio']}.txt",
-          mime="text/plain",
-          use_container_width=True,
+      # Botón que activa la función de JavaScript para descargar como imagen PNG (screenshot)
+      st.markdown(
+          '<button onclick="descargarCaptura()"'
+          ' style="background-color: #1e5b4f; color: white; border: none;'
+          " padding: 0.6rem 1rem; font-size: 1rem; font-weight: bold;"
+          " border-radius: 6px; width: 100%; text-align: center; cursor:"
+          ' pointer;">📸 Descargar Imagen</button>',
+          unsafe_allow_html=True,
       )
 
     with col_m2:
@@ -303,7 +314,7 @@ Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
       st.markdown(
           f'<a href="{url_whatsapp}" target="_blank"><button'
           ' style="background-color: #25D366; color: white; border: none;'
-          " padding: 0.5rem 1rem; font-size: 1rem; font-weight: bold;"
+          " padding: 0.6rem 1rem; font-size: 1rem; font-weight: bold;"
           " border-radius: 6px; width: 100%; text-align: center; cursor:"
           ' pointer;">💬 WhatsApp</button></a>',
           unsafe_allow_html=True,
