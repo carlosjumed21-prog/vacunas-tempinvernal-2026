@@ -241,438 +241,389 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- CREACIÓN DE PESTAÑAS (TABS) PARA SEPARAR EL FORMULARIO DE LA GUÍA OPERATIVA ---
-tab_captura, tab_guia = st.tabs(
-    ["📝 Formulario de Registro", "📋 Guía Operativa (Cuadro 9 CENSIA)"]
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+st.markdown(
+    '<div class="section-title">1. Datos Generales y Fechas</div>',
+    unsafe_allow_html=True,
+)
+col_g1, col_g2, col_g3 = st.columns(3)
+with col_g1:
+    fecha_registro = st.date_input(
+        "Fecha de Registro", value=datetime.date.today(), format="DD/MM/YYYY"
+    )
+with col_g2:
+    fecha_aplicacion = st.date_input(
+        "Fecha de Aplicación", value=datetime.date.today(), format="DD/MM/YYYY"
+    )
+
+hoy_actual = fecha_registro
+if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
+    st.session_state.fecha_ultimo_consecutivo = hoy_actual
+    st.session_state.contador_consecutivo = 1
+
+aammmdd = hoy_actual.strftime("%y%m%d")
+folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
+
+with col_g3:
+    st.markdown(
+        f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
+        unsafe_allow_html=True,
+    )
+
+# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
+st.markdown(
+    '<div class="section-title">2. Identificación del Paciente</div>',
+    unsafe_allow_html=True,
+)
+col_n1, col_n2, col_n3 = st.columns(3)
+with col_n1:
+    paterno = st.text_input("Apellido Paterno *")
+with col_n2:
+    materno = st.text_input("Apellido Materno *")
+with col_n3:
+    nombres = st.text_input("Nombre(s) *")
+
+col_fn1, col_fn2, col_fn3 = st.columns(3)
+with col_fn1:
+    fecha_nacimiento = st.date_input(
+        "Fecha de Nacimiento *",
+        value=None,
+        min_value=datetime.date(1900, 1, 1),
+        max_value=datetime.date.today(),
+        format="DD/MM/YYYY",
+    )
+with col_fn2:
+    sexo = st.selectbox(
+        "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
+    )
+with col_fn3:
+    estado_nacimiento = st.selectbox(
+        "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
+    )
+
+planes_o_embarazo = "NO"
+if sexo == "MUJER":
+    st.markdown(
+        "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c; padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
+        unsafe_allow_html=True,
+    )
+    planes_o_embarazo = st.radio(
+        "¿Está embarazada o tiene planes de embarazo?",
+        options=["NO", "SÍ"],
+        horizontal=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+calc_anos, calc_meses, calc_dias = (
+    calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
+    if fecha_nacimiento
+    else (0, 0, 0)
 )
 
-with tab_captura:
-    # --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+col_info1, col_info2 = st.columns(2)
+with col_info1:
     st.markdown(
-        '<div class="section-title">1. Datos Generales y Fechas</div>',
+        f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M, {calc_dias} D</div>',
         unsafe_allow_html=True,
     )
-    col_g1, col_g2, col_g3 = st.columns(3)
-    with col_g1:
-        fecha_registro = st.date_input(
-            "Fecha de Registro",
-            value=datetime.date.today(),
-            format="DD/MM/YYYY",
-        )
-    with col_g2:
-        fecha_aplicacion = st.date_input(
-            "Fecha de Aplicación",
-            value=datetime.date.today(),
-            format="DD/MM/YYYY",
-        )
 
-    hoy_actual = fecha_registro
-    if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
-        st.session_state.fecha_ultimo_consecutivo = hoy_actual
-        st.session_state.contador_consecutivo = 1
-
-    aammmdd = hoy_actual.strftime("%y%m%d")
-    folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
-
-    with col_g3:
-        st.markdown(
-            f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
-            unsafe_allow_html=True,
-        )
-
-    # --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ALGORÍTMICA ---
+curp_algoritmica = generar_curp_algoritmica(
+    paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento
+)
+with col_info2:
     st.markdown(
-        '<div class="section-title">2. Identificación del Paciente</div>',
+        f'<div class="card-curp">🆔 CURP Algorítmica: <br><span'
+        f' style="color: #611232; font-family: monospace;">{curp_algoritmica}</span></div>',
         unsafe_allow_html=True,
     )
-    col_n1, col_n2, col_n3 = st.columns(3)
-    with col_n1:
-        paterno = st.text_input("Apellido Paterno *")
-    with col_n2:
-        materno = st.text_input("Apellido Materno *")
-    with col_n3:
-        nombres = st.text_input("Nombre(s) *")
 
-    col_fn1, col_fn2, col_fn3 = st.columns(3)
-    with col_fn1:
-        fecha_nacimiento = st.date_input(
-            "Fecha de Nacimiento *",
-            value=None,
-            min_value=datetime.date(1900, 1, 1),
-            max_value=datetime.date.today(),
-            format="DD/MM/YYYY",
-        )
-    with col_fn2:
-        sexo = st.selectbox(
-            "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
-        )
-    with col_fn3:
-        estado_nacimiento = st.selectbox(
-            "Estado de Nacimiento *",
-            options=estados_mexico,
-            key="est_nac_block2",
-        )
+with st.form("form_censo_vacunacion_resto"):
 
-    planes_o_embarazo = "NO"
-    if sexo == "MUJER":
-        st.markdown(
-            "<div style='background-color: #f7f4eb; border: 1px solid #a57f2c;"
-            " padding: 12px; border-radius: 6px; margin-bottom: 10px;'>",
-            unsafe_allow_html=True,
-        )
-        planes_o_embarazo = st.radio(
-            "¿Está embarazada o tiene planes de embarazo?",
-            options=["NO", "SÍ"],
-            horizontal=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    calc_anos, calc_meses, calc_dias = (
-        calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
-        if fecha_nacimiento
-        else (0, 0, 0)
+    # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
+    st.markdown(
+        '<div class="section-title">3. Domicilio y Afiliación</div>',
+        unsafe_allow_html=True,
+    )
+    estado_residencia = st.selectbox(
+        "Estado de Residencia (Entidad Federativa) *",
+        options=estados_mexico,
+        key="est_res",
     )
 
-    col_info1, col_info2 = st.columns(2)
-    with col_info1:
-        st.markdown(
-            f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M,'
-            f' {calc_dias} D</div>',
-            unsafe_allow_html=True,
-        )
+    col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
+    with col_dom1:
+        calle = st.text_input("Calle *")
+    with col_dom2:
+        numero = st.text_input("No. (Ext / Int) *")
+    with col_dom3:
+        colonia = st.text_input("Colonia *")
 
-    curp_algoritmica = generar_curp_algoritmica(
-        paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento
+    cuenta_derechohabiencia = st.radio(
+        "¿Cuenta con derechohabiencia? *",
+        options=["NO", "SÍ"],
+        horizontal=True,
     )
-    with col_info2:
-        st.markdown(
-            f'<div class="card-curp">🆔 CURP Algorítmica: <br><span'
-            f' style="color: #611232; font-family:'
-            f' monospace;">{curp_algoritmica}</span></div>',
-            unsafe_allow_html=True,
+
+    # --- BLOQUE 4: OCUPACIÓN ---
+    st.markdown(
+        '<div class="section-title">4. Ocupación</div>',
+        unsafe_allow_html=True,
+    )
+    ocupacion = st.selectbox(
+        "Seleccione su Ocupación *",
+        options=[
+            "SELECCIONE UNA OPCIÓN",
+            "PERSONAL DE SALUD",
+            "JUBILADO/A",
+            "MAESTRO/A",
+            "ADMINISTRATIVO/A",
+            "TRABAJO EN GUARDERÍA",
+            "OTRAS PROFESIONES",
+        ],
+    )
+
+    # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
+    st.markdown(
+        '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
+        unsafe_allow_html=True,
+    )
+    col_r1, col_r2 = st.columns(2)
+
+    with col_r1:
+        vih = st.checkbox("VIH / SIDA")
+        diabetes = st.checkbox("DIABETES MELLITUS")
+        obesidad = st.checkbox("OBESIDAD MÓRBIDA")
+        cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+        epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
+
+    with col_r2:
+        cancer = st.checkbox("CÁNCER")
+        congenitas = st.checkbox(
+            "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
+        )
+        insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
+        inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)")
+        hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+        discapacidades = st.checkbox(
+            "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
         )
 
-    with st.form("form_censo_vacunacion_resto"):
+    # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
+    edad_total_meses = (calc_anos * 12) + calc_meses
+    tiene_comorb = any(
+        [
+            vih,
+            diabetes,
+            obesidad,
+            cardiopatias,
+            epoc,
+            cancer,
+            congenitas,
+            insuficiencia_renal,
+            inmunosupresion,
+            hipertension,
+            discapacidades,
+        ]
+    )
 
-        # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
-        st.markdown(
-            '<div class="section-title">3. Domicilio y Afiliación</div>',
-            unsafe_allow_html=True,
-        )
-        estado_residencia = st.selectbox(
-            "Estado de Residencia (Entidad Federativa) *",
-            options=estados_mexico,
-            key="est_res",
-        )
-
-        col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-        with col_dom1:
-            calle = st.text_input("Calle *")
-        with col_dom2:
-            numero = st.text_input("No. (Ext / Int) *")
-        with col_dom3:
-            colonia = st.text_input("Colonia *")
-
-        cuenta_derechohabiencia = st.radio(
-            "¿Cuenta con derechohabiencia? *",
-            options=["NO", "SÍ"],
-            horizontal=True,
-        )
-
-        # --- BLOQUE 4: OCUPACIÓN ---
-        st.markdown(
-            '<div class="section-title">4. Ocupación</div>',
-            unsafe_allow_html=True,
-        )
-        ocupacion = st.selectbox(
-            "Seleccione su Ocupación *",
-            options=[
-                "SELECCIONE UNA OPCIÓN",
-                "PERSONAL DE SALUD",
-                "JUBILADO/A",
-                "MAESTRO/A",
-                "ADMINISTRATIVO/A",
-                "TRABAJO EN GUARDERÍA",
-                "OTRAS PROFESIONES",
-            ],
-        )
-
-        # --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
-        st.markdown(
-            '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
-            unsafe_allow_html=True,
-        )
-        col_r1, col_r2 = st.columns(2)
-
-        with col_r1:
-            vih = st.checkbox("VIH / SIDA")
-            diabetes = st.checkbox("DIABETES MELLITUS")
-            obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-            cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-            epoc = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)")
-
-        with col_r2:
-            cancer = st.checkbox("CÁNCER")
-            congenitas = st.checkbox(
+    grupo_sugerido = ""
+    if fecha_nacimiento is not None:
+        if 6 <= edad_total_meses <= 59:
+            grupo_sugerido = "6 A 59 MESES"
+        elif calc_anos >= 60:
+            grupo_sugerido = "60 Y MÁS"
+        elif planes_o_embarazo == "SÍ":
+            grupo_sugerido = "PERSONAS GESTANTES"
+        elif ocupacion == "PERSONAL DE SALUD":
+            grupo_sugerido = "PERSONAL DE SALUD"
+        elif vih:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
+        elif diabetes:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
+        elif obesidad:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
+        elif cardiopatias:
+            grupo_sugerido = (
+                "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
+            )
+        elif epoc:
+            grupo_sugerido = (
+                "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC / ASMA)"
+            )
+        elif cancer:
+            grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
+        elif congenitas:
+            grupo_sugerido = (
                 "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
             )
-            insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-            inmunosupresion = st.checkbox(
-                "INMUNOSUPRESIÓN ADQUIRIDA (EXCEPTO VIH)"
-            )
-            hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
-            discapacidades = st.checkbox(
-                "DISCAPACIDADES (PARÁLISIS, NEURODESARROLLO, ETC.)"
-            )
-
-        # --- LÓGICA DE CONDICIONES PARA AUTODETECCIÓN DE GRUPO OBJETIVO ---
-        edad_total_meses = (calc_anos * 12) + calc_meses
-        tiene_comorb = any(
-            [
-                vih,
-                diabetes,
-                obesidad,
-                cardiopatias,
-                epoc,
-                cancer,
-                congenitas,
-                insuficiencia_renal,
-                inmunosupresion,
-                hipertension,
-                discapacidades,
-            ]
-        )
-
-        grupo_sugerido = ""
-        if fecha_nacimiento is not None:
-            if 6 <= edad_total_meses <= 59:
-                grupo_sugerido = "6 A 59 MESES"
-            elif calc_anos >= 60:
-                grupo_sugerido = "60 Y MÁS"
-            elif planes_o_embarazo == "SÍ":
-                grupo_sugerido = "PERSONAS GESTANTES"
-            elif ocupacion == "PERSONAL DE SALUD":
-                grupo_sugerido = "PERSONAL DE SALUD"
-            elif vih:
-                grupo_sugerido = "PERSONAS QUE VIVEN CON VIH/SIDA"
-            elif diabetes:
-                grupo_sugerido = "PERSONAS QUE VIVEN CON DIABETES MELLITUS"
-            elif obesidad:
-                grupo_sugerido = "PERSONAS QUE VIVEN CON OBESIDAD MÓRBIDA"
-            elif cardiopatias:
-                grupo_sugerido = (
-                    "PERSONAS QUE VIVEN CON CARDIOPATÍAS AGUDAS O CRÓNICAS"
-                )
-            elif epoc:
-                grupo_sugerido = (
-                    "PERSONAS QUE VIVEN CON ENFERMEDAD PULMONAR CRÓNICA (EPOC /"
-                    " ASMA)"
-                )
-            elif cancer:
-                grupo_sugerido = "PERSONAS QUE VIVEN CON CÁNCER"
-            elif congenitas:
-                grupo_sugerido = (
-                    "ENFERMEDADES CARDIACAS/PULMONARES CONGÉNITAS U OTROS"
-                )
-            elif insuficiencia_renal:
-                grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
-            elif inmunosupresion:
-                grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
-            elif hipertension:
-                grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
-            elif discapacidades:
-                grupo_sugerido = "DISCAPACIDADES"
-            else:
-                grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
-
-        st.markdown(
-            '<div class="section-title">6. Grupo Objetivo (Detectado'
-            " Automáticamente)</div>",
-            unsafe_allow_html=True,
-        )
-        if grupo_sugerido == "":
-            st.markdown(
-                '<div class="card-grupo"'
-                ' style="background-color: #fbf9f4; border: 2px dashed #a57f2c;'
-                ' color: #611232;">POR DESIGNAR</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
-                unsafe_allow_html=True,
-            )
-
-        # --- EVALUACIÓN DE BIOLÓGICOS (CUADRO 9 - LINEAMIENTOS CENSIA) ---
-        aplica_influenza = True
-        aplica_covid = False
-        aplica_neumococo = False
-
-        if 6 <= edad_total_meses <= 59:
-            aplica_covid = tiene_comorb  # En niños < 5 años solo con comorbilidad[cite: 3]
-            aplica_neumococo = False
-        elif calc_anos >= 60:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif planes_o_embarazo == "SÍ":
-            aplica_covid = True
-            aplica_neumococo = False
-        elif ocupacion == "PERSONAL DE SALUD":
-            aplica_covid = True
-            aplica_neumococo = False
-        elif vih:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif diabetes:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif obesidad:
-            aplica_covid = True
-            aplica_neumococo = False
-        elif cardiopatias:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif epoc:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif cancer:
-            aplica_covid = True
-            aplica_neumococo = True
-        elif congenitas:
-            aplica_covid = False
-            aplica_neumococo = False
         elif insuficiencia_renal:
-            aplica_covid = True
-            aplica_neumococo = True
+            grupo_sugerido = "PERSONAS QUE VIVEN CON INSUFICIENCIA RENAL"
         elif inmunosupresion:
-            aplica_covid = True
-            aplica_neumococo = True
+            grupo_sugerido = "INMUNOSUPRESIÓN ADQUIRIDA"
         elif hipertension:
-            aplica_influenza = False
-            aplica_covid = True
-            aplica_neumococo = False
+            grupo_sugerido = "HIPERTENSIÓN ARTERIAL ESENCIAL"
         elif discapacidades:
-            aplica_influenza = False
-            aplica_covid = True
-            aplica_neumococo = False
+            grupo_sugerido = "DISCAPACIDADES"
+        else:
+            grupo_sugerido = "POBLACIÓN GENERAL / OTRO"
 
-        st.markdown(
-            '<div class="section-title">Biológicos Indicados (Cuadro 9 - CENSIA)'
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        texto_vacunas = f"""
-        - **Influenza Estacional (2025-2026):** {"✅ SÍ APLICA" if aplica_influenza else "❌ NO APLICA"}[cite: 3]<br>
-        - **COVID-19 (LP.8.1):** {"✅ SÍ APLICA" if aplica_covid else "❌ NO APLICA"}[cite: 3]<br>
-        - **Neumococo (20-valente / 13-valente):** {"✅ SÍ APLICA" if aplica_neumococo else "❌ NO APLICA"}[cite: 3]
-        """
-        st.markdown(
-            f'<div class="card-vacunas">{texto_vacunas}</div>',
-            unsafe_allow_html=True,
-        )
-
-        # --- ANTECEDENTE VACUNAL ---
-        st.markdown(
-            '<div class="section-title">7. Antecedente Vacunal</div>',
-            unsafe_allow_html=True,
-        )
-        col_av1, col_av2 = st.columns(2)
-        with col_av1:
-            antecedente_covid = st.radio(
-                "¿Cuenta con alguna dosis previa de COVID-19?",
-                options=["SÍ", "NO", "LO DESCONOCE"],
-                horizontal=True,
-            )
-        with col_av2:
-            antecedente_influenza = st.radio(
-                "¿Cuenta con alguna dosis previa de Influenza?",
-                options=["SÍ", "NO", "LO DESCONOCE"],
-                horizontal=True,
-            )
-
-        st.markdown("---")
-        submitted = st.form_submit_button(
-            "Guardar Paciente en el Censo Nominal", use_container_width=True
-        )
-
-        if submitted:
-            if not fecha_nacimiento:
-                st.error("Por favor seleccione la Fecha de Nacimiento.")
-            elif grupo_sugerido == "":
-                st.error(
-                    "Por favor complete la fecha de nacimiento para determinar"
-                    " el grupo objetivo."
-                )
-            elif (
-                not paterno
-                or not nombres
-                or estado_nacimiento == "SELECCIONE UN ESTADO"
-                or estado_residencia == "SELECCIONE UN ESTADO"
-                or not calle
-                or not numero
-                or not colonia
-                or ocupacion == "SELECCIONE UNA OPCIÓN"
-            ):
-                st.error(
-                    "Por favor complete los campos obligatorios y seleccione"
-                    " una opción válida en los menús desplegables (*)."
-                )
-            else:
-                nuevo_paciente = {
-                    "folio": folio_automatico,
-                    "curp_algoritmica": curp_algoritmica,
-                    "nombre_completo": (
-                        f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
-                    ),
-                    "paterno": paterno.upper(),
-                    "materno": materno.upper(),
-                    "nombres": nombres.upper(),
-                    "fecha_nacimiento": fecha_nacimiento,
-                    "estado_nacimiento": estado_nacimiento,
-                    "edad_anos": calc_anos,
-                    "edad_meses": calc_meses,
-                    "edad_dias": calc_dias,
-                    "edad_total_meses": edad_total_meses,
-                    "sexo": sexo,
-                    "embarazo": (planes_o_embarazo == "SÍ"),
-                    "ocupacion": ocupacion,
-                    "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-                    "derechohabiencia": cuenta_derechohabiencia,
-                    "tiene_comorbilidades": tiene_comorb,
-                    "grupo_objetivo": grupo_sugerido,
-                    "aplica_influenza": aplica_influenza,
-                    "aplica_covid": aplica_covid,
-                    "aplica_neumococo": aplica_neumococo,
-                    "antecedente_covid": antecedente_covid,
-                    "antecedente_influenza": antecedente_influenza,
-                    "fecha_registro": fecha_registro,
-                }
-                st.session_state.registros_censales.append(nuevo_paciente)
-                st.session_state.contador_consecutivo += 1
-
-                st.success(
-                    f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Algorítmica **{curp_algoritmica}**!"
-                )
-
-with tab_guia:
     st.markdown(
-        '<p class="main-header">Guía Operativa - Criterios del Cuadro 9</p>',
+        '<div class="section-title">6. Grupo Objetivo (Detectado Automáticamente)</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        "Esta pestaña sirve como consulta rápida para el personal operativo"
-        " sobre la indicación de biológicos conforme a los Lineamientos de la"
-        " Campaña de Vacunación Invernal 2025-2026 del CENSIA[cite: 3]."
-    )
+    if grupo_sugerido == "":
+        st.markdown(
+            '<div class="card-grupo" style="background-color: #fbf9f4; border: 2px dashed #a57f2c; color: #611232;">POR DESIGNAR</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div class="card-grupo">🎯 {grupo_sugerido}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # --- EVALUACIÓN DE BIOLÓGICOS (CUADRO 9 - LINEAMIENTOS CENSIA) ---
+    aplica_influenza = True
+    aplica_covid = False
+    aplica_neumococo = False
+
+    if 6 <= edad_total_meses <= 59:
+        aplica_covid = tiene_comorb  # En niños < 5 años solo con comorbilidad[cite: 3]
+        aplica_neumococo = False
+    elif calc_anos >= 60:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif planes_o_embarazo == "SÍ":
+        aplica_covid = True
+        aplica_neumococo = False
+    elif ocupacion == "PERSONAL DE SALUD":
+        aplica_covid = True
+        aplica_neumococo = False
+    elif vih:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif diabetes:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif obesidad:
+        aplica_covid = True
+        aplica_neumococo = False
+    elif cardiopatias:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif epoc:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif cancer:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif congenitas:
+        aplica_covid = False
+        aplica_neumococo = False
+    elif insuficiencia_renal:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif inmunosupresion:
+        aplica_covid = True
+        aplica_neumococo = True
+    elif hipertension:
+        aplica_influenza = False
+        aplica_covid = True
+        aplica_neumococo = False
+    elif discapacidades:
+        aplica_influenza = False
+        aplica_covid = True
+        aplica_neumococo = False
 
     st.markdown(
-        """
-    ### 📌 Resumen de Indicaciones por Grupo Objetivo:
-    * **6 a 59 meses:** Influenza obligatoria. COVID-19 solo con comorbilidad de riesgo[cite: 3]. Neumococo según esquema específico (2-4-12 meses)[cite: 3].
-    * **60 años y más:** Aplica **Influenza, COVID-19 y Neumococo**[cite: 3].
-    * **Personas Gestantes:** Aplica **Influenza y COVID-19**[cite: 3]. Neumococo no indicado de rutina.
-    * **Personal de Salud:** Aplica **Influenza y COVID-19**[cite: 3]. Neumococo no indicado.
-    * **Comorbilidades (VIH, Diabetes, Cardiopatías, EPOC, Cáncer, Insuficiencia Renal, Inmunosupresión):** Aplican los tres biológicos o combinación según criterio clínico del Cuadro 9[cite: 3].
-    * **Hipertensión Arterial Esencial / Discapacidades:** Principalmente indicación para **COVID-19**[cite: 3].
-    """
+        '<div class="section-title">Biológicos Indicados (Cuadro 9 - CENSIA)</div>',
+        unsafe_allow_html=True,
     )
+    texto_vacunas = f"""
+    - **Influenza Estacional (2025-2026):** {"✅ SÍ APLICA" if aplica_influenza else "❌ NO APLICA"}[cite: 3]<br>
+    - **COVID-19 (LP.8.1):** {"✅ SÍ APLICA" if aplica_covid else "❌ NO APLICA"}[cite: 3]<br>
+    - **Neumococo (20-valente / 13-valente):** {"✅ SÍ APLICA" if aplica_neumococo else "❌ NO APLICA"}[cite: 3]
+    """
+    st.markdown(
+        f'<div class="card-vacunas">{texto_vacunas}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # --- ANTECEDENTE VACUNAL ---
+    st.markdown(
+        '<div class="section-title">7. Antecedente Vacunal</div>',
+        unsafe_allow_html=True,
+    )
+    col_av1, col_av2 = st.columns(2)
+    with col_av1:
+        antecedente_covid = st.radio(
+            "¿Cuenta con alguna dosis previa de COVID-19?",
+            options=["SÍ", "NO", "LO DESCONOCE"],
+            horizontal=True,
+        )
+    with col_av2:
+        antecedente_influenza = st.radio(
+            "¿Cuenta con alguna dosis previa de Influenza?",
+            options=["SÍ", "NO", "LO DESCONOCE"],
+            horizontal=True,
+        )
+
+    st.markdown("---")
+    submitted = st.form_submit_button(
+        "Guardar Paciente en el Censo Nominal", use_container_width=True
+    )
+
+    if submitted:
+        if not fecha_nacimiento:
+            st.error("Por favor seleccione la Fecha de Nacimiento.")
+        elif grupo_sugerido == "":
+            st.error(
+                "Por favor complete la fecha de nacimiento para determinar el grupo objetivo."
+            )
+        elif (
+            not paterno
+            or not nombres
+            or estado_nacimiento == "SELECCIONE UN ESTADO"
+            or estado_residencia == "SELECCIONE UN ESTADO"
+            or not calle
+            or not numero
+            or not colonia
+            or ocupacion == "SELECCIONE UNA OPCIÓN"
+        ):
+            st.error(
+                "Por favor complete los campos obligatorios y seleccione una opción válida en los menús desplegables (*)."
+            )
+        else:
+            nuevo_paciente = {
+                "folio": folio_automatico,
+                "curp_algoritmica": curp_algoritmica,
+                "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
+                "paterno": paterno.upper(),
+                "materno": materno.upper(),
+                "nombres": nombres.upper(),
+                "fecha_nacimiento": fecha_nacimiento,
+                "estado_nacimiento": estado_nacimiento,
+                "edad_anos": calc_anos,
+                "edad_meses": calc_meses,
+                "edad_dias": calc_dias,
+                "edad_total_meses": edad_total_meses,
+                "sexo": sexo,
+                "embarazo": (planes_o_embarazo == "SÍ"),
+                "ocupacion": ocupacion,
+                "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
+                "derechohabiencia": cuenta_derechohabiencia,
+                "tiene_comorbilidades": tiene_comorb,
+                "grupo_objetivo": grupo_sugerido,
+                "aplica_influenza": aplica_influenza,
+                "aplica_covid": aplica_covid,
+                "aplica_neumococo": aplica_neumococo,
+                "antecedente_covid": antecedente_covid,
+                "antecedente_influenza": antecedente_influenza,
+                "fecha_registro": fecha_registro,
+            }
+            st.session_state.registros_censales.append(nuevo_paciente)
+            st.session_state.contador_consecutivo += 1
+
+            st.success(
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Algorítmica **{curp_algoritmica}**!"
+            )
