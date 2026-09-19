@@ -1,4 +1,5 @@
 import datetime
+import unicodedata
 import streamlit as st
 
 # Configuración de la página
@@ -12,7 +13,7 @@ st.set_page_config(
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Si entró por el QR, ocultamos la barra lateral para dejar solo el formulario limpio
+# Estilos CSS institucionales y de tarjetas dinámicas
 if es_modo_qr:
     st.markdown(
         """
@@ -24,6 +25,7 @@ if es_modo_qr:
             .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
             label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
@@ -33,7 +35,6 @@ if es_modo_qr:
         unsafe_allow_html=True,
     )
 else:
-    # Estilos normales (nosotros vemos las pestañas con normalidad)
     st.markdown(
         """
         <style>
@@ -43,6 +44,7 @@ else:
             .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
             label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
             .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
+            .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
             .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
             .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
             .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
@@ -91,6 +93,49 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
         meses += 12
 
     return max(0, anos), max(0, meses), max(0, dias)
+
+
+def limpiar_texto(texto):
+    if not texto:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", texto)
+    return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
+
+
+def generar_curp_estimada(
+    paterno, materno, nombres, fecha_nac, sexo, est_nac
+):
+    p = limpiar_texto(paterno)
+    m = limpiar_texto(materno) if materno else ""
+    n = limpiar_texto(nombres)
+
+    if not p or not n or not fecha_nac:
+        return "COMPLETA APELLIDOS, NOMBRE Y FECHA"
+
+    # 1 y 2. Primeras 2 letras de apellidos (si no hay materno, X)
+    p_part = p[:2] if len(p) >= 2 else (p + "X")[:2]
+    m_part = m[:2] if len(m) >= 2 else "X"
+
+    # 3. Primeras 2 letras del nombre
+    n_part = n[:2] if len(n) >= 2 else (n + "X")[:2]
+
+    # 4. Fecha de nacimiento AAMMDD
+    yy = str(fecha_nac.year)[-2:]
+    mm = str(fecha_nac.month).zfill(2)
+    dd = str(fecha_nac.day).zfill(2)
+    fecha_part = f"{yy}{mm}{dd}"
+
+    # 5. Sexo (H o M)
+    sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
+
+    # 6. Entidad federativa de nacimiento (2 letras)
+    if est_nac and est_nac != "SELECCIONE UN ESTADO":
+        est_part = limpiar_texto(est_nac)[:2]
+    else:
+        est_part = "NE"
+
+    curp_base = f"{p_part}{m_part}{n_part}{fecha_part}{sexo_part}{est_part}"
+    return f"{curp_base}XXXXXX00"
 
 
 estados_mexico = [
@@ -167,7 +212,7 @@ with col_g3:
         unsafe_allow_html=True,
     )
 
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
+# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP PROVISIONAL ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
@@ -180,7 +225,7 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *")
 
-col_fn1, col_fn2 = st.columns(2)
+col_fn1, col_fn2, col_fn3 = st.columns(3)
 with col_fn1:
     fecha_nacimiento = st.date_input(
         "Fecha de Nacimiento *",
@@ -192,6 +237,10 @@ with col_fn1:
 with col_fn2:
     sexo = st.selectbox(
         "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
+    )
+with col_fn3:
+    estado_nacimiento = st.selectbox(
+        "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
     )
 
 planes_o_embarazo = "NO"
@@ -213,33 +262,35 @@ calc_anos, calc_meses, calc_dias = (
     else (0, 0, 0)
 )
 
-st.markdown(
-    '<div class="section-title">Edad Calculada Automáticamente</div>',
-    unsafe_allow_html=True,
+col_info1, col_info2 = st.columns(2)
+with col_info1:
+    st.markdown(
+        f'<div class="card-edad">📅 Edad: {calc_anos} A, {calc_meses} M, {calc_dias} D</div>',
+        unsafe_allow_html=True,
+    )
+
+curp_provisional = generar_curp_estimada(
+    paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento
 )
-st.markdown(
-    f'<div class="card-edad">📅 {calc_anos} AÑOS, {calc_meses} MESES, {calc_dias} DÍAS</div>',
-    unsafe_allow_html=True,
-)
+with col_info2:
+    st.markdown(
+        f'<div class="card-curp">🆔 CURP Est.: <br><span style="color:'
+        f' #611232; font-family: monospace;">{curp_provisional}</span></div>',
+        unsafe_allow_html=True,
+    )
 
 with st.form("form_censo_vacunacion_resto"):
 
     # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
     st.markdown(
-        '<div class="section-title">3. Domicilio, Estados y Afiliación</div>',
+        '<div class="section-title">3. Domicilio y Afiliación</div>',
         unsafe_allow_html=True,
     )
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        estado_nacimiento = st.selectbox(
-            "Estado de Nacimiento *", options=estados_mexico, key="est_nac"
-        )
-    with col_d2:
-        estado_residencia = st.selectbox(
-            "Estado de Residencia (Entidad Federativa) *",
-            options=estados_mexico,
-            key="est_res",
-        )
+    estado_residencia = st.selectbox(
+        "Estado de Residencia (Entidad Federativa) *",
+        options=estados_mexico,
+        key="est_res",
+    )
 
     col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
     with col_dom1:
@@ -396,11 +447,13 @@ with st.form("form_censo_vacunacion_resto"):
         else:
             nuevo_paciente = {
                 "folio": folio_automatico,
+                "curp_estimada": curp_provisional,
                 "nombre_completo": f"{paterno.upper()} {materno.upper()}, {nombres.upper()}",
                 "paterno": paterno.upper(),
                 "materno": materno.upper(),
                 "nombres": nombres.upper(),
                 "fecha_nacimiento": fecha_nacimiento,
+                "estado_nacimiento": estado_nacimiento,
                 "edad_anos": calc_anos,
                 "edad_meses": calc_meses,
                 "edad_dias": calc_dias,
@@ -420,5 +473,5 @@ with st.form("form_censo_vacunacion_resto"):
             st.session_state.contador_consecutivo += 1
 
             st.success(
-                f"¡Paciente registrado correctamente con Folio **{folio_automatico}**!"
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Provisional **{curp_provisional}**!"
             )
