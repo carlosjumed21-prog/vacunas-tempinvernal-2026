@@ -7,7 +7,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
 
-# Configuración única de la página
+# Configuración de la página
 st.set_page_config(
     page_title="Censo Nominal - Vacunación e Invernal",
     page_icon="💉",
@@ -664,7 +664,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯POR DEFINIR {grupo_sugerido}</div>', unsafe_allow_html=True
+    f'<div class="card-grupo">🎯 {grupo_sugerido}</div>', unsafe_allow_html=True
 )
 
 st.markdown("---")
