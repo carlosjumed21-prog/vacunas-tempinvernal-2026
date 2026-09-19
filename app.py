@@ -135,6 +135,7 @@ if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
     st.session_state.contador_consecutivo = 1
 
 aammmdd = hoy_actual.strftime("%y%m%d")
+# Estructura de folio exacta: AAMMDD-[I/E][SIGLAS]-001 (Sin diagonales)
 folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
 
 with col_g3:
@@ -202,7 +203,7 @@ with st.form("form_censo_vacunacion_resto"):
 
     # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
     st.markdown(
-        '<div class="section-title">3. Domicilio y Estados</div>',
+        '<div class="section-title">3. Domicilio, Estados y Afiliación</div>',
         unsafe_allow_html=True,
     )
     col_d1, col_d2 = st.columns(2)
@@ -224,6 +225,12 @@ with st.form("form_censo_vacunacion_resto"):
         numero = st.text_input("No. (Ext / Int) *")
     with col_dom3:
         colonia = st.text_input("Colonia *")
+
+    cuenta_derechohabiencia = st.radio(
+        "¿Cuenta con derechohabiencia? *",
+        options=["NO", "SÍ"],
+        horizontal=True,
+    )
 
     # --- BLOQUE 4: OCUPACIÓN ---
     st.markdown(
@@ -379,7 +386,7 @@ with st.form("form_censo_vacunacion_resto"):
                 "embarazo": (planes_o_embarazo == "SÍ"),
                 "ocupacion": ocupacion,
                 "personal_salud": (ocupacion == "PERSONAL DE SALUD"),
-                "derechohabiencia": "ISSSTE",  # Predeterminado institucional
+                "derechohabiencia": cuenta_derechohabiencia,
                 "tiene_comorbilidades": tiene_comorb,
                 "grupo_objetivo": grupo_sugerido,
                 "antecedente_covid": antecedente_covid,
