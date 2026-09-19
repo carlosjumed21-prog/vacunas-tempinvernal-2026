@@ -14,45 +14,61 @@ st.set_page_config(
     layout="centered",
 )
 
-# Leer los parámetros de la URL para modo operativo por QR / Multi-unidad
+# --- 1. CAPTURA Y PERSISTENCIA DE PARÁMETROS DE LA URL EN SESSION_STATE ---
 params = st.query_params
 es_modo_qr = params.get("modo", "").lower() == "registro"
 
+mapa_siglas_inverso = {
+    "20N": "20 DE NOVIEMBRE",
+    "CHU": "CHURUBUSCO",
+    "CLI": "CLIDDA",
+    "COY": "COYOACAN",
+    "DVA": "DEL VALLE",
+    "DVN": "DIVISION DEL NORTE",
+    "DFF": "DR. DARIO FERNANDEZ FIERRO",
+    "ICH": "DR. IGNACIO CHAVEZ",
+    "ERM": "ERMITA",
+    "FBR": "FUENTES BROTANTES",
+    "MPM": "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA",
+    "MIL": "MILPA ALTA",
+    "NAR": "NARVARTE",
+    "TLA": "TLALPAN",
+    "VAO": "VILLA ALVARO OBREGON",
+    "XOC": "XOCHIMILCO",
+    "NOV": "20 DE NOVIEMBRE",
+    "ZAR": "ZARAGOZA",
+    "GFAR": "GÓMEZ FARÍAS",
+}
+
+# Guardar o recuperar Unidad
 if "unidad" in params:
   sigla_url = params.get("unidad")
-  mapa_siglas_inverso = {
-      "20N": "20 DE NOVIEMBRE",
-      "CHU": "CHURUBUSCO",
-      "CLI": "CLIDDA",
-      "COY": "COYOACAN",
-      "DVA": "DEL VALLE",
-      "DVN": "DIVISION DEL NORTE",
-      "DFF": "DR. DARIO FERNANDEZ FIERRO",
-      "ICH": "DR. IGNACIO CHAVEZ",
-      "ERM": "ERMITA",
-      "FBR": "FUENTES BROTANTES",
-      "MPM": "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA",
-      "MIL": "MILPA ALTA",
-      "NAR": "NARVARTE",
-      "TLA": "TLALPAN",
-      "VAO": "VILLA ALVARO OBREGON",
-      "XOC": "XOCHIMILCO",
-      "NOV": "20 DE NOVIEMBRE",
-      "ZAR": "ZARAGOZA",
-      "GFAR": "GÓMEZ FARÍAS",
-  }
   if sigla_url in mapa_siglas_inverso:
-    st.session_state.nombre_unidad = mapa_siglas_inverso[sigla_url]
     st.session_state.siglas_unidad = sigla_url
+    st.session_state.nombre_unidad = mapa_siglas_inverso[sigla_url]
+elif "siglas_unidad" not in st.session_state:
+  st.session_state.siglas_unidad = "20N"
+  st.session_state.nombre_unidad = "20 DE NOVIEMBRE"
 
+# Guardar o recuperar Jornada
 if "jornada" in params:
   st.session_state.tipo_jornada = params.get("jornada", "I")
+elif "tipo_jornada" not in st.session_state:
+  st.session_state.tipo_jornada = "I"
 
+# Guardar o recuperar Fecha de Aplicación
 if "fecha" in params:
   st.session_state.fecha_jornada_url = params.get("fecha")
+elif "fecha_jornada_url" not in st.session_state:
+  st.session_state.fecha_jornada_url = datetime.date.today().strftime(
+      "%Y-%m-%d"
+  )
 
+# Guardar o recuperar Responsable
 if "resp" in params:
   st.session_state.resp_jornada_url = params.get("resp")
+elif "resp_jornada_url" not in st.session_state:
+  st.session_state.resp_jornada_url = "PERSONAL AUTORIZADO"
 
 # Estilos CSS institucionales
 if es_modo_qr:
@@ -97,19 +113,13 @@ else:
       unsafe_allow_html=True,
   )
 
-# Inicializar variables de estado
+# Inicializar contadores y estados
 if "registros_censales" not in st.session_state:
   st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
   st.session_state.contador_consecutivo = 1
 if "fecha_ultimo_consecutivo" not in st.session_state:
   st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
-if "tipo_jornada" not in st.session_state:
-  st.session_state.tipo_jornada = "I"
-if "siglas_unidad" not in st.session_state:
-  st.session_state.siglas_unidad = "20N"
-if "nombre_unidad" not in st.session_state:
-  st.session_state.nombre_unidad = "20 DE NOVIEMBRE"
 if "ultimo_paciente_registrado" not in st.session_state:
   st.session_state.ultimo_paciente_registrado = None
 
@@ -279,7 +289,7 @@ estados_mexico = [
 ]
 
 
-# --- VENTANA EMERGENTE CON TUS BOTONES ORIGINALES DE COMPROBANTE ---
+# --- VENTANA EMERGENTE CON BOTONES DE COMPROBANTE ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
@@ -304,13 +314,10 @@ def mostrar_modal_comprobante():
             <div id="comprobante-captura" class="card-comprobante">
                 <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Ubicación:</b> {direccion}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
                 <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
-                <hr style="border: 1px solid #e6d194; margin: 3px 0;">
-                <p style="margin: 2px 0; font-size: 0.75rem;">📅 <b>Aplicación:</b> {fecha} | ⏰ <b>Horario:</b> {h_ini} a {h_fin} hrs</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
@@ -322,7 +329,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nDirección: {direccion}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha} ({h_ini} a {h_fin} hrs)\\n¡Presente este comprobante en el módulo!`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n¡Presente este comprobante en el módulo!`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -349,21 +356,13 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
         unidad=st.session_state.nombre_unidad,
-        direccion=st.session_state.get(
-            "config_direccion_oficial", "UNIDAD MÉDICA ISSSTE"
-        ),
         nombre=p["nombre_completo"],
         curp=p["curp_con_entidad"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
-        fecha=st.session_state.get(
-            "config_fecha_aplicacion", datetime.date.today()
-        ).strftime("%d/%m/%Y"),
-        h_ini="08:00",
-        h_fin="14:00",
     )
 
-    components.html(html_comprobante_component, height=310)
+    components.html(html_comprobante_component, height=270)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -405,7 +404,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS (Bloqueados / Automáticos) ---
+# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
@@ -419,15 +418,12 @@ with col_g1:
       disabled=True,
   )
 
-fecha_url_str = st.session_state.get("fecha_jornada_url", None)
-if fecha_url_str:
-  try:
-    val_fecha_app = datetime.datetime.strptime(
-        fecha_url_str, "%Y-%m-%d"
-    ).date()
-  except:
-    val_fecha_app = datetime.date.today()
-else:
+# Parsear fecha almacenada de forma persistente en session_state
+try:
+  val_fecha_app = datetime.datetime.strptime(
+      st.session_state.fecha_jornada_url, "%Y-%m-%d"
+  ).date()
+except:
   val_fecha_app = datetime.date.today()
 
 with col_g2:
@@ -701,13 +697,17 @@ if st.button(
     st.error("Seleccione una Ocupación válida.")
   else:
     try:
-      fecha_hoy_str = datetime.date.today().strftime("%d%m%y")
+      # Nombre de la hoja de destino generado con la fecha persistente
+      fecha_jornada_dt = datetime.datetime.strptime(
+          st.session_state.fecha_jornada_url, "%Y-%m-%d"
+      ).date()
+      fecha_str_hoja = fecha_jornada_dt.strftime("%d%m%y")
       siglas_actual = st.session_state.get("siglas_unidad", "20N")
       tipo_texto_jornada = (
           "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
       )
       nombre_hoja_destino = (
-          f"{siglas_actual}_{tipo_texto_jornada}_{fecha_hoy_str}"
+          f"{siglas_actual}_{tipo_texto_jornada}_{fecha_str_hoja}"
       )
 
       scope = [
@@ -736,7 +736,7 @@ if st.button(
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # Cálculo preciso de la siguiente fila basado estrictamente en la Columna C (Apellido Paterno) desde la fila 13
+      # Cálculo de fila basado estrictamente en la Columna C desde la fila 13
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
       for idx, val in enumerate(columna_c_vals[12:], start=13):
