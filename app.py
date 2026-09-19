@@ -612,11 +612,6 @@ with st.form("form_censo_vacunacion_guardar"):
   if submitted:
     if not fecha_nacimiento:
       st.error("Por favor seleccione la Fecha de Nacimiento.")
-    elif grupo_sugerido == "":
-      st.error(
-          "Por favor complete la fecha de nacimiento para determinar el grupo"
-          " objetivo."
-      )
     elif (
         not paterno
         or not nombres
