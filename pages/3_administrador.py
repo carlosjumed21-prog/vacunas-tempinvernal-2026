@@ -333,64 +333,76 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- AUTOMATIZACIÓN EN GOOGLE SHEETS Y OBTENCIÓN DE GID EXACTO ---
-  try:
-    fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
-    nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
-
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
-
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-      raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-      creds_dict = (
-          json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-      )
-    elif "gpex" in st.secrets:
-      creds_dict = dict(st.secrets["gpex"])
-    else:
-      primera_llave = list(st.secrets.keys())[0]
-      creds_dict = dict(st.secrets[primera_llave])
-
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-
-    sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
-    spreadsheet = client.open_by_key(sheet_id)
-
-    hojas_existentes = [h.title for h in spreadsheet.worksheets()]
-    if nombre_nueva_hoja not in hojas_existentes:
-      plantilla = spreadsheet.worksheet("CENSO NOMINAL")
-      nueva_hoja = spreadsheet.duplicate_sheet(
-          plantilla.id, new_sheet_name=nombre_nueva_hoja
-      )
-      spreadsheet.reorder_worksheets(
-          [plantilla, nueva_hoja]
-          + [
-              h
-              for h in spreadsheet.worksheets()
-              if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
-          ]
+  # --- BOTÓN DE AUTORIZACIÓN Y GENERACIÓN DE HOJA EN GOOGLE SHEETS ---
+  if st.button(
+      "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
+      use_container_width=True,
+  ):
+    try:
+      fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
+      nombre_nueva_hoja = (
+          f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
       )
 
-    hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
-    gid_activo = hoja_activa.id
+      scope = [
+          "https://spreadsheets.google.com/feeds",
+          "https://www.googleapis.com/auth/drive",
+      ]
 
-    st.session_state.jornada_autorizada = True
-    st.session_state.nombre_unidad = unidad_sel
-    st.session_state.siglas_unidad = siglas_unidad
-    st.session_state.nombre_hoja_destino = nombre_nueva_hoja
-    st.session_state.gid_hoja_destino = str(gid_activo)
+      if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = (
+            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        )
+      elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
+      else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
 
-  except Exception as e:
-    st.warning(
-        "Aviso de sincronización con Google Sheets: Verifique permisos del"
-        f" correo de servicio. Detalle: {e}"
-    )
+      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+      client = gspread.authorize(creds)
 
-  # --- RECUADRO VERDE DE AUTORIZACIÓN DE JORNADA E HIPERVÍNCULO ---
+      sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+      spreadsheet = client.open_by_key(sheet_id)
+
+      hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+      if nombre_nueva_hoja not in hojas_existentes:
+        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+        nueva_hoja = spreadsheet.duplicate_sheet(
+            plantilla.id, new_sheet_name=nombre_nueva_hoja
+        )
+        spreadsheet.reorder_worksheets(
+            [plantilla, nueva_hoja]
+            + [
+                h
+                for h in spreadsheet.worksheets()
+                if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
+            ]
+        )
+
+      hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+      gid_activo = hoja_activa.id
+
+      st.session_state.jornada_autorizada = True
+      st.session_state.nombre_unidad = unidad_sel
+      st.session_state.siglas_unidad = siglas_unidad
+      st.session_state.nombre_hoja_destino = nombre_nueva_hoja
+      st.session_state.gid_hoja_destino = str(gid_activo)
+
+      st.success(
+          "¡Jornada autorizada y hoja generada con éxito en Google Sheets!"
+      )
+      st.rerun()
+
+    except Exception as e:
+      st.error(
+          "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
+          " hoja 'CENSO NOMINAL' exista y que el correo de servicio tenga"
+          f" permisos de Editor. Detalle: {e}"
+      )
+
+  # --- RECUADRO VERDE DE CONFIRMACIÓN CON HIPERVÍNCULO DIRECTO ---
   if st.session_state.jornada_autorizada:
     gid_param = (
         f"#gid={st.session_state.gid_hoja_destino}"
