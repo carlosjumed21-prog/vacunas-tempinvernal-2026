@@ -299,7 +299,6 @@ else:
       use_container_width=True,
   ):
     try:
-      # Definir nombre de la hoja: [SIGLAS]_[INTRA/EXTRA]_[DDMMAA] (ej. ERM_INTRA_190926)
       fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
       nombre_nueva_hoja = (
           f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
@@ -316,27 +315,23 @@ else:
       sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
       spreadsheet = client.open_by_key(sheet_id)
 
-      # Verificar si la hoja ya existe
       hojas_existentes = [h.title for h in spreadsheet.worksheets()]
-      if nombre_nueva_hoja in hojas_existentes:
-        st.info(f"La hoja '{nombre_nueva_hoja}' ya existe y está activa.")
-      else:
-        # Localizar la plantilla base "CENSO NOMINAL"
+      if nombre_nueva_hoja not in hojas_existentes:
         plantilla = spreadsheet.worksheet("CENSO NOMINAL")
-        # Duplicarla con el nombre específico de la jornada
         spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
         )
-        st.success(
-            f"✅ ¡Plantilla duplicada y configurada como '{nombre_nueva_hoja}'"
-            " con éxito!"
-        )
 
-      # Guardar parámetros oficiales en session_state para app.py
+      # Guardar parámetros oficiales en session_state
       st.session_state.jornada_autorizada = True
       st.session_state.nombre_unidad = unidad_sel
       st.session_state.siglas_unidad = siglas_unidad
       st.session_state.nombre_hoja_destino = nombre_nueva_hoja
+
+      st.success(
+          "¡Jornada autorizada y hoja generada con éxito! Actualizando panel..."
+      )
+      st.rerun()
 
     except Exception as e:
       st.error(
