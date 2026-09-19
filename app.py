@@ -222,6 +222,7 @@ estados_mexico = [
     "COAHUILA",
     "COLIMA",
     "DURANGO",
+    "DURANGO",
     "ESTADO DE MÉXICO",
     "GUANAJUATO",
     "GUERRERO",
@@ -247,23 +248,11 @@ estados_mexico = [
 ]
 
 
-# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON WHATSAPP COMO OPCIÓN PRINCIPAL ---
+# --- DEFINICIÓN DE LA VENTANA EMERGENTE CON WHATSAPP ENVIANDO IMAGEN ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
 def mostrar_modal_comprobante():
   p = st.session_state.ultimo_paciente_registrado
   if p:
-    texto_whatsapp = (
-        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
-        f"Unidad: {st.session_state.nombre_unidad}\n"
-        f"Folio: *{p['folio']}*\n"
-        f"Paciente: {p['nombre_completo']}\n"
-        f"CURP: {p['curp_algoritmica']}\n"
-        f"Fecha de Aplicación: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
-        f"⏰ Horario: Lunes a Viernes 08:00 a 14:00 hrs\n"
-        f"¡Presente este comprobante en el módulo!"
-    )
-    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(texto_whatsapp)}"
-
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -299,22 +288,22 @@ def mostrar_modal_comprobante():
             }}
             .btn-container {{
                 display: flex;
+                flex-direction: column;
                 gap: 10px;
             }}
             .btn {{
-                flex: 1;
-                padding: 0.8rem 1rem;
-                font-size: 1.05rem;
+                width: 100%;
+                padding: 0.9rem 1rem;
+                font-size: 1.1rem;
                 font-weight: bold;
                 border-radius: 6px;
                 border: none;
                 cursor: pointer;
                 text-align: center;
-                text-decoration: none;
-                display: inline-block;
+                box-sizing: border-box;
             }}
             .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #f2ede4; color: #611232; border: 1px solid #a57f2c; }}
+            .btn-img {{ background-color: #f2ede4; color: #611232; border: 1px solid #a57f2c; font-size: 1rem; padding: 0.7rem; }}
         </style>
         </head>
         <body>
@@ -330,13 +319,37 @@ def mostrar_modal_comprobante():
                 <p style="margin: 5px 0;">⏰ <b>Horario:</b> Lunes a Viernes 08:00 a 14:00 hrs</p>
             </div>
 
-            <!-- WHATSAPP COMO BOTÓN PRINCIPAL Y DESTACADO -->
-            <div class="btn-container" style="flex-direction: column;">
-                <a class="btn btn-wa" href="{url_wa}" target="_blank" style="font-size: 1.1rem; padding: 0.9rem;">💬 Enviar por WhatsApp</a>
+            <div class="btn-container">
+                <button class="btn btn-wa" onclick="enviarImagenWhatsApp()">💬 Enviar Imagen por WhatsApp</button>
                 <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Imagen de Respaldo</button>
             </div>
 
             <script>
+            function enviarImagenWhatsApp() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    canvas.toBlob(blob => {{
+                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nFecha: {fecha}\\n¡Presente este comprobante en el módulo!`;
+
+                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                            navigator.share({{
+                                files: [file],
+                                title: 'Comprobante de Vacunación',
+                                text: textoMensaje
+                            }}).catch(error => console.log('Error al compartir', error));
+                        }} else {{
+                            const enlace = document.createElement('a');
+                            enlace.download = 'Comprobante_{folio}.png';
+                            enlace.href = URL.createObjectURL(blob);
+                            enlace.click();
+                            alert('La imagen del comprobante se ha descargado. Se abrirá WhatsApp para enviarla.');
+                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
+                        }}
+                    }}, 'image/png');
+                }});
+            }}
+
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
@@ -356,7 +369,6 @@ def mostrar_modal_comprobante():
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
         fecha=p["fecha_aplicacion"].strftime("%d/%m/%Y"),
-        url_wa=url_whatsapp,
     )
 
     components.html(html_comprobante_component, height=440)
