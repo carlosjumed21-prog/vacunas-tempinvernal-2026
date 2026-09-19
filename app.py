@@ -3,24 +3,22 @@ import streamlit as st
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Censo Nominal - Registro",
+    page_title="Censo Nominal - Vacunación e Invernal",
     page_icon="💉",
     layout="centered",
 )
 
-# Estilo visual institucional unificado
+# Ocultar completamente la barra lateral para usuarios operativos
 st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { background-color: #611232 !important; }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
+        [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
-        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
         .stButton>button:hover { background-color: #002f2a !important; color: white !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
@@ -29,7 +27,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Inicializar variables de configuración global en st.session_state si no existen
+# Inicializar variables de estado compartido por defecto si no existen
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
 if "contador_consecutivo" not in st.session_state:
@@ -37,9 +35,11 @@ if "contador_consecutivo" not in st.session_state:
 if "fecha_ultimo_consecutivo" not in st.session_state:
     st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 if "tipo_jornada" not in st.session_state:
-    st.session_state.tipo_jornada = "I"  # 'I' por defecto (Intramuros)
+    st.session_state.tipo_jornada = "I"
 if "siglas_unidad" not in st.session_state:
-    st.session_state.siglas_unidad = "CMFE"  # Por defecto CMF Ermita
+    st.session_state.siglas_unidad = "ERM"
+if "nombre_unidad" not in st.session_state:
+    st.session_state.nombre_unidad = "ERMITA"
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -109,11 +109,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<p class="sub-header">Unidad Registradora: <b>{st.session_state.siglas_unidad}</b> | Modalidad: <b>{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
+    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
+# --- DATOS GENERALES ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas</div>',
     unsafe_allow_html=True,
@@ -133,11 +133,8 @@ if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
     st.session_state.fecha_ultimo_consecutivo = hoy_actual
     st.session_state.contador_consecutivo = 1
 
-# Generación del Folio sin diagonales: [Tipo][Siglas]-[AAMMDD]-[Consecutivo] (Ej: CMFE-260919-001)
 aammmdd = hoy_actual.strftime("%y%m%d")
-prefijo_unidad = f"{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}"
-consecutivo_str = str(st.session_state.contador_consecutivo).zfill(3)
-folio_automatico = f"{prefijo_unidad}-{aammmdd}-{consecutivo_str}"
+folio_automatico = f"{aammmdd}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-{str(st.session_state.contador_consecutivo).zfill(3)}"
 
 with col_g3:
     st.markdown(
@@ -145,7 +142,7 @@ with col_g3:
         unsafe_allow_html=True,
     )
 
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE ---
+# --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
