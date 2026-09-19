@@ -664,7 +664,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯 {grupo_sugerido}</div>', unsafe_allow_html=True
+    f'<div class="card-grupo">🎯POR DEFINIR {grupo_sugerido}</div>', unsafe_allow_html=True
 )
 
 st.markdown("---")
