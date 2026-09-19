@@ -22,7 +22,15 @@ st.markdown(
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         .card-recomendacion { background-color: #ffffff; border-left: 6px solid #1e5b4f; padding: 18px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); font-size: 1.1rem !important; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
-        input[type="text"] { text-transform: uppercase !important; }
+        
+        /* Estilo y contraste destacado para la lupa de búsqueda */
+        div[data-baseweb="input"] {
+            background-color: #ffffff !important;
+            border: 2px solid #a57f2c !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        input[type="text"] { text-transform: uppercase !important; font-weight: 700 !important; color: #1e5b4f !important; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -145,15 +153,15 @@ else:
             " el censo."
         )
       else:
-        # Lupa interactiva que inicia vacía y sin mostrar resultados hasta que se escriba algo
+        # Lupa interactiva con contraste diferenciado
         query_busqueda = st.text_input(
             "🔍 Buscar por Folio, Apellido o Nombre:",
-            placeholder="Escriba parte del folio o apellido...",
+            placeholder="Escriba parte del folio, apellido o nombre...",
         )
 
         if not query_busqueda.strip():
           st.info(
-              "ℹ️ Ingrese un término en la lupa de búsqueda para localizar a"
+              "ℹ️ Escriba en la lupa de búsqueda para localizar rápidamente a"
               " un paciente."
           )
           pacientes_filtrados = []
@@ -173,19 +181,20 @@ else:
               "No se encontraron pacientes que coincidan con la búsqueda."
           )
         elif pacientes_filtrados:
+          # Opciones de búsqueda sin paréntesis de filas visibles
           opciones_busqueda = [
-              f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} (Fila {p['fila']})"
+              f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']}||{p['fila']}"
               for p in pacientes_filtrados
           ]
+
           seleccion_paciente = st.selectbox(
               "Seleccione del listado de coincidencias:",
               options=opciones_busqueda,
+              format_func=lambda x: x.split("||")[0],
           )
 
           if seleccion_paciente:
-            fila_idx = int(
-                seleccion_paciente.split("(Fila ")[1].replace(")", "")
-            )
+            fila_idx = int(seleccion_paciente.split("||")[1])
             fila_datos = todos_los_datos[fila_idx - 1]
 
             folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
@@ -247,7 +256,7 @@ else:
               st.markdown(f"**Sexo:** {sexo_texto}")
             with col3:
               st.markdown(f"**Grupo Objetivo:** {grupo_detectado}")
-              st.markdown(f"**Fila en Sheets:** #{fila_idx}")
+              st.markdown(f"**Registro Base:** Activo")
 
             st.markdown(
                 '<div class="section-title">3. Guía y Lineamientos CENSIA</div>',
