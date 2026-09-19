@@ -1,5 +1,6 @@
 import datetime
 import io
+import json
 import urllib.parse
 import gspread
 import qrcode
@@ -293,7 +294,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- BOTÓN DE AUTORIZACIÓN COLOCADO ABAJO ---
+  # --- BOTÓN DE AUTORIZACIÓN: LECTURA SEGURA DE GOOGLE_CREDENTIALS ---
   if st.button(
       "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
       use_container_width=True,
@@ -308,7 +309,19 @@ else:
           "https://spreadsheets.google.com/feeds",
           "https://www.googleapis.com/auth/drive",
       ]
-      creds_dict = dict(st.secrets["gpex"])
+
+      # Leer el secreto GOOGLE_CREDENTIALS configurado como string JSON en Streamlit Cloud
+      if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = (
+            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        )
+      elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
+      else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
       creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
       client = gspread.authorize(creds)
 
@@ -336,8 +349,9 @@ else:
     except Exception as e:
       st.error(
           "Error al duplicar la plantilla en Google Sheets. Asegúrate de que la"
-          f" hoja 'CENSO NOMINAL' exista y el secreto 'gpex' esté configurado"
-          f" correctamente en Streamlit Cloud: {e}"
+          " hoja 'CENSO NOMINAL' exista y que el correo"
+          " 'servidor-censo@censo-vacunacion-issste.iam.gserviceaccount.com'"
+          f" tenga permisos de Editor. Detalle: {e}"
       )
 
   # Mostrar enlace directo de confirmación y visualización si la jornada está autorizada
