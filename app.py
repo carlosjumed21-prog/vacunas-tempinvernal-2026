@@ -353,7 +353,7 @@ def mostrar_modal_comprobante():
         """.format(
         unidad=st.session_state.nombre_unidad,
         nombre=p["nombre_completo"],
-        curp=p["curp_con_municipio"],
+        curp=p["curp_con_nacimiento"],
         grupo=p["grupo_objetivo"],
         folio=p["folio"],
     )
@@ -523,6 +523,22 @@ curp_algoritmica = generar_curp_algoritmica(
     digitos_faltantes,
 )
 
+# CURP automática / Estado de Nacimiento seleccionado (Celda 14C)
+est_nac_seleccionado = (
+    estado_nacimiento.upper()
+    if estado_nacimiento != "SELECCIONE UN ESTADO"
+    else "CDMX"
+)
+curp_con_nacimiento = f"{curp_algoritmica}/{est_nac_seleccionado}"
+
+with col_info2:
+  st.markdown(
+      f'<div class="card-curp">🆔 CURP / Estado Nac. (14C): <br><span'
+      f' style="color: #611232; font-family:'
+      f' monospace;">{curp_con_nacimiento}</span></div>',
+      unsafe_allow_html=True,
+  )
+
 # --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
 st.markdown(
     '<div class="section-title">3. Domicilio y Afiliación</div>',
@@ -533,21 +549,6 @@ estado_residencia = st.selectbox(
     options=estados_mexico,
     key="input_estres",
 )
-
-municipio_residencia = (
-    estado_residencia.upper()
-    if estado_residencia != "SELECCIONE UN ESTADO"
-    else "CDMX"
-)
-curp_con_municipio = f"{curp_algoritmica}/{municipio_residencia}"
-
-with col_info2:
-  st.markdown(
-      f'<div class="card-curp">🆔 CURP / Municipio (14C): <br><span'
-      f' style="color: #611232; font-family:'
-      f' monospace;">{curp_con_municipio}</span></div>',
-      unsafe_allow_html=True,
-  )
 
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
@@ -797,8 +798,8 @@ if st.button(
       worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
       worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
 
-      # 7. CURP / Municipio (Fila 14, Columna C)
-      worksheet.update_acell(f"C{f_siguiente}", curp_con_municipio)
+      # 7. CURP / Estado de Nacimiento (Fila 14, Columna C)
+      worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
       # 8. Grupo Objetivo (Filas 13-14, Columnas P a X)
       col_grupo_map = {
@@ -842,7 +843,7 @@ if st.button(
 
       nuevo_paciente = {
           "folio": folio_automatico,
-          "curp_con_municipio": curp_con_municipio,
+          "curp_con_nacimiento": curp_con_nacimiento,
           "nombre_completo": (
               f"{paterno.upper()} {materno.upper()}, {nombres.upper()}"
           ),
