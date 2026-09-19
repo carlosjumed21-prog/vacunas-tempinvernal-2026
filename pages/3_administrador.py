@@ -1,4 +1,6 @@
 import datetime
+import io
+import qrcode
 import streamlit as st
 
 st.set_page_config(
@@ -32,25 +34,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Diccionario con siglas basadas en la palabra más característica (omitiendo Dr, Dra, del, de, etc.)
+# Diccionario con unidades médicas (omitiendo artículos, preposiciones y títulos)
 unidades_issste = {
     "20 DE NOVIEMBRE": "NOV",
     "CHURUBUSCO": "CHU",
     "CLIDDA": "CLI",
     "COYOACAN": "COY",
-    "DEL VALLE": "VAL",  # Omitiendo "del", toma "VALLE"
-    "DIVISION DEL NORTE": "NOR",  # Omitiendo "del", toma "NORTE"
-    "DR. DARIO FERNANDEZ FIERRO": "DAR",  # Omitiendo "Dr.", toma "DARIO"
-    "DR. IGNACIO CHAVEZ": "CHA",  # Omitiendo "Dr.", toma "CHAVEZ"
+    "DEL VALLE": "VAL",
+    "DIVISION DEL NORTE": "NOR",
+    "DR. DARIO FERNANDEZ FIERRO": "DAR",
+    "DR. IGNACIO CHAVEZ": "CHA",
     "ERMITA": "ERM",
     "FUENTES BROTANTES": "FUE",
-    "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": (
-        "MAT"
-    ),  # Omitiendo "HG Dra.", toma "MATILDE"
+    "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": "MAT",
     "MILPA ALTA": "MIL",
     "NARVARTE": "NAR",
     "TLALPAN": "TLA",
-    "VILLA ALVARO OBREGON": "ALV",  # Tomando "ALVARO" u "OBREGON"
+    "VILLA ALVARO OBREGON": "ALV",
     "XOCHIMILCO": "XOC",
 }
 
@@ -119,19 +119,57 @@ st.markdown(
 st.markdown(
     """
 <div class="card-admin">
-    <p><b>Instrucción para el Administrador:</b> Generar la ficha de control operativo para la unidad seleccionada.</p>
+    <p><b>Instrucción para el Administrador:</b> Ingrese la URL principal de su aplicación para generar el Código QR específico que abrirá directamente el formulario de registro (Pestaña 1).</p>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
+# URL base limpia (apuntando a la raíz que abre directamente la Pestaña 1 / app.py)
+url_base_default = "https://tu-app-vacunacion.streamlit.app"
 url_despliegue = st.text_input(
-    "URL de la aplicación desplegada:",
-    value="https://tu-app-vacunacion.streamlit.app",
+    "URL base de la aplicación desplegada (Raíz / Pestaña 1):",
+    value=url_base_default,
 )
 
-if st.button("Generar Enlace y Ficha QR"):
+if st.button("Generar Enlace y Código QR"):
+    # Limpiar espacios de la URL
+    link_final = url_despliegue.strip()
+
     st.success(
         f"Parámetros listos para la unidad **{st.session_state.nombre_unidad}** en modalidad **{'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'}**."
     )
-    st.markdown(f"🔗 Enlace directo: `{url_despliegue}`")
+    st.markdown(f"🔗 **Enlace directo a la Pestaña 1 (Registro):** `{link_final}`")
+
+    # Generación real de la imagen del Código QR usando la librería qrcode
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(link_final)
+    qr.make(fit=True)
+
+    img_qr = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+    # Convertir la imagen a bytes para mostrarla en Streamlit
+    buffer = io.BytesIO()
+    img_qr.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    st.markdown("---")
+    st.markdown("#### Código QR Operativo Generado:")
+    st.image(
+        buffer,
+        caption=f"QR para {st.session_state.nombre_unidad} ({'Extramuros' if st.session_state.tipo_jornada == 'E' else 'Intramuros'})",
+        width=250,
+    )
+
+    st.download_button(
+        label="📥 Descargar Imagen QR (PNG)",
+        data=buffer,
+        file_name=f"QR_{st.session_state.siglas_unidad}_{st.session_state.tipo_jornada}.png",
+        mime="image/png",
+        use_container_width=True,
+    )
