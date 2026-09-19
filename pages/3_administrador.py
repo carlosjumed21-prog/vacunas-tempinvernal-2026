@@ -1,5 +1,6 @@
 import datetime
 import io
+import urllib.parse
 import qrcode
 import streamlit as st
 
@@ -25,17 +26,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Control de sesión para autenticación
+# Control de sesión para autenticación en Pestaña 3
 if "autenticado_admin" not in st.session_state:
-    st.session_state.autenticado_admin = False
+  st.session_state.autenticado_admin = False
 
 # Variables de configuración global en session_state si no existen
 if "config_fecha_aplicacion" not in st.session_state:
-    st.session_state.config_fecha_aplicacion = datetime.date.today()
+  st.session_state.config_fecha_aplicacion = datetime.date.today()
 if "config_ubicacion_maps" not in st.session_state:
-    st.session_state.config_ubicacion_maps = (
-        "Centro Medico Nacional 20 de Noviembre, Ciudad de Mexico"
-    )
+  st.session_state.config_ubicacion_maps = (
+      "Centro Medico Nacional 20 de Noviembre, Ciudad de Mexico"
+  )
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -58,6 +59,7 @@ if not st.session_state.autenticado_admin:
     )
 
     if btn_login_admin:
+      # Validar credenciales estrictas solicitadas
       if (usuario_admin == "Admin" and password_admin == "OtaniOrochi26") or (
           usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"
       ):
@@ -66,13 +68,14 @@ if not st.session_state.autenticado_admin:
       else:
         st.error("Contraseña incorrecta o usuario no seleccionado.")
 else:
+  # Contenido completo de Administración una vez logueado con éxito
   st.markdown(
       '<p class="main-header">Panel de Control y Administración</p>',
       unsafe_allow_html=True,
   )
   st.markdown(
       '<p class="sub-header">Configuración de Jornada, Unidad Médica, Fecha,'
-      " Ubicación y Códigos QR</p>",
+      " Ubicación y Generación de Enlaces / QR</p>",
       unsafe_allow_html=True,
   )
 
@@ -98,7 +101,7 @@ else:
       unidad_sel = st.selectbox(
           "Unidad Médica ISSSTE:", options=list(unidades_issste.keys())
       )
-      siglas_sel = unidades_issste[unidad_sel]
+      siglas_unidad = unidades_issste[unidad_sel]
 
     with col_c2:
       jornada_sel = st.selectbox(
@@ -108,7 +111,7 @@ else:
       )
       tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
-    # NUEVO: Fecha de Aplicación predeterminada por el administrador
+    # Fecha de Aplicación predeterminada por el administrador
     fecha_admin = st.date_input(
         "Fecha Oficial de Aplicación de la Vacuna:",
         value=st.session_state.config_fecha_aplicacion,
@@ -116,7 +119,7 @@ else:
     )
     st.session_state.config_fecha_aplicacion = fecha_admin
 
-    # NUEVO: Ubicación de la clínica para Google Maps
+    # Ubicación de la clínica para Google Maps
     ubicacion_input = st.text_input(
         "Dirección o Nombre del Módulo para Google Maps:",
         value=st.session_state.config_ubicacion_maps,
@@ -135,7 +138,6 @@ else:
       unsafe_allow_html=True,
   )
   if ubicacion_input:
-    # Generar URL segura de inserción para Google Maps
     query_mapa = urllib.parse.quote(ubicacion_input)
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
@@ -148,7 +150,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  base_url = "https://vacunas-invernal.streamlit.app/"  # Ajusta a tu URL de despliegue si es necesario
+  base_url = "https://vacunas-invernal.streamlit.app/"
   link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}"
 
   st.info(
@@ -174,7 +176,7 @@ else:
     st.download_button(
         label="📥 Descargar Imagen QR (PNG)",
         data=byte_im,
-        file_name=f"QR_Vacunacion_{siglas_sel}_{tipo_jornada_letra}.png",
+        file_name=f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}.png",
         mime="image/png",
         use_container_width=True,
     )
