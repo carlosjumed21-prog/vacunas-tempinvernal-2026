@@ -519,7 +519,6 @@ curp_algoritmica = generar_curp_algoritmica(
     estado_nacimiento,
     digitos_faltantes,
 )
-# CURP con diagonal y Estado de Nacimiento para la celda 14C
 entidad_abr = estados_curp.get(estado_nacimiento, "NE")
 curp_con_entidad = (
     f"{curp_algoritmica}/{entidad_abr}"
@@ -672,6 +671,8 @@ if st.button(
     st.error("Seleccione un Estado de Nacimiento válido.")
   elif estado_residencia == "SELECCIONE UN ESTADO":
     st.error("Seleccione un Estado de Residencia válido.")
+  elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
+    st.error("Por favor indique si cuenta con derechohabiencia.")
   elif not calle or not numero or not colonia:
     st.error("Complete los datos obligatorios del domicilio.")
   elif ocupacion == "SELECCIONE UNA OPCIÓN":
@@ -714,22 +715,21 @@ if st.button(
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
       # Determinar la siguiente fila disponible a partir de la fila 13
-      valores_col_c = worksheet.col_values(3)  # Columna C
+      valores_col_c = worksheet.col_values(3)
       siguiente_fila = max(13, len(valores_col_c) + 1)
 
-      # Preparar variables para mapeo exacto en filas agrupadas (ej. fila elegida y siguiente)
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
-      # 1. Folio Generado (B3-B4)
+      # 1. Folio Generado (B)
       worksheet.update(f"B{f_actual}:B{f_siguiente}", [[folio_automatico], [folio_automatico]])
 
-      # 2. Apellidos y Nombres (C13, D13, E13)
+      # 2. Apellidos y Nombres (C, D, E)
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
       worksheet.update_acell(f"D{f_actual}", materno.upper() if materno else "")
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
-      # 3. Fecha de Nacimiento desglosada (F, G, H en filas 3-4)
+      # 3. Fecha de Nacimiento desglosada (F, G, H)
       dd_nac = str(fecha_nacimiento.day).zfill(2)
       mm_nac = str(fecha_nacimiento.month).zfill(2)
       yyyy_nac = str(fecha_nacimiento.year)
@@ -738,17 +738,17 @@ if st.button(
       worksheet.update(f"G{f_actual}:G{f_siguiente}", [[mm_nac], [mm_nac]])
       worksheet.update(f"H{f_actual}:H{f_siguiente}", [[yyyy_nac], [yyyy_nac]])
 
-      # 4. Edad desglosada (I, J en filas 3-4)
+      # 4. Edad desglosada (I, J)
       worksheet.update(f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]])
       worksheet.update(f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]])
 
-      # 5. Sexo y Fecha de Aplicación (K, L en filas 3-4)
+      # 5. Sexo y Fecha de Aplicación (K, L)
       sexo_letra = "H" if sexo == "HOMBRE" else "M"
       f_aplicacion_str = fecha_aplicacion.strftime("%d/%m/%Y")
       worksheet.update(f"K{f_actual}:K{f_siguiente}", [[sexo_letra], [sexo_letra]])
       worksheet.update(f"L{f_actual}:L{f_siguiente}", [[f_aplicacion_str], [f_aplicacion_str]])
 
-      # 6. Domicilio (M, N, O en filas 13-14)
+      # 6. Domicilio (M, N, O)
       dir_calle = calle.upper()
       dir_num = numero.upper()
       dir_col = colonia.upper()
@@ -759,7 +759,7 @@ if st.button(
       # 7. CURP con Entidad en C14
       worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
 
-      # 8. Grupo Objetivo (Marcado con X en P, Q, R, S, T, U, V, W, X)
+      # 8. Grupo Objetivo (P, Q, R, S, T, U, V, W, X)
       col_grupo_map = {
           "6 A 59 MESES": "P",
           "60 Y MÁS": "Q",
@@ -774,15 +774,7 @@ if st.button(
       if letra_col_grupo:
         worksheet.update(f"{letra_col_grupo}{f_actual}:{letra_col_grupo}{f_siguiente}", [["X"], ["X"]])
 
-      # 9. Grupos de riesgo / Comorbilidades (Y, Z, AA, AB, AC, AD en filas 13-14)
-      comorb_map = {
-          "epoc": "Y",
-          "cancer": "Z",
-          "congenitas": "AA",
-          "insuficiencia_renal": "AB",
-          "inmunosupresion": "AC",
-          "hipertension": "AD",
-      }
+      # 9. Comorbilidades (Y, Z, AA, AB, AC, AD)
       for estado_activo, columna_letra in [
           (epoc, "Y"),
           (cancer, "Z"),
@@ -794,9 +786,12 @@ if st.button(
         if estado_activo:
           worksheet.update(f"{columna_letra}{f_actual}:{columna_letra}{f_siguiente}", [["X"], ["X"]])
 
-      # 10. Otros grupos de riesgo (AE en filas 13-14)
+      # 10. Otros grupos de riesgo (AE)
       if otros_riesgos:
         worksheet.update(f"AE{f_actual}:AE{f_siguiente}", [[otros_riesgos.upper()], [otros_riesgos.upper()]])
+
+      # 11. Derechohabiencia (AM en filas 13-14)
+      worksheet.update(f"AM{f_actual}:AM{f_siguiente}", [[cuenta_derechohabiencia], [cuenta_derechohabiencia]])
 
       nuevo_paciente = {
           "folio": folio_automatico,
