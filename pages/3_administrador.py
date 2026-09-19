@@ -2,6 +2,7 @@ import datetime
 import io
 import urllib.parse
 import qrcode
+import requests
 import streamlit as st
 
 st.set_page_config(
@@ -40,7 +41,7 @@ if "unidad_anterior" not in st.session_state:
   st.session_state.unidad_anterior = ""
 if "config_busqueda_mapa" not in st.session_state:
   st.session_state.config_busqueda_mapa = (
-      "CMN 20 de Noviembre ISSSTE, Ciudad de México"
+      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, Ciudad de México"
   )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
@@ -82,7 +83,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial de las 16 unidades con sus siglas y dirección oficial predefinida
+  # Catálogo oficial completo de las 16 unidades con sus siglas y dirección oficial
   unidades_issste_data = {
       "20 DE NOVIEMBRE": {
           "sigla": "20N",
@@ -219,12 +220,12 @@ else:
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
-  # Automatización: Al cambiar la unidad en el selectbox, se actualiza en automático la dirección oficial y el mapa
+  # Sincronización automática: Al cambiar la unidad, se actualiza el mapa y la dirección oficial al instante
   if st.session_state.unidad_anterior != unidad_sel:
     st.session_state.unidad_anterior = unidad_sel
-    dir_sugerida = unidades_issste_data[unidad_sel]["dir"]
-    st.session_state.config_direccion_oficial = dir_sugerida
-    st.session_state.config_busqueda_mapa = f"ISSSTE {unidad_sel}, CDMX"
+    dir_oficial = unidades_issste_data[unidad_sel]["dir"]
+    st.session_state.config_direccion_oficial = dir_oficial
+    st.session_state.config_busqueda_mapa = dir_oficial
     st.rerun()
 
   st.markdown(
@@ -252,17 +253,24 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
+      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
       unsafe_allow_html=True,
   )
 
-  # Buscador sincronizado con la unidad seleccionada
+  # Buscador interactivo
   busqueda_input = st.text_input(
-      "🔍 Ubicación en el mapa:", value=st.session_state.config_busqueda_mapa
+      "🔍 Buscador (Actualiza el mapa y la dirección):",
+      value=st.session_state.config_busqueda_mapa,
   )
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Renderizado dinámico del mapa de Google Maps con la unidad seleccionada
+  # Botón para sincronizar lo que está en el buscador con la dirección oficial
+  if st.button("📋 Sincronizar Buscador con Dirección Oficial"):
+    st.session_state.config_direccion_oficial = busqueda_input
+    st.success("¡Dirección oficial actualizada correctamente!")
+    st.rerun()
+
+  # Renderizado dinámico del mapa de Google Maps
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
@@ -272,9 +280,9 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo oficial con la dirección exacta lista para comprobantes y reportes
+  # Campo oficial editable con la dirección completa sincronizada
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa:",
+      "📍 Dirección Oficial Completa (Lista para Reportes y Comprobante):",
       value=st.session_state.config_direccion_oficial,
       placeholder="La dirección oficial exacta aparecerá aquí...",
       height=80,
