@@ -261,7 +261,6 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Campo para responsable con conversión automática a MAYÚSCULAS
   responsable_input = st.text_input(
       "👤 Nombre del responsable de vacunación:",
       value=st.session_state.config_responsable,
@@ -311,7 +310,6 @@ else:
   )
 
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
-  # Pasamos también el responsable y la fecha en la URL para que la app los reciba automáticamente si es necesario
   fecha_url_str = st.session_state.config_fecha_aplicacion.strftime("%Y-%m-%d")
   resp_encoded = urllib.parse.quote(st.session_state.config_responsable)
   link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}"
@@ -408,20 +406,24 @@ else:
 
       hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
 
-      # --- INSERCIÓN DE METADATOS OFICIALES EN CELDAS ESPECÍFICAS DE LA HOJA ---
+      # --- INSERCIÓN DE METADATOS OFICIALES USANDO update_acell ---
       fecha_formato_oficial = (
           st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y")
       )
-      responsable_oficial = st.session_state.config_responsable
+      responsable_oficial = (
+          st.session_state.config_responsable
+          if st.session_state.config_responsable
+          else "PERSONAL AUTORIZADO"
+      )
 
-      hoja_activa.update("D6", "CDMX")
-      hoja_activa.update("M6", "ISSSTE")
-      hoja_activa.update("U6", "Delegación Sur")
-      hoja_activa.update("AC6", "CDMX")
-      hoja_activa.update("D7", "CDMX")
-      hoja_activa.update("D8", unidad_sel)
-      hoja_activa.update("AC8", fecha_formato_oficial)
-      hoja_activa.update("E9", responsable_oficial)
+      hoja_activa.update_acell("D6", "CDMX")
+      hoja_activa.update_acell("M6", "ISSSTE")
+      hoja_activa.update_acell("U6", "Delegación Sur")
+      hoja_activa.update_acell("AC6", "CDMX")
+      hoja_activa.update_acell("D7", "CDMX")
+      hoja_activa.update_acell("D8", unidad_sel)
+      hoja_activa.update_acell("AC8", fecha_formato_oficial)
+      hoja_activa.update_acell("E9", responsable_oficial)
 
       gid_activo = hoja_activa.id
 
