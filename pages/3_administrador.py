@@ -3,6 +3,7 @@ import io
 import urllib.parse
 import qrcode
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Panel de Administración - Censo Nominal",
@@ -76,7 +77,7 @@ else:
   )
   st.markdown(
       '<p class="sub-header">Configuración de Jornada, Unidad Médica, Fechas,'
-      " Horarios, Ubicación y Códigos QR</p>",
+      " Horarios, Ubicación Autónoma y Códigos QR</p>",
       unsafe_allow_html=True,
   )
 
@@ -134,27 +135,28 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Búsqueda de Ubicación Exacta (Google'
-      " Maps)</div>",
+      '<div class="section-title">3. Búsqueda y Autocompletado de Dirección'
+      " (Google Maps)</div>",
       unsafe_allow_html=True,
   )
+
+  # Campo de texto estándar en Streamlit donde el administrador ingresa o refina la dirección
   ubicacion_input = st.text_input(
-      "Ingrese la dirección exacta de la clínica o módulo:",
+      "Dirección exacta de la clínica o módulo (Sugerida):",
       value=st.session_state.config_ubicacion_maps,
       placeholder=(
-          "Ej. Calzada Ermita Iztapalapa 416, Benito Juárez, CDMX o Clínica"
-          " Hospital..."
+          "Ej. Centro Médico Nacional 20 de Noviembre, Ciudad de México"
       ),
   )
   st.session_state.config_ubicacion_maps = ubicacion_input
 
-  # Mapa interactivo actualizado al instante con la dirección ingresada
+  # Widget interactivo dinámico de Google Maps con la dirección en tiempo real
   if ubicacion_input:
     query_mapa = urllib.parse.quote(ubicacion_input)
     url_embed_maps = (
         f"https://www.google.com/maps?q={query_mapa}&output=embed"
     )
-    st.components.v1.iframe(url_embed_maps, height=300)
+    st.components.v1.iframe(url_embed_maps, height=320)
 
   st.markdown(
       '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
@@ -173,7 +175,6 @@ else:
   qr = qrcode.QRCode(version=1, box_size=10, border=4)
   qr.add_data(link_generado)
   qr.make(fit=True)
-  # fill_color aplicado con el color guinda institucional solicitado
   img = qr.make_image(fill_color="#611232", back_color="#ffffff")
 
   buf = io.BytesIO()
