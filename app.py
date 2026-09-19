@@ -249,6 +249,78 @@ estados_mexico = [
     "ZACATECAS",
 ]
 
+
+# --- DEFINICIÓN DE LA VENTANA EMERGENTE (MODAL FLOTANTE SUPERIOR) ---
+@st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
+def mostrar_modal_comprobante():
+  p = st.session_state.ultimo_paciente_registrado
+  if p:
+    st.markdown(
+        f"""
+        <div class="card-comprobante" style="margin-bottom: 10px; padding: 15px;">
+            <p style="margin: 0; font-size: 1rem;"><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
+            <p style="margin: 5px 0; font-size: 1rem;"><b>Paciente:</b> {p['nombre_completo']}</p>
+            <p style="margin: 5px 0; font-size: 1rem;"><b>CURP:</b> {p['curp_algoritmica']}</p>
+            <p style="margin: 5px 0; font-size: 1rem;"><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
+            <div class="folio-grande" style="font-size: 1.8rem !important; margin: 10px 0;">FOLIO: {p['folio']}</div>
+            <hr style="border: 1px solid #e6d194; margin: 10px 0;">
+            <p style="margin: 5px 0; font-size: 0.95rem;">📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
+            <p style="margin: 5px 0; font-size: 0.95rem;">⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+      contenido_txt = f"""SISTEMA VIGILE - COMPROBANTE DE VACUNACION
+Unidad: {st.session_state.nombre_unidad}
+Folio: {p['folio']}
+Paciente: {p['nombre_completo']}
+CURP: {p['curp_algoritmica']}
+Grupo: {p['grupo_objetivo']}
+Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
+"""
+      st.download_button(
+          label="📥 Guardar Comprobante",
+          data=contenido_txt,
+          file_name=f"Comprobante_{p['folio']}.txt",
+          mime="text/plain",
+          use_container_width=True,
+      )
+
+    with col_m2:
+      msg_wa = (
+          f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
+          f"Unidad: {st.session_state.nombre_unidad}\n"
+          f"Folio: *{p['folio']}*\n"
+          f"Paciente: {p['nombre_completo']}\n"
+          f"CURP: {p['curp_algoritmica']}\n"
+          f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
+          f"¡Preséntese en el módulo con este comprobante!"
+      )
+      url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
+      st.markdown(
+          f'<a href="{url_whatsapp}" target="_blank"><button'
+          ' style="background-color: #25D366; color: white; border: none;'
+          " padding: 0.5rem 1rem; font-size: 1rem; font-weight: bold;"
+          " border-radius: 6px; width: 100%; text-align: center; cursor:"
+          ' pointer;">💬 WhatsApp</button></a>',
+          unsafe_allow_html=True,
+      )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button(
+        "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
+    ):
+      st.session_state.ultimo_paciente_registrado = None
+      st.rerun()
+
+
+# Activar el modal flotante si hay un registro exitoso pendiente
+if st.session_state.ultimo_paciente_registrado is not None:
+  mostrar_modal_comprobante()
+
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
     unsafe_allow_html=True,
@@ -259,80 +331,6 @@ st.markdown(
     f'{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
     unsafe_allow_html=True,
 )
-
-# --- VENTANA EMERGENTE / MODAL DE COMPROBANTE SI ACABA DE REGISTRARSE ---
-if st.session_state.ultimo_paciente_registrado is not None:
-  p = st.session_state.ultimo_paciente_registrado
-  st.markdown("---")
-  st.markdown(
-      '<div style="background-color: #e8f0ec; padding: 10px; border-radius:'
-      ' 6px; text-align: center; font-weight: bold; color: #1e5b4f; font-size:'
-      ' 1.2rem; margin-bottom: 15px;">🎉 ¡REGISTRO EXITOSO! COMPROBANTE'
-      " DIGITAL</div>",
-      unsafe_allow_html=True,
-  )
-
-  texto_comprobante = f"""
-    <div class="card-comprobante">
-        <h3 style="color: #1e5b4f; text-align: center; margin-top: 0;">COMPROBANTE DE REGISTRO - CAMPAÑA INVERNAL</h3>
-        <p><b>Unidad Médica:</b> {st.session_state.nombre_unidad}</p>
-        <p><b>Nombre del Paciente:</b> {p['nombre_completo']}</p>
-        <p><b>CURP:</b> {p['curp_algoritmica']}</p>
-        <p><b>Grupo Objetivo:</b> {p['grupo_objetivo']}</p>
-        <div class="folio-grande">FOLIO: {p['folio']}</div>
-        <hr style="border: 1px solid #e6d194;">
-        <p>📅 <b>Fecha de Aplicación:</b> {p['fecha_aplicacion'].strftime('%d/%m/%Y')}</p>
-        <p>⏰ <b>Horario de Atención:</b> Lunes a Viernes de 08:00 a 14:00 hrs (Módulo de Vacunación)</p>
-        <p style="font-size: 0.9rem; color: #666; text-align: center; margin-top: 15px;">Conserve este comprobante para su validación en el módulo.</p>
-    </div>
-    """
-  st.markdown(texto_comprobante, unsafe_allow_html=True)
-
-  col_btn1, col_btn2, col_btn3 = st.columns(3)
-
-  with col_btn1:
-    contenido_txt = f"""SISTEMA VIGILE - COMPROBANTE DE VACUNACION
-Unidad: {st.session_state.nombre_unidad}
-Folio: {p['folio']}
-Paciente: {p['nombre_completo']}
-CURP: {p['curp_algoritmica']}
-Grupo: {p['grupo_objetivo']}
-Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
-"""
-    st.download_button(
-        label="📥 Descargar",
-        data=contenido_txt,
-        file_name=f"Comprobante_{p['folio']}.txt",
-        mime="text/plain",
-        use_container_width=True,
-    )
-
-  with col_btn2:
-    msg_wa = (
-        f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
-        f"Unidad: {st.session_state.nombre_unidad}\n"
-        f"Folio: *{p['folio']}*\n"
-        f"Paciente: {p['nombre_completo']}\n"
-        f"CURP: {p['curp_algoritmica']}\n"
-        f"Fecha: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}\n"
-        f"¡Preséntese en el módulo con este comprobante!"
-    )
-    url_whatsapp = f"https://wa.me/?text={urllib.parse.quote(msg_wa)}"
-    st.markdown(
-        f'<a href="{url_whatsapp}" target="_blank"><button'
-        ' style="background-color: #25D366; color: white; border: none; padding:'
-        ' 0.6rem 1rem; font-size: 1.1rem; font-weight: bold; border-radius: 6px;'
-        ' width: 100%; text-align: center; cursor: pointer;">💬'
-        " WhatsApp</button></a>",
-        unsafe_allow_html=True,
-    )
-
-  with col_btn3:
-    if st.button("➕ Nuevo Registro", use_container_width=True):
-      st.session_state.ultimo_paciente_registrado = None
-      st.rerun()
-
-  st.markdown("---")
 
 # --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
