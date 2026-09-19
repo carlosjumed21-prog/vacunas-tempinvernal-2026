@@ -3,7 +3,7 @@ import streamlit as st
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Censo Nominal - Vacunación e Invernal",
+    page_title="Censo Nominal - Registro",
     page_icon="💉",
     layout="centered",
 )
@@ -28,6 +28,18 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
+# Inicializar variables de configuración global en st.session_state si no existen
+if "registros_censales" not in st.session_state:
+    st.session_state.registros_censales = []
+if "contador_consecutivo" not in st.session_state:
+    st.session_state.contador_consecutivo = 1
+if "fecha_ultimo_consecutivo" not in st.session_state:
+    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
+if "tipo_jornada" not in st.session_state:
+    st.session_state.tipo_jornada = "I"  # 'I' por defecto (Intramuros)
+if "siglas_unidad" not in st.session_state:
+    st.session_state.siglas_unidad = "CMFE"  # Por defecto CMF Ermita
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -55,14 +67,6 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
 
     return max(0, anos), max(0, meses), max(0, dias)
 
-
-# Inicializar estado compartido en sesión
-if "registros_censales" not in st.session_state:
-    st.session_state.registros_censales = []
-if "contador_consecutivo" not in st.session_state:
-    st.session_state.contador_consecutivo = 1
-if "fecha_ultimo_consecutivo" not in st.session_state:
-    st.session_state.fecha_ultimo_consecutivo = datetime.date.today()
 
 estados_mexico = [
     "SELECCIONE UN ESTADO",
@@ -105,7 +109,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<p class="sub-header">Captura de cédula diaria para campañas de inmunización</p>',
+    f'<p class="sub-header">Unidad Registradora: <b>{st.session_state.siglas_unidad}</b> | Modalidad: <b>{"Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"}</b></p>',
     unsafe_allow_html=True,
 )
 
@@ -129,14 +133,15 @@ if st.session_state.fecha_ultimo_consecutivo != hoy_actual:
     st.session_state.fecha_ultimo_consecutivo = hoy_actual
     st.session_state.contador_consecutivo = 1
 
-aa_mm_dd = hoy_actual.strftime("%y/%m/%d")
-folio_automatico = (
-    f"{aa_mm_dd}-{str(st.session_state.contador_consecutivo).zfill(3)}"
-)
+# Generación del Folio sin diagonales: [Tipo][Siglas]-[AAMMDD]-[Consecutivo] (Ej: CMFE-260919-001)
+aammmdd = hoy_actual.strftime("%y%m%d")
+prefijo_unidad = f"{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}"
+consecutivo_str = str(st.session_state.contador_consecutivo).zfill(3)
+folio_automatico = f"{prefijo_unidad}-{aammmdd}-{consecutivo_str}"
 
 with col_g3:
     st.markdown(
-        f"**No. de Registro / Censo (Auto)**<br>`{folio_automatico}`",
+        f"**Folio Generado (Auto)**<br>`{folio_automatico}`",
         unsafe_allow_html=True,
     )
 
