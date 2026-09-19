@@ -106,7 +106,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 hoy_ejemplo = datetime.date.today().strftime("%y%m%d")
-# Orden exacto: AAMMDD-[I/E][SIGLAS]-001 (Ej: 260919-IVAL-001)
 ejemplo_folio = f"{hoy_ejemplo}-{st.session_state.tipo_jornada}{st.session_state.siglas_unidad}-001"
 st.info(
     f"El próximo registro que se capture utilizará la estructura: **`{ejemplo_folio}`**"
@@ -119,21 +118,20 @@ st.markdown(
 st.markdown(
     """
 <div class="card-admin">
-    <p><b>Instrucción para el Administrador:</b> Ingrese la URL principal de su aplicación para generar el Código QR específico que abrirá directamente el formulario de registro (Pestaña 1).</p>
+    <p><b>Instrucción para el Administrador:</b> Utilice el enlace predeterminado para generar el Código QR que abrirá directamente el formulario de registro (Pestaña 1).</p>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
-# URL base limpia (apuntando a la raíz que abre directamente la Pestaña 1 / app.py)
-url_base_default = "https://tu-app-vacunacion.streamlit.app"
+# URL por defecto solicitada
+url_base_default = "https://medprev-vacunas-invernal.streamlit.app/"
 url_despliegue = st.text_input(
     "URL base de la aplicación desplegada (Raíz / Pestaña 1):",
     value=url_base_default,
 )
 
 if st.button("Generar Enlace y Código QR"):
-    # Limpiar espacios de la URL
     link_final = url_despliegue.strip()
 
     st.success(
@@ -141,7 +139,6 @@ if st.button("Generar Enlace y Código QR"):
     )
     st.markdown(f"🔗 **Enlace directo a la Pestaña 1 (Registro):** `{link_final}`")
 
-    # Generación real de la imagen del Código QR usando la librería qrcode
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_M,
@@ -153,7 +150,6 @@ if st.button("Generar Enlace y Código QR"):
 
     img_qr = qr.make_image(fill_color="#611232", back_color="#ffffff")
 
-    # Convertir la imagen a bytes para mostrarla en Streamlit
     buffer = io.BytesIO()
     img_qr.save(buffer, format="PNG")
     buffer.seek(0)
