@@ -188,10 +188,11 @@ def generar_curp_algoritmica(
     c14 = obtener_primera_consonante_interna(p)
     c15 = obtener_primera_consonante_interna(m) if m else "X"
     c16 = obtener_primera_consonante_interna(primer_nombre)
-    siglo_part = "0" if fecha_nac.year < 2000 else "A"
 
-    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}{siglo_part}"
+    # 16 caracteres base oficiales exactos
+    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
 
+    # Acoplamiento limpio de los 2 dígitos finales sin ceros sobrantes
     extra_limpio = limpiar_texto(digitos_extra)
     if len(extra_limpio) >= 2:
         sufijo = extra_limpio[:2]
