@@ -189,10 +189,8 @@ def generar_curp_algoritmica(
     c15 = obtener_primera_consonante_interna(m) if m else "X"
     c16 = obtener_primera_consonante_interna(primer_nombre)
 
-    # 16 caracteres base oficiales exactos
     curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
 
-    # Acoplamiento limpio de los 2 dígitos finales sin ceros sobrantes
     extra_limpio = limpiar_texto(digitos_extra)
     if len(extra_limpio) >= 2:
         sufijo = extra_limpio[:2]
@@ -374,8 +372,9 @@ with col_dom2:
 with col_dom3:
     colonia = st.text_input("Colonia *")
 
-cuenta_derechohabiencia = st.radio(
-    "¿Cuenta con derechohabiencia? *", options=["NO", "SÍ"], horizontal=True
+cuenta_derechohabiencia = st.selectbox(
+    "¿Cuenta con derechohabiencia? *",
+    options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
 )
 
 # --- BLOQUE 4: OCUPACIÓN ---
@@ -529,6 +528,7 @@ with st.form("form_censo_vacunacion_guardar"):
             or not nombres
             or estado_nacimiento == "SELECCIONE UN ESTADO"
             or estado_residencia == "SELECCIONE UN ESTADO"
+            or cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN"
             or not calle
             or not numero
             or not colonia
