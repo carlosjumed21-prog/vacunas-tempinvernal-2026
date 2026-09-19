@@ -31,7 +31,6 @@ if es_modo_qr:
             .card-comprobante { background-color: #ffffff; border: 3px solid #1e5b4f; padding: 25px; border-radius: 12px; color: #161a1d; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
             .folio-grande { font-size: 2rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 10px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 15px 0; }
             
-            /* Forzar color guinda en la barra lateral (sidebar) y sus textos */
             [data-testid="stSidebar"] { background-color: #611232 !important; }
             [data-testid="stSidebar"] * { color: #ffffff !important; }
 
@@ -48,7 +47,6 @@ else:
         <style>
             .stApp { background-color: #fbf9f4; }
             
-            /* Forzar color guinda en la barra lateral (sidebar) y sus textos */
             [data-testid="stSidebar"] { background-color: #611232 !important; }
             [data-testid="stSidebar"] * { color: #ffffff !important; }
 
@@ -290,11 +288,9 @@ if st.session_state.ultimo_paciente_registrado is not None:
     """
   st.markdown(texto_comprobante, unsafe_allow_html=True)
 
-  # Botones de acción: Descargar y Compartir por WhatsApp
   col_btn1, col_btn2, col_btn3 = st.columns(3)
 
   with col_btn1:
-    # Botón para descargar como archivo de texto plano con los datos del comprobante
     contenido_txt = f"""SISTEMA VIGILE - COMPROBANTE DE VACUNACION
 Unidad: {st.session_state.nombre_unidad}
 Folio: {p['folio']}
@@ -312,7 +308,6 @@ Fecha Aplicacion: {p['fecha_aplicacion'].strftime('%d/%m/%Y')}
     )
 
   with col_btn2:
-    # Mensaje codificado para WhatsApp
     msg_wa = (
         f"💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\n"
         f"Unidad: {st.session_state.nombre_unidad}\n"
@@ -395,9 +390,9 @@ with col_fn2:
       "Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"]
   )
 with col_fn3:
-    estado_nacimiento = st.selectbox(
-        "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
-    )
+  estado_nacimiento = st.selectbox(
+      "Estado de Nacimiento *", options=estados_mexico, key="est_nac_block2"
+  )
 
 planes_o_embarazo = "NO"
 if sexo == "MUJER":
@@ -625,6 +620,7 @@ with st.form("form_censo_vacunacion_guardar"):
     elif (
         not paterno
         or not nombres
+        or sexo == "SELECCIONE UNA OPCIÓN"
         or estado_nacimiento == "SELECCIONE UN ESTADO"
         or estado_residencia == "SELECCIONE UN ESTADO"
         or cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN"
