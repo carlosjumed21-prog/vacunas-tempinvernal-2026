@@ -2,7 +2,6 @@ import datetime
 import io
 import urllib.parse
 import qrcode
-import requests
 import streamlit as st
 
 st.set_page_config(
@@ -39,10 +38,6 @@ if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
 if "unidad_anterior" not in st.session_state:
   st.session_state.unidad_anterior = ""
-if "config_busqueda_mapa" not in st.session_state:
-  st.session_state.config_busqueda_mapa = (
-      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, Ciudad de México"
-  )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
@@ -83,13 +78,17 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial completo de las 16 unidades con sus siglas y dirección oficial
+  # Catálogo oficial completo de las 16 unidades con siglas, dirección oficial y término de búsqueda exacta para mapas
   unidades_issste_data = {
       "20 DE NOVIEMBRE": {
           "sigla": "20N",
           "dir": (
               "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100"
               " Ciudad de México, CDMX"
+          ),
+          "mapa": (
+              "CMN 20 de Noviembre ISSSTE, Avenida Félix Cuevas, Ciudad de"
+              " México"
           ),
       },
       "CHURUBUSCO": {
@@ -98,6 +97,7 @@ else:
               "Calzada de Tlalpan 4430, Toriello Guerra, Tlalpan, 14050 Ciudad"
               " de México, CDMX"
           ),
+          "mapa": "Hospital Regional Churubusco ISSSTE, Ciudad de México",
       },
       "CLIDDA": {
           "sigla": "CLI",
@@ -105,6 +105,7 @@ else:
               "San Fernando 15, Toriello Guerra, Tlalpan, 14050 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "CLIDDA ISSSTE San Fernando Tlalpan, Ciudad de México",
       },
       "COYOACAN": {
           "sigla": "COY",
@@ -112,6 +113,7 @@ else:
               "Avenida Cuauhtémoc 330, Del Carmen, Coyoacán, 04100 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Coyoacán ISSSTE, CDMX",
       },
       "DEL VALLE": {
           "sigla": "DVA",
@@ -119,6 +121,7 @@ else:
               "Cacho 35, Del Valle Norte, Benito Juárez, 03103 Ciudad de México,"
               " CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Del Valle ISSSTE, CDMX",
       },
       "DIVISION DEL NORTE": {
           "sigla": "DVN",
@@ -126,6 +129,7 @@ else:
               "Avenida División del Norte 3233, Xoco, Benito Juárez, 03330"
               " Ciudad de México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar División del Norte ISSSTE",
       },
       "DR. DARIO FERNANDEZ FIERRO": {
           "sigla": "DFF",
@@ -133,6 +137,7 @@ else:
               "Avenida Revolución 1182, Tlacopac, Álvaro Obregón, 01049 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "Clínica Hospital Dr. Darío Fernández Fierro ISSSTE",
       },
       "DR. IGNACIO CHAVEZ": {
           "sigla": "ICH",
@@ -140,6 +145,7 @@ else:
               "Eje 1 Poniente Av. Cuauhtémoc s/n, Doctores, Cuauhtémoc, 06720"
               " Ciudad de México, CDMX"
           ),
+          "mapa": "Clínica Hospital Dr. Ignacio Chávez ISSSTE",
       },
       "ERMITA": {
           "sigla": "ERM",
@@ -147,6 +153,7 @@ else:
               "Ermita Iztapalapa 67, Ermita, Benito Juárez, 03590 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "CMF Ermita ISSSTE, Ermita Iztapalapa, Ciudad de México",
       },
       "FUENTES BROTANTES": {
           "sigla": "FBR",
@@ -154,12 +161,16 @@ else:
               "Fuentes Brotantes s/n, Fuentes Brotantes, Tlalpan, 14410 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Fuentes Brotantes ISSSTE",
       },
       "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": {
           "sigla": "MPM",
           "dir": (
               "Avenida Tláhuac s/n, San Lorenzo Tezonco, Iztapalapa, 13266 Ciudad"
               " de México, CDMX"
+          ),
+          "mapa": (
+              "Hospital General Dra. Matilde Petra Montoya Lafragua ISSSTE"
           ),
       },
       "MILPA ALTA": {
@@ -168,6 +179,7 @@ else:
               "Prolongación Matamoros s/n, Villa Milpa Alta, Milpa Alta, 12000"
               " Ciudad de México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Milpa Alta ISSSTE",
       },
       "NARVARTE": {
           "sigla": "NAR",
@@ -175,6 +187,7 @@ else:
               "Avenida Cuauhtémoc 625, Narvarte Poniente, Benito Juárez, 03020"
               " Ciudad de México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Narvarte ISSSTE",
       },
       "TLALPAN": {
           "sigla": "TLA",
@@ -182,6 +195,7 @@ else:
               "Calzada de Tlalpan 4800, Toriello Guerra, Tlalpan, 14050 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Tlalpan ISSSTE",
       },
       "VILLA ALVARO OBREGON": {
           "sigla": "VAO",
@@ -189,6 +203,7 @@ else:
               "Calle 10 s/n, Tolteca, Álvaro Obregón, 01150 Ciudad de México,"
               " CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Villa Álvaro Obregón ISSSTE",
       },
       "XOCHIMILCO": {
           "sigla": "XOC",
@@ -196,6 +211,7 @@ else:
               "Providencia s/n, Barrio San Marcos, Xochimilco, 16050 Ciudad de"
               " México, CDMX"
           ),
+          "mapa": "Clínica de Medicina Familiar Xochimilco ISSSTE",
       },
   }
 
@@ -220,12 +236,12 @@ else:
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
-  # Sincronización automática: Al cambiar la unidad, se actualiza el mapa y la dirección oficial al instante
+  # Sincronización automática: Al cambiar la unidad, se establece su dirección oficial y ubicación exacta en el mapa
   if st.session_state.unidad_anterior != unidad_sel:
     st.session_state.unidad_anterior = unidad_sel
-    dir_oficial = unidades_issste_data[unidad_sel]["dir"]
-    st.session_state.config_direccion_oficial = dir_oficial
-    st.session_state.config_busqueda_mapa = dir_oficial
+    st.session_state.config_direccion_oficial = unidades_issste_data[unidad_sel][
+        "dir"
+    ]
     st.rerun()
 
   st.markdown(
@@ -253,36 +269,21 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Buscador y Ubicación en Mapa</div>',
+      '<div class="section-title">3. Ubicación Exacta en Mapa Interactivo</div>',
       unsafe_allow_html=True,
   )
 
-  # Buscador interactivo
-  busqueda_input = st.text_input(
-      "🔍 Buscador (Actualiza el mapa y la dirección):",
-      value=st.session_state.config_busqueda_mapa,
-  )
-  st.session_state.config_busqueda_mapa = busqueda_input
-
-  # Botón para sincronizar lo que está en el buscador con la dirección oficial
-  if st.button("📋 Sincronizar Buscador con Dirección Oficial"):
-    st.session_state.config_direccion_oficial = busqueda_input
-    st.success("¡Dirección oficial actualizada correctamente!")
-    st.rerun()
-
-  # Renderizado dinámico del mapa de Google Maps
-  if busqueda_input:
-    query_mapa = urllib.parse.quote(busqueda_input)
-    url_embed_maps = (
-        f"https://www.google.com/maps?q={query_mapa}&output=embed"
-    )
-    st.components.v1.iframe(url_embed_maps, height=300)
+  # El mapa se posiciona y ubica automáticamente según la unidad seleccionada
+  consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
+  query_mapa = urllib.parse.quote(consulta_mapa)
+  url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
+  st.components.v1.iframe(url_embed_maps, height=320)
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo oficial editable con la dirección completa sincronizada
+  # Campo oficial editable que contiene la dirección exacta vinculada y lista para usarse en el registro
   direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Completa (Lista para Reportes y Comprobante):",
+      "📍 Dirección Oficial Principal (Asignada para Comprobantes y Reportes):",
       value=st.session_state.config_direccion_oficial,
       placeholder="La dirección oficial exacta aparecerá aquí...",
       height=80,
