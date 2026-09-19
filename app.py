@@ -8,12 +8,12 @@ st.set_page_config(
     layout="centered",
 )
 
-# Leer los parámetros de la URL para verificar si se solicita acceso de administrador (?admin=true)
+# Leer los parámetros de la URL para ver si el usuario entró mediante el código QR (modo operativo)
 params = st.query_params
-es_admin = params.get("admin", "false").lower() == "true"
+es_modo_qr = params.get("modo", "").lower() == "registro"
 
-# Si NO es admin, ocultamos por completo la barra lateral para el personal operativo del QR
-if not es_admin:
+# Si entró por el QR, ocultamos la barra lateral para dejar solo el formulario limpio
+if es_modo_qr:
     st.markdown(
         """
         <style>
@@ -33,7 +33,7 @@ if not es_admin:
         unsafe_allow_html=True,
     )
 else:
-    # Estilos para cuando entras como admin (muestra la barra lateral con las pestañas 2 y 3)
+    # Estilos normales (nosotros vemos las pestañas con normalidad)
     st.markdown(
         """
         <style>
