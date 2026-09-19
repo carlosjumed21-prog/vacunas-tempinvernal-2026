@@ -39,12 +39,14 @@ if "config_hora_fin" not in st.session_state:
   st.session_state.config_hora_fin = datetime.time(14, 0)
 if "config_busqueda_mapa" not in st.session_state:
   st.session_state.config_busqueda_mapa = (
-      "CMF Ermita, Ermita Iztapalapa, Ciudad de México"
+      "ISSSTE CMN 20 de Noviembre, Ciudad de México"
   )
 if "config_direccion_oficial" not in st.session_state:
   st.session_state.config_direccion_oficial = (
-      "Ermita Iztapalapa 67, Ermita, Benito Juárez, Ciudad de México"
+      "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, Ciudad de México"
   )
+if "unidad_anterior" not in st.session_state:
+  st.session_state.unidad_anterior = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -80,7 +82,7 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial completo de las 16 unidades médicas del ISSSTE solicitadas
+  # Catálogo oficial completo de las 16 unidades médicas del ISSSTE
   unidades_issste = {
       "20 DE NOVIEMBRE": "20N",
       "CHURUBUSCO": "CHU",
@@ -121,6 +123,14 @@ else:
     )
     tipo_jornada_letra = "I" if "I" in jornada_sel else "E"
 
+  # Automatización: Si cambia la unidad seleccionada, actualizamos el buscador por defecto
+  if st.session_state.unidad_anterior != unidad_sel:
+    st.session_state.unidad_anterior = unidad_sel
+    st.session_state.config_busqueda_mapa = (
+        f"ISSSTE {unidad_sel}, Ciudad de México"
+    )
+    st.rerun()
+
   st.markdown(
       '<div class="section-title">2. Configuración de Fecha y Horario de'
       " Atención</div>",
@@ -146,25 +156,24 @@ else:
     st.session_state.config_hora_fin = hora_fin
 
   st.markdown(
-      '<div class="section-title">3. Buscador Inteligente y Autocompletado de'
-      " Dirección</div>",
+      '<div class="section-title">3. Buscador Inteligente y Ubicación en'
+      " Mapa</div>",
       unsafe_allow_html=True,
   )
 
   col_b1, col_b2 = st.columns([3, 1])
   with col_b1:
     busqueda_input = st.text_input(
-        "🔍 Escribe el nombre de la clínica o lugar:",
+        "🔍 Consulta de ubicación institucional:",
         value=st.session_state.config_busqueda_mapa,
-        placeholder="Ej. CMF Ermita, o Hospital Regional Zaragoza...",
     )
   with col_b2:
     st.markdown("<br>", unsafe_allow_html=True)
-    btn_buscar = st.button("🔍 Buscar Dirección", use_container_width=True)
+    btn_buscar = st.button("🔍 Buscar Dir.", use_container_width=True)
 
   st.session_state.config_busqueda_mapa = busqueda_input
 
-  # Lógica de autocompletado mediante API pública de geocodificación
+  # Autodetección de dirección exacta mediante API de geocodificación
   if btn_buscar and busqueda_input:
     try:
       url_geo = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(busqueda_input)}&format=json&addressdetails=1&limit=1"
@@ -178,13 +187,13 @@ else:
           st.success("¡Dirección exacta obtenida y autocompletada con éxito!")
         else:
           st.warning(
-              "No se encontró una dirección exacta. Puedes ingresarla o"
-              " ajustarla manualmente abajo."
+              "No se encontró automáticamente. Puedes ajustarla o escribirla"
+              " abajo."
           )
-    except Exception as e:
-      st.error("Error al consultar la dirección en el mapa.")
+    except Exception:
+      st.error("Error al consultar la dirección.")
 
-  # Renderizado dinámico del mapa interactivo
+  # Renderizado del mapa interactivo
   if busqueda_input:
     query_mapa = urllib.parse.quote(busqueda_input)
     url_embed_maps = (
@@ -194,7 +203,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # Campo oficial editable con la dirección autocompletada
+  # Campo oficial editable con la dirección completa
   direccion_oficial_input = st.text_area(
       "📍 Dirección Oficial Completa (Verificada para Comprobantes y"
       " Reportes):",
