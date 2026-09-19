@@ -155,7 +155,7 @@ estados_curp = {
 
 
 def generar_curp_algoritmica(
-    paterno, materno, nombres, fecha_nac, sexo, est_nac
+    paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""
 ):
     p = limpiar_texto(paterno)
     m = limpiar_texto(materno) if materno else ""
@@ -191,7 +191,15 @@ def generar_curp_algoritmica(
     siglo_part = "0" if fecha_nac.year < 2000 else "A"
 
     curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}{siglo_part}"
-    return f"{curp_16}00"
+
+    # Si el operador ingresa los 2 dígitos faltantes, se anexan; si no, por defecto se usan "00"
+    sufijo = (
+        limpiar_texto(digitos_extra)[:2]
+        if digitos_extra
+        and len(limpiar_texto(digitos_extra)) >= 2
+        else "00"
+    )
+    return f"{curp_16}{sufijo}"
 
 
 estados_mexico = [
@@ -325,17 +333,30 @@ with col_info1:
         unsafe_allow_html=True,
     )
 
+# Campo opcional para completar los 2 dígitos faltantes de la CURP en tiempo real
+digitos_faltantes = st.text_input(
+    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres de tu CURP oficial)",
+    max_chars=2,
+    placeholder="Ej. A1",
+)
+
 curp_algoritmica = generar_curp_algoritmica(
-    paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento
+    paterno,
+    materno,
+    nombres,
+    fecha_nacimiento,
+    sexo,
+    estado_nacimiento,
+    digitos_faltantes,
 )
 with col_info2:
     st.markdown(
-        f'<div class="card-curp">🆔 CURP Algorítmica: <br><span'
+        f'<div class="card-curp">🆔 CURP Resultante: <br><span'
         f' style="color: #611232; font-family: monospace;">{curp_algoritmica}</span></div>',
         unsafe_allow_html=True,
     )
 
-# --- BLOQUE 3: DOMICILIO Y AFILIACIÓN (FUERA DEL FORMULARIO PARA REACTIVIDAD) ---
+# --- BLOQUE 3: DOMICILIO Y AFILIACIÓN ---
 st.markdown(
     '<div class="section-title">3. Domicilio y Afiliación</div>',
     unsafe_allow_html=True,
@@ -358,7 +379,7 @@ cuenta_derechohabiencia = st.radio(
     "¿Cuenta con derechohabiencia? *", options=["NO", "SÍ"], horizontal=True
 )
 
-# --- BLOQUE 4: OCUPACIÓN (FUERA DEL FORMULARIO) ---
+# --- BLOQUE 4: OCUPACIÓN ---
 st.markdown(
     '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
 )
@@ -375,7 +396,7 @@ ocupacion = st.selectbox(
     ],
 )
 
-# --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES (FUERA DEL FORMULARIO) ---
+# --- BLOQUE 5: GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown(
     '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
     unsafe_allow_html=True,
@@ -546,5 +567,5 @@ with st.form("form_censo_vacunacion_guardar"):
             st.session_state.contador_consecutivo += 1
 
             st.success(
-                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP Algorítmica **{curp_algoritmica}**!"
+                f"¡Paciente registrado correctamente con Folio **{folio_automatico}** y CURP **{curp_algoritmica}**!"
             )
