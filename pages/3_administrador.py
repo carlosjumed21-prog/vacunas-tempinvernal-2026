@@ -23,6 +23,8 @@ st.markdown(
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
+        /* Estilo personalizado para el botón de cerrar sesión en rojo institucional */
+        div.stButton > button[kind="secondary"], div.stButton > button:has-text("Cerrar Sesión") { background-color: #a6192e !important; color: white !important; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -294,7 +296,7 @@ else:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- BOTÓN DE AUTORIZACIÓN: LECTURA SEGURA DE GOOGLE_CREDENTIALS ---
+  # --- BOTÓN DE AUTORIZACIÓN: DUPLICAR PLANTILLA (TOMANDO LA HOJA 1 'CENSO NOMINAL') ---
   if st.button(
       "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
       use_container_width=True,
@@ -310,7 +312,6 @@ else:
           "https://www.googleapis.com/auth/drive",
       ]
 
-      # Leer el secreto GOOGLE_CREDENTIALS configurado como string JSON en Streamlit Cloud
       if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
@@ -330,6 +331,7 @@ else:
 
       hojas_existentes = [h.title for h in spreadsheet.worksheets()]
       if nombre_nueva_hoja not in hojas_existentes:
+        # Tomar estrictamente la Hoja 1 (Plantilla base "CENSO NOMINAL") para duplicarla
         plantilla = spreadsheet.worksheet("CENSO NOMINAL")
         spreadsheet.duplicate_sheet(
             plantilla.id, new_sheet_name=nombre_nueva_hoja
@@ -416,6 +418,21 @@ else:
     )
 
   st.markdown("---")
-  if st.button("Cerrar Sesión de Administrador", use_container_width=True):
+
+  # --- BOTÓN DE CERRAR SESIÓN EN ROJO INSTITUCIONAL (UBICADO DEBAJO DE LA AUTORIZACIÓN) ---
+  st.markdown(
+      """
+    <style>
+    /* Estilo específico forzado para el botón de cerrar sesión */
+    div.stButton > button:last-child {
+        background-color: #a6192e !important;
+        color: white !important;
+    }
+    </style>
+    """,
+      unsafe_allow_html=True,
+  )
+
+  if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
     st.session_state.autenticado_admin = False
     st.rerun()
