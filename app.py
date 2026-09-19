@@ -736,26 +736,33 @@ if st.button(
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      valores_col_c = worksheet.col_values(3)
-      siguiente_fila = max(13, len(valores_col_c) + 1)
+      # Cálculo preciso de la siguiente fila basado estrictamente en la Columna C (Apellido Paterno) desde la fila 13
+      columna_c_vals = worksheet.col_values(3)
+      siguiente_fila = 13
+      for idx, val in enumerate(columna_c_vals[12:], start=13):
+        if val.strip() == "":
+          siguiente_fila = idx
+          break
+      else:
+        siguiente_fila = max(13, len(columna_c_vals) + 1)
 
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
-      # 1. Folio Generado (B)
+      # 1. Folio Generado (Fila 3-4, Columna B)
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_automatico], [folio_automatico]],
       )
 
-      # 2. Apellidos y Nombres (C, D, E)
+      # 2. Apellidos y Nombres (Fila 13, Columnas C, D, E)
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
       worksheet.update_acell(
           f"D{f_actual}", materno.upper() if materno else ""
       )
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
-      # 3. Fecha de Nacimiento desglosada (F, G, H en filas 3-4 del mapeo oficial)
+      # 3. Fecha de Nacimiento desglosada (Fila 3-4, Columnas F, G, H)
       dd_nac = str(fecha_nacimiento.day).zfill(2)
       mm_nac = str(fecha_nacimiento.month).zfill(2)
       yyyy_nac = str(fecha_nacimiento.year)
@@ -764,7 +771,7 @@ if st.button(
       worksheet.update(f"G{f_actual}:G{f_siguiente}", [[mm_nac], [mm_nac]])
       worksheet.update(f"H{f_actual}:H{f_siguiente}", [[yyyy_nac], [yyyy_nac]])
 
-      # 4. Edad desglosada (I, J)
+      # 4. Edad desglosada (Fila 3-4, Columnas I, J)
       worksheet.update(
           f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
       )
@@ -772,7 +779,7 @@ if st.button(
           f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
       )
 
-      # 5. Sexo y Fecha de Aplicación (K, L)
+      # 5. Sexo y Fecha de Aplicación (Fila 3-4, Columnas K, L)
       sexo_letra = "H" if sexo == "HOMBRE" else "M"
       f_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
       worksheet.update(
@@ -783,7 +790,7 @@ if st.button(
           [[f_aplicacion_str], [f_aplicacion_str]],
       )
 
-      # 6. Domicilio (M, N, O)
+      # 6. Domicilio (Filas 13-14, Columnas M, N, O)
       dir_calle = calle.upper()
       dir_num = numero.upper()
       dir_col = colonia.upper()
@@ -791,13 +798,14 @@ if st.button(
       worksheet.update(f"N{f_actual}:N{f_siguiente}", [[dir_num], [dir_num]])
       worksheet.update(f"O{f_actual}:O{f_siguiente}", [[dir_col], [dir_col]])
 
-      # 7. CURP en C14
+      # 7. CURP (Fila 14, Columna C)
       worksheet.update_acell(f"C{f_siguiente}", curp_con_entidad)
 
-      # 8. Grupo Objetivo (P, Q, R, S, T, U, V, W, X)
+      # 8. Grupo Objetivo (Filas 13-14, Columnas P a X)
       col_grupo_map = {
           "6 A 59 MESES": "P",
           "60 Y MÁS": "Q",
+          "5 A 11 AÑOS (DOSIS ÚNICA) COVID-19**": "R",
           "EMBARAZADAS": "S",
           "PERSONAL DE SALUD": "T",
           "VIH/sida": "U",
@@ -812,7 +820,7 @@ if st.button(
             [["X"], ["X"]],
         )
 
-      # 9. Comorbilidades / Grupos de riesgo (Y, Z, AA, AB, AC, AD)
+      # 9. Comorbilidades / Grupos de riesgo (Filas 13-14, Columnas Y a AD)
       for estado_activo, columna_letra in [
           (epoc, "Y"),
           (cancer, "Z"),
@@ -827,7 +835,7 @@ if st.button(
               [["X"], ["X"]],
           )
 
-      # 10. Derechohabiencia (AM)
+      # 10. Derechohabiencia (Filas 13-14, Columna AM)
       worksheet.update(
           f"AM{f_actual}:AM{f_siguiente}",
           [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
