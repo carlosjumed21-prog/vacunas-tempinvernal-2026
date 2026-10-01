@@ -2,46 +2,22 @@ import datetime
 import json
 import unicodedata
 import urllib.parse
+from config import (
+    GOOGLE_SCOPES,
+    GOOGLE_SHEET_ID,
+    MAPA_SIGLAS_INVERSO,
+    aplicar_configuracion_global,
+)
+from google.oauth2.service_account import Credentials
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
-from google.oauth2.service_account import Credentials
 
-st.set_page_config(
-    page_title="Censo Nominal - Vacunación e Invernal",
-    page_icon="💉",
-    layout="centered",
-)
+aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
-# --- CAPTURA PRECISA DE PARÁMETROS DE LA URL ---
 params = st.query_params
-es_modo_qr = (
-    params.get("modo", "").lower() == "registro"
-    or "unidad" in params
-    or "js" in params
-)
-
-mapa_siglas_inverso = {
-    "20N": "20 DE NOVIEMBRE",
-    "CHU": "CHURUBUSCO",
-    "CLI": "CLIDDA",
-    "COY": "COYOACAN",
-    "DVA": "DEL VALLE",
-    "DVN": "DIVISION DEL NORTE",
-    "DFF": "DR. DARIO FERNANDEZ FIERRO",
-    "ICH": "DR. IGNACIO CHAVEZ",
-    "ERM": "ERMITA",
-    "FBR": "FUENTES BROTANTES",
-    "MPM": "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA",
-    "MIL": "MILPA ALTA",
-    "NAR": "NARVARTE",
-    "TLA": "TLALPAN",
-    "VAO": "VILLA ALVARO OBREGON",
-    "XOC": "XOCHIMILCO",
-}
-
 sigla_url = params.get("unidad", "20N")
-nombre_base_unidad = mapa_siglas_inverso.get(sigla_url, "20 DE NOVIEMBRE")
+nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
 sufijo_js = params.get("js", "")
 
 st.session_state.siglas_unidad = sigla_url
@@ -58,30 +34,18 @@ try:
 except:
   val_fecha_app = datetime.date.today()
 
-# Estilos CSS (Forzando la ocultación total de la barra lateral si es enlace personalizado)
-css_sidebar_oculta = (
-    """
-    [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-    section[data-testid="stSidebar"] { display: none !important; }
-    """
-    if es_modo_qr
-    else ""
-)
-
 st.markdown(
-    f"""
+    """
     <style>
-        .stApp {{ background-color: #fbf9f4; }}
-        {css_sidebar_oculta}
-        .main-header {{ font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }}
-        .sub-header {{ font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }}
-        .section-title {{ font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }}
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label {{ font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }}
-        .card-edad {{ background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }}
-        .card-curp {{ background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }}
-        .card-grupo {{ background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }}
-        .stButton>button {{ background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }}
-        input[type="text"] {{ text-transform: uppercase !important; font-size: 1.1rem !important; }}
+        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
+        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
+        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
+        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
+        input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -358,7 +322,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BLOQUE 1: DATOS GENERALES Y FECHAS ---
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
@@ -383,7 +346,6 @@ with col_g3:
       "**Folio Generado (Auto)**<br>`POR ASIGNAR`", unsafe_allow_html=True
   )
 
-# --- BLOQUE 2: IDENTIFICACIÓN DEL PACIENTE Y CURP ---
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
     unsafe_allow_html=True,
@@ -577,10 +539,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
       )
 
-      scope = [
-          "https://spreadsheets.google.com/feeds",
-          "https://www.googleapis.com/auth/drive",
-      ]
+      scope = GOOGLE_SCOPES
       if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
@@ -592,11 +551,11 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
 
-      creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-      client = gspread.authorize(creds)
-      spreadsheet = client.open_by_key(
-          "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
+      creds = service_account.Credentials.from_service_account_info(
+          creds_dict, scopes=scope
       )
+      client = gspread.authorize(creds)
+      spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
       try:
         worksheet = spreadsheet.worksheet(nombre_hoja_destino)
