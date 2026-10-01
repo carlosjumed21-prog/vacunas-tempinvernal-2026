@@ -192,12 +192,14 @@ estados_mexico = [
     "NAYARIT",
     "NUEVO LEÓN",
     "OAXACA",
+    "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
     "QUINTANA ROO",
     "SAN LUIS POTOSÍ",
     "SINALOA",
     "SONORA",
+    "SR",
     "TABASCO",
     "TAMAULIPAS",
     "TLAXCALA",
@@ -238,32 +240,31 @@ def mostrar_modal_comprobante():
             .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; z-index: 2; position: relative; }}
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA EN PATRÓN DIAGONAL REPETIDO (MOSAICO) */
+            /* MARCA DE AGUA ESTRICTAMENTE CONTENIDA DENTRO DEL CUADRO */
             .watermark-overlay {{
                 position: absolute;
-                top: -50%;
-                left: -50%;
-                width: 200%;
-                height: 200%;
-                transform: rotate(-30deg);
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 display: flex;
                 flex-direction: column;
-                justify-content: space-around;
-                align-content: space-around;
+                justify-content: space-evenly;
+                align-items: center;
                 pointer-events: none;
                 z-index: 1;
+                overflow: hidden;
             }}
-            .watermark-row {{
-                display: flex;
-                white-space: nowrap;
-                font-size: 0.9rem;
+            .watermark-line {{
+                font-size: 0.85rem;
                 font-weight: 900;
-                color: rgba(97, 18, 50, 0.07);
+                color: rgba(97, 18, 50, 0.08);
                 text-transform: uppercase;
-                letter-spacing: 2px;
-            }}
-            .watermark-row span {{
-                margin-right: 25px;
+                letter-spacing: 1.5px;
+                transform: rotate(-25deg);
+                white-space: nowrap;
+                width: 130%;
+                text-align: center;
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -275,11 +276,11 @@ def mostrar_modal_comprobante():
         <body>
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
-                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
-                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
-                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
-                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
-                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
+                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <p class="info-text"><b>Unidad:</b> {unidad}</p>
