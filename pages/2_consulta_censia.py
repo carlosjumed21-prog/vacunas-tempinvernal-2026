@@ -1,11 +1,7 @@
 import datetime
 import json
 import urllib.parse
-from config import (
-    GOOGLE_SCOPES,
-    GOOGLE_SHEET_ID,
-    aplicar_configuracion_global,
-)
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
 import streamlit as st
@@ -101,10 +97,12 @@ else:
         unsafe_allow_html=True,
     )
 
+    # --- LECTURA Y BLOQUEO ESTRICTO DEL MENÚ DESPLEGABLE ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
-    if hoja_enlace and hoja_enlace in h_autorizadas:
+    if hoja_enlace:
+      # Si entra por enlace personalizado, fijamos la hoja y bloqueamos el selector por completo
       hoja_seleccionada = hoja_enlace
       st.success(
           f"🔒 Jornada asignada automáticamente por enlace institucional:"
@@ -112,11 +110,16 @@ else:
           icon="✅",
       )
     else:
+      # Si entra de forma manual, mostramos el selectbox normal
       hoja_seleccionada = st.selectbox(
-          "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
+          "Seleccione la Hoja / Jornada Autorizada:",
+          options=["Seleccione una jornada..."] + h_autorizadas,
       )
 
-    if hoja_seleccionada:
+    if (
+        hoja_seleccionada
+        and hoja_seleccionada != "Seleccione una jornada..."
+    ):
       try:
         worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
         todos_los_datos = worksheet_activa.get_all_values()
@@ -180,7 +183,7 @@ else:
             ]
 
             seleccion_paciente = st.selectbox(
-                "Seleccione del listado de coindidencias:",
+                "Seleccione del listado de coincidencias:",
                 options=opciones_busqueda,
                 format_func=lambda x: x.split("||")[0],
             )
@@ -321,9 +324,9 @@ else:
                       st.session_state.lote_influenza_memoria = (
                           lote_inf_input.upper()
                       )
-                    if lote_cov_input:
+                    if lote_covid_input:
                       st.session_state.lote_covid_memoria = (
-                          lote_cov_input.upper()
+                          lote_covid_input.upper()
                       )
 
                     f_actual = fila_idx
