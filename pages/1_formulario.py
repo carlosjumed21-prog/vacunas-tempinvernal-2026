@@ -503,6 +503,15 @@ digitos_faltantes = st.text_input(
     key="input_digitos",
 )
 
+# --- IMAGEN DE AYUDA DE LA INE ---
+st.image(
+    "assets/INE.png",
+    caption=(
+        "Ubicación de la Homoclave y Dígito Verificador en su credencial INE"
+    ),
+    width=350,
+)
+
 curp_algoritmica = generar_curp_algoritmica(
     paterno,
     materno,
@@ -637,7 +646,7 @@ tiene_comorb = any([
     discapacidades,
 ])
 
-grupo_sugerido = ""
+grupo_sugerido = "POR DESIGNAR"
 if fecha_nacimiento is not None:
   if 6 <= edad_total_meses <= 59:
     grupo_sugerido = "6 A 59 MESES"
@@ -659,12 +668,12 @@ if fecha_nacimiento is not None:
     grupo_sugerido = "POBLACIÓN GENERAL"
 
 st.markdown(
-    '<div class="section-title">7. Grupo Objetivo (Detectado'
-    " Automáticamente)</div>",
+    '<div class="section-title">7. Grupo Objetivo</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯 {grupo_sugerido}</div>', unsafe_allow_html=True
+    f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>',
+    unsafe_allow_html=True,
 )
 
 st.markdown("---")
