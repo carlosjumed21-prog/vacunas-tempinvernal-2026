@@ -1,7 +1,5 @@
 import streamlit as st
 
-# --- CONFIGURACIÓN UNIVERSAL DE ESTILOS Y OCULTACIÓN DE BARRA LATERAL ---
-
 
 def aplicar_configuracion_global(
     titulo_pagina="Sistema Censo Nominal", icono="💉"
@@ -21,22 +19,37 @@ def aplicar_configuracion_global(
       or params.get("vista", "").lower() == "operativo"
   )
 
-  # CSS estricto para ocultar la barra lateral y controles en accesos por enlace
-  css_sidebar = (
-      """
-        [data-testid="stSidebar"], [data-testid="collapsedControl"], section[data-testid="stSidebar"] {
-            display: none !important;
-            visibility: hidden !important;
-        }
-        .stApp { background-color: #fbf9f4; }
-    """
-      if es_enlace_personalizado
-      else """
-        .stApp { background-color: #fbf9f4; }
-    """
-  )
-
-  st.markdown(f"<style>{css_sidebar}</style>", unsafe_allow_html=True)
+  # CSS y JavaScript agresivo para eliminar y ocultar la barra lateral por completo
+  if es_enlace_personalizado:
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"] {display: none !important; width: 0px !important;}
+            [data-testid="collapsedControl"] {display: none !important;}
+            section[data-testid="stSidebar"] {display: none !important;}
+            .stApp {background-color: #fbf9f4;}
+        </style>
+        <script>
+            function ocultarSidebar() {
+                const sidebars = window.parent.document.querySelectorAll('[data-testid="stSidebar"]');
+                sidebars.forEach(el => el.remove());
+                const toggles = window.parent.document.querySelectorAll('[data-testid="collapsedControl"]');
+                toggles.forEach(el => el.remove());
+            }
+            setInterval(ocultarSidebar, 100);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+  else:
+    st.markdown(
+        """
+        <style>
+            .stApp {background-color: #fbf9f4;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # --- DICCIONARIO UNIVERSAL DE UNIDADES ISSSTE ---
