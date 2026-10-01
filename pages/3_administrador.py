@@ -377,8 +377,11 @@ else:
     fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
     resp_encoded = urllib.parse.quote(j_conf["responsable"])
 
-    link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
-    link_operativo = f"{base_url}2_consulta_censia?hoja={nombre_hoja_objetivo}"
+    js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+    link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+    link_operativo = (
+        f"{base_url}?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+    )
 
     titulo_seccion_qr = (
         f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
@@ -391,8 +394,8 @@ else:
     st.code(link_paciente, language="text")
 
     st.markdown(
-        "🔹 **Enlace Directo para el Personal Operativo (Evita errores de"
-        " selección de sede):**"
+        "🔹 **Enlace Directo para el Personal Operativo (Abre directo en la"
+        " hoja correspondiente):**"
     )
     st.code(link_operativo, language="text")
 
