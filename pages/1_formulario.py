@@ -503,14 +503,16 @@ digitos_faltantes = st.text_input(
     key="input_digitos",
 )
 
-# --- IMAGEN DE AYUDA DE LA INE ---
-st.image(
-    "assets/INE.png",
-    caption=(
-        "Ubicación de la Homoclave y Dígito Verificador en su credencial INE"
-    ),
-    width=350,
-)
+# --- IMAGEN DE AYUDA DE LA INE CENTRADA ---
+col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
+with col_img2:
+  st.image(
+      "assets/INE.png",
+      caption=(
+          "Ubicación de la Homoclave y Dígito Verificador en su credencial INE"
+      ),
+      use_container_width=True,
+  )
 
 curp_algoritmica = generar_curp_algoritmica(
     paterno,
