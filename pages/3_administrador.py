@@ -126,7 +126,7 @@ else:
       or jornada_sel == "Seleccione tipo..."
   ):
     st.warning(
-        "⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos"
+        "⚠️️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos"
         " para habilitar la configuración."
     )
   else:
@@ -383,7 +383,7 @@ else:
           unsafe_allow_html=True,
       )
 
-      # --- SECCIÓN 3: GENERADOR DE ENLACES Y QR (SE HABILITA ÚNICAMENTE TRAS LA AUTORIZACIÓN) ---
+      # --- SECCIÓN 3: GENERADOR DE ENLACES Y QR (SE HABILITA TRAS LA AUTORIZACIÓN) ---
       st.markdown(
           '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
           ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
@@ -403,6 +403,9 @@ else:
         js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
         link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
         link_operativo = f"{base_url}?vista=operativo&hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+        
+        # Enlace de prueba con simulación automática integrada
+        link_prueba_simulacion = link_paciente + "&test=true"
 
         titulo_seccion_qr = (
             f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
@@ -418,6 +421,9 @@ else:
 
         st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
         st.code(link_paciente, language="text")
+
+        st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
+        st.code(link_prueba_simulacion, language="text")
 
         st.markdown(
             "🔹 **Enlace Directo para el Personal Operativo (Abre directo en"
