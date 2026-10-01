@@ -76,12 +76,11 @@ else:
       unsafe_allow_html=True,
   )
 
-  # SECCIÓN 1 EN GRANDE Y VERDE INSTITUCIONAL
   st.markdown(
-      '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
-      " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
-      " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">1."
-      " Configuración de Operación y Unidad</div>",
+      '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+      ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+      ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">1.'
+      ' Configuración de Operación y Unidad</div>',
       unsafe_allow_html=True,
   )
 
@@ -146,11 +145,10 @@ else:
           step=1,
       )
 
-    # SECCIÓN 2 EN GRANDE Y VERDE INSTITUCIONAL
     st.markdown(
-        '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
-        " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
-        " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2."
+        '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+        ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+        ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2.'
         " Parámetros Independientes por Cédula / Brigada</div>",
         unsafe_allow_html=True,
     )
@@ -204,7 +202,8 @@ else:
       )
       for i in range(1, num_jornadas + 1):
         st.markdown(
-            f'<div class="card-simultanea"><h4 style="color: #1e5b4f; margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
+            f'<div class="card-simultanea"><h4 style="color: #1e5b4f;'
+            f' margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
             unsafe_allow_html=True,
         )
         resp_sim = st.text_input(
@@ -256,7 +255,6 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS (UBICADO ARRIBA) ---
     if st.button(
         "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
         use_container_width=True,
@@ -351,7 +349,6 @@ else:
             f" Editor. Detalle: {e}"
         )
 
-    # --- RECUADRO VERDE DE CONFIRMACIÓN PERMANENTE ---
     if (
         st.session_state.jornada_autorizada
         and st.session_state.hojas_creadas_recientes
@@ -382,11 +379,10 @@ else:
           unsafe_allow_html=True,
       )
 
-    # SECCIÓN 3 EN GRANDE Y VERDE INSTITUCIONAL
     st.markdown(
-        '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
-        " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
-        " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3."
+        '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+        ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+        ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3.'
         " Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>",
         unsafe_allow_html=True,
     )
