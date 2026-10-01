@@ -118,6 +118,9 @@ else:
   ):
     st.session_state.unidad_anterior = unidad_sel
     st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
+    st.session_state.jornada_autorizada = (
+        False  # Reinicia si cambia de unidad
+    )
     st.rerun()
 
   if (
@@ -256,7 +259,7 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS (UBICADO ARRIBA) ---
+    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
     if st.button(
         "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
         use_container_width=True,
@@ -382,74 +385,80 @@ else:
           unsafe_allow_html=True,
       )
 
-    # SECCIÓN 3: GENERADOR DE ENLACES Y QR (VISIBLE SIEMPRE DESPUÉS DE SELECCIONAR UNIDAD)
-    st.markdown(
-        '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
-        ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
-        ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3.'
-        " Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>",
-        unsafe_allow_html=True,
-    )
-
-    base_url = "https://medprev-vacunas-invernal.streamlit.app/"
-
-    for idx, j_conf in enumerate(config_jornadas_activas, start=1):
-      fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
-      nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
-      fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
-      resp_encoded = urllib.parse.quote(j_conf["responsable"])
-
-      js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
-      link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-      link_operativo = f"{base_url}?vista=operativo&hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
-
-      titulo_seccion_qr = (
-          f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
-          if j_conf["sufijo_hoja"]
-          else "🔗 Enlaces Operativos"
-      )
-
+      # --- SECCIÓN 3: GENERADOR DE ENLACES Y QR (SE HABILITA ÚNICAMENTE TRAS LA AUTORIZACIÓN) ---
       st.markdown(
-          f"<h4 style='color: #1e5b4f; margin-top:"
-          f" 1.2rem;'>{titulo_seccion_qr}</h4>",
+          '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+          ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+          ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3.'
+          " Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>",
           unsafe_allow_html=True,
       )
 
-      st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
-      st.code(link_paciente, language="text")
+      base_url = "https://medprev-vacunas-invernal.streamlit.app/"
 
-      st.markdown(
-          "🔹 **Enlace Directo para el Personal Operativo (Abre directo en la"
-          " hoja correspondiente):**"
+      for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+        fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+        nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
+        fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+        resp_encoded = urllib.parse.quote(j_conf["responsable"])
+
+        js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+        link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+        link_operativo = f"{base_url}?vista=operativo&hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+
+        titulo_seccion_qr = (
+            f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
+            if j_conf["sufijo_hoja"]
+            else "🔗 Enlaces Operativos"
+        )
+
+        st.markdown(
+            f"<h4 style='color: #1e5b4f; margin-top:"
+            f" 1.2rem;'>{titulo_seccion_qr}</h4>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
+        st.code(link_paciente, language="text")
+
+        st.markdown(
+            "🔹 **Enlace Directo para el Personal Operativo (Abre directo en"
+            " la hoja correspondiente):**"
+        )
+        st.code(link_operativo, language="text")
+
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(link_paciente)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        byte_im = buf.getvalue()
+
+        col_qr1, col_qr2 = st.columns([1, 2])
+        with col_qr1:
+          st.image(
+              byte_im,
+              caption=f"QR de Registro {j_conf['sufijo_hoja']}",
+              width=180,
+          )
+        with col_qr2:
+          st.markdown("<br>", unsafe_allow_html=True)
+          st.download_button(
+              label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
+              data=byte_im,
+              file_name=(
+                  f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
+              ),
+              mime="image/png",
+              key=f"dl_qr_{idx}",
+              use_container_width=True,
+          )
+        st.markdown("---")
+    else:
+      st.info(
+          "ℹ️ Configure los parámetros y presione el botón 'Autorizar"
+          " Jornada(s) y Generar Hoja(s) en Google Sheets' para habilitar y"
+          " visualizar los enlaces y códigos QR."
       )
-      st.code(link_operativo, language="text")
-
-      qr = qrcode.QRCode(version=1, box_size=10, border=4)
-      qr.add_data(link_paciente)
-      qr.make(fit=True)
-      img = qr.make_image(fill_color="#611232", back_color="#ffffff")
-
-      buf = io.BytesIO()
-      img.save(buf, format="PNG")
-      byte_im = buf.getvalue()
-
-      col_qr1, col_qr2 = st.columns([1, 2])
-      with col_qr1:
-        st.image(
-            byte_im,
-            caption=f"QR de Registro {j_conf['sufijo_hoja']}",
-            width=180,
-        )
-      with col_qr2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
-            data=byte_im,
-            file_name=(
-                f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
-            ),
-            mime="image/png",
-            key=f"dl_qr_{idx}",
-            use_container_width=True,
-        )
-      st.markdown("---")
