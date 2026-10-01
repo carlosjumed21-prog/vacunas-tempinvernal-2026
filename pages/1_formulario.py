@@ -315,6 +315,12 @@ def mostrar_modal_comprobante():
 if st.session_state.ultimo_paciente_registrado is not None:
   mostrar_modal_comprobante()
 
+# --- REINTEGRO DE LA IMAGEN INE.png EN EL ENCABEZADO ---
+try:
+  st.image("INE.png", width=120)
+except:
+  pass
+
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
     unsafe_allow_html=True,
@@ -325,7 +331,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (RECUPERADO Y ACTIVO CON ?test=true O ADMIN) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS (ACTIVO CON ?test=true O ADMIN) ---
 if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
@@ -680,7 +686,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN EXACTA DE DISEÑO (BORDES, CELDAS COMBINADAS B-AM Y ALTURA DE FILAS) ---
+      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA EXACTA DE 55 PÍXELES ---
       try:
         body = {
             "requests": [
@@ -703,7 +709,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         "pasteType": "PASTE_NORMAL",
                     }
                 },
-                # Igualar la altura exacta de la fila modelo 13 y 14 a las filas nuevas
+                # Forzar la altura exacta de 55 píxeles tal como en tu plantilla
                 {
                     "updateDimensionProperties": {
                         "range": {
@@ -712,11 +718,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                             "startIndex": f_actual - 1,
                             "endIndex": f_siguiente,
                         },
-                        "properties": {
-                            "pixelSize": (
-                                33
-                            ),  # Ajusta la altura estándar institucional de las filas de pacientes
-                        },
+                        "properties": {"pixelSize": 55},
                         "fields": "pixelSize",
                     }
                 },
