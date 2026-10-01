@@ -239,31 +239,34 @@ def mostrar_modal_comprobante():
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA EN PRIMERA CAPA (FONDO) */
+            /* MARCA DE AGUA EN MOSAICO DIAGONAL ESCALONADO (ESTILO WATERMARK) */
             .watermark-overlay {{
                 position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                transform: rotate(-25deg);
                 display: flex;
                 flex-direction: column;
-                justify-content: space-evenly;
+                justify-content: space-around;
                 align-items: center;
                 pointer-events: none;
                 z-index: 0;
                 overflow: hidden;
             }}
-            .watermark-line {{
-                font-size: 0.82rem;
-                font-weight: 900;
-                color: rgba(97, 18, 50, 0.07);
-                text-transform: uppercase;
-                letter-spacing: 1.5px;
-                transform: rotate(-25deg);
+            .watermark-row {{
+                display: flex;
+                gap: 30px;
                 white-space: nowrap;
-                width: 130%;
-                text-align: center;
+                font-size: 0.85rem;
+                font-weight: 900;
+                color: rgba(97, 18, 50, 0.08);
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }}
+            .watermark-row:nth-child(even) {{
+                transform: translateX(-40px);
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -275,11 +278,31 @@ def mostrar_modal_comprobante():
         <body>
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
-                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
-                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
-                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
-                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
-                    <div class="watermark-line">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <p class="info-text"><b>Unidad:</b> {unidad}</p>
