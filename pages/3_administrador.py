@@ -399,7 +399,13 @@ else:
           if j_conf["sufijo_hoja"]
           else "🔗 Enlaces Operativos"
       )
-      st.markdown(f"**{titulo_seccion_qr}**")
+
+      # Subtítulos con el color verde institucional original (#1e5b4f)
+      st.markdown(
+          f"<h4 style='color: #1e5b4f; margin-top:"
+          f" 1rem;'>{titulo_seccion_qr}</h4>",
+          unsafe_allow_html=True,
+      )
 
       st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
       st.code(link_paciente, language="text")
