@@ -324,7 +324,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS COMPLETOS (EXCLUSIVO PARA ADMINISTRADOR) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS (EXCLUSIVO PARA ADMINISTRADOR) ---
 if st.session_state.get("autenticado_admin", False):
   with st.container():
     st.markdown(
