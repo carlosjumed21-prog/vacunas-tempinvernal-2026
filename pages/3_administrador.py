@@ -17,9 +17,8 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        /* Barra lateral habilitada y estilizada con tono guinda institucional */
-        [data-testid="stSidebar"] { background-color: #611232 !important; }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
+        /* Ocultar barra lateral por completo */
+        [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
@@ -30,12 +29,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BARRA LATERAL PARA NAVEGACIÓN ---
-with st.sidebar:
-  st.markdown("### 🧭 Menú de Navegación")
+# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL (EN LA PARTE SUPERIOR) ---
+col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+with col_nav1:
   if st.button("🏠 Volver al Menú Principal", use_container_width=True):
     st.switch_page("app.py")
-  st.markdown("---")
+
+st.markdown("---")
 
 # Control de sesión para autenticación
 if "autenticado_admin" not in st.session_state:
@@ -357,27 +357,42 @@ else:
 
   st.markdown(
       '<div class="section-title">3. Generador de Enlaces y Códigos QR'
-      " (Simultáneos)</div>",
+      " (Públicos y Operativos)</div>",
       unsafe_allow_html=True,
   )
 
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
 
   for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+    fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+    nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
     fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
     resp_encoded = urllib.parse.quote(j_conf["responsable"])
-    link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
+
+    # 1. Enlace para pacientes (Registro QR)
+    link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
+
+    # 2. Enlace personalizado directo para el Operativo (CENSIA / Aplicación bloqueada a esta hoja)
+    link_operativo = f"{base_url}2_consulta_censia?hoja={nombre_hoja_objetivo}"
 
     titulo_seccion_qr = (
-        f"🔗 Enlace y QR para Cédula / Brigada {j_conf['sufijo_hoja']}"
+        f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
         if j_conf["sufijo_hoja"]
-        else "🔗 Enlace y QR Operativo"
+        else "🔗 Enlaces Operativos"
     )
     st.markdown(f"**{titulo_seccion_qr}**")
-    st.code(link_generado, language="text")
+
+    st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
+    st.code(link_paciente, language="text")
+
+    st.markdown(
+        "🔹 **Enlace Directo para el Personal Operativo (Evita errores de"
+        " selección de sede):**"
+    )
+    st.code(link_operativo, language="text")
 
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(link_generado)
+    qr.add_data(link_paciente)
     qr.make(fit=True)
     img = qr.make_image(fill_color="#611232", back_color="#ffffff")
 
@@ -389,13 +404,13 @@ else:
     with col_qr1:
       st.image(
           byte_im,
-          caption=f"QR Institucional {j_conf['sufijo_hoja']}",
+          caption=f"QR de Registro {j_conf['sufijo_hoja']}",
           width=180,
       )
     with col_qr2:
       st.markdown("<br>", unsafe_allow_html=True)
       st.download_button(
-          label=f"📥 Descargar QR PNG ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
+          label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
           data=byte_im,
           file_name=(
               f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
