@@ -2,35 +2,19 @@ import datetime
 import io
 import json
 import urllib.parse
+from config import (
+    GOOGLE_SCOPES,
+    GOOGLE_SHEET_ID,
+    UNIDADES_ISSSTE,
+    aplicar_configuracion_global,
+)
 from google.oauth2 import service_account
 import gspread
 import qrcode
 import streamlit as st
 
-st.set_page_config(
-    page_title="Panel de Administración - Censo Nominal",
-    page_icon="⚙️",
-    layout="centered",
-)
+aplicar_configuracion_global("Panel de Administración - Censo Nominal", "⚙️")
 
-st.markdown(
-    """
-    <style>
-        .stApp { background-color: #fbf9f4; }
-        /* Ocultar barra lateral por completo */
-        [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        .card-simultanea { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 8px; margin-bottom: 20px; color: #161a1d; }
-        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# --- BOTONES DE NAVEGACIÓN SUPERIORES INVERTIDOS ---
 col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
   if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
@@ -44,10 +28,8 @@ with col_nav2:
 
 st.markdown("---")
 
-# Control de sesión para autenticación
 if "autenticado_admin" not in st.session_state:
   st.session_state.autenticado_admin = False
-
 if "unidad_anterior" not in st.session_state:
   st.session_state.unidad_anterior = ""
 if "config_direccion_base" not in st.session_state:
@@ -94,123 +76,6 @@ else:
       unsafe_allow_html=True,
   )
 
-  # Catálogo oficial completo de las 16 unidades del ISSSTE con opción vacía inicial
-  unidades_issste_data = {
-      "Seleccione una unidad médica...": {"sigla": "", "dir": ""},
-      "20 DE NOVIEMBRE": {
-          "sigla": "20N",
-          "dir": (
-              "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100"
-              " Ciudad de México, CDMX"
-          ),
-      },
-      "CHURUBUSCO": {
-          "sigla": "CHU",
-          "dir": (
-              "Calzada de Tlalpan 4430, Toriello Guerra, Tlalpan, 14050 Ciudad"
-              " de México, CDMX"
-          ),
-      },
-      "CLIDDA": {
-          "sigla": "CLI",
-          "dir": (
-              "San Fernando 15, Toriello Guerra, Tlalpan, 14050 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "COYOACAN": {
-          "sigla": "COY",
-          "dir": (
-              "Avenida Cuauhtémoc 330, Del Carmen, Coyoacán, 04100 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "DEL VALLE": {
-          "sigla": "DVA",
-          "dir": (
-              "Cacho 35, Del Valle Norte, Benito Juárez, 03103 Ciudad de México,"
-              " CDMX"
-          ),
-      },
-      "DIVISION DEL NORTE": {
-          "sigla": "DVN",
-          "dir": (
-              "Avenida División del Norte 3233, Xoco, Benito Juárez, 03330"
-              " Ciudad de México, CDMX"
-          ),
-      },
-      "DR. DARIO FERNANDEZ FIERRO": {
-          "sigla": "DFF",
-          "dir": (
-              "Avenida Revolución 1182, Tlacopac, Álvaro Obregón, 01049 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "DR. IGNACIO CHAVEZ": {
-          "sigla": "ICH",
-          "dir": (
-              "Eje 1 Poniente Av. Cuauhtémoc s/n, Doctores, Cuauhtémoc, 06720"
-              " Ciudad de México, CDMX"
-          ),
-      },
-      "ERMITA": {
-          "sigla": "ERM",
-          "dir": (
-              "Ermita Iztapalapa 67, Ermita, Benito Juárez, 03590 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "FUENTES BROTANTES": {
-          "sigla": "FBR",
-          "dir": (
-              "Fuentes Brotantes s/n, Fuentes Brotantes, Tlalpan, 14410 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": {
-          "sigla": "MPM",
-          "dir": (
-              "Avenida Tláhuac s/n, San Lorenzo Tezonco, Iztapalapa, 13266 Ciudad"
-              " de México, CDMX"
-          ),
-      },
-      "MILPA ALTA": {
-          "sigla": "MIL",
-          "dir": (
-              "Prolongación Matamoros s/n, Villa Milpa Alta, Milpa Alta, 12000"
-              " Ciudad de México, CDMX"
-          ),
-      },
-      "NARVARTE": {
-          "sigla": "NAR",
-          "dir": (
-              "Avenida Cuauhtémoc 625, Narvarte Poniente, Benito Juárez, 03020"
-              " Ciudad de México, CDMX"
-          ),
-      },
-      "TLALPAN": {
-          "sigla": "TLA",
-          "dir": (
-              "Calzada de Tlalpan 4800, Toriello Guerra, Tlalpan, 14050 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-      "VILLA ALVARO OBREGON": {
-          "sigla": "VAO",
-          "dir": (
-              "Calle 10 s/n, Tolteca, Álvaro Obregón, 01150 Ciudad de México,"
-              " CDMX"
-          ),
-      },
-      "XOCHIMILCO": {
-          "sigla": "XOC",
-          "dir": (
-              "Providencia s/n, Barrio San Marcos, Xochimilco, 16050 Ciudad de"
-              " México, CDMX"
-          ),
-      },
-  }
-
   st.markdown(
       '<div class="section-title">1. Configuración de Operación y'
       " Unidad</div>",
@@ -220,11 +85,11 @@ else:
   col_c1, col_c2 = st.columns(2)
   with col_c1:
     unidad_sel = st.selectbox(
-        "Unidad Médica ISSSTE:", options=list(unidades_issste_data.keys())
+        "Unidad Médica ISSSTE:", options=list(UNIDADES_ISSSTE.keys())
     )
     siglas_unidad = (
-        unidades_issste_data[unidad_sel]["sigla"]
-        if unidad_sel in unidades_issste_data
+        UNIDADES_ISSSTE[unidad_sel]["sigla"]
+        if unidad_sel in UNIDADES_ISSSTE
         else ""
     )
 
@@ -234,23 +99,33 @@ else:
         options=["Seleccione tipo...", "Intramuros I", "Extramuros E"],
     )
     tipo_jornada_letra = (
-        "I" if "Intramuros" in jornada_sel else ("E" if "Extramuros" in jornada_sel else "")
+        "I"
+        if "Intramuros" in jornada_sel
+        else ("E" if "Extramuros" in jornada_sel else "")
     )
     tipo_jornada_texto = (
-        "INTRA" if tipo_jornada_letra == "I" else ("EXTRA" if tipo_jornada_letra == "E" else "")
+        "INTRA"
+        if tipo_jornada_letra == "I"
+        else ("EXTRA" if tipo_jornada_letra == "E" else "")
     )
 
-  if unidad_sel != "Seleccione una unidad médica..." and st.session_state.unidad_anterior != unidad_sel:
+  if (
+      unidad_sel != "Seleccione una unidad médica..."
+      and st.session_state.unidad_anterior != unidad_sel
+  ):
     st.session_state.unidad_anterior = unidad_sel
-    st.session_state.config_direccion_base = unidades_issste_data[unidad_sel][
-        "dir"
-    ]
+    st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
     st.rerun()
 
-  if unidad_sel == "Seleccione una unidad médica..." or jornada_sel == "Seleccione tipo...":
-    st.warning("⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos para habilitar la configuración.")
+  if (
+      unidad_sel == "Seleccione una unidad médica..."
+      or jornada_sel == "Seleccione tipo..."
+  ):
+    st.warning(
+        "⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos"
+        " para habilitar la configuración."
+    )
   else:
-    # --- CONFIGURACIÓN DE JORNADAS SIMULTÁNEAS ---
     st.markdown("---")
     jornadas_simultaneas = st.toggle(
         "⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en"
@@ -389,8 +264,6 @@ else:
 
       js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
       link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-      
-      # Enlace operativo directo apuntando a la raíz app.py para evitar errores
       link_operativo = f"{base_url}?vista=operativo&hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
 
       titulo_seccion_qr = (
@@ -439,16 +312,12 @@ else:
         )
       st.markdown("---")
 
-    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
     if st.button(
         "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
         use_container_width=True,
     ):
       try:
-        scope = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive",
-        ]
+        scope = GOOGLE_SCOPES
 
         if "GOOGLE_CREDENTIALS" in st.secrets:
           raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -465,9 +334,7 @@ else:
             creds_dict, scopes=scope
         )
         client = gspread.authorize(creds)
-
-        sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
-        spreadsheet = client.open_by_key(sheet_id)
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         hojas_existentes = [h.title for h in spreadsheet.worksheets()]
         duplicadas_detectadas = []
@@ -539,8 +406,10 @@ else:
             f" Editor. Detalle: {e}"
         )
 
-    # --- RECUADRO VERDE DE CONFIRMACIÓN PERMANENTE ---
-    if st.session_state.jornada_autorizada and st.session_state.hojas_creadas_recientes:
+    if (
+        st.session_state.jornada_autorizada
+        and st.session_state.hojas_creadas_recientes
+    ):
       st.markdown("<br>", unsafe_allow_html=True)
 
       enlaces_html = ""
