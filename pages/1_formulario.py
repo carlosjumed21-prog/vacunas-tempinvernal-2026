@@ -239,14 +239,14 @@ def mostrar_modal_comprobante():
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA ESTILO SELLO DIAGONAL PROMINENTE */
+            /* MARCA DE AGUA ESTILO CONTORNO (OUTLINE TEXT) EN MOSAICO DIAGONAL */
             .watermark-overlay {{
                 position: absolute;
                 top: -50%;
                 left: -50%;
                 width: 200%;
                 height: 200%;
-                transform: rotate(-35deg);
+                transform: rotate(-25deg);
                 display: flex;
                 flex-direction: column;
                 justify-content: space-around;
@@ -257,17 +257,17 @@ def mostrar_modal_comprobante():
             }}
             .watermark-row {{
                 display: flex;
-                gap: 50px;
+                gap: 40px;
                 white-space: nowrap;
-                font-size: 1.4rem;
-                font-weight: 300;
-                color: rgba(97, 18, 50, 0.08);
+                font-size: 1.1rem;
+                font-weight: 900;
+                color: transparent;
+                -webkit-text-stroke: 1px rgba(97, 18, 50, 0.18);
                 text-transform: uppercase;
-                letter-spacing: 3px;
-                font-family: serif;
+                letter-spacing: 2px;
             }}
             .watermark-row:nth-child(even) {{
-                transform: translateX(-60px);
+                transform: translateX(-40px);
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -280,24 +280,28 @@ def mostrar_modal_comprobante():
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE</span>
-                        <span>ESTO NO ES UN COMPROBANTE</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE</span>
-                        <span>ESTO NO ES UN COMPROBANTE</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE</span>
-                        <span>ESTO NO ES UN COMPROBANTE</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE</span>
-                        <span>ESTO NO ES UN COMPROBANTE</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE</span>
-                        <span>ESTO NO ES UN COMPROBANTE</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
                     </div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
