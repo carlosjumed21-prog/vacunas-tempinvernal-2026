@@ -324,13 +324,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (EXCLUSIVO PARA ADMINISTRADOR) ---
-if st.session_state.get("autenticado_admin", False):
+# --- BOTÓN DE SIMULACIÓN DE DATOS (VISIBLE CON ?test=true EN LA URL) ---
+if params.get("test", "") == "true" or st.session_state.get(
+    "autenticado_admin", False
+):
   with st.container():
     st.markdown(
         """
         <div style="background-color: #fcf8e3; border: 2px dashed #f0ad4e; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-            <span style="font-weight: bold; color: #8a6d3b;">🛠️ Modo Administrador Detectado</span>
+            <span style="font-weight: bold; color: #8a6d3b;">🛠️ Modo de Pruebas / Simulación Activo</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -619,6 +621,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
+      # --- ESCRITURA DIRECTA SOBRE FILAS PRE-FORMATEADAS PARA CONSERVAR DISEÑO Y BORDES ---
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_asignado], [folio_asignado]],
@@ -676,17 +679,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-
-      # --- CREACIÓN AUTOMÁTICA DEL SIGUIENTE BLOQUE VACÍO EN GOOGLE SHEETS ---
-      try:
-        worksheet.insert_row(
-            [], f_siguiente + 1, value_input_option="USER_ENTERED"
-        )
-        worksheet.insert_row(
-            [], f_siguiente + 2, value_input_option="USER_ENTERED"
-        )
-      except:
-        pass
 
       st.session_state.ultimo_paciente_registrado = {
           "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
