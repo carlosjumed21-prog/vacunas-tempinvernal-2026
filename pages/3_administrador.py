@@ -17,32 +17,34 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { display: none !important; }
+        /* Barra lateral habilitada y estilizada con tono guinda institucional */
+        [data-testid="stSidebar"] { background-color: #611232 !important; }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        .card-simultanea { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .card-simultanea { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 8px; margin-bottom: 20px; color: #161a1d; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
+# --- BARRA LATERAL PARA NAVEGACIÓN ---
+with st.sidebar:
+  st.markdown("### 🧭 Menú de Navegación")
+  if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+    st.switch_page("app.py")
+  st.markdown("---")
+
 # Control de sesión para autenticación
 if "autenticado_admin" not in st.session_state:
   st.session_state.autenticado_admin = False
 
-# Variables de configuración global en session_state si no existen
-if "config_fecha_aplicacion" not in st.session_state:
-  st.session_state.config_fecha_aplicacion = datetime.date.today()
-if "config_hora_inicio" not in st.session_state:
-  st.session_state.config_hora_inicio = datetime.time(8, 0)
-if "config_hora_fin" not in st.session_state:
-  st.session_state.config_hora_fin = datetime.time(14, 0)
 if "unidad_anterior" not in st.session_state:
   st.session_state.unidad_anterior = ""
-if "config_direccion_oficial" not in st.session_state:
-  st.session_state.config_direccion_oficial = (
+if "config_direccion_base" not in st.session_state:
+  st.session_state.config_direccion_base = (
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
       " México, CDMX"
   )
@@ -91,10 +93,6 @@ else:
               "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100"
               " Ciudad de México, CDMX"
           ),
-          "mapa": (
-              "CMN 20 de Noviembre ISSSTE, Avenida Félix Cuevas, Ciudad de"
-              " México"
-          ),
       },
       "CHURUBUSCO": {
           "sigla": "CHU",
@@ -102,7 +100,6 @@ else:
               "Calzada de Tlalpan 4430, Toriello Guerra, Tlalpan, 14050 Ciudad"
               " de México, CDMX"
           ),
-          "mapa": "Hospital Regional Churubusco ISSSTE, Ciudad de México",
       },
       "CLIDDA": {
           "sigla": "CLI",
@@ -110,7 +107,6 @@ else:
               "San Fernando 15, Toriello Guerra, Tlalpan, 14050 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "CLIDDA ISSSTE San Fernando Tlalpan, Ciudad de México",
       },
       "COYOACAN": {
           "sigla": "COY",
@@ -118,7 +114,6 @@ else:
               "Avenida Cuauhtémoc 330, Del Carmen, Coyoacán, 04100 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Coyoacán ISSSTE, CDMX",
       },
       "DEL VALLE": {
           "sigla": "DVA",
@@ -126,7 +121,6 @@ else:
               "Cacho 35, Del Valle Norte, Benito Juárez, 03103 Ciudad de México,"
               " CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Del Valle ISSSTE, CDMX",
       },
       "DIVISION DEL NORTE": {
           "sigla": "DVN",
@@ -134,7 +128,6 @@ else:
               "Avenida División del Norte 3233, Xoco, Benito Juárez, 03330"
               " Ciudad de México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar División del Norte ISSSTE",
       },
       "DR. DARIO FERNANDEZ FIERRO": {
           "sigla": "DFF",
@@ -142,7 +135,6 @@ else:
               "Avenida Revolución 1182, Tlacopac, Álvaro Obregón, 01049 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "Clínica Hospital Dr. Darío Fernández Fierro ISSSTE",
       },
       "DR. IGNACIO CHAVEZ": {
           "sigla": "ICH",
@@ -150,7 +142,6 @@ else:
               "Eje 1 Poniente Av. Cuauhtémoc s/n, Doctores, Cuauhtémoc, 06720"
               " Ciudad de México, CDMX"
           ),
-          "mapa": "Clínica Hospital Dr. Ignacio Chávez ISSSTE",
       },
       "ERMITA": {
           "sigla": "ERM",
@@ -158,7 +149,6 @@ else:
               "Ermita Iztapalapa 67, Ermita, Benito Juárez, 03590 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "CMF Ermita ISSSTE, Ermita Iztapalapa, Ciudad de México",
       },
       "FUENTES BROTANTES": {
           "sigla": "FBR",
@@ -166,16 +156,12 @@ else:
               "Fuentes Brotantes s/n, Fuentes Brotantes, Tlalpan, 14410 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Fuentes Brotantes ISSSTE",
       },
       "HG DRA. MATILDE PETRA MONTOYA LAFRAGUA": {
           "sigla": "MPM",
           "dir": (
               "Avenida Tláhuac s/n, San Lorenzo Tezonco, Iztapalapa, 13266 Ciudad"
               " de México, CDMX"
-          ),
-          "mapa": (
-              "Hospital General Dra. Matilde Petra Montoya Lafragua ISSSTE"
           ),
       },
       "MILPA ALTA": {
@@ -184,7 +170,6 @@ else:
               "Prolongación Matamoros s/n, Villa Milpa Alta, Milpa Alta, 12000"
               " Ciudad de México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Milpa Alta ISSSTE",
       },
       "NARVARTE": {
           "sigla": "NAR",
@@ -192,7 +177,6 @@ else:
               "Avenida Cuauhtémoc 625, Narvarte Poniente, Benito Juárez, 03020"
               " Ciudad de México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Narvarte ISSSTE",
       },
       "TLALPAN": {
           "sigla": "TLA",
@@ -200,7 +184,6 @@ else:
               "Calzada de Tlalpan 4800, Toriello Guerra, Tlalpan, 14050 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Tlalpan ISSSTE",
       },
       "VILLA ALVARO OBREGON": {
           "sigla": "VAO",
@@ -208,7 +191,6 @@ else:
               "Calle 10 s/n, Tolteca, Álvaro Obregón, 01150 Ciudad de México,"
               " CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Villa Álvaro Obregón ISSSTE",
       },
       "XOCHIMILCO": {
           "sigla": "XOC",
@@ -216,7 +198,6 @@ else:
               "Providencia s/n, Barrio San Marcos, Xochimilco, 16050 Ciudad de"
               " México, CDMX"
           ),
-          "mapa": "Clínica de Medicina Familiar Xochimilco ISSSTE",
       },
   }
 
@@ -244,7 +225,7 @@ else:
 
   if st.session_state.unidad_anterior != unidad_sel:
     st.session_state.unidad_anterior = unidad_sel
-    st.session_state.config_direccion_oficial = unidades_issste_data[unidad_sel][
+    st.session_state.config_direccion_base = unidades_issste_data[unidad_sel][
         "dir"
     ]
     st.rerun()
@@ -268,42 +249,63 @@ else:
     )
 
   st.markdown(
-      '<div class="section-title">2. Responsable(s) de la(s) Jornada(s) y'
-      " Fechas</div>",
+      '<div class="section-title">2. Parámetros Independientes por Cédula /'
+      " Brigada</div>",
       unsafe_allow_html=True,
   )
 
-  fecha_admin = st.date_input(
-      "Fecha de Aplicación (Global para todas las simultáneas):",
-      value=st.session_state.config_fecha_aplicacion,
-      format="DD/MM/YYYY",
-  )
-  st.session_state.config_fecha_aplicacion = fecha_admin
-
-  # Diccionario o lista para almacenar los datos de cada jornada simultánea
   config_jornadas_activas = []
 
   if not jornadas_simultaneas:
+    st.markdown('<div class="card-simultanea">', unsafe_allow_html=True)
     resp_unico = st.text_input(
         "👤 Nombre del responsable de vacunación:",
         placeholder="Escriba el nombre completo...",
     )
+    col_f1, col_f2, col_f3 = st.columns(3)
+    with col_f1:
+      f_app = st.date_input(
+          "Fecha de Aplicación:",
+          value=datetime.date.today(),
+          format="DD/MM/YYYY",
+          key="f_app_unica",
+      )
+    with col_f2:
+      h_ini = st.time_input(
+          "Hora Inicio:", value=datetime.time(8, 0), key="h_ini_unica"
+      )
+    with col_f3:
+      h_fin = st.time_input(
+          "Hora Cierre:", value=datetime.time(14, 0), key="h_fin_unica"
+      )
+
+    dir_oficial = st.text_area(
+        "📍 Dirección Oficial de esta Jornada:",
+        value=st.session_state.config_direccion_base,
+        height=70,
+        key="dir_unica",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
     config_jornadas_activas.append({
         "sufijo_hoja": "",
         "sufijo_qr": "",
         "responsable": resp_unico.upper()
         if resp_unico
         else "PERSONAL AUTORIZADO",
+        "fecha": f_app,
+        "hora_inicio": h_ini,
+        "hora_fin": h_fin,
+        "direccion": dir_oficial,
     })
   else:
     st.info(
-        f"Configurando {num_jornadas} equipos simultáneos (Se generarán"
-        " sufijos JS1, JS2...)"
+        f"Configurando {num_jornadas} equipos simultáneos con fechas, horarios"
+        " y ubicaciones personalizadas:"
     )
     for i in range(1, num_jornadas + 1):
       st.markdown(
-          f'<div class="card-simultanea"><b>Cédula / Brigada Simultánea #'
-          f" {i}</b></div>",
+          f'<div class="card-simultanea"><h4 style="color: #1e5b4f; margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
           unsafe_allow_html=True,
       )
       resp_sim = st.text_input(
@@ -311,57 +313,63 @@ else:
           placeholder=f"Nombre del responsable {i}...",
           key=f"resp_sim_{i}",
       )
+
+      col_f1, col_f2, col_f3 = st.columns(3)
+      with col_f1:
+        f_app_sim = st.date_input(
+            f"Fecha de Aplicación #{i}:",
+            value=datetime.date.today(),
+            format="DD/MM/YYYY",
+            key=f"f_app_sim_{i}",
+        )
+      with col_f2:
+        h_ini_sim = st.time_input(
+            f"Hora Inicio #{i}:",
+            value=datetime.time(8, 0),
+            key=f"h_ini_sim_{i}",
+        )
+      with col_f3:
+        h_fin_sim = st.time_input(
+            f"Hora Cierre #{i}:",
+            value=datetime.time(14, 0),
+            key=f"h_fin_sim_{i}",
+        )
+
+      dir_sim = st.text_area(
+          f"📍 Dirección Oficial para Brigada #{i}:",
+          value=st.session_state.config_direccion_base,
+          height=70,
+          key=f"dir_sim_{i}",
+      )
+      st.markdown("</div>", unsafe_allow_html=True)
+
       config_jornadas_activas.append({
           "sufijo_hoja": f"_JS{i}",
           "sufijo_qr": f"_JS{i}",
-          "responsable": resp_sim.upper() if resp_sim else f"RESPONSABLE JS{i}",
+          "responsable": resp_sim.upper()
+          if resp_sim
+          else f"RESPONSABLE JS{i}",
+          "fecha": f_app_sim,
+          "hora_inicio": h_ini_sim,
+          "hora_fin": h_fin_sim,
+          "direccion": dir_sim,
       })
 
-  col_f2, col_f3 = st.columns(2)
-  with col_f2:
-    hora_ini = st.time_input(
-        "Hora de Inicio:", value=st.session_state.config_hora_inicio
-    )
-    st.session_state.config_hora_inicio = hora_ini
-  with col_f3:
-    hora_fin = st.time_input(
-        "Hora de Cierre:", value=st.session_state.config_hora_fin
-    )
-    st.session_state.config_hora_fin = hora_fin
-
   st.markdown(
-      '<div class="section-title">3. Ubicación y Mapa Interactivo</div>',
-      unsafe_allow_html=True,
-  )
-  consulta_mapa = unidades_issste_data[unidad_sel]["mapa"]
-  query_mapa = urllib.parse.quote(consulta_mapa)
-  url_embed_maps = f"https://www.google.com/maps?q={query_mapa}&output=embed"
-  st.components.v1.iframe(url_embed_maps, height=300)
-
-  st.markdown("<br>", unsafe_allow_html=True)
-  direccion_oficial_input = st.text_area(
-      "📍 Dirección Oficial Principal:",
-      value=st.session_state.config_direccion_oficial,
-      height=80,
-  )
-  st.session_state.config_direccion_oficial = direccion_oficial_input
-
-  st.markdown(
-      '<div class="section-title">4. Generador de Enlaces y Códigos QR'
+      '<div class="section-title">3. Generador de Enlaces y Códigos QR'
       " (Simultáneos)</div>",
       unsafe_allow_html=True,
   )
 
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
-  fecha_url_str = st.session_state.config_fecha_aplicacion.strftime("%Y-%m-%d")
 
-  # Iterar y mostrar enlaces/QRs para cada jornada configurada
   for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+    fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
     resp_encoded = urllib.parse.quote(j_conf["responsable"])
     link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
 
     titulo_seccion_qr = (
-        f"🔗 Enlace y QR para Jornada {j_conf['sufijo_hoja']}"
+        f"🔗 Enlace y QR para Cédula / Brigada {j_conf['sufijo_hoja']}"
         if j_conf["sufijo_hoja"]
         else "🔗 Enlace y QR Operativo"
     )
@@ -404,8 +412,6 @@ else:
       use_container_width=True,
   ):
     try:
-      fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
-
       scope = [
           "https://spreadsheets.google.com/feeds",
           "https://www.googleapis.com/auth/drive",
@@ -431,28 +437,28 @@ else:
       hojas_existentes = [h.title for h in spreadsheet.worksheets()]
       duplicadas_detectadas = []
 
-      # Verificar nombres de hojas que se intentan crear
       for j_conf in config_jornadas_activas:
+        fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
         nombre_prueba = (
-            f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str}"
+            f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
         )
         if nombre_prueba in hojas_existentes:
           duplicadas_detectadas.append(nombre_prueba)
 
-      # Validación de duplicados con alerta interactiva
       if duplicadas_detectadas:
         st.error(
             "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
             f" {', '.join(duplicadas_detectadas)}"
         )
         st.warning(
-            "Si continúa, podría sobrescribir o interferir con registros"
-            " existentes. Verifique los datos o cancele."
+            "Ya existe una jornada creada con esta misma nomenclatura y fecha."
+            " Verifique los datos o cambie la fecha/sufijo."
         )
       else:
         hojas_creadas_exito = []
         for j_conf in config_jornadas_activas:
-          nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str}"
+          fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+          nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
 
           plantilla = spreadsheet.worksheet("CENSO NOMINAL")
           nueva_hoja = spreadsheet.duplicate_sheet(
@@ -469,10 +475,7 @@ else:
 
           hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
 
-          # Inserción de metadatos institucionales
-          fecha_formato_oficial = (
-              st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y")
-          )
+          fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
 
           hoja_activa.update_acell("D6", "CDMX")
           hoja_activa.update_acell("M6", "ISSSTE")
