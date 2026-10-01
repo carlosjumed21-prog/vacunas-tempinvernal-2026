@@ -76,9 +76,12 @@ else:
       unsafe_allow_html=True,
   )
 
+  # SECCIÓN 1 EN GRANDE Y VERDE INSTITUCIONAL
   st.markdown(
-      '<div class="section-title">1. Configuración de Operación y'
-      " Unidad</div>",
+      '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
+      " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
+      " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">1."
+      " Configuración de Operación y Unidad</div>",
       unsafe_allow_html=True,
   )
 
@@ -143,9 +146,12 @@ else:
           step=1,
       )
 
+    # SECCIÓN 2 EN GRANDE Y VERDE INSTITUCIONAL
     st.markdown(
-        '<div class="section-title">2. Parámetros Independientes por Cédula /'
-        " Brigada</div>",
+        '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
+        " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
+        " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2."
+        " Parámetros Independientes por Cédula / Brigada</div>",
         unsafe_allow_html=True,
     )
 
@@ -376,9 +382,12 @@ else:
           unsafe_allow_html=True,
       )
 
+    # SECCIÓN 3 EN GRANDE Y VERDE INSTITUCIONAL
     st.markdown(
-        '<div class="section-title">3. Generador de Enlaces y Códigos QR'
-        " (Públicos y Operativos)</div>",
+        '<div style="font-size: 1.4rem !important; font-weight: 800 !important;'
+        " color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem;"
+        " border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3."
+        " Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>",
         unsafe_allow_html=True,
     )
 
@@ -400,10 +409,9 @@ else:
           else "🔗 Enlaces Operativos"
       )
 
-      # Subtítulos con el color verde institucional original (#1e5b4f)
       st.markdown(
           f"<h4 style='color: #1e5b4f; margin-top:"
-          f" 1rem;'>{titulo_seccion_qr}</h4>",
+          f" 1.2rem;'>{titulo_seccion_qr}</h4>",
           unsafe_allow_html=True,
       )
 
