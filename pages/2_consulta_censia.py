@@ -15,7 +15,6 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        /* Ocultar barra lateral por completo para mantener consistencia */
         [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
@@ -35,7 +34,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL EN LA PARTE SUPERIOR ---
+# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
 with col_nav1:
   if st.button("🏠 Volver al Menú Principal", use_container_width=True):
@@ -126,7 +125,7 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA DEL PARÁMETRO ENLACE OPERATIVO (?hoja_activa=...) ---
+    # --- LECTURA DEL PARÁMETRO DE ENLACE OPERATIVO (?hoja_activa=...) ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
@@ -167,7 +166,7 @@ else:
       )
       if not pacientes_cargados:
         st.info(
-            "La jornada seleccionada aún no cuenta com pacientes registrados en"
+            "La jornada seleccionada aún no cuenta con pacientes registrados en"
             " el censo."
         )
       else:
@@ -195,7 +194,7 @@ else:
 
           if not pacientes_filtrados:
             st.warning(
-                "No se encontraron pacientes que coincidan con la búsqueda."
+                "No se encontraron pacientes que coincidan com la búsqueda."
             )
           else:
             opciones_busqueda = [
