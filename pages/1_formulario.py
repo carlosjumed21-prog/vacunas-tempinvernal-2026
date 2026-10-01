@@ -238,29 +238,32 @@ def mostrar_modal_comprobante():
             .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; z-index: 2; position: relative; }}
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA EXTENDIDA EN TODO EL TICKET */
-            .watermark-container {{
+            /* MARCA DE AGUA EN PATRÓN DIAGONAL REPETIDO (MOSAICO) */
+            .watermark-overlay {{
                 position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                transform: rotate(-30deg);
                 display: flex;
-                align-items: center;
-                justify-content: center;
+                flex-direction: column;
+                justify-content: space-around;
+                align-content: space-around;
                 pointer-events: none;
                 z-index: 1;
             }}
-            .watermark {{
-                font-size: 1.35rem;
-                font-weight: 900;
-                color: rgba(97, 18, 50, 0.09);
-                text-transform: uppercase;
-                text-align: center;
-                transform: rotate(-28deg);
+            .watermark-row {{
+                display: flex;
                 white-space: nowrap;
-                width: 150%;
+                font-size: 0.9rem;
+                font-weight: 900;
+                color: rgba(97, 18, 50, 0.07);
+                text-transform: uppercase;
                 letter-spacing: 2px;
+            }}
+            .watermark-row span {{
+                margin-right: 25px;
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -271,8 +274,12 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark-container">
-                    <div class="watermark">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                <div class="watermark-overlay">
+                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
+                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
+                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
+                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
+                    <div class="watermark-row"><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span><span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span></div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <p class="info-text"><b>Unidad:</b> {unidad}</p>
