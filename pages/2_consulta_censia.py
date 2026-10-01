@@ -1,39 +1,16 @@
 import datetime
 import json
 import urllib.parse
+from config import (
+    GOOGLE_SCOPES,
+    GOOGLE_SHEET_ID,
+    aplicar_configuracion_global,
+)
 from google.oauth2 import service_account
 import gspread
 import streamlit as st
 
-st.set_page_config(
-    page_title="Guía CENSIA y Consulta Operativa",
-    page_icon="📋",
-    layout="centered",
-)
-
-st.markdown(
-    """
-    <style>
-        .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        .card-recomendacion { background-color: #ffffff; border-left: 6px solid #1e5b4f; padding: 18px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); font-size: 1.1rem !important; }
-        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
-        
-        div[data-baseweb="input"] {
-            background-color: #ffffff !important;
-            border: 2px solid #a57f2c !important;
-            border-radius: 8px !important;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
-        input[type="text"] { text-transform: uppercase !important; font-weight: 700 !important; color: #1e5b4f !important; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
@@ -86,10 +63,7 @@ else:
   )
 
   try:
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
+    scope = GOOGLE_SCOPES
     if "GOOGLE_CREDENTIALS" in st.secrets:
       raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
       creds_dict = (
@@ -105,8 +79,7 @@ else:
         creds_dict, scopes=scope
     )
     client = gspread.authorize(creds)
-    sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
-    spreadsheet = client.open_by_key(sheet_id)
+    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
     todas_las_hojas = spreadsheet.worksheets()
     h_autorizadas = [
@@ -128,12 +101,10 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA Y BLOQUEO ESTRICTO POR PARÁMETRO DE URL ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace and hoja_enlace in h_autorizadas:
-      # Bloqueo total: Se fija la hoja por enlace sin mostrar menú desplegable
       hoja_seleccionada = hoja_enlace
       st.success(
           f"🔒 Jornada asignada automáticamente por enlace institucional:"
@@ -141,7 +112,6 @@ else:
           icon="✅",
       )
     else:
-      # Si entra de forma manual, mostramos el selector normal
       hoja_seleccionada = st.selectbox(
           "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
       )
@@ -210,7 +180,7 @@ else:
             ]
 
             seleccion_paciente = st.selectbox(
-                "Seleccione del listado de coincidencias:",
+                "Seleccione del listado de coindidencias:",
                 options=opciones_busqueda,
                 format_func=lambda x: x.split("||")[0],
             )
