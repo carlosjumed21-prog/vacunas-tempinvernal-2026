@@ -10,7 +10,6 @@ def aplicar_configuracion_global(titulo_pagina="Sistema Censo Nominal", icono="�
     )
     
     params = st.query_params
-    # Detección universal: si la URL trae cualquier parámetro de enlace, ocultamos la barra lateral
     es_enlace_personalizado = len(params) > 0
 
     if es_enlace_personalizado:
