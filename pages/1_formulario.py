@@ -680,7 +680,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN EXACTA DE DISEÑO DESDE LA COLUMNA B HASTA LA AM (ÍNDICE 39) ---
+      # --- 2. CLONACIÓN EXACTA DE DISEÑO (BORDES, CELDAS COMBINADAS B-AM Y ALTURA DE FILAS) ---
       try:
         body = {
             "requests": [
@@ -691,9 +691,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                             "startRowIndex": 12,  # Fila 13 modelo
                             "endRowIndex": 14,  # Fila 14 modelo
                             "startColumnIndex": 1,  # Columna B
-                            "endColumnIndex": (
-                                39
-                            ),  # Columna AM (índice 39 para abarcar hasta AM)
+                            "endColumnIndex": 39,  # Columna AM (índice 39)
                         },
                         "destination": {
                             "sheetId": worksheet.id,
@@ -704,7 +702,24 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         },
                         "pasteType": "PASTE_NORMAL",
                     }
-                }
+                },
+                # Igualar la altura exacta de la fila modelo 13 y 14 a las filas nuevas
+                {
+                    "updateDimensionProperties": {
+                        "range": {
+                            "sheetId": worksheet.id,
+                            "dimension": "ROWS",
+                            "startIndex": f_actual - 1,
+                            "endIndex": f_siguiente,
+                        },
+                        "properties": {
+                            "pixelSize": (
+                                33
+                            ),  # Ajusta la altura estándar institucional de las filas de pacientes
+                        },
+                        "fields": "pixelSize",
+                    }
+                },
             ]
         }
         spreadsheet.batch_update(body)
