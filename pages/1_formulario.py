@@ -289,7 +289,6 @@ def mostrar_modal_comprobante():
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
     ):
       st.session_state.ultimo_paciente_registrado = None
-      # --- LIMPIEZA TOTAL DE TODOS LOS CAMPOS DE SESIÓN ---
       keys_a_limpiar = [
           "input_paterno",
           "input_materno",
@@ -326,7 +325,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (SE ACTIVA CON ?test=true EN LA URL O SI ES ADMIN) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS (RECUPERADO Y ACTIVO CON ?test=true O ADMIN) ---
 if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
@@ -681,6 +680,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
+      # --- 2. CLONACIÓN EXACTA DE DISEÑO DESDE LA COLUMNA B HASTA LA AM (ÍNDICE 39) ---
       try:
         body = {
             "requests": [
@@ -688,17 +688,19 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "copyPaste": {
                         "source": {
                             "sheetId": worksheet.id,
-                            "startRowIndex": 12,
-                            "endRowIndex": 14,
-                            "startColumnIndex": 1,
-                            "endColumnIndex": 15,
+                            "startRowIndex": 12,  # Fila 13 modelo
+                            "endRowIndex": 14,  # Fila 14 modelo
+                            "startColumnIndex": 1,  # Columna B
+                            "endColumnIndex": (
+                                39
+                            ),  # Columna AM (índice 39 para abarcar hasta AM)
                         },
                         "destination": {
                             "sheetId": worksheet.id,
                             "startRowIndex": f_actual - 1,
                             "endRowIndex": f_siguiente,
                             "startColumnIndex": 1,
-                            "endColumnIndex": 15,
+                            "endColumnIndex": 39,
                         },
                         "pasteType": "PASTE_NORMAL",
                     }
@@ -707,6 +709,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         }
         spreadsheet.batch_update(body)
 
+        # Re-escribir los datos principales para asegurar que persistan sobre el formato copiado
         worksheet.update(
             f"B{f_actual}:B{f_siguiente}",
             [[folio_asignado], [folio_asignado]],
@@ -717,7 +720,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         )
         worksheet.update_acell(f"E{f_actual}", nombres.upper())
         worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-      except:
+      except Exception as err_copia:
         pass
 
       st.session_state.ultimo_paciente_registrado = {
