@@ -215,7 +215,6 @@ def mostrar_modal_comprobante():
         "curp_con_nacimiento",
         p.get("curp_con_municipio", p.get("curp_con_entidad", "CURP")),
     )
-    ubicacion_mostrar = p.get("ubicacion", "Unidad Médica ISSSTE")
     html_comprobante_component = """
         <!DOCTYPE html>
         <html>
@@ -224,9 +223,25 @@ def mostrar_modal_comprobante():
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ background-color: #ffffff; border: 3px solid #1e5b4f; padding: 12px; border-radius: 10px; color: #161a1d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; }}
-            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; }}
-            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; }}
+            .card-comprobante {{ position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; padding: 12px; border-radius: 10px; color: #161a1d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; }}
+            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; z-index: 2; position: relative; }}
+            .info-text {{ margin: 3px 0; font-size: 0.8rem; z-index: 2; position: relative; }}
+            /* MARCA DE AGUA DIAGONAL */
+            .watermark {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-30deg);
+                font-size: 1.1rem;
+                font-weight: 900;
+                color: rgba(97, 18, 50, 0.08);
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 1;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }}
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -235,12 +250,12 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
+                <div class="watermark">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
-                <p style="margin: 3px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 3px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
-                <p style="margin: 3px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
-                <p style="margin: 3px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
-                <p style="margin: 3px 0; font-size: 0.8rem;"><b>Ubicación:</b> {ubicacion}</p>
+                <p class="info-text"><b>Unidad:</b> {unidad}</p>
+                <p class="info-text"><b>Paciente:</b> {nombre}</p>
+                <p class="info-text"><b>CURP:</b> {curp}</p>
+                <p class="info-text"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
             </div>
             <div class="btn-container">
@@ -253,7 +268,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\nUbicación: {ubicacion}\\n¡Presente este comprobante en el módulo!`;
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ Esto no es un comprobante de vacunación.\\n¡Presente este folio en el módulo!`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -283,11 +298,10 @@ def mostrar_modal_comprobante():
         nombre=p["nombre_completo"],
         curp=curp_mostrar,
         grupo=p["grupo_objetivo"],
-        ubicacion=ubicacion_mostrar,
         folio=p["folio"],
     )
 
-    components.html(html_comprobante_component, height=295)
+    components.html(html_comprobante_component, height=270)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -634,17 +648,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # --- OBTENER LA UBICACIÓN DE LA HOJA (CELDA D8 O DIRECCIÓN BASE) ---
-      ubicacion_jornada = UNIDADES_ISSSTE.get(nombre_base_unidad, {}).get(
-          "dir", "Unidad Médica ISSSTE"
-      )
-      try:
-        val_d8 = worksheet.acell("D8").value
-        if val_d8 and val_d8.strip() != "":
-          ubicacion_jornada = val_d8.strip()
-      except:
-        pass
-
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
       for idx_val in range(12, len(columna_c_vals), 2):
@@ -722,7 +725,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA DE 55 PX ---
+      # --- CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA DE 55 PX ---
       try:
         body = {
             "requests": [
@@ -738,7 +741,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         "destination": {
                             "sheetId": worksheet.id,
                             "startRowIndex": f_actual - 1,
-                            "endRowIndex": f_siguiente,
+                            "endIndex": f_siguiente,
                             "startColumnIndex": 1,
                             "endColumnIndex": 39,
                         },
@@ -778,7 +781,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
           "curp_con_nacimiento": curp_con_nacimiento,
           "grupo_objetivo": grupo_sugerido,
-          "ubicacion": ubicacion_jornada,
           "folio": folio_asignado,
       }
       st.rerun()
