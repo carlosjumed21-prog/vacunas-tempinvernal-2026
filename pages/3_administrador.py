@@ -17,11 +17,11 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { background-color: #611232 !important; }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
+        [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        .card-simultanea { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
     </style>
 """,
@@ -46,14 +46,8 @@ if "config_direccion_oficial" not in st.session_state:
       "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
       " México, CDMX"
   )
-if "config_responsable" not in st.session_state:
-  st.session_state.config_responsable = ""
 if "jornada_autorizada" not in st.session_state:
   st.session_state.jornada_autorizada = False
-if "nombre_hoja_destino" not in st.session_state:
-  st.session_state.nombre_hoja_destino = ""
-if "gid_hoja_destino" not in st.session_state:
-  st.session_state.gid_hoja_destino = ""
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -255,27 +249,75 @@ else:
     ]
     st.rerun()
 
+  # --- CONFIGURACIÓN DE JORNADAS SIMULTÁNEAS ---
+  st.markdown("---")
+  jornadas_simultaneas = st.toggle(
+      "⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en"
+      " operación)",
+      value=False,
+  )
+
+  num_jornadas = 1
+  if jornadas_simultaneas:
+    num_jornadas = st.number_input(
+        "Número de jornadas simultáneas a habilitar:",
+        min_value=2,
+        max_value=5,
+        value=2,
+        step=1,
+    )
+
   st.markdown(
-      '<div class="section-title">2. Responsable de la Jornada y'
+      '<div class="section-title">2. Responsable(s) de la(s) Jornada(s) y'
       " Fechas</div>",
       unsafe_allow_html=True,
   )
 
-  responsable_input = st.text_input(
-      "👤 Nombre del responsable de vacunación:",
-      value=st.session_state.config_responsable,
-      placeholder="Escriba el nombre completo...",
+  fecha_admin = st.date_input(
+      "Fecha de Aplicación (Global para todas las simultáneas):",
+      value=st.session_state.config_fecha_aplicacion,
+      format="DD/MM/YYYY",
   )
-  st.session_state.config_responsable = responsable_input.upper()
+  st.session_state.config_fecha_aplicacion = fecha_admin
 
-  col_f1, col_f2, col_f3 = st.columns(3)
-  with col_f1:
-    fecha_admin = st.date_input(
-        "Fecha de Aplicación:",
-        value=st.session_state.config_fecha_aplicacion,
-        format="DD/MM/YYYY",
+  # Diccionario o lista para almacenar los datos de cada jornada simultánea
+  config_jornadas_activas = []
+
+  if not jornadas_simultaneas:
+    resp_unico = st.text_input(
+        "👤 Nombre del responsable de vacunación:",
+        placeholder="Escriba el nombre completo...",
     )
-    st.session_state.config_fecha_aplicacion = fecha_admin
+    config_jornadas_activas.append({
+        "sufijo_hoja": "",
+        "sufijo_qr": "",
+        "responsable": resp_unico.upper()
+        if resp_unico
+        else "PERSONAL AUTORIZADO",
+    })
+  else:
+    st.info(
+        f"Configurando {num_jornadas} equipos simultáneos (Se generarán"
+        " sufijos JS1, JS2...)"
+    )
+    for i in range(1, num_jornadas + 1):
+      st.markdown(
+          f'<div class="card-simultanea"><b>Cédula / Brigada Simultánea #'
+          f" {i}</b></div>",
+          unsafe_allow_html=True,
+      )
+      resp_sim = st.text_input(
+          f"👤 Responsable de Brigada #{i}:",
+          placeholder=f"Nombre del responsable {i}...",
+          key=f"resp_sim_{i}",
+      )
+      config_jornadas_activas.append({
+          "sufijo_hoja": f"_JS{i}",
+          "sufijo_qr": f"_JS{i}",
+          "responsable": resp_sim.upper() if resp_sim else f"RESPONSABLE JS{i}",
+      })
+
+  col_f2, col_f3 = st.columns(2)
   with col_f2:
     hora_ini = st.time_input(
         "Hora de Inicio:", value=st.session_state.config_hora_inicio
@@ -305,67 +347,64 @@ else:
   st.session_state.config_direccion_oficial = direccion_oficial_input
 
   st.markdown(
-      '<div class="section-title">4. Generador de Enlaces y Códigos QR</div>',
+      '<div class="section-title">4. Generador de Enlaces y Códigos QR'
+      " (Simultáneos)</div>",
       unsafe_allow_html=True,
   )
 
   base_url = "https://medprev-vacunas-invernal.streamlit.app/"
   fecha_url_str = st.session_state.config_fecha_aplicacion.strftime("%Y-%m-%d")
-  resp_encoded = urllib.parse.quote(st.session_state.config_responsable)
-  link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}"
 
-  st.info(
-      "Enlace operativo listo para compartir con brigadas o imprimir en QR:"
-  )
-  st.code(link_generado, language="text")
+  # Iterar y mostrar enlaces/QRs para cada jornada configurada
+  for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+    resp_encoded = urllib.parse.quote(j_conf["responsable"])
+    link_generado = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
 
-  st.markdown(
-      f"""
-    <div style="text-align: center; margin-bottom: 20px;">
-        <a href="{link_generado}" target="_blank" style="background-color: #611232; color: white; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1.1rem;">
-            🚀 Ir al Formulario de Registro (Modo Operativo)
-        </a>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  qr = qrcode.QRCode(version=1, box_size=10, border=4)
-  qr.add_data(link_generado)
-  qr.make(fit=True)
-  img = qr.make_image(fill_color="#611232", back_color="#ffffff")
-
-  buf = io.BytesIO()
-  img.save(buf, format="PNG")
-  byte_im = buf.getvalue()
-
-  col_qr1, col_qr2 = st.columns([1, 2])
-  with col_qr1:
-    st.image(
-        byte_im, caption="Código QR (Guinda Institucional)", width=200
+    titulo_seccion_qr = (
+        f"🔗 Enlace y QR para Jornada {j_conf['sufijo_hoja']}"
+        if j_conf["sufijo_hoja"]
+        else "🔗 Enlace y QR Operativo"
     )
-  with col_qr2:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.download_button(
-        label="📥 Descargar Imagen QR (PNG)",
-        data=byte_im,
-        file_name=f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}.png",
-        mime="image/png",
-        use_container_width=True,
-    )
+    st.markdown(f"**{titulo_seccion_qr}**")
+    st.code(link_generado, language="text")
 
-  st.markdown("<br>", unsafe_allow_html=True)
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(link_generado)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    byte_im = buf.getvalue()
+
+    col_qr1, col_qr2 = st.columns([1, 2])
+    with col_qr1:
+      st.image(
+          byte_im,
+          caption=f"QR Institucional {j_conf['sufijo_hoja']}",
+          width=180,
+      )
+    with col_qr2:
+      st.markdown("<br>", unsafe_allow_html=True)
+      st.download_button(
+          label=f"📥 Descargar QR PNG ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
+          data=byte_im,
+          file_name=(
+              f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
+          ),
+          mime="image/png",
+          key=f"dl_qr_{idx}",
+          use_container_width=True,
+      )
+    st.markdown("---")
 
   # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
   if st.button(
-      "🚀 Autorizar Jornada y Generar Hoja en Google Sheets",
+      "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
       use_container_width=True,
   ):
     try:
       fecha_str = st.session_state.config_fecha_aplicacion.strftime("%d%m%y")
-      nombre_nueva_hoja = (
-          f"{siglas_unidad}_{tipo_jornada_texto}_{fecha_str}"
-      )
 
       scope = [
           "https://spreadsheets.google.com/feeds",
@@ -390,54 +429,68 @@ else:
       spreadsheet = client.open_by_key(sheet_id)
 
       hojas_existentes = [h.title for h in spreadsheet.worksheets()]
-      if nombre_nueva_hoja not in hojas_existentes:
-        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
-        nueva_hoja = spreadsheet.duplicate_sheet(
-            plantilla.id, new_sheet_name=nombre_nueva_hoja
+      duplicadas_detectadas = []
+
+      # Verificar nombres de hojas que se intentan crear
+      for j_conf in config_jornadas_activas:
+        nombre_prueba = (
+            f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str}"
         )
-        spreadsheet.reorder_worksheets(
-            [plantilla, nueva_hoja]
-            + [
-                h
-                for h in spreadsheet.worksheets()
-                if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
-            ]
+        if nombre_prueba in hojas_existentes:
+          duplicadas_detectadas.append(nombre_prueba)
+
+      # Validación de duplicados con alerta interactiva
+      if duplicadas_detectadas:
+        st.error(
+            "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
+            f" {', '.join(duplicadas_detectadas)}"
         )
+        st.warning(
+            "Si continúa, podría sobrescribir o interferir con registros"
+            " existentes. Verifique los datos o cancele."
+        )
+      else:
+        hojas_creadas_exito = []
+        for j_conf in config_jornadas_activas:
+          nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str}"
 
-      hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+          plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+          nueva_hoja = spreadsheet.duplicate_sheet(
+              plantilla.id, new_sheet_name=nombre_nueva_hoja
+          )
+          spreadsheet.reorder_worksheets(
+              [plantilla, nueva_hoja]
+              + [
+                  h
+                  for h in spreadsheet.worksheets()
+                  if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
+              ]
+          )
 
-      # --- INSERCIÓN DE METADATOS OFICIALES USANDO update_acell ---
-      fecha_formato_oficial = (
-          st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y")
-      )
-      responsable_oficial = (
-          st.session_state.config_responsable
-          if st.session_state.config_responsable
-          else "PERSONAL AUTORIZADO"
-      )
+          hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
 
-      hoja_activa.update_acell("D6", "CDMX")
-      hoja_activa.update_acell("M6", "ISSSTE")
-      hoja_activa.update_acell("U6", "Delegación Sur")
-      hoja_activa.update_acell("AC6", "CDMX")
-      hoja_activa.update_acell("D7", "CDMX")
-      hoja_activa.update_acell("D8", unidad_sel)
-      hoja_activa.update_acell("AC8", fecha_formato_oficial)
-      hoja_activa.update_acell("E9", responsable_oficial)
+          # Inserción de metadatos institucionales
+          fecha_formato_oficial = (
+              st.session_state.config_fecha_aplicacion.strftime("%d/%m/%Y")
+          )
 
-      gid_activo = hoja_activa.id
+          hoja_activa.update_acell("D6", "CDMX")
+          hoja_activa.update_acell("M6", "ISSSTE")
+          hoja_activa.update_acell("U6", "Delegación Sur")
+          hoja_activa.update_acell("AC6", "CDMX")
+          hoja_activa.update_acell("D7", "CDMX")
+          hoja_activa.update_acell("D8", unidad_sel)
+          hoja_activa.update_acell("AC8", fecha_formato_oficial)
+          hoja_activa.update_acell("E9", j_conf["responsable"])
 
-      st.session_state.jornada_autorizada = True
-      st.session_state.nombre_unidad = unidad_sel
-      st.session_state.siglas_unidad = siglas_unidad
-      st.session_state.nombre_hoja_destino = nombre_nueva_hoja
-      st.session_state.gid_hoja_destino = str(gid_activo)
+          hojas_creadas_exito.append(nombre_nueva_hoja)
 
-      st.success(
-          "¡Jornada autorizada, metadatos institucionales inyectados y hoja"
-          " generada con éxito!"
-      )
-      st.rerun()
+        st.session_state.jornada_autorizada = True
+        st.success(
+            "¡Jornadas autorizadas y hojas generadas con éxito:"
+            f" {', '.join(hojas_creadas_exito)}!"
+        )
+        st.rerun()
 
     except Exception as e:
       st.error(
@@ -445,30 +498,6 @@ else:
           " NOMINAL' exista y que el correo de servicio tenga permisos de"
           f" Editor. Detalle: {e}"
       )
-
-  # --- RECUADRO VERDE DE CONFIRMACIÓN ---
-  if st.session_state.jornada_autorizada:
-    gid_param = (
-        f"#gid={st.session_state.gid_hoja_destino}"
-        if st.session_state.gid_hoja_destino
-        else ""
-    )
-    url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit{gid_param}"
-
-    st.markdown(
-        f"""
-        <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
-            <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADA AUTORIZADA Y ACTIVA</h3>
-            <p style="font-size: 1.1rem; color: #161a1d; margin-bottom: 12px;">
-                La hoja <b>{st.session_state.nombre_hoja_destino}</b> cuenta con sus metadatos institucionales y está lista para recibir registros.
-            </p>
-            <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1.05rem;">
-                🔗 Visualizar y Consultar Hoja en Google Sheets
-            </a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
   st.markdown("---")
   if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
