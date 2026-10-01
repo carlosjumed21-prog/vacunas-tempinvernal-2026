@@ -239,7 +239,7 @@ def mostrar_modal_comprobante():
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA ESTILO CONTORNO (OUTLINE TEXT) EN MOSAICO DIAGONAL */
+            /* MARCA DE AGUA EN CONTORNO (OUTLINE TEXT) CON LEYENDA ESPECÍFICA */
             .watermark-overlay {{
                 position: absolute;
                 top: -50%;
@@ -259,7 +259,7 @@ def mostrar_modal_comprobante():
                 display: flex;
                 gap: 40px;
                 white-space: nowrap;
-                font-size: 1.1rem;
+                font-size: 1.05rem;
                 font-weight: 900;
                 color: transparent;
                 -webkit-text-stroke: 1px rgba(97, 18, 50, 0.18);
@@ -280,28 +280,28 @@ def mostrar_modal_comprobante():
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                     <div class="watermark-row">
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
-                        <span>ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
@@ -322,7 +322,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ Esto no es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
