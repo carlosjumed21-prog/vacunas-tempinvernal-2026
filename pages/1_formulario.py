@@ -16,6 +16,7 @@ import streamlit.components.v1 as components
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
+# --- RECUPERACIÓN CORRECTA DE PARÁMETROS DE URL ---
 params = st.query_params
 sigla_url = params.get("unidad", "20N").upper()
 
@@ -322,7 +323,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -702,9 +703,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
+      # --- BÚSQUEDA DE SIGUIENTE FILA (INICIANDO DESDE FILA 14 Y 15) ---
       columna_c_vals = worksheet.col_values(3)
-      siguiente_fila = 13
-      for idx_val in range(12, len(columna_c_vals), 2):
+      siguiente_fila = 14
+      for idx_val in range(13, len(columna_c_vals), 2):
         val_actual = (
             columna_c_vals[idx_val] if idx_val < len(columna_c_vals) else ""
         )
@@ -712,24 +714,30 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           siguiente_fila = idx_val + 1
           break
       else:
-        siguiente_fila = max(13, ((len(columna_c_vals) // 2) * 2) + 1)
+        siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
 
-      siguiente_num = ((siguiente_fila - 13) // 2) + 1
+      siguiente_num = ((siguiente_fila - 14) // 2) + 1
       aammmdd = val_fecha_app.strftime("%y%m%d")
       folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
+      # --- MAPEO EXACTO DE DATOS EN CELDAS (B a AN, Filas 14 y 15) ---
+      # 1. Folio en B (ambas filas)
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_asignado], [folio_asignado]],
       )
+
+      # 2. Nombre del paciente en C, D, E (Fila 14)
       worksheet.update_acell(f"C{f_actual}", paterno.upper())
       worksheet.update_acell(
           f"D{f_actual}", materno.upper() if materno else ""
       )
       worksheet.update_acell(f"E{f_actual}", nombres.upper())
+
+      # 3. Fecha de Nacimiento (F, G, H - ambas filas)
       worksheet.update(
           f"F{f_actual}:F{f_siguiente}",
           [
@@ -748,12 +756,16 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           f"H{f_actual}:H{f_siguiente}",
           [[str(fecha_nacimiento.year)], [str(fecha_nacimiento.year)]],
       )
+
+      # 4. Edad (I, J - ambas filas)
       worksheet.update(
           f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
       )
       worksheet.update(
           f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
       )
+
+      # 5. Sexo (K - ambas filas)
       worksheet.update(
           f"K{f_actual}:K{f_siguiente}",
           [
@@ -761,6 +773,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
               ["H" if sexo == "HOMBRE" else "M"],
           ],
       )
+
+      # 6. Fecha de Aplicación (L - ambas filas)
       worksheet.update(
           f"L{f_actual}:L{f_siguiente}",
           [
@@ -768,6 +782,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
               [val_fecha_app.strftime("%d/%m/%Y")],
           ],
       )
+
+      # 7. Domicilio: Calle, No, Colonia (M, N, O - ambas filas)
       worksheet.update(
           f"M{f_actual}:M{f_siguiente}", [[calle.upper()], [calle.upper()]]
       )
@@ -777,9 +793,65 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       worksheet.update(
           f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
       )
+
+      # 8. CURP en C (Fila 15)
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA DE 55 PX ---
+      # 9. Grupo Objetivo (P o Q)
+      if grupo_sugerido == "6 A 59 MESES":
+        worksheet.update(
+            f"P{f_actual}:P{f_siguiente}", [["X"], ["X"]]
+        )
+      elif grupo_sugerido == "60 Y MÁS":
+        worksheet.update(
+            f"Q{f_actual}:Q{f_siguiente}", [["X"], ["X"]]
+        )
+
+      # 10. Grupos de riesgo y Comorbilidades
+      if planes_o_embarazo == "SÍ":
+        worksheet.update(
+            f"R{f_actual}:R{f_siguiente}", [["X"], ["X"]]
+        )
+      if ocupacion == "PERSONAL DE SALUD":
+        worksheet.update(
+            f"S{f_actual}:S{f_siguiente}", [["X"], ["X"]]
+        )
+      if vih:
+        worksheet.update(
+            f"T{f_actual}:T{f_siguiente}", [["X"], ["X"]]
+        )
+      if diabetes:
+        worksheet.update(
+            f"U{f_actual}:U{f_siguiente}", [["X"], ["X"]]
+        )
+      if obesidad:
+        worksheet.update(
+            f"V{f_actual}:V{f_siguiente}", [["X"], ["X"]]
+        )
+      if cardiopatias:
+        worksheet.update(
+            f"W{f_actual}:W{f_siguiente}", [["X"], ["X"]]
+        )
+      if cancer:
+        worksheet.update(
+            f"Y{f_actual}:Y{f_siguiente}", [["X"], ["X"]]
+        )
+      if insuficiencia_renal:
+        worksheet.update(
+            f"AA{f_actual}:AA{f_siguiente}", [["X"], ["X"]]
+        )
+      if hipertension:
+        worksheet.update(
+            f"AE{f_actual}:AE{f_siguiente}", [["X"], ["X"]]
+        )
+
+      # 11. Antecedente vacunal / Derechohabiencia (AN)
+      worksheet.update(
+          f"AN{f_actual}:AN{f_siguiente}",
+          [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
+      )
+
+      # --- CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA DE 55 PX (Filas 14 y 15 como modelo) ---
       try:
         body = {
             "requests": [
@@ -787,8 +859,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "copyPaste": {
                         "source": {
                             "sheetId": worksheet.id,
-                            "startRowIndex": 12,  # Fila 13 modelo
-                            "endRowIndex": 14,  # Fila 14 modelo
+                            "startRowIndex": 13,  # Fila 14 modelo
+                            "endRowIndex": 15,  # Fila 15 modelo
                             "startColumnIndex": 1,  # Columna B
                             "endColumnIndex": 39,  # Columna AM (índice 39)
                         },
@@ -818,6 +890,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         }
         spreadsheet.batch_update(body)
 
+        # Re-escribir datos críticos para asegurar persistencia sobre el formato copiado
         worksheet.update(
             f"B{f_actual}:B{f_siguiente}",
             [[folio_asignado], [folio_asignado]],
