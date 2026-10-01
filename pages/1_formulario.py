@@ -324,15 +324,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (VISIBLE CON ?test=true EN LA URL) ---
-if params.get("test", "") == "true" or st.session_state.get(
+# --- BOTÓN DE SIMULACIÓN DE DATOS (SE ACTIVA CON ?test=true EN LA URL O SI ES ADMIN) ---
+if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
   with st.container():
     st.markdown(
         """
         <div style="background-color: #fcf8e3; border: 2px dashed #f0ad4e; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-            <span style="font-weight: bold; color: #8a6d3b;">🛠️ Modo de Pruebas / Simulación Activo</span>
+            <span style="font-weight: bold; color: #8a6d3b;">🛠 Modo de Pruebas / Simulación Activo</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -602,26 +602,27 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
+      # --- BÚSQUEDA INTELIGENTE DE FILA (SALTANDO DE 2 EN 2 Y OMITIENDO ETIQUETAS) ---
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
-      conteo_pacientes = 0
-      for idx, val in enumerate(columna_c_vals[12:], start=13):
-        if val.strip() != "":
-          conteo_pacientes += 1
-        if val.strip() == "":
-          siguiente_fila = idx
+      for idx_val in range(12, len(columna_c_vals), 2):
+        val_actual = (
+            columna_c_vals[idx_val] if idx_val < len(columna_c_vals) else ""
+        )
+        if val_actual.strip() == "" or "CURP" in val_actual.upper():
+          siguiente_fila = idx_val + 1
           break
       else:
-        siguiente_fila = max(13, len(columna_c_vals) + 1)
+        siguiente_fila = max(13, ((len(columna_c_vals) // 2) * 2) + 1)
 
-      siguiente_num = conteo_pacientes + 1
+      siguiente_num = ((siguiente_fila - 13) // 2) + 1
       aammmdd = val_fecha_app.strftime("%y%m%d")
       folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
-      # --- ESCRITURA DIRECTA SOBRE FILAS PRE-FORMATEADAS PARA CONSERVAR DISEÑO Y BORDES ---
+      # --- 1. ESCRITURA DE DATOS EN LAS CELDAS ---
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_asignado], [folio_asignado]],
@@ -679,6 +680,47 @@ if st.button("Registrarme para la jornada", use_container_width=True):
           f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+
+      # --- 2. CLONACIÓN DE DISEÑO LITERAL (COPIAR FORMATO Y BORDES ESTILO CTRL+C / CTRL+V) ---
+      try:
+        body = {
+            "requests": [
+                {
+                    "copyPaste": {
+                        "source": {
+                            "sheetId": worksheet.id,
+                            "startRowIndex": 12,  # Fila 13 modelo (índice 0)
+                            "endRowIndex": 14,  # Fila 14 modelo
+                            "startColumnIndex": 1,  # Columna B
+                            "endColumnIndex": 15,  # Columna O
+                        },
+                        "destination": {
+                            "sheetId": worksheet.id,
+                            "startRowIndex": f_actual - 1,
+                            "endRowIndex": f_siguiente,
+                            "startColumnIndex": 1,
+                            "endColumnIndex": 15,
+                        },
+                        "pasteType": "PASTE_NORMAL",
+                    }
+                }
+            ]
+        }
+        spreadsheet.batch_update(body)
+
+        # Re-escribir los datos del paciente para garantizar que prevalezcan sobre la copia de formato
+        worksheet.update(
+            f"B{f_actual}:B{f_siguiente}",
+            [[folio_asignado], [folio_asignado]],
+        )
+        worksheet.update_acell(f"C{f_actual}", paterno.upper())
+        worksheet.update_acell(
+            f"D{f_actual}", materno.upper() if materno else ""
+        )
+        worksheet.update_acell(f"E{f_actual}", nombres.upper())
+        worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+      except Exception as err_copia:
+        pass
 
       st.session_state.ultimo_paciente_registrado = {
           "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
