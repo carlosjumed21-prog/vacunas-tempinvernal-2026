@@ -1,29 +1,19 @@
 import streamlit as st
+from config import aplicar_configuracion_global
 
-# Configuración inicial de la página
-st.set_page_config(
-    page_title="Sistema de Gestión - Censo Nominal",
-    page_icon="💉",
-    layout="centered",
-)
+aplicar_configuracion_global("Menú Principal - Censo Nominal", "💉")
 
-# --- ENRUTADOR PURO Y TRANSPARENTE ---
 params = st.query_params
 
-# Si el enlace trae parámetros de registro o QR, salta de inmediato a la página de formulario
 if params.get("modo", "").lower() == "registro" or "unidad" in params:
   st.switch_page("pages/1_formulario.py")
 
-# Si el enlace operativo trae la vista de operativo, salta de inmediato a CENSIA
 if params.get("vista", "").lower() == "operativo" or "hoja_activa" in params:
   st.switch_page("pages/2_consulta_censia.py")
 
-# --- DISEÑO DEL MENÚ PRINCIPAL (Sólo se muestra si se entra de forma directa) ---
 st.markdown(
     """
     <style>
-        .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; text-align: center; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; text-align: center; margin-bottom: 2rem; font-weight: 700 !important; }
         .card-menu { 
@@ -54,7 +44,6 @@ st.markdown(
 )
 
 st.markdown("<br>", unsafe_allow_html=True)
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -78,7 +67,6 @@ with col2:
     st.switch_page("pages/2_consulta_censia.py")
 
 st.markdown("<br>", unsafe_allow_html=True)
-
 col_admin1, col_admin2, col_admin3 = st.columns([1, 2, 1])
 with col_admin2:
   st.markdown(
