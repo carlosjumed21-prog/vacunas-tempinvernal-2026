@@ -10,12 +10,12 @@ st.set_page_config(
 # --- ENRUTADOR AUTOMÁTICO PARA ENLACES INDIVIDUALES ---
 params = st.query_params
 
-# Si el enlace individual trae el parámetro de registro o QR, redirige directo al formulario
+# Si el enlace trae el parámetro de registro o QR, redirige directo al formulario
 if params.get("modo", "").lower() == "registro" or "unidad" in params:
   st.switch_page("pages/1_formulario.py")
 
-# Si el enlace individual trae el parámetro para el operativo, redirige directo a CENSIA
-if "hoja_activa" in params:
+# Si el enlace operativo trae la vista de operativo, redirige directo a CENSIA de forma segura
+if params.get("vista", "").lower() == "operativo" or "hoja_activa" in params:
   st.switch_page("pages/2_consulta_censia.py")
 
 # --- DISEÑO DEL MENÚ PRINCIPAL ---
@@ -76,7 +76,7 @@ with col2:
   st.markdown(
       '<div class="card-menu"><h3 style="color: #611232; margin-top:0;">📋'
       ' CENSIA / Consulta</h3><p style="margin-bottom:0;">Módulo operativo y'
-      " application de dosis.</p></div>",
+      " aplicación de dosis.</p></div>",
       unsafe_allow_html=True,
   )
   if st.button("Ir a Consulta CENSIA", use_container_width=True):
