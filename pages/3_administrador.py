@@ -71,7 +71,7 @@ if not st.session_state.autenticado_admin:
       else:
         st.error("Contraseña incorrecta o usuario no seleccionado.")
 else:
-  # TÍTULO PRINCIPAL DESTACADO
+  # TÍTULO PRINCIPAL DESTACADO IDÉNTICO AL FORMULARIO
   st.markdown(
       '<p class="main-header">Panel de Control y Administración</p>',
       unsafe_allow_html=True,
@@ -118,9 +118,7 @@ else:
   ):
     st.session_state.unidad_anterior = unidad_sel
     st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
-    st.session_state.jornada_autorizada = (
-        False  # Reinicia si cambia de unidad
-    )
+    st.session_state.jornada_autorizada = False
     st.rerun()
 
   if (
@@ -259,7 +257,7 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS ---
+    # --- BOTÓN DE AUTORIZACIÓN Y DUPLICACIÓN EN GOOGLE SHEETS (UBICADO ARRIBA) ---
     if st.button(
         "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
         use_container_width=True,
