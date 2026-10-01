@@ -97,31 +97,45 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA Y BLOQUEO ESTRICTO DEL MENÚ DESPLEGABLE ---
+    # --- LECTURA Y BLOQUEO ESTRICTO POR PARÁMETRO DE URL ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
-    if hoja_enlace:
-      # Si entra por enlace personalizado, fijamos la hoja y bloqueamos el selector por completo
+    if hoja_enlace and hoja_enlace in h_autorizadas:
+      # Bloqueo total: Se asigna por enlace y se muestra fijo sin opciones de cambio
       hoja_seleccionada = hoja_enlace
       st.success(
-          f"🔒 Jornada asignada automáticamente por enlace institucional:"
-          f" {hoja_seleccionada}",
-          icon="✅",
+          f"🔒 Jornada asignada y bloqueada por enlace institucional:"
+          f" <b>{hoja_seleccionada}</b>",
+          icon="🔒",
+      )
+    elif hoja_enlace and hoja_enlace not in h_autorizadas:
+      # Si la hoja del enlace aún no existe en sheets pero viene parametrizada
+      hoja_seleccionada = hoja_enlace
+      st.warning(
+          f"⚠️ La hoja <b>{hoja_seleccionada}</b> especificada en el enlace aún"
+          " no ha sido autorizada en Google Sheets. Se usará de forma"
+          " temporal.",
+          icon="⚠️",
       )
     else:
-      # Si entra de forma manual, mostramos el selectbox normal
+      # Selección manual si entra directo
+      idx_default = 0
       hoja_seleccionada = st.selectbox(
           "Seleccione la Hoja / Jornada Autorizada:",
           options=["Seleccione una jornada..."] + h_autorizadas,
       )
+      if hoja_seleccionada == "Seleccione una jornada...":
+        hoja_seleccionada = None
 
-    if (
-        hoja_seleccionada
-        and hoja_seleccionada != "Seleccione una jornada..."
-    ):
+    if hoja_seleccionada:
       try:
-        worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
+        # Intenta abrir la hoja; si no existe, avisa al operador
+        try:
+          worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
+        except:
+          worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
+
         todos_los_datos = worksheet_activa.get_all_values()
 
         pacientes_cargados = []
