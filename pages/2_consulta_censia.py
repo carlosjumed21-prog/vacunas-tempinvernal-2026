@@ -15,15 +15,14 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { background-color: #611232 !important; }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #ffffff !important; }
+        /* Ocultar barra lateral por completo para mantener consistencia */
+        [data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         .card-recomendacion { background-color: #ffffff; border-left: 6px solid #1e5b4f; padding: 18px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); font-size: 1.1rem !important; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; }
         
-        /* Contraste destacado para la lupa de búsqueda */
         div[data-baseweb="input"] {
             background-color: #ffffff !important;
             border: 2px solid #a57f2c !important;
@@ -35,6 +34,14 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
+# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL EN LA PARTE SUPERIOR ---
+col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+with col_nav1:
+  if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+    st.switch_page("app.py")
+
+st.markdown("---")
 
 if "lote_influenza_memoria" not in st.session_state:
   st.session_state.lote_influenza_memoria = ""
@@ -118,8 +125,19 @@ else:
         '<div class="section-title">1. Selección de Jornada Activa</div>',
         unsafe_allow_html=True,
     )
+
+    # --- LECTURA DEL PARÁMETRO ENLACE OPERATIVO (?hoja_activa=...) ---
+    params_url = st.query_params
+    hoja_enlace = params_url.get("hoja_activa", "")
+
+    index_defecto = 0
+    if hoja_enlace in h_autorizadas:
+      index_defecto = h_autorizadas.index(hoja_enlace)
+
     hoja_seleccionada = st.selectbox(
-        "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
+        "Seleccione la Hoja / Jornada Autorizada:",
+        options=h_autorizadas,
+        index=index_defecto,
     )
 
     if hoja_seleccionada:
@@ -149,11 +167,10 @@ else:
       )
       if not pacientes_cargados:
         st.info(
-            "La jornada seleccionada aún no cuenta con pacientes registrados en"
+            "La jornada seleccionada aún no cuenta com pacientes registrados en"
             " el censo."
         )
       else:
-        # Campo de búsqueda interactivo con clave de sesión para control estricto de limpieza
         query_busqueda = st.text_input(
             "🔍 Buscar por Folio, Apellido o Nombre:",
             placeholder="Escriba parte del folio, apellido o nombre...",
