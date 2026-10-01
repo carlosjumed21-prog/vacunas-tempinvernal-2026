@@ -1,9 +1,9 @@
 import datetime
 import json
 import urllib.parse
+from google.oauth2 import service_account
 import gspread
 import streamlit as st
-from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Guía CENSIA y Consulta Operativa",
@@ -15,7 +15,8 @@ st.markdown(
     """
     <style>
         .stApp { background-color: #fbf9f4; }
-        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
+        section[data-testid="stSidebar"] { display: none !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
@@ -86,8 +87,8 @@ else:
 
   try:
     scope = [
-        "[https://spreadsheets.google.com/feeds](https://spreadsheets.google.com/feeds)",
-        "[https://www.googleapis.com/auth/drive](https://www.googleapis.com/auth/drive)",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
     ]
     if "GOOGLE_CREDENTIALS" in st.secrets:
       raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -100,7 +101,9 @@ else:
       primera_llave = list(st.secrets.keys())[0]
       creds_dict = dict(st.secrets[primera_llave])
 
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=scope
+    )
     client = gspread.authorize(creds)
     sheet_id = "1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds"
     spreadsheet = client.open_by_key(sheet_id)
@@ -130,7 +133,7 @@ else:
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace and hoja_enlace in h_autorizadas:
-      # Bloqueo total: Se fija la hoja y se impide que el usuario elija otra
+      # Bloqueo total: Se fija la hoja por enlace sin mostrar menú desplegable
       hoja_seleccionada = hoja_enlace
       st.success(
           f"🔒 Jornada asignada automáticamente por enlace institucional:"
@@ -138,7 +141,7 @@ else:
           icon="✅",
       )
     else:
-      # Si entra de forma manual, mostramos el selectbox normal
+      # Si entra de forma manual, mostramos el selector normal
       hoja_seleccionada = st.selectbox(
           "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
       )
