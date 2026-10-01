@@ -379,9 +379,9 @@ else:
 
     js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
     link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-    link_operativo = (
-        f"{base_url}2_consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
-    )
+    
+    # Enlace operativo corregido apuntando a la raíz app.py de manera segura
+    link_operativo = f"{base_url}?vista=operativo&hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
 
     titulo_seccion_qr = (
         f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
