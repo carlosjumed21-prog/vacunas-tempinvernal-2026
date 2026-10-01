@@ -29,9 +29,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL (EN LA PARTE SUPERIOR) ---
-col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+# --- BOTONES DE NAVEGACIÓN SUPERIORES INVERTIDOS ---
+col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
+  if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
+    st.session_state.autenticado_admin = False
+    st.session_state.jornada_autorizada = False
+    st.session_state.hojas_creadas_recientes = []
+    st.rerun()
+with col_nav2:
   if st.button("🏠 Volver al Menú Principal", use_container_width=True):
     st.switch_page("app.py")
 
@@ -521,8 +527,7 @@ else:
   # --- RECUADRO VERDE DE CONFIRMACIÓN PERMANENTE ---
   if st.session_state.jornada_autorizada and st.session_state.hojas_creadas_recientes:
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Construir botones/enlaces para cada hoja creada
+
     enlaces_html = ""
     for h_info in st.session_state.hojas_creadas_recientes:
       url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit#gid={h_info['gid']}"
@@ -546,10 +551,3 @@ else:
         """,
         unsafe_allow_html=True,
     )
-
-  st.markdown("---")
-  if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
-    st.session_state.autenticado_admin = False
-    st.session_state.jornada_autorizada = False
-    st.session_state.hojas_creadas_recientes = []
-    st.rerun()
