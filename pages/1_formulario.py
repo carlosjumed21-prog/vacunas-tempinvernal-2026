@@ -324,7 +324,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (EXCLUSIVO PARA EL ADMINISTRADOR) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS COMPLETOS (EXCLUSIVO PARA ADMINISTRADOR) ---
 if st.session_state.get("autenticado_admin", False):
   with st.container():
     st.markdown(
@@ -336,7 +336,8 @@ if st.session_state.get("autenticado_admin", False):
         unsafe_allow_html=True,
     )
     if st.button(
-        "⚡ Simular Datos de Prueba (Autocompletar)", use_container_width=True
+        "⚡ Simular Datos de Prueba (Autocompletar Todos los Campos)",
+        use_container_width=True,
     ):
       st.session_state.input_paterno = "BADILLO"
       st.session_state.input_materno = "XICOHTENCATL"
@@ -345,6 +346,14 @@ if st.session_state.get("autenticado_admin", False):
       st.session_state.input_sexo = "HOMBRE"
       st.session_state.input_estnac = "CIUDAD DE MÉXICO"
       st.session_state.input_estres = "CIUDAD DE MÉXICO"
+      st.session_state.input_calle = "AV. INSURGENTES SUR"
+      st.session_state.input_num = "123 INT. 4B"
+      st.session_state.input_col = "ROSA RIVAS"
+      st.session_state.input_derecho = "SÍ"
+      st.session_state.input_ocupacion = "PERSONAL DE SALUD"
+      st.session_state.input_digitos = "26"
+      st.session_state.ant_cov = "SÍ"
+      st.session_state.ant_inf = "SÍ"
       st.rerun()
 
 st.markdown(
