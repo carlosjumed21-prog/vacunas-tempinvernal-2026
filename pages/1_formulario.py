@@ -192,14 +192,12 @@ estados_mexico = [
     "NAYARIT",
     "NUEVO LEÓN",
     "OAXACA",
-    "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
     "QUINTANA ROO",
     "SAN LUIS POTOSÍ",
     "SINALOA",
     "SONORA",
-    "SR",
     "TABASCO",
     "TAMAULIPAS",
     "TLAXCALA",
@@ -237,10 +235,11 @@ def mostrar_modal_comprobante():
                 overflow: hidden; 
             }}
             .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
-            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
+            .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA ESTRICTAMENTE CONTENIDA DENTRO DEL CUADRO */
+            /* MARCA DE AGUA EN PRIMERA CAPA (FONDO) */
             .watermark-overlay {{
                 position: absolute;
                 top: 0;
@@ -252,13 +251,13 @@ def mostrar_modal_comprobante():
                 justify-content: space-evenly;
                 align-items: center;
                 pointer-events: none;
-                z-index: 1;
+                z-index: 0;
                 overflow: hidden;
             }}
             .watermark-line {{
-                font-size: 0.85rem;
+                font-size: 0.82rem;
                 font-weight: 900;
-                color: rgba(97, 18, 50, 0.08);
+                color: rgba(97, 18, 50, 0.07);
                 text-transform: uppercase;
                 letter-spacing: 1.5px;
                 transform: rotate(-25deg);
@@ -288,6 +287,7 @@ def mostrar_modal_comprobante():
                 <p class="info-text"><b>CURP:</b> {curp}</p>
                 <p class="info-text"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
+                <p class="leyenda-posterior">Posterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
@@ -299,7 +299,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ Esto no es un comprobante de vacunación.\\n¡Presente este folio en el módulo!`;
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ Esto no es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -332,7 +332,7 @@ def mostrar_modal_comprobante():
         folio=p["folio"],
     )
 
-    components.html(html_comprobante_component, height=285)
+    components.html(html_comprobante_component, height=310)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
