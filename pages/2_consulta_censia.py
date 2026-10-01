@@ -125,20 +125,18 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA Y BLOQUEO AUTOMÁTICO POR PARÁMETRO DE URL ---
+    # --- LECTURA Y BLOQUEO AUTOMÁTICO POR PARÁMETRO DE URL (LIMPIO DE HTML) ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace and hoja_enlace in h_autorizadas:
-      # Si entra por enlace personalizado, fijamos la hoja y bloqueamos el selector
       hoja_seleccionada = hoja_enlace
       st.success(
           f"🔒 Jornada asignada automáticamente por enlace institucional:"
-          f" <b>{hoja_seleccionada}</b>",
+          f" {hoja_seleccionada}",
           icon="✅",
       )
     else:
-      # Si entra de forma manual, mostramos el selectbox normal
       hoja_seleccionada = st.selectbox(
           "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
       )
