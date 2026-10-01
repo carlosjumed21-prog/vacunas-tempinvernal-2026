@@ -677,6 +677,17 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
+      # --- CREACIÓN AUTOMÁTICA DEL SIGUIENTE BLOQUE VACÍO EN GOOGLE SHEETS ---
+      try:
+        worksheet.insert_row(
+            [], f_siguiente + 1, value_input_option="USER_ENTERED"
+        )
+        worksheet.insert_row(
+            [], f_siguiente + 2, value_input_option="USER_ENTERED"
+        )
+      except:
+        pass
+
       st.session_state.ultimo_paciente_registrado = {
           "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
           "curp_con_nacimiento": curp_con_nacimiento,
