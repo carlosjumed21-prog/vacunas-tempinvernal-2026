@@ -308,18 +308,12 @@ def mostrar_modal_comprobante():
       ]
       for k in keys_a_limpiar:
         if k in st.session_state:
-          del st.session_state[k]
+          st.session_state[k] = "" if "input_" in k and "fnac" not in k else None
       st.rerun()
 
 
 if st.session_state.ultimo_paciente_registrado is not None:
   mostrar_modal_comprobante()
-
-# --- REINTEGRO DE LA IMAGEN INE.png EN EL ENCABEZADO ---
-try:
-  st.image("INE.png", width=120)
-except:
-  pass
 
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
@@ -440,6 +434,15 @@ st.markdown(
     f" Meses</div>",
     unsafe_allow_html=True,
 )
+
+# --- COLOCACIÓN DE LA IMAGEN INE.png JUSTO ARRIBA DE LA HOMOCLAVE ---
+try:
+  st.image("assets/INE.png", width=250)
+except:
+  try:
+    st.image("INE.png", width=250)
+  except:
+    pass
 
 digitos_faltantes = st.text_input(
     "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
@@ -686,7 +689,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA EXACTA DE 55 PÍXELES ---
+      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM), ALTURA EXACTA DE 55 PX ---
       try:
         body = {
             "requests": [
@@ -709,7 +712,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         "pasteType": "PASTE_NORMAL",
                     }
                 },
-                # Forzar la altura exacta de 55 píxeles tal como en tu plantilla
+                # Forzar la altura exacta de 55 píxeles por fila
                 {
                     "updateDimensionProperties": {
                         "range": {
