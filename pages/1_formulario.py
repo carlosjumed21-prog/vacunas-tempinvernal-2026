@@ -289,7 +289,8 @@ def mostrar_modal_comprobante():
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
     ):
       st.session_state.ultimo_paciente_registrado = None
-      for key in [
+      # --- LIMPIEZA TOTAL DE TODOS LOS CAMPOS DE SESIÓN ---
+      keys_a_limpiar = [
           "input_paterno",
           "input_materno",
           "input_nombres",
@@ -305,9 +306,10 @@ def mostrar_modal_comprobante():
           "input_digitos",
           "ant_cov",
           "ant_inf",
-      ]:
-        if key in st.session_state:
-          del st.session_state[key]
+      ]
+      for k in keys_a_limpiar:
+        if k in st.session_state:
+          del st.session_state[k]
       st.rerun()
 
 
@@ -602,7 +604,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       except:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # --- BÚSQUEDA INTELIGENTE DE FILA (SALTANDO DE 2 EN 2 Y OMITIENDO ETIQUETAS) ---
       columna_c_vals = worksheet.col_values(3)
       siguiente_fila = 13
       for idx_val in range(12, len(columna_c_vals), 2):
@@ -622,7 +623,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       f_actual = siguiente_fila
       f_siguiente = siguiente_fila + 1
 
-      # --- 1. ESCRITURA DE DATOS EN LAS CELDAS ---
       worksheet.update(
           f"B{f_actual}:B{f_siguiente}",
           [[folio_asignado], [folio_asignado]],
@@ -681,7 +681,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN DE DISEÑO LITERAL (COPIAR FORMATO Y BORDES ESTILO CTRL+C / CTRL+V) ---
       try:
         body = {
             "requests": [
@@ -689,10 +688,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "copyPaste": {
                         "source": {
                             "sheetId": worksheet.id,
-                            "startRowIndex": 12,  # Fila 13 modelo (índice 0)
-                            "endRowIndex": 14,  # Fila 14 modelo
-                            "startColumnIndex": 1,  # Columna B
-                            "endColumnIndex": 15,  # Columna O
+                            "startRowIndex": 12,
+                            "endRowIndex": 14,
+                            "startColumnIndex": 1,
+                            "endColumnIndex": 15,
                         },
                         "destination": {
                             "sheetId": worksheet.id,
@@ -708,7 +707,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         }
         spreadsheet.batch_update(body)
 
-        # Re-escribir los datos del paciente para garantizar que prevalezcan sobre la copia de formato
         worksheet.update(
             f"B{f_actual}:B{f_siguiente}",
             [[folio_asignado], [folio_asignado]],
@@ -719,7 +717,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         )
         worksheet.update_acell(f"E{f_actual}", nombres.upper())
         worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-      except Exception as err_copia:
+      except:
         pass
 
       st.session_state.ultimo_paciente_registrado = {
