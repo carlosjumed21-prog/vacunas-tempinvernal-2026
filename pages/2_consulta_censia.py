@@ -86,8 +86,8 @@ else:
 
   try:
     scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+        "[https://spreadsheets.google.com/feeds](https://spreadsheets.google.com/feeds)",
+        "[https://www.googleapis.com/auth/drive](https://www.googleapis.com/auth/drive)",
     ]
     if "GOOGLE_CREDENTIALS" in st.secrets:
       raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -125,16 +125,16 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA Y BLOQUEO AUTOMÁTICO POR PARÁMETRO DE URL ---
+    # --- LECTURA Y BLOQUEO ESTRICTO POR PARÁMETRO DE URL ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace and hoja_enlace in h_autorizadas:
-      # Si entra por enlace personalizado, fijamos la hoja y bloqueamos el selector
+      # Bloqueo total: Se fija la hoja y se impide que el usuario elija otra
       hoja_seleccionada = hoja_enlace
       st.success(
           f"🔒 Jornada asignada automáticamente por enlace institucional:"
-          f" <b>{hoja_seleccionada}</b>",
+          f" {hoja_seleccionada}",
           icon="✅",
       )
     else:
