@@ -223,25 +223,46 @@ def mostrar_modal_comprobante():
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; padding: 12px; border-radius: 10px; color: #161a1d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; }}
+            .card-comprobante {{ 
+                position: relative; 
+                background-color: #ffffff; 
+                border: 3px solid #1e5b4f; 
+                padding: 15px; 
+                border-radius: 10px; 
+                color: #161a1d; 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+                margin-bottom: 10px; 
+                overflow: hidden; 
+            }}
             .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
             .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0; z-index: 2; position: relative; }}
-            .info-text {{ margin: 3px 0; font-size: 0.8rem; z-index: 2; position: relative; }}
-            /* MARCA DE AGUA DIAGONAL */
-            .watermark {{
+            .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
+            
+            /* MARCA DE AGUA EXTENDIDA EN TODO EL TICKET */
+            .watermark-container {{
                 position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) rotate(-30deg);
-                font-size: 1.1rem;
-                font-weight: 900;
-                color: rgba(97, 18, 50, 0.08);
-                white-space: nowrap;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 pointer-events: none;
                 z-index: 1;
-                text-transform: uppercase;
-                letter-spacing: 1px;
             }}
+            .watermark {{
+                font-size: 1.35rem;
+                font-weight: 900;
+                color: rgba(97, 18, 50, 0.09);
+                text-transform: uppercase;
+                text-align: center;
+                transform: rotate(-28deg);
+                white-space: nowrap;
+                width: 150%;
+                letter-spacing: 2px;
+            }}
+            
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -250,7 +271,9 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                <div class="watermark-container">
+                    <div class="watermark">ESTO NO ES UN COMPROBANTE DE VACUNACIÓN</div>
+                </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <p class="info-text"><b>Unidad:</b> {unidad}</p>
                 <p class="info-text"><b>Paciente:</b> {nombre}</p>
@@ -301,7 +324,7 @@ def mostrar_modal_comprobante():
         folio=p["folio"],
     )
 
-    components.html(html_comprobante_component, height=270)
+    components.html(html_comprobante_component, height=285)
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
         "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
