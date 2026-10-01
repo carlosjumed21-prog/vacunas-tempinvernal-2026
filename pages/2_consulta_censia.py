@@ -121,23 +121,27 @@ else:
     )
   else:
     st.markdown(
-        '<div class="section-title">1. Selección de Jornada Activa</div>',
+        '<div class="section-title">1. Jornada Operativa Activa</div>',
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA DEL PARÁMETRO DE ENLACE OPERATIVO (?hoja_activa=...) ---
+    # --- LECTURA Y BLOQUEO AUTOMÁTICO POR PARÁMETRO DE URL ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
-    index_defecto = 0
-    if hoja_enlace in h_autorizadas:
-      index_defecto = h_autorizadas.index(hoja_enlace)
-
-    hoja_seleccionada = st.selectbox(
-        "Seleccione la Hoja / Jornada Autorizada:",
-        options=h_autorizadas,
-        index=index_defecto,
-    )
+    if hoja_enlace and hoja_enlace in h_autorizadas:
+      # Si entra por enlace personalizado, fijamos la hoja y bloqueamos el selector
+      hoja_seleccionada = hoja_enlace
+      st.success(
+          f"🔒 Jornada asignada automáticamente por enlace institucional:"
+          f" <b>{hoja_seleccionada}</b>",
+          icon="✅",
+      )
+    else:
+      # Si entra de forma manual, mostramos el selectbox normal
+      hoja_seleccionada = st.selectbox(
+          "Seleccione la Hoja / Jornada Autorizada:", options=h_autorizadas
+      )
 
     if hoja_seleccionada:
       try:
@@ -194,7 +198,7 @@ else:
 
           if not pacientes_filtrados:
             st.warning(
-                "No se encontraron pacientes que coincidan com la búsqueda."
+                "No se encontraron pacientes que coincidan con la búsqueda."
             )
           else:
             opciones_busqueda = [
