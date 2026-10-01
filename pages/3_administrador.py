@@ -71,6 +71,7 @@ if not st.session_state.autenticado_admin:
       else:
         st.error("Contraseña incorrecta o usuario no seleccionado.")
 else:
+  # TÍTULO PRINCIPAL DESTACADO IDÉNTICO AL FORMULARIO
   st.markdown(
       '<p class="main-header">Panel de Control y Administración</p>',
       unsafe_allow_html=True,
