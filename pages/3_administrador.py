@@ -50,6 +50,8 @@ if "config_direccion_base" not in st.session_state:
   )
 if "jornada_autorizada" not in st.session_state:
   st.session_state.jornada_autorizada = False
+if "hojas_creadas_recientes" not in st.session_state:
+  st.session_state.hojas_creadas_recientes = []
 
 if not st.session_state.autenticado_admin:
   st.markdown(
@@ -369,10 +371,7 @@ else:
     fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
     resp_encoded = urllib.parse.quote(j_conf["responsable"])
 
-    # 1. Enlace para pacientes (Registro QR)
     link_paciente = f"{base_url}?modo=registro&unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}&js={j_conf['sufijo_qr']}"
-
-    # 2. Enlace personalizado directo para el Operativo (CENSIA / Aplicación bloqueada a esta hoja)
     link_operativo = f"{base_url}2_consulta_censia?hoja={nombre_hoja_objetivo}"
 
     titulo_seccion_qr = (
@@ -489,7 +488,6 @@ else:
           )
 
           hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
-
           fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
 
           hoja_activa.update_acell("D6", "CDMX")
@@ -501,14 +499,17 @@ else:
           hoja_activa.update_acell("AC8", fecha_formato_oficial)
           hoja_activa.update_acell("E9", j_conf["responsable"])
 
-          hojas_creadas_exito.append(nombre_nueva_hoja)
+          hojas_creadas_exito.append({
+              "nombre": nombre_nueva_hoja,
+              "gid": str(hoja_activa.id),
+          })
 
         st.session_state.jornada_autorizada = True
+        st.session_state.hojas_creadas_recientes = hojas_creadas_exito
         st.success(
-            "¡Jornadas autorizadas y hojas generadas con éxito:"
-            f" {', '.join(hojas_creadas_exito)}!"
+            "¡Jornadas autorizadas y hojas generadas con éxito en Google"
+            " Sheets!"
         )
-        st.rerun()
 
     except Exception as e:
       st.error(
@@ -517,7 +518,38 @@ else:
           f" Editor. Detalle: {e}"
       )
 
+  # --- RECUADRO VERDE DE CONFIRMACIÓN PERMANENTE ---
+  if st.session_state.jornada_autorizada and st.session_state.hojas_creadas_recientes:
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Construir botones/enlaces para cada hoja creada
+    enlaces_html = ""
+    for h_info in st.session_state.hojas_creadas_recientes:
+      url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit#gid={h_info['gid']}"
+      enlaces_html += f"""
+        <div style="margin-bottom: 8px;">
+            <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                🔗 Ver Hoja: {h_info['nombre']}
+            </a>
+        </div>
+      """
+
+    st.markdown(
+        f"""
+        <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+            <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+            <p style="font-size: 1.05rem; color: #161a1d; margin-bottom: 12px;">
+                Las hojas correspondientes han sido creadas con sus metadatos institucionales y están listas para recibir registros:
+            </p>
+            {enlaces_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
   st.markdown("---")
   if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
     st.session_state.autenticado_admin = False
+    st.session_state.jornada_autorizada = False
+    st.session_state.hojas_creadas_recientes = []
     st.rerun()
