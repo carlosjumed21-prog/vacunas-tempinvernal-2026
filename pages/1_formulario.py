@@ -435,14 +435,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- COLOCACIÓN DE LA IMAGEN INE.png JUSTO ARRIBA DE LA HOMOCLAVE ---
-try:
-  st.image("assets/INE.png", width=250)
-except:
+# --- IMAGEN CENTRADA, MÁS GRANDE Y CON LEYENDA DESCRIPTIVA (PIE DE IMAGEN) ---
+st.markdown("<br>", unsafe_allow_html=True)
+col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
+with col_img2:
   try:
-    st.image("INE.png", width=250)
+    st.image(
+        "assets/INE.png",
+        width=350,
+        caption=(
+            "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
+            " para Votar (INE)"
+        ),
+    )
   except:
-    pass
+    try:
+      st.image(
+          "INE.png",
+          width=350,
+          caption=(
+              "📌 Ubicación de la Homoclave y Dígito Verificador en su"
+              " Credencial para Votar (INE)"
+          ),
+      )
+    except:
+      pass
+st.markdown("<br>", unsafe_allow_html=True)
 
 digitos_faltantes = st.text_input(
     "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
@@ -689,7 +707,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM), ALTURA EXACTA DE 55 PX ---
+      # --- 2. CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA EXACTA DE 55 PX ---
       try:
         body = {
             "requests": [
@@ -712,7 +730,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         "pasteType": "PASTE_NORMAL",
                     }
                 },
-                # Forzar la altura exacta de 55 píxeles por fila
                 {
                     "updateDimensionProperties": {
                         "range": {
@@ -729,7 +746,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         }
         spreadsheet.batch_update(body)
 
-        # Re-escribir los datos principales para asegurar que persistan sobre el formato copiado
         worksheet.update(
             f"B{f_actual}:B{f_siguiente}",
             [[folio_asignado], [folio_asignado]],
