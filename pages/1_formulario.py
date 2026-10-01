@@ -19,7 +19,6 @@ aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 params = st.query_params
 sigla_url = params.get("unidad", "20N").upper()
 
-# Mapeo seguro y directo utilizando el diccionario global de config.py
 nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
 sufijo_js = params.get("js", "")
 
@@ -325,6 +324,29 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- BOTÓN DE SIMULACIÓN DE DATOS (EXCLUSIVO PARA EL ADMINISTRADOR) ---
+if st.session_state.get("autenticado_admin", False):
+  with st.container():
+    st.markdown(
+        """
+        <div style="background-color: #fcf8e3; border: 2px dashed #f0ad4e; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+            <span style="font-weight: bold; color: #8a6d3b;">🛠️ Modo Administrador Detectado</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "⚡ Simular Datos de Prueba (Autocompletar)", use_container_width=True
+    ):
+      st.session_state.input_paterno = "BADILLO"
+      st.session_state.input_materno = "XICOHTENCATL"
+      st.session_state.input_nombres = "JUAN CARLOS"
+      st.session_state.input_fnac = datetime.date(1993, 10, 15)
+      st.session_state.input_sexo = "HOMBRE"
+      st.session_state.input_estnac = "CIUDAD DE MÉXICO"
+      st.session_state.input_estres = "CIUDAD DE MÉXICO"
+      st.rerun()
+
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
     unsafe_allow_html=True,
@@ -436,14 +458,15 @@ estado_residencia = st.selectbox(
 )
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
-  calle = st.text_input("Calle *")
+  calle = st.text_input("Calle *", key="input_calle")
 with col_dom2:
-  numero = st.text_input("No. (Ext / Int) *")
+  numero = st.text_input("No. (Ext / Int) *", key="input_num")
 with col_dom3:
-  colonia = st.text_input("Colonia *")
+  colonia = st.text_input("Colonia *", key="input_col")
 cuenta_derechohabiencia = st.selectbox(
     "¿Cuenta con derechohabiencia? *",
     options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
+    key="input_derecho",
 )
 
 st.markdown(
@@ -460,6 +483,7 @@ ocupacion = st.selectbox(
         "TRABAJO EN GUARDERÍA",
         "OTRAS PROFESIONES",
     ],
+    key="input_ocupacion",
 )
 
 st.markdown(
@@ -487,12 +511,14 @@ with col_av1:
       "¿Cuenta con alguna dosis previa de COVID-19?",
       options=["SÍ", "NO", "LO DESCONOCE"],
       horizontal=True,
+      key="ant_cov",
   )
 with col_av2:
   antecedente_influenza = st.radio(
       "¿Cuenta con alguna dosis previa de Influenza?",
       options=["SÍ", "NO", "LO DESCONOCE"],
       horizontal=True,
+      key="ant_inf",
   )
 
 edad_total_meses = (calc_anos * 12) + calc_meses
@@ -642,9 +668,13 @@ if st.button("Registrarme para la jornada", use_container_width=True):
       )
       worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      st.success(
-          f"✅ ¡Registro exitoso! Su folio asignado es: {folio_asignado}"
-      )
+      st.session_state.ultimo_paciente_registrado = {
+          "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+          "curp_con_nacimiento": curp_con_nacimiento,
+          "grupo_objetivo": grupo_sugerido,
+          "folio": folio_asignado,
+      }
+      st.rerun()
 
     except Exception as e:
       st.error(f"Error al guardar en Google Sheets: {e}")
