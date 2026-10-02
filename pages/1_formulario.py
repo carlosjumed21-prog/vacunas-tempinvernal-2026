@@ -687,8 +687,8 @@ vacuna_interes = st.radio(
 
 edad_total_meses = (calc_anos * 12) + calc_meses
 
-# --- LÓGICA DE GRUPO OBJETIVO UNIFICADA (COVID-19 / INFLUENZA) ---
-grupo_sugerido = "POBLACIÓN GENERAL"
+# --- LÓGICA DE GRUPO OBJETIVO (POR DEFAULT: POR DESIGNAR) ---
+grupo_sugerido = "POR DESIGNAR"
 
 is_personal_salud = (
     "PERSONAL DE SALUD" in ocupacion
@@ -702,48 +702,55 @@ is_colectivo_riesgo = is_personal_salud or ocupacion in [
     "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
 ]
 
-if vacuna_interes == "COVID-19":
-    if 6 <= edad_total_meses <= 59:
-        grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
-    elif planes_o_embarazo == "SÍ":
-        grupo_sugerido = "PERSONAS EMBARAZADAS"
-    elif calc_anos >= 60:
-        grupo_sugerido = "60 AÑOS Y MÁS"
-    elif is_personal_salud:
-        grupo_sugerido = "PERSONAL DE SALUD"
-    elif (
-        vih
-        or diabetes
-        or obesidad
-        or cardiopatias
-        or cancer
-        or insuficiencia_renal
-        or discapacidades
-        or fibrosis_quistica
-        or hipertension
-    ):
-        grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
-else:  # INFLUENZA
-    if 6 <= edad_total_meses <= 59:
-        grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
-    elif planes_o_embarazo == "SÍ":
-        grupo_sugerido = "PERSONAS GESTANTES"
-    elif is_colectivo_riesgo:
-        grupo_sugerido = ocupacion
-    elif calc_anos >= 60:
-        grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
-    elif (
-        vih
-        or diabetes
-        or obesidad
-        or cardiopatias
-        or cancer
-        or insuficiencia_renal
-        or discapacidades
-        or fibrosis_quistica
-        or hipertension
-    ):
-        grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
+if fecha_nacimiento is not None or planes_o_embarazo == "SÍ" or is_colectivo_riesgo or (
+    vih or diabetes or obesidad or cardiopatias or cancer or insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
+):
+    if vacuna_interes == "COVID-19":
+        if 6 <= edad_total_meses <= 59:
+            grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
+        elif planes_o_embarazo == "SÍ":
+            grupo_sugerido = "PERSONAS EMBARAZADAS"
+        elif calc_anos >= 60:
+            grupo_sugerido = "60 AÑOS Y MÁS"
+        elif is_personal_salud:
+            grupo_sugerido = "PERSONAL DE SALUD"
+        elif (
+            vih
+            or diabetes
+            or obesidad
+            or cardiopatias
+            or cancer
+            or insuficiencia_renal
+            or discapacidades
+            or fibrosis_quistica
+            or hipertension
+        ):
+            grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
+        else:
+            grupo_sugerido = "POBLACIÓN GENERAL"
+    else:  # INFLUENZA
+        if 6 <= edad_total_meses <= 59:
+            grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
+        elif planes_o_embarazo == "SÍ":
+            grupo_sugerido = "PERSONAS GESTANTES"
+        elif is_colectivo_riesgo:
+            grupo_sugerido = ocupacion
+        elif calc_anos >= 60:
+            grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
+        elif (
+            vih
+            or diabetes
+            or obesidad
+            or cardiopatias
+            or cancer
+            or insuficiencia_renal
+            or discapacidades
+            or fibrosis_quistica
+            or hipertension
+        ):
+            grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
+        else:
+            grupo_sugerido = "POBLACIÓN GENERAL"
 
 st.markdown(
     '<div class="section-title">7. Grupo Objetivo</div>',
@@ -817,5 +824,5 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.rerun()
 
         except Exception as e:
-            st.error("⚠️️ Error general al procesar el registro en Google Sheets:")
+            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
             st.exception(e)
