@@ -216,7 +216,26 @@ def mostrar_modal_comprobante():
             "curp_con_nacimiento",
             p.get("curp_con_municipio", p.get("curp_con_entidad", "CURP")),
         )
-        html_comprobante_component = """
+        nombre_val = p["nombre_completo"]
+        folio_val = p["folio"]
+        vacuna_val = p.get("vacuna_interes", "AMBAS")
+        grupo_val = p["grupo_objetivo"]
+        fecha_val = datetime.date.today().strftime("%d/%m/%Y")
+
+        # Texto estructurado con saltos de línea reales para el QR
+        texto_qr = (
+            f"ISSSTE - REGISTRO DE FOLIO VIGILE\n"
+            f"FOLIO: {folio_val}\n"
+            f"PACIENTE: {nombre_val}\n"
+            f"CURP: {curp_mostrar}\n"
+            f"VACUNA: {vacuna_val}\n"
+            f"GRUPO: {grupo_val}\n"
+            f"FECHA: {fecha_val}\n"
+            f"ESTADO: REGISTRADO"
+        )
+        url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
+
+        html_comprobante_component = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -228,17 +247,21 @@ def mostrar_modal_comprobante():
                 position: relative; 
                 background-color: #ffffff; 
                 border: 3px solid #1e5b4f; 
-                padding: 15px; 
+                padding: 12px; 
                 border-radius: 10px; 
                 color: #161a1d; 
                 box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
                 margin-bottom: 10px; 
                 overflow: hidden; 
             }}
-            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
-            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
-            .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
-            .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
+            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
+            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
+            .info-container {{ flex: 1; }}
+            .qr-container {{ text-align: center; }}
+            .qr-container img {{ width: 95px; height: 95px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
+            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
+            .info-text {{ margin: 3px 0; font-size: 0.78rem; z-index: 2; position: relative; }}
+            .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 5px; margin-bottom: 0; z-index: 2; position: relative; }}
             
             .watermark-overlay {{
                 position: absolute;
@@ -295,22 +318,20 @@ def mostrar_modal_comprobante():
                         <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                         <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                     </div>
-                    <div class="watermark-row">
-                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
-                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
-                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
-                    </div>
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
-                <p class="info-text"><b>Unidad:</b> {unidad}</p>
-                <p class="info-text"><b>Vacuna de Interés:</b> {vacuna_interes}</p>
-                <p class="info-text"><b>Paciente:</b> {nombre}</p>
-                <p class="info-text"><b>CURP:</b> {curp}</p>
-                <p class="info-text"><b>Grupo:</b> {grupo}</p>
-                <div class="folio-grande">FOLIO: {folio}</div>
+                <div class="cuerpo-ticket">
+                    <div class="info-container">
+                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
+                        <p class="info-text"><b>CURP:</b> {curp_mostrar}</p>
+                        <p class="info-text"><b>Vacuna:</b> {vacuna_val}</p>
+                        <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
+                    </div>
+                    <div class="qr-container">
+                        <img src="{url_qr_api}" alt="QR Registro">
+                    </div>
+                </div>
+                <div class="folio-grande">Folio: {folio_val}</div>
                 <p class="leyenda-posterior">Posterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.</p>
             </div>
             <div class="btn-container">
@@ -322,17 +343,15 @@ def mostrar_modal_comprobante():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nVacuna: {vacuna_interes}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
-                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
-                        }} else {{
-                            const enlace = document.createElement('a');
-                            enlace.download = 'Folio_{folio}.png';
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                        }}
+                        const fileName = 'Folio_{folio_val}.png';
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nCURP: {curp_mostrar}\\nVacuna: {vacuna_val}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
+                        
+                        const enlace = document.createElement('a');
+                        enlace.download = fileName;
+                        enlace.href = URL.createObjectURL(blob);
+                        enlace.click();
+                        
+                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
                     }}, 'image/png');
                 }});
             }}
@@ -340,7 +359,7 @@ def mostrar_modal_comprobante():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     const enlace = document.createElement('a');
-                    enlace.download = 'Folio_{folio}.png';
+                    enlace.download = 'Folio_{folio_val}.png';
                     enlace.href = canvas.toDataURL('image/png');
                     enlace.click();
                 }});
@@ -348,16 +367,9 @@ def mostrar_modal_comprobante():
             </script>
         </body>
         </html>
-        """.format(
-            unidad=st.session_state.nombre_unidad,
-            vacuna_interes=p.get("vacuna_interes", "AMBAS"),
-            nombre=p["nombre_completo"],
-            curp=curp_mostrar,
-            grupo=p["grupo_objetivo"],
-            folio=p["folio"],
-        )
+        """
 
-        components.html(html_comprobante_component, height=330)
+        components.html(html_comprobante_component, height=350)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button(
             "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -813,7 +825,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": personas_gestantes,  # Llave corregida para Sheets
+                "planes_o_embarazo": personas_gestantes,
                 "personas_gestantes": personas_gestantes,
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
