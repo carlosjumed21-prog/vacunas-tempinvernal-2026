@@ -4,7 +4,6 @@ import unicodedata
 import urllib.parse
 from config import (
     GOOGLE_SCOPES,
-    GOOGLE_SHEET_ID,
     MAPA_SIGLAS_INVERSO,
     UNIDADES_ISSSTE,
     aplicar_configuracion_global,
@@ -13,6 +12,9 @@ from google.oauth2 import service_account
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
+
+# ID del nuevo Google Sheets de salida proporcionado
+GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
@@ -33,9 +35,9 @@ st.session_state.tipo_jornada = params.get("jornada", "I")
 
 fecha_url_str = params.get("fecha", datetime.date.today().strftime("%Y-%m-%d"))
 try:
-  val_fecha_app = datetime.datetime.strptime(fecha_url_str, "%Y-%m-%d").date()
+    val_fecha_app = datetime.datetime.strptime(fecha_url_str, "%Y-%m-%d").date()
 except:
-  val_fecha_app = datetime.date.today()
+    val_fecha_app = datetime.date.today()
 
 st.markdown(
     """
@@ -55,53 +57,53 @@ st.markdown(
 )
 
 if "registros_censales" not in st.session_state:
-  st.session_state.registros_censales = []
+    st.session_state.registros_censales = []
 if "ultimo_paciente_registrado" not in st.session_state:
-  st.session_state.ultimo_paciente_registrado = None
+    st.session_state.ultimo_paciente_registrado = None
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
-  if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
-    return 0, 0, 0
-  anos = fecha_ref.year - fecha_nac.year
-  meses = fecha_ref.month - fecha_nac.month
-  dias = fecha_ref.day - fecha_nac.day
-  if dias < 0:
-    meses -= 1
-    mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
-    anio_anterior = (
-        fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
-    )
-    dias_mes_anterior = (
-        datetime.date(anio_anterior, mes_anterior + 1, 1)
-        - datetime.timedelta(days=1)
-    ).day
-    dias += dias_mes_anterior
-  if meses < 0:
-    anos -= 1
-    meses += 12
-  return max(0, anos), max(0, meses), max(0, dias)
+    if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
+        return 0, 0, 0
+    anos = fecha_ref.year - fecha_nac.year
+    meses = fecha_ref.month - fecha_nac.month
+    dias = fecha_ref.day - fecha_nac.day
+    if dias < 0:
+        meses -= 1
+        mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
+        anio_anterior = (
+            fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
+        )
+        dias_mes_anterior = (
+            datetime.date(anio_anterior, mes_anterior + 1, 1)
+            - datetime.timedelta(days=1)
+        ).day
+        dias += dias_mes_anterior
+    if meses < 0:
+        anos -= 1
+        meses += 12
+    return max(0, anos), max(0, meses), max(0, dias)
 
 
 def limpiar_texto(texto):
-  if not texto:
-    return ""
-  nfkd = unicodedata.normalize("NFKD", texto)
-  return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
+    if not texto:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", texto)
+    return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
 
 
 def obtener_primera_vocal_interna(palabra):
-  for letra in palabra[1:]:
-    if letra in "AEIOU":
-      return letra
-  return "X"
+    for letra in palabra[1:]:
+        if letra in "AEIOU":
+            return letra
+    return "X"
 
 
 def obtener_primera_consonante_interna(palabra):
-  for letra in palabra[1:]:
-    if letra in "BCDFGHJKLMNPQRSTVWXYZ":
-      return letra
-  return "X"
+    for letra in palabra[1:]:
+        if letra in "BCDFGHJKLMNPQRSTVWXYZ":
+            return letra
+    return "X"
 
 
 estados_curp = {
@@ -143,32 +145,32 @@ estados_curp = {
 def generar_curp_algoritmica(
     paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""
 ):
-  p = limpiar_texto(paterno)
-  m = limpiar_texto(materno) if materno else ""
-  n = limpiar_texto(nombres)
-  if not p or not n or not fecha_nac:
-    return "COMPLETA DATOS Y FECHA"
-  nombres_lista = n.split()
-  primer_nombre = nombres_lista[0] if nombres_lista else "X"
-  if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
-    primer_nombre = nombres_lista[1]
-  c1 = p[0] if p else "X"
-  c2 = obtener_primera_vocal_interna(p)
-  c3 = m[0] if m else "X"
-  c4 = primer_nombre[0] if primer_nombre else "X"
-  yy = str(fecha_nac.year)[-2:]
-  mm = str(fecha_nac.month).zfill(2)
-  dd = str(fecha_nac.day).zfill(2)
-  fec_part = f"{yy}{mm}{dd}"
-  sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
-  est_part = estados_curp.get(est_nac, "NE")
-  c14 = obtener_primera_consonante_interna(p)
-  c15 = obtener_primera_consonante_interna(m) if m else "X"
-  c16 = obtener_primera_consonante_interna(primer_nombre)
-  curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
-  extra_limpio = limpiar_texto(digitos_extra)
-  sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
-  return f"{curp_16}{sufijo}"
+    p = limpiar_texto(paterno)
+    m = limpiar_texto(materno) if materno else ""
+    n = limpiar_texto(nombres)
+    if not p or not n or not fecha_nac:
+        return "COMPLETA DATOS Y FECHA"
+    nombres_lista = n.split()
+    primer_nombre = nombres_lista[0] if nombres_lista else "X"
+    if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
+        primer_nombre = nombres_lista[1]
+    c1 = p[0] if p else "X"
+    c2 = obtener_primera_vocal_interna(p)
+    c3 = m[0] if m else "X"
+    c4 = primer_nombre[0] if primer_nombre else "X"
+    yy = str(fecha_nac.year)[-2:]
+    mm = str(fecha_nac.month).zfill(2)
+    dd = str(fecha_nac.day).zfill(2)
+    fec_part = f"{yy}{mm}{dd}"
+    sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
+    est_part = estados_curp.get(est_nac, "NE")
+    c14 = obtener_primera_consonante_interna(p)
+    c15 = obtener_primera_consonante_interna(m) if m else "X"
+    c16 = obtener_primera_consonante_interna(primer_nombre)
+    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
+    extra_limpio = limpiar_texto(digitos_extra)
+    sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
+    return f"{curp_16}{sufijo}"
 
 
 estados_mexico = [
@@ -210,13 +212,13 @@ estados_mexico = [
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
-  p = st.session_state.ultimo_paciente_registrado
-  if p:
-    curp_mostrar = p.get(
-        "curp_con_nacimiento",
-        p.get("curp_con_municipio", p.get("curp_con_entidad", "CURP")),
-    )
-    html_comprobante_component = """
+    p = st.session_state.ultimo_paciente_registrado
+    if p:
+        curp_mostrar = p.get(
+            "curp_con_nacimiento",
+            p.get("curp_con_municipio", p.get("curp_con_entidad", "CURP")),
+        )
+        html_comprobante_component = """
         <!DOCTYPE html>
         <html>
         <head>
@@ -240,7 +242,6 @@ def mostrar_modal_comprobante():
             .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
             
-            /* MARCA DE AGUA EN CONTORNO (OUTLINE TEXT) CON LEYENDA ESPECÍFICA */
             .watermark-overlay {{
                 position: absolute;
                 top: -50%;
@@ -349,51 +350,51 @@ def mostrar_modal_comprobante():
         </body>
         </html>
         """.format(
-        unidad=st.session_state.nombre_unidad,
-        nombre=p["nombre_completo"],
-        curp=curp_mostrar,
-        grupo=p["grupo_objetivo"],
-        folio=p["folio"],
-    )
+            unidad=st.session_state.nombre_unidad,
+            nombre=p["nombre_completo"],
+            curp=curp_mostrar,
+            grupo=p["grupo_objetivo"],
+            folio=p["folio"],
+        )
 
-    components.html(html_comprobante_component, height=310)
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button(
-        "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
-    ):
-      st.session_state.ultimo_paciente_registrado = None
-      keys_a_limpiar = [
-          "input_paterno",
-          "input_materno",
-          "input_nombres",
-          "input_fnac",
-          "input_sexo",
-          "input_estnac",
-          "input_estres",
-          "input_calle",
-          "input_num",
-          "input_col",
-          "input_derecho",
-          "input_ocupacion",
-          "input_digitos",
-          "ant_cov",
-          "ant_inf",
-          "chk_discapacidad",
-          "chk_fibrosis",
-          "chk_hipertension",
-      ]
-      for k in keys_a_limpiar:
-        if k in st.session_state:
-          st.session_state[k] = (
-              False
-              if "chk_" in k
-              else ("" if "input_" in k and "fnac" not in k else None)
-          )
-      st.rerun()
+        components.html(html_comprobante_component, height=310)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button(
+            "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
+        ):
+            st.session_state.ultimo_paciente_registrado = None
+            keys_a_limpiar = [
+                "input_paterno",
+                "input_materno",
+                "input_nombres",
+                "input_fnac",
+                "input_sexo",
+                "input_estnac",
+                "input_estres",
+                "input_calle",
+                "input_num",
+                "input_col",
+                "input_derecho",
+                "input_ocupacion",
+                "input_digitos",
+                "ant_cov",
+                "ant_inf",
+                "chk_discapacidad",
+                "chk_fibrosis",
+                "chk_hipertension",
+            ]
+            for k in keys_a_limpiar:
+                if k in st.session_state:
+                    st.session_state[k] = (
+                        False
+                        if "chk_" in k
+                        else ("" if "input_" in k and "fnac" not in k else None)
+                    )
+            st.rerun()
 
 
 if st.session_state.ultimo_paciente_registrado is not None:
-  mostrar_modal_comprobante()
+    mostrar_modal_comprobante()
 
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
@@ -409,38 +410,38 @@ st.markdown(
 if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
-  with st.container():
-    st.markdown(
-        """
-        <div style="background-color: #fcf8e3; border: 2px dashed #f0ad4e; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-            <span style="font-weight: bold; color: #8a6d3b;">🛠 Modo de Pruebas / Simulación Activo</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    if st.button(
-        "⚡ Simular Datos de Prueba (Autocompletar Todos los Campos)",
-        use_container_width=True,
-    ):
-      st.session_state.input_paterno = "BADILLO"
-      st.session_state.input_materno = "XICOHTENCATL"
-      st.session_state.input_nombres = "JUAN CARLOS"
-      st.session_state.input_fnac = datetime.date(1993, 10, 15)
-      st.session_state.input_sexo = "HOMBRE"
-      st.session_state.input_estnac = "CIUDAD DE MÉXICO"
-      st.session_state.input_estres = "CIUDAD DE MÉXICO"
-      st.session_state.input_calle = "AV. INSURGENTES SUR"
-      st.session_state.input_num = "123 INT. 4B"
-      st.session_state.input_col = "ROSA RIVAS"
-      st.session_state.input_derecho = "SÍ"
-      st.session_state.input_ocupacion = "PERSONAL DE SALUD"
-      st.session_state.input_digitos = "26"
-      st.session_state.ant_cov = "SÍ"
-      st.session_state.ant_inf = "SÍ"
-      st.session_state.chk_discapacidad = True
-      st.session_state.chk_fibrosis = False
-      st.session_state.chk_hipertension = True
-      st.rerun()
+    with st.container():
+        st.markdown(
+            """
+            <div style="background-color: #fcf8e3; border: 2px dashed #f0ad4e; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                <span style="font-weight: bold; color: #8a6d3b;">🛠 Modo de Pruebas / Simulación Activo</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "⚡ Simular Datos de Prueba (Autocompletar Todos los Campos)",
+            use_container_width=True,
+        ):
+            st.session_state.input_paterno = "BADILLO"
+            st.session_state.input_materno = "XICOHTENCATL"
+            st.session_state.input_nombres = "JUAN CARLOS"
+            st.session_state.input_fnac = datetime.date(1993, 10, 15)
+            st.session_state.input_sexo = "HOMBRE"
+            st.session_state.input_estnac = "CIUDAD DE MÉXICO"
+            st.session_state.input_estres = "CIUDAD DE MÉXICO"
+            st.session_state.input_calle = "AV. INSURGENTES SUR"
+            st.session_state.input_num = "123 INT. 4B"
+            st.session_state.input_col = "ROSA RIVAS"
+            st.session_state.input_derecho = "SÍ"
+            st.session_state.input_ocupacion = "PERSONAL DE SALUD"
+            st.session_state.input_digitos = "26"
+            st.session_state.ant_cov = "SÍ"
+            st.session_state.ant_inf = "SÍ"
+            st.session_state.chk_discapacidad = True
+            st.session_state.chk_fibrosis = False
+            st.session_state.chk_hipertension = True
+            st.rerun()
 
 st.markdown(
     '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
@@ -448,23 +449,23 @@ st.markdown(
 )
 col_g1, col_g2, col_g3 = st.columns(3)
 with col_g1:
-  st.date_input(
-      "Fecha de Registro",
-      value=datetime.date.today(),
-      format="DD/MM/YYYY",
-      disabled=True,
-  )
+    st.date_input(
+        "Fecha de Registro",
+        value=datetime.date.today(),
+        format="DD/MM/YYYY",
+        disabled=True,
+    )
 with col_g2:
-  st.date_input(
-      "Fecha de Aplicación (Autorizada)",
-      value=val_fecha_app,
-      format="DD/MM/YYYY",
-      disabled=True,
-  )
+    st.date_input(
+        "Fecha de Aplicación (Autorizada)",
+        value=val_fecha_app,
+        format="DD/MM/YYYY",
+        disabled=True,
+    )
 with col_g3:
-  st.markdown(
-      "**Folio Generado (Auto)**<br>`POR ASIGNAR`", unsafe_allow_html=True
-  )
+    st.markdown(
+        "**Folio Generado (Auto)**<br>`POR ASIGNAR`", unsafe_allow_html=True
+    )
 
 st.markdown(
     '<div class="section-title">2. Identificación del Paciente</div>',
@@ -472,40 +473,40 @@ st.markdown(
 )
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
-  paterno = st.text_input("Apellido Paterno *", key="input_paterno")
+    paterno = st.text_input("Apellido Paterno *", key="input_paterno")
 with col_n2:
-  materno = st.text_input("Apellido Materno *", key="input_materno")
+    materno = st.text_input("Apellido Materno *", key="input_materno")
 with col_n3:
-  nombres = st.text_input("Nombre(s) *", key="input_nombres")
+    nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
 col_fn1, col_fn2, col_fn3 = st.columns(3)
 with col_fn1:
-  fecha_nacimiento = st.date_input(
-      "Fecha de Nacimiento *",
-      value=None,
-      min_value=datetime.date(1900, 1, 1),
-      max_value=datetime.date.today(),
-      format="DD/MM/YYYY",
-      key="input_fnac",
-  )
+    fecha_nacimiento = st.date_input(
+        "Fecha de Nacimiento *",
+        value=None,
+        min_value=datetime.date(1900, 1, 1),
+        max_value=datetime.date.today(),
+        format="DD/MM/YYYY",
+        key="input_fnac",
+    )
 with col_fn2:
-  sexo = st.selectbox(
-      "Sexo *",
-      options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
-      key="input_sexo",
-  )
+    sexo = st.selectbox(
+        "Sexo *",
+        options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
+        key="input_sexo",
+    )
 with col_fn3:
-  estado_nacimiento = st.selectbox(
-      "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
-  )
+    estado_nacimiento = st.selectbox(
+        "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
+    )
 
 planes_o_embarazo = "NO"
 if sexo == "MUJER":
-  planes_o_embarazo = st.radio(
-      "¿Está embarazada o tiene planes de embarazo?",
-      options=["NO", "SÍ"],
-      horizontal=True,
-  )
+    planes_o_embarazo = st.radio(
+        "¿Está embarazada o tiene planes de embarazo?",
+        options=["NO", "SÍ"],
+        horizontal=True,
+    )
 
 calc_anos, calc_meses, calc_dias = (
     calcular_edad_detallada(fecha_nacimiento, val_fecha_app)
@@ -518,31 +519,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- IMAGEN CENTRADA, MÁS GRANDE Y CON LEYENDA DESCRIPTIVA ---
 st.markdown("<br>", unsafe_allow_html=True)
 col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
 with col_img2:
-  try:
-    st.image(
-        "assets/INE.png",
-        width=350,
-        caption=(
-            "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
-            " para Votar (INE)"
-        ),
-    )
-  except:
     try:
-      st.image(
-          "INE.png",
-          width=350,
-          caption=(
-              "📌 Ubicación de la Homoclave y Dígito Verificador en su"
-              " Credencial para Votar (INE)"
-          ),
-      )
+        st.image(
+            "assets/INE.png",
+            width=350,
+            caption=(
+                "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
+                " para Votar (INE)"
+            ),
+        )
     except:
-      pass
+        try:
+            st.image(
+                "INE.png",
+                width=350,
+                caption=(
+                    "📌 Ubicación de la Homoclave y Dígito Verificador en su"
+                    " Credencial para Votar (INE)"
+                ),
+            )
+        except:
+            pass
 st.markdown("<br>", unsafe_allow_html=True)
 
 digitos_faltantes = st.text_input(
@@ -580,11 +580,11 @@ estado_residencia = st.selectbox(
 )
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
-  calle = st.text_input("Calle *", key="input_calle")
+    calle = st.text_input("Calle *", key="input_calle")
 with col_dom2:
-  numero = st.text_input("No. (Ext / Int) *", key="input_num")
+    numero = st.text_input("No. (Ext / Int) *", key="input_num")
 with col_dom3:
-  colonia = st.text_input("Colonia *", key="input_col")
+    colonia = st.text_input("Colonia *", key="input_col")
 cuenta_derechohabiencia = st.selectbox(
     "¿Cuenta con derechohabiencia? *",
     options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
@@ -614,16 +614,16 @@ st.markdown(
 )
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-  vih = st.checkbox("VIH / SIDA")
-  diabetes = st.checkbox("DIABETES MELLITUS")
-  obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-  cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-  discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
+    vih = st.checkbox("VIH / SIDA")
+    diabetes = st.checkbox("DIABETES MELLITUS")
+    obesidad = st.checkbox("OBESIDAD MÓRBIDA")
+    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
 with col_r2:
-  cancer = st.checkbox("CÁNCER")
-  insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-  hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
-  fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
+    cancer = st.checkbox("CÁNCER")
+    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
+    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
 
 st.markdown(
     '<div class="section-title">6. Antecedente Vacunal</div>',
@@ -631,37 +631,37 @@ st.markdown(
 )
 col_av1, col_av2 = st.columns(2)
 with col_av1:
-  antecedente_covid = st.radio(
-      "¿Cuenta con alguna dosis previa de COVID-19?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_cov",
-  )
+    antecedente_covid = st.radio(
+        "¿Cuenta con alguna dosis previa de COVID-19?",
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        horizontal=True,
+        key="ant_cov",
+    )
 with col_av2:
-  antecedente_influenza = st.radio(
-      "¿Cuenta con alguna dosis previa de Influenza?",
-      options=["SÍ", "NO", "LO DESCONOCE"],
-      horizontal=True,
-      key="ant_inf",
-  )
+    antecedente_influenza = st.radio(
+        "¿Cuenta con alguna dosis previa de Influenza?",
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        horizontal=True,
+        key="ant_inf",
+    )
 
 edad_total_meses = (calc_anos * 12) + calc_meses
 grupo_sugerido = "POBLACIÓN GENERAL"
 if fecha_nacimiento is not None:
-  if 6 <= edad_total_meses <= 59:
-    grupo_sugerido = "6 A 59 MESES"
-  elif calc_anos >= 60:
-    grupo_sugerido = "60 Y MÁS"
-  elif planes_o_embarazo == "SÍ":
-    grupo_sugerido = "EMBARAZADAS"
-  elif ocupacion == "PERSONAL DE SALUD":
-    grupo_sugerido = "PERSONAL DE SALUD"
-  elif vih:
-    grupo_sugerido = "VIH/sida"
-  elif diabetes:
-    grupo_sugerido = "DIABETES MELLITUS"
-  elif obesidad:
-    grupo_sugerido = "OBESIDAD MORBIDA"
+    if 6 <= edad_total_meses <= 59:
+        grupo_sugerido = "6 A 59 MESES"
+    elif calc_anos >= 60:
+        grupo_sugerido = "60 Y MÁS"
+    elif planes_o_embarazo == "SÍ":
+        grupo_sugerido = "EMBARAZADAS"
+    elif ocupacion == "PERSONAL DE SALUD":
+        grupo_sugerido = "PERSONAL DE SALUD"
+    elif vih:
+        grupo_sugerido = "VIH/sida"
+    elif diabetes:
+        grupo_sugerido = "DIABETES MELLITUS"
+    elif obesidad:
+        grupo_sugerido = "OBESIDAD MORBIDA"
 
 st.markdown(
     '<div class="section-title">7. Grupo Objetivo</div>',
@@ -674,253 +674,267 @@ st.markdown(
 
 st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
-  if not fecha_nacimiento:
-    st.error("Por favor seleccione la Fecha de Nacimiento.")
-  elif not paterno or not nombres:
-    st.error("Complete Apellido Paterno y Nombre(s).")
-  elif sexo == "SELECCIONE UNA OPCIÓN":
-    st.error("Seleccione una opción en Sexo.")
-  elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
-    st.error("Indique su derechohabiencia.")
-  else:
-    try:
-      fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
-      tipo_texto_jornada = (
-          "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
-      )
-      nombre_hoja_destino = (
-          f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
-      )
+    if not fecha_nacimiento:
+        st.error("Por favor seleccione la Fecha de Nacimiento.")
+    elif not paterno or not nombres:
+        st.error("Complete Apellido Paterno y Nombre(s).")
+    elif sexo == "SELECCIONE UNA OPCIÓN":
+        st.error("Seleccione una opción en Sexo.")
+    elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
+        st.error("Indique su derechohabiencia.")
+    else:
+        try:
+            fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
+            tipo_texto_jornada = (
+                "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
+            )
+            nombre_hoja_destino = (
+                f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
+            )
 
-      scope = GOOGLE_SCOPES
-      if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = (
-            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        )
-      elif "gpex" in st.secrets:
-        creds_dict = dict(st.secrets["gpex"])
-      else:
-        primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+            scope = GOOGLE_SCOPES
+            if "GOOGLE_CREDENTIALS" in st.secrets:
+                raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                creds_dict = (
+                    json.loads(raw_creds)
+                    if isinstance(raw_creds, str)
+                    else raw_creds
+                )
+            elif "gpex" in st.secrets:
+                creds_dict = dict(st.secrets["gpex"])
+            else:
+                primera_llave = list(st.secrets.keys())[0]
+                creds_dict = dict(st.secrets[primera_llave])
 
-      creds = service_account.Credentials.from_service_account_info(
-          creds_dict, scopes=scope
-      )
-      client = gspread.authorize(creds)
-      spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            creds = service_account.Credentials.from_service_account_info(
+                creds_dict, scopes=scope
+            )
+            client = gspread.authorize(creds)
+            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-      try:
-        worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-      except:
-        worksheet = spreadsheet.worksheet("CENSO NOMINAL")
+            try:
+                worksheet = spreadsheet.worksheet(nombre_hoja_destino)
+            except:
+                worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-      # --- BÚSQUEDA DE SIGUIENTE FILA (INICIANDO DESDE FILA 14 Y 15) ---
-      columna_c_vals = worksheet.col_values(3)
-      siguiente_fila = 14
-      for idx_val in range(13, len(columna_c_vals), 2):
-        val_actual = (
-            columna_c_vals[idx_val] if idx_val < len(columna_c_vals) else ""
-        )
-        if val_actual.strip() == "" or "CURP" in val_actual.upper():
-          siguiente_fila = idx_val + 1
-          break
-      else:
-        siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
+            # --- LLENADO DE ENCABEZADOS ---
+            worksheet.update_acell("7D", "CDMX")
+            worksheet.update_acell("7M", "ISSSTE")
+            worksheet.update_acell("7T", "Delegación Sur")
+            worksheet.update_acell("7AB", "CDMX")
+            worksheet.update_acell("8D", "CDMX")
+            worksheet.update_acell("9D", st.session_state.nombre_unidad)
+            worksheet.update_acell("9AB", val_fecha_app.strftime("%d/%m/%Y"))
+            worksheet.update_acell("10E", "")
 
-      siguiente_num = ((siguiente_fila - 14) // 2) + 1
-      aammmdd = val_fecha_app.strftime("%y%m%d")
-      folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
+            # --- BÚSQUEDA DE SIGUIENTE FILA (INICIANDO DESDE FILA 14 Y 15) ---
+            columna_c_vals = worksheet.col_values(3)
+            siguiente_fila = 14
+            for idx_val in range(13, len(columna_c_vals), 2):
+                val_actual = (
+                    columna_c_vals[idx_val]
+                    if idx_val < len(columna_c_vals)
+                    else ""
+                )
+                if val_actual.strip() == "" or "CURP" in val_actual.upper():
+                    siguiente_fila = idx_val + 1
+                    break
+            else:
+                siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
 
-      f_actual = siguiente_fila
-      f_siguiente = siguiente_fila + 1
+            siguiente_num = ((siguiente_fila - 14) // 2) + 1
+            aammmdd = val_fecha_app.strftime("%y%m%d")
+            folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
-      # --- MAPEO EXACTO DE DATOS EN CELDAS (B a AN, Filas 14 y 15) ---
-      worksheet.update(
-          f"B{f_actual}:B{f_siguiente}",
-          [[folio_asignado], [folio_asignado]],
-      )
-      worksheet.update_acell(f"C{f_actual}", paterno.upper())
-      worksheet.update_acell(
-          f"D{f_actual}", materno.upper() if materno else ""
-      )
-      worksheet.update_acell(f"E{f_actual}", nombres.upper())
+            f_actual = siguiente_fila
+            f_siguiente = siguiente_fila + 1
 
-      worksheet.update(
-          f"F{f_actual}:F{f_siguiente}",
-          [
-              [str(fecha_nacimiento.day).zfill(2)],
-              [str(fecha_nacimiento.day).zfill(2)],
-          ],
-      )
-      worksheet.update(
-          f"G{f_actual}:G{f_siguiente}",
-          [
-              [str(fecha_nacimiento.month).zfill(2)],
-              [str(fecha_nacimiento.month).zfill(2)],
-          ],
-      )
-      worksheet.update(
-          f"H{f_actual}:H{f_siguiente}",
-          [[str(fecha_nacimiento.year)], [str(fecha_nacimiento.year)]],
-      )
+            # --- MAPEO EXACTO DE DATOS EN CELDAS (Filas 14 y 15) ---
+            worksheet.update(
+                f"B{f_actual}:B{f_siguiente}",
+                [[folio_asignado], [folio_asignado]],
+            )
+            worksheet.update_acell(f"C{f_actual}", paterno.upper())
+            worksheet.update_acell(
+                f"D{f_actual}", materno.upper() if materno else ""
+            )
+            worksheet.update_acell(f"E{f_actual}", nombres.upper())
 
-      worksheet.update(
-          f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
-      )
-      worksheet.update(
-          f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
-      )
+            worksheet.update(
+                f"F{f_actual}:F{f_siguiente}",
+                [
+                    [str(fecha_nacimiento.day).zfill(2)],
+                    [str(fecha_nacimiento.day).zfill(2)],
+                ],
+            )
+            worksheet.update(
+                f"G{f_actual}:G{f_siguiente}",
+                [
+                    [str(fecha_nacimiento.month).zfill(2)],
+                    [str(fecha_nacimiento.month).zfill(2)],
+                ],
+            )
+            worksheet.update(
+                f"H{f_actual}:H{f_siguiente}",
+                [[str(fecha_nacimiento.year)], [str(fecha_nacimiento.year)]],
+            )
 
-      worksheet.update(
-          f"K{f_actual}:K{f_siguiente}",
-          [
-              ["H" if sexo == "HOMBRE" else "M"],
-              ["H" if sexo == "HOMBRE" else "M"],
-          ],
-      )
+            worksheet.update(
+                f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
+            )
+            worksheet.update(
+                f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
+            )
 
-      worksheet.update(
-          f"L{f_actual}:L{f_siguiente}",
-          [
-              [val_fecha_app.strftime("%d/%m/%Y")],
-              [val_fecha_app.strftime("%d/%m/%Y")],
-          ],
-      )
+            worksheet.update(
+                f"K{f_actual}:K{f_siguiente}",
+                [
+                    ["H" if sexo == "HOMBRE" else "M"],
+                    ["H" if sexo == "HOMBRE" else "M"],
+                ],
+            )
 
-      worksheet.update(
-          f"M{f_actual}:M{f_siguiente}", [[calle.upper()], [calle.upper()]]
-      )
-      worksheet.update(
-          f"N{f_actual}:N{f_siguiente}", [[numero.upper()], [numero.upper()]]
-      )
-      worksheet.update(
-          f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
-      )
+            worksheet.update(
+                f"L{f_actual}:L{f_siguiente}",
+                [
+                    [val_fecha_app.strftime("%d/%m/%Y")],
+                    [val_fecha_app.strftime("%d/%m/%Y")],
+                ],
+            )
 
-      worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+            worksheet.update(
+                f"M{f_actual}:M{f_siguiente}", [[calle.upper()], [calle.upper()]]
+            )
+            worksheet.update(
+                f"N{f_actual}:N{f_siguiente}", [[numero.upper()], [numero.upper()]]
+            )
+            worksheet.update(
+                f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
+            )
 
-      # Grupo Objetivo (P o Q)
-      if grupo_sugerido == "6 A 59 MESES":
-        worksheet.update(
-            f"P{f_actual}:P{f_siguiente}", [["X"], ["X"]]
-        )
-      elif grupo_sugerido == "60 Y MÁS":
-        worksheet.update(
-            f"Q{f_actual}:Q{f_siguiente}", [["X"], ["X"]]
-        )
+            worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
 
-      # Grupos de riesgo y Comorbilidades
-      if planes_o_embarazo == "SÍ":
-        worksheet.update(
-            f"R{f_actual}:R{f_siguiente}", [["X"], ["X"]]
-        )
-      if ocupacion == "PERSONAL DE SALUD":
-        worksheet.update(
-            f"S{f_actual}:S{f_siguiente}", [["X"], ["X"]]
-        )
-      if vih:
-        worksheet.update(
-            f"T{f_actual}:T{f_siguiente}", [["X"], ["X"]]
-        )
-      if diabetes:
-        worksheet.update(
-            f"U{f_actual}:U{f_siguiente}", [["X"], ["X"]]
-        )
-      if obesidad:
-        worksheet.update(
-            f"V{f_actual}:V{f_siguiente}", [["X"], ["X"]]
-        )
-      if cardiopatias:
-        worksheet.update(
-            f"W{f_actual}:W{f_siguiente}", [["X"], ["X"]]
-        )
-      if cancer:
-        worksheet.update(
-            f"Y{f_actual}:Y{f_siguiente}", [["X"], ["X"]]
-        )
-      if insuficiencia_renal:
-        worksheet.update(
-            f"AA{f_actual}:AA{f_siguiente}", [["X"], ["X"]]
-        )
-      if discapacidades:
-        worksheet.update(
-            f"AC{f_actual}:AC{f_siguiente}", [["X"], ["X"]]
-        )
-      if fibrosis_quistica:
-        worksheet.update(
-            f"AD{f_actual}:AD{f_siguiente}", [["X"], ["X"]]
-        )
-      if hipertension:
-        worksheet.update(
-            f"AE{f_actual}:AE{f_siguiente}", [["X"], ["X"]]
-        )
+            # Grupo Objetivo (P o Q)
+            if grupo_sugerido == "6 A 59 MESES":
+                worksheet.update(
+                    f"P{f_actual}:P{f_siguiente}", [["X"], ["X"]]
+                )
+            elif grupo_sugerido == "60 Y MÁS":
+                worksheet.update(
+                    f"Q{f_actual}:Q{f_siguiente}", [["X"], ["X"]]
+                )
 
-      # Derechohabiencia (AN)
-      worksheet.update(
-          f"AN{f_actual}:AN{f_siguiente}",
-          [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
-      )
+            # Grupos de riesgo y Comorbilidades
+            if planes_o_embarazo == "SÍ":
+                worksheet.update(
+                    f"R{f_actual}:R{f_siguiente}", [["X"], ["X"]]
+                )
+            if ocupacion == "PERSONAL DE SALUD":
+                worksheet.update(
+                    f"S{f_actual}:S{f_siguiente}", [["X"], ["X"]]
+                )
+            if vih:
+                worksheet.update(
+                    f"T{f_actual}:T{f_siguiente}", [["X"], ["X"]]
+                )
+            if diabetes:
+                worksheet.update(
+                    f"U{f_actual}:U{f_siguiente}", [["X"], ["X"]]
+                )
+            if obesidad:
+                worksheet.update(
+                    f"V{f_actual}:V{f_siguiente}", [["X"], ["X"]]
+                )
+            if cardiopatias:
+                worksheet.update(
+                    f"W{f_actual}:W{f_siguiente}", [["X"], ["X"]]
+                )
+            if cancer:
+                worksheet.update(
+                    f"Y{f_actual}:Y{f_siguiente}", [["X"], ["X"]]
+                )
+            if insuficiencia_renal:
+                worksheet.update(
+                    f"AA{f_actual}:AA{f_siguiente}", [["X"], ["X"]]
+                )
+            if discapacidades:
+                worksheet.update(
+                    f"AC{f_actual}:AC{f_siguiente}", [["X"], ["X"]]
+                )
+            if fibrosis_quistica:
+                worksheet.update(
+                    f"AD{f_actual}:AD{f_siguiente}", [["X"], ["X"]]
+                )
+            if hipertension:
+                worksheet.update(
+                    f"AE{f_actual}:AE{f_siguiente}", [["X"], ["X"]]
+                )
 
-      # --- CLONACIÓN EXACTA DE DISEÑO (B-AM) Y ALTURA DE 55 PX (Filas 14 y 15 como modelo) ---
-      try:
-        body = {
-            "requests": [
-                {
-                    "copyPaste": {
-                        "source": {
-                            "sheetId": worksheet.id,
-                            "startRowIndex": 13,  # Fila 14 modelo
-                            "endRowIndex": 15,  # Fila 15 modelo
-                            "startColumnIndex": 1,  # Columna B
-                            "endColumnIndex": 39,  # Columna AM (índice 39)
+            # Derechohabiencia (AN)
+            worksheet.update(
+                f"AN{f_actual}:AN{f_siguiente}",
+                [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
+            )
+
+            # --- CLONACIÓN EXACTA DE DISEÑO Y ALTURA DE 55 PX ---
+            try:
+                body = {
+                    "requests": [
+                        {
+                            "copyPaste": {
+                                "source": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": 13,
+                                    "endRowIndex": 15,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 39,
+                                },
+                                "destination": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 39,
+                                },
+                                "pasteType": "PASTE_NORMAL",
+                            }
                         },
-                        "destination": {
-                            "sheetId": worksheet.id,
-                            "startRowIndex": f_actual - 1,
-                            "endIndex": f_siguiente,
-                            "startColumnIndex": 1,
-                            "endColumnIndex": 39,
+                        {
+                            "updateDimensionProperties": {
+                                "range": {
+                                    "sheetId": worksheet.id,
+                                    "dimension": "ROWS",
+                                    "startIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                },
+                                "properties": {"pixelSize": 55},
+                                "fields": "pixelSize",
+                            }
                         },
-                        "pasteType": "PASTE_NORMAL",
-                    }
-                },
-                {
-                    "updateDimensionProperties": {
-                        "range": {
-                            "sheetId": worksheet.id,
-                            "dimension": "ROWS",
-                            "startIndex": f_actual - 1,
-                            "endIndex": f_siguiente,
-                        },
-                        "properties": {"pixelSize": 55},
-                        "fields": "pixelSize",
-                    }
-                },
-            ]
-        }
-        spreadsheet.batch_update(body)
+                    ]
+                }
+                spreadsheet.batch_update(body)
 
-        worksheet.update(
-            f"B{f_actual}:B{f_siguiente}",
-            [[folio_asignado], [folio_asignado]],
-        )
-        worksheet.update_acell(f"C{f_actual}", paterno.upper())
-        worksheet.update_acell(
-            f"D{f_actual}", materno.upper() if materno else ""
-        )
-        worksheet.update_acell(f"E{f_actual}", nombres.upper())
-        worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-      except Exception as err_copia:
-        pass
+                worksheet.update(
+                    f"B{f_actual}:B{f_siguiente}",
+                    [[folio_asignado], [folio_asignado]],
+                )
+                worksheet.update_acell(f"C{f_actual}", paterno.upper())
+                worksheet.update_acell(
+                    f"D{f_actual}", materno.upper() if materno else ""
+                )
+                worksheet.update_acell(f"E{f_actual}", nombres.upper())
+                worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+            except Exception as err_copia:
+                pass
 
-      st.session_state.ultimo_paciente_registrado = {
-          "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-          "curp_con_nacimiento": curp_con_nacimiento,
-          "grupo_objetivo": grupo_sugerido,
-          "folio": folio_asignado,
-      }
-      st.rerun()
+            st.session_state.ultimo_paciente_registrado = {
+                "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                "curp_con_nacimiento": curp_con_nacimiento,
+                "grupo_objetivo": grupo_sugerido,
+                "folio": folio_asignado,
+            }
+            st.rerun()
 
-    except Exception as e:
-      st.error(f"Error al guardar en Google Sheets: {e}")
+        except Exception as e:
+            st.error(f"Error al guardar en Google Sheets: {e}")
