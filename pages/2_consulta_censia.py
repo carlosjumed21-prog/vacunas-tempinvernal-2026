@@ -151,18 +151,15 @@ def mostrar_modal_comprobante_vacunacion():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
-                        const file = new File([blob], fileName, {{ type: 'image/png' }});
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Aplicación registrada con éxito.`;
                         
-                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error al compartir archivo:', error));
-                        }} else {{
-                            const enlace = document.createElement('a');
-                            enlace.download = fileName;
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                        }}
+                        // Forzar descarga de la imagen y apertura directa de WhatsApp Web
+                        const enlace = document.createElement('a');
+                        enlace.download = fileName;
+                        enlace.href = URL.createObjectURL(blob);
+                        enlace.click();
+                        
+                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
                     }}, 'image/png');
                 }});
             }}
