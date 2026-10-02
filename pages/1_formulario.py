@@ -641,7 +641,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             f_actual = siguiente_fila
             f_siguiente = siguiente_fila + 1
 
-            # --- 1. PRIMERO: CLONAR DISEÑO EXACTO Y ALTURA DESDE LAS FILAS 14-15 (Índices 13 a 15) ---
+            # --- 1. CLONAR DISEÑO DESDE COLUMNA A HASTA AM (Filas 14-15) Y ALTURA DE 55 PX ---
             try:
                 body = {
                     "requests": [
@@ -651,14 +651,14 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                                     "sheetId": worksheet.id,
                                     "startRowIndex": 13,  # Fila 14 modelo
                                     "endRowIndex": 15,   # Fila 15 modelo
-                                    "startColumnIndex": 1,  # Columna B
-                                    "endColumnIndex": 39,   # Columna AM
+                                    "startColumnIndex": 0,  # Columna A (Inicio exacto)
+                                    "endColumnIndex": 39,   # Columna AM (Fin exacto)
                                 },
                                 "destination": {
                                     "sheetId": worksheet.id,
                                     "startRowIndex": f_actual - 1,
                                     "endIndex": f_siguiente,
-                                    "startColumnIndex": 1,
+                                    "startColumnIndex": 0,
                                     "endColumnIndex": 39,
                                 },
                                 "pasteType": "PASTE_NORMAL",
@@ -682,7 +682,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except Exception as err_copia:
                 pass
 
-            # --- 2. SEGUNDO: ESCRIBIR LOS DATOS SOBRE EL FORMATO YA CLONADO ---
+            # --- 2. SEGUNDO: ESCRIBIR LOS DATOS SOBRE EL FORMATO CLONADO ---
             worksheet.update(
                 f"B{f_actual}:B{f_siguiente}",
                 [[folio_asignado], [folio_asignado]],
