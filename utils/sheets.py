@@ -67,17 +67,17 @@ def guardar_registro_censal(
         f_actual = fila_inicio_destino
         f_siguiente = fila_inicio_destino + 1
 
-        # --- CLONAR LA PLANTILLA FIJA (FILAS 14-15) ---
+        # --- CLONAR LA PLANTILLA FIJA (FILAS 14-15) USANDO GRIDRANGE CORRECTO ---
         body_formato = {
             "requests": [
                 {
                     "copyPaste": {
                         "source": {
                             "sheetId": worksheet.id,
-                            "startRowIndex": 13,  # Fila 14
-                            "endIndex": 15,  # Fila 15
+                            "startRowIndex": 13,  # Fila 14 (Index 13)
+                            "endIndex": 15,       # Fila 15 (Index 15)
                             "startColumnIndex": 0,  # Columna A
-                            "endColumnIndex": 39,  # Columna AM
+                            "endColumnIndex": 39,   # Columna AM
                         },
                         "destination": {
                             "sheetId": worksheet.id,
