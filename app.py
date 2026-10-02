@@ -7,11 +7,18 @@ aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
 st.markdown("""
     <style>
         .main-header { font-size: 2.3rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; text-align: center; }
-        .sub-header { font-size: 1.25rem !important; color: #611232 !important; margin-bottom: 2rem; font-weight: 700 !important; text-align: center; }
+        .sub-header { font-size: 1.25rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; text-align: center; }
         .card-menu { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.1rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; width: 100%; }
+        .btn-admin>button { background-color: #611232 !important; color: white !important; font-size: 0.95rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.4rem 0.8rem !important; }
     </style>
 """, unsafe_allow_html=True)
+
+# --- ACCESO RÁPIDO A ADMINISTRACIÓN EN LA PARTE SUPERIOR ---
+col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
+with col_top3:
+    if st.button("🔐 Panel Admin", use_container_width=True, key="btn_top_admin"):
+        st.switch_page("pages/3_administrador.py")
 
 st.markdown('<p class="main-header">Sistema de Vigilancia y Censo Nominal</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
