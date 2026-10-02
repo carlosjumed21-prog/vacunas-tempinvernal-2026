@@ -1,33 +1,43 @@
 import streamlit as st
 
+
 # --- CONFIGURACIÓN UNIVERSAL DE ESTILOS Y OCULTACIÓN DE BARRA LATERAL ---
-def aplicar_configuracion_global(titulo_pagina="Sistema Censo Nominal", icono="💉"):
+def aplicar_configuracion_global(
+    titulo_pagina="Sistema Censo Nominal", icono="💉"
+):
     st.set_page_config(
         page_title=titulo_pagina,
         page_icon=icono,
         layout="centered",
-        initial_sidebar_state="collapsed"
+        initial_sidebar_state="collapsed",
     )
-    
+
     params = st.query_params
     es_enlace_personalizado = len(params) > 0
 
     if es_enlace_personalizado:
-        st.markdown("""
-            <style>
-                [data-testid="stSidebar"], [data-testid="collapsedControl"], section[data-testid="stSidebar"] {
-                    display: none !important;
-                    visibility: hidden !important;
-                }
-                .stApp { background-color: #fbf9f4; }
-            </style>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            """
+        <style>
+            [data-testid="stSidebar"], [data-testid="collapsedControl"], section[data-testid="stSidebar"] {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            .stApp { background-color: #fbf9f4; }
+        </style>
+        """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.markdown("""
-            <style>
-                .stApp { background-color: #fbf9f4; }
-            </style>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            """
+        <style>
+            .stApp { background-color: #fbf9f4; }
+        </style>
+        """,
+            unsafe_allow_html=True,
+        )
+
 
 # --- DICCIONARIO UNIVERSAL DE UNIDADES ISSSTE ---
 UNIDADES_ISSSTE = {
@@ -98,7 +108,9 @@ UNIDADES_ISSSTE = {
     },
 }
 
-MAPA_SIGLAS_INVERSO = {v["sigla"]: k for k, v in UNIDADES_ISSSTE.items() if v["sigla"]}
+MAPA_SIGLAS_INVERSO = {
+    v["sigla"]: k for k, v in UNIDADES_ISSSTE.items() if v["sigla"]
+}
 
 GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
 GOOGLE_SCOPES = [
