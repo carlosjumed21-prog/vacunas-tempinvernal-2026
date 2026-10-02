@@ -767,10 +767,21 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. ESTRATEGIA CTRL+C / CTRL+V: COPIA LA PLANTILLA (FILAS 14-15, COLUMNAS A(0) HASTA AM(39)) AL NUEVO BLOQUE ---
+            # --- 1. INSERTAR LAS 2 FILAS FÍSICAS Y COPIAR LA PLANTILLA (ESTRATEGIA CTRL+C / CTRL+V) ---
             try:
                 body_formato = {
                     "requests": [
+                        {
+                            "insertDimension": {
+                                "range": {
+                                    "sheetId": worksheet.id,
+                                    "dimension": "ROWS",
+                                    "startIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                },
+                                "inheritFromBefore": False,
+                            }
+                        },
                         {
                             "copyPaste": {
                                 "source": {
@@ -806,7 +817,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 }
                 spreadsheet.batch_update(body_formato)
             except Exception as err_estilos:
-                st.error(f"Error al clonar estructura de la plantilla: {err_estilos}")
+                st.error(f"Error al insertar y clonar la plantilla: {err_estilos}")
 
             # --- 2. MAPEO RÁPIDO DE DATOS Y MIGRADOS SOBRE EL NUEVO BLOQUE ---
             datos_a_actualizar = [
