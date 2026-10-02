@@ -350,7 +350,7 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
             unidad=st.session_state.nombre_unidad,
-            vacuna_interes=p.get("vacuna_interes", "COVID-19"),
+            vacuna_interes=p.get("vacuna_interes", "NO SELECCIONADA"),
             nombre=p["nombre_completo"],
             curp=curp_mostrar,
             grupo=p["grupo_objetivo"],
@@ -680,90 +680,93 @@ st.markdown(
 )
 vacuna_interes = st.radio(
     "Seleccione la vacuna de su interés para esta jornada:",
-    options=["COVID-19", "INFLUENZA"],
+    options=["SELECCIONE UNA OPCIÓN", "COVID-19", "INFLUENZA"],
     horizontal=True,
     key="input_vacuna",
 )
 
 edad_total_meses = (calc_anos * 12) + calc_meses
 
-# --- LÓGICA DE GRUPO OBJETIVO (POR DEFAULT: POR DESIGNAR) ---
+# --- LÓGICA DE GRUPO OBJETIVO (SIN ETIQUETA HASTA SELECCIÓN) ---
 grupo_sugerido = "POR DESIGNAR"
 
-is_personal_salud = (
-    "PERSONAL DE SALUD" in ocupacion
-    or ocupacion
-    == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
-)
-is_colectivo_riesgo = is_personal_salud or ocupacion in [
-    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
-    "PERSONAL MILITAR",
-    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
-]
+if vacuna_interes != "SELECCIONE UNA OPCIÓN":
+    is_personal_salud = (
+        "PERSONAL DE SALUD" in ocupacion
+        or ocupacion
+        == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
+    )
+    is_colectivo_riesgo = is_personal_salud or ocupacion in [
+        "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
+        "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
+        "PERSONAL MILITAR",
+        "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
+    ]
 
-if fecha_nacimiento is not None or planes_o_embarazo == "SÍ" or is_colectivo_riesgo or (
-    vih or diabetes or obesidad or cardiopatias or cancer or insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
-):
-    if vacuna_interes == "COVID-19":
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
-        elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "PERSONAS EMBARAZADAS"
-        elif calc_anos >= 60:
-            grupo_sugerido = "60 AÑOS Y MÁS"
-        elif is_personal_salud:
-            grupo_sugerido = "PERSONAL DE SALUD"
-        elif (
-            vih
-            or diabetes
-            or obesidad
-            or cardiopatias
-            or cancer
-            or insuficiencia_renal
-            or discapacidades
-            or fibrosis_quistica
-            or hipertension
-        ):
-            grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
-        else:
-            grupo_sugerido = "POBLACIÓN GENERAL"
-    else:  # INFLUENZA
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
-        elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "PERSONAS GESTANTES"
-        elif is_colectivo_riesgo:
-            grupo_sugerido = ocupacion
-        elif calc_anos >= 60:
-            grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
-        elif (
-            vih
-            or diabetes
-            or obesidad
-            or cardiopatias
-            or cancer
-            or insuficiencia_renal
-            or discapacidades
-            or fibrosis_quistica
-            or hipertension
-        ):
-            grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
-        else:
-            grupo_sugerido = "POBLACIÓN GENERAL"
+    if fecha_nacimiento is not None or planes_o_embarazo == "SÍ" or is_colectivo_riesgo or (
+        vih or diabetes or obesidad or cardiopatias or cancer or insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
+    ):
+        if vacuna_interes == "COVID-19":
+            if 6 <= edad_total_meses <= 59:
+                grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
+            elif planes_o_embarazo == "SÍ":
+                grupo_sugerido = "PERSONAS EMBARAZADAS"
+            elif calc_anos >= 60:
+                grupo_sugerido = "60 AÑOS Y MÁS"
+            elif is_personal_salud:
+                grupo_sugerido = "PERSONAL DE SALUD"
+            elif (
+                vih
+                or diabetes
+                or obesidad
+                or cardiopatias
+                or cancer
+                or insuficiencia_renal
+                or discapacidades
+                or fibrosis_quistica
+                or hipertension
+            ):
+                grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
+            else:
+                grupo_sugerido = "POBLACIÓN GENERAL"
+        else:  # INFLUENZA
+            if 6 <= edad_total_meses <= 59:
+                grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
+            elif planes_o_embarazo == "SÍ":
+                grupo_sugerido = "PERSONAS GESTANTES"
+            elif is_colectivo_riesgo:
+                grupo_sugerido = ocupacion
+            elif calc_anos >= 60:
+                grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
+            elif (
+                vih
+                or diabetes
+                or obesidad
+                or cardiopatias
+                or cancer
+                or insuficiencia_renal
+                or discapacidades
+                or fibrosis_quistica
+                or hipertension
+            ):
+                grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
+            else:
+                grupo_sugerido = "POBLACIÓN GENERAL"
 
 st.markdown(
     '<div class="section-title">7. Grupo Objetivo</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯 Grupo Objetivo ({vacuna_interes}): {grupo_sugerido}</div>',
+    f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>',
     unsafe_allow_html=True,
 )
 
 st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
-    if not fecha_nacimiento:
+    if vacuna_interes == "SELECCIONE UNA OPCIÓN":
+        st.error("Por favor seleccione la Vacuna de Interés (COVID-19 o Influenza).")
+    elif not fecha_nacimiento:
         st.error("Por favor seleccione la Fecha de Nacimiento.")
     elif not paterno or not nombres:
         st.error("Complete Apellido Paterno y Nombre(s).")
@@ -824,5 +827,5 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.rerun()
 
         except Exception as e:
-            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
+            st.error("⚠️️ Error general al procesar el registro en Google Sheets:")
             st.exception(e)
