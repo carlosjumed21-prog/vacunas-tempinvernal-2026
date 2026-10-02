@@ -733,134 +733,154 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA (AVANZA CORRECTAMENTE EN BLOQUES DE 2) ---
-            columna_c_vals = worksheet.col_values(3)
-            ultima_fila = len(columna_c_vals)
+            # --- VALIDACIÓN DE DUPLICADOS POR CURP ---
+            todos_los_valores = worksheet.get_all_values()
+            curp_a_buscar = curp_con_nacimiento.strip().upper()
+            folio_existente = None
 
-            if ultima_fila < 14:
-                siguiente_fila = 14
+            if len(todos_los_valores) >= 14:
+                for idx_fila in range(13, len(todos_los_valores)):
+                    fila_actual = todos_los_valores[idx_fila]
+                    # La CURP se almacena en la columna C de la segunda fila del bloque (f_siguiente)
+                    if len(fila_actual) > 2 and fila_actual[2].strip().upper() == curp_a_buscar:
+                        # El folio se encuentra en la columna B (índice 1)
+                        if len(fila_actual) > 1 and fila_actual[1].strip():
+                            folio_existente = fila_actual[1].strip()
+                            break
+
+            if folio_existente:
+                st.error(f"⚠️ El paciente con CURP **{curp_a_buscar}** ya se encuentra registrado en esta jornada con el folio: **{folio_existente}**.")
             else:
-                if ultima_fila % 2 != 0:
-                    siguiente_fila = ultima_fila + 1
+                # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA DISPONIBLE ---
+                columna_c_vals = worksheet.col_values(3)
+                ultima_fila = len(columna_c_vals)
+
+                if ultima_fila < 14:
+                    siguiente_fila = 14
                 else:
-                    siguiente_fila = ultima_fila + 2
+                    if ultima_fila % 2 != 0:
+                        siguiente_fila = ultima_fila + 1
+                    else:
+                        siguiente_fila = ultima_fila + 2
 
-            siguiente_num = ((siguiente_fila - 14) // 2) + 1
-            aammmdd = val_fecha_app.strftime("%y%m%d")
-            folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
+                siguiente_num = ((siguiente_fila - 14) // 2) + 1
+                aammmdd = val_fecha_app.strftime("%y%m%d")
+                folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
-            f_actual = siguiente_fila
-            f_siguiente = siguiente_fila + 1
+                f_actual = siguiente_fila
+                f_siguiente = siguiente_fila + 1
 
-            dia_n = str(fecha_nacimiento.day).zfill(2)
-            mes_n = str(fecha_nacimiento.month).zfill(2)
-            anio_n = str(fecha_nacimiento.year)
-            anos_str = str(calc_anos)
-            meses_str = str(calc_meses)
-            sexo_letra = "H" if sexo == "HOMBRE" else "M"
-            fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
-            calle_str = calle.upper()
-            num_str = numero.upper()
-            col_str = colonia.upper()
+                dia_n = str(fecha_nacimiento.day).zfill(2)
+                mes_n = str(fecha_nacimiento.month).zfill(2)
+                anio_n = str(fecha_nacimiento.year)
+                anos_str = str(calc_anos)
+                meses_str = str(calc_meses)
+                sexo_letra = "H" if sexo == "HOMBRE" else "M"
+                fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
+                calle_str = calle.upper()
+                num_str = numero.upper()
+                col_str = colonia.upper()
 
-            # --- 1. CLONAR DISEÑO Y ALTURA DESDE LA PLANTILLA (FILAS 14-15) ---
-            try:
-                body_formato = {
-                    "requests": [
-                        {
-                            "copyPaste": {
-                                "source": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": 13,
-                                    "endIndex": 15,
-                                    "startColumnIndex": 1,
-                                    "endColumnIndex": 39,
-                                },
-                                "destination": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                    "startColumnIndex": 1,
-                                    "endColumnIndex": 39,
-                                },
-                                "pasteType": "PASTE_NORMAL",
+                # --- 1. CLONAR DISEÑO, BORDES Y ALTURA (FILAS 14-15) ANTES DE ESCRIBIR ---
+                try:
+                    body_formato = {
+                        "requests": [
+                            {
+                                "copyPaste": {
+                                    "source": {
+                                        "sheetId": worksheet.id,
+                                        "startRowIndex": 13,
+                                        "endIndex": 15,
+                                        "startColumnIndex": 1,
+                                        "endColumnIndex": 39,
+                                    },
+                                    "destination": {
+                                        "sheetId": worksheet.id,
+                                        "startRowIndex": f_actual - 1,
+                                        "endIndex": f_siguiente,
+                                        "startColumnIndex": 1,
+                                        "endColumnIndex": 39,
+                                    },
+                                    "pasteType": "PASTE_NORMAL",
+                                }
+                            },
+                            {
+                                "updateDimensionProperties": {
+                                    "range": {
+                                        "sheetId": worksheet.id,
+                                        "dimension": "ROWS",
+                                        "startIndex": f_actual - 1,
+                                        "endIndex": f_siguiente,
+                                    },
+                                    "properties": {"pixelSize": 55},
+                                    "fields": "pixelSize",
+                                }
                             }
-                        },
-                        {
-                            "updateDimensionProperties": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "dimension": "ROWS",
-                                    "startIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                },
-                                "properties": {"pixelSize": 55},
-                                "fields": "pixelSize",
-                            }
-                        }
-                    ]
+                        ]
+                    }
+                    spreadsheet.batch_update(body_formato)
+                except Exception as err_estilos:
+                    pass
+
+                # --- 2. MAPEO RÁPIDO DE DATOS SOBRE LA ESTRUCTURA FORMATEADA ---
+                datos_a_actualizar = [
+                    {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
+                    {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
+                    {"range": f"D{f_actual}", "values": [[materno.upper() if materno else ""]]},
+                    {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
+                    {"range": f"F{f_actual}:F{f_siguiente}", "values": [[dia_n], [dia_n]]},
+                    {"range": f"G{f_actual}:G{f_siguiente}", "values": [[mes_n], [mes_n]]},
+                    {"range": f"H{f_actual}:H{f_siguiente}", "values": [[anio_n], [anio_n]]},
+                    {"range": f"I{f_actual}:I{f_siguiente}", "values": [[anos_str], [anos_str]]},
+                    {"range": f"J{f_actual}:J{f_siguiente}", "values": [[meses_str], [meses_str]]},
+                    {"range": f"K{f_actual}:K{f_siguiente}", "values": [[sexo_letra], [sexo_letra]]},
+                    {"range": f"L{f_actual}:L{f_siguiente}", "values": [[fecha_app_str], [fecha_app_str]]},
+                    {"range": f"M{f_actual}:M{f_siguiente}", "values": [[calle_str], [calle_str]]},
+                    {"range": f"N{f_actual}:N{f_siguiente}", "values": [[num_str], [num_str]]},
+                    {"range": f"O{f_actual}:O{f_siguiente}", "values": [[col_str], [col_str]]},
+                    {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
+                    {"range": f"AN{f_actual}:AN{f_siguiente}", "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]]}
+                ]
+
+                # Grupos objetivo y comorbilidades
+                if grupo_sugerido == "6 A 59 MESES":
+                    datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
+                elif grupo_sugerido == "60 Y MÁS":
+                    datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
+
+                if planes_o_embarazo == "SÍ":
+                    datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
+                if ocupacion == "PERSONAL DE SALUD":
+                    datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
+                if vih:
+                    datos_a_actualizar.append({"range": f"T{f_actual}:T{f_siguiente}", "values": [["X"], ["X"]]})
+                if diabetes:
+                    datos_a_actualizar.append({"range": f"U{f_actual}:U{f_siguiente}", "values": [["X"], ["X"]]})
+                if obesidad:
+                    datos_a_actualizar.append({"range": f"V{f_actual}:V{f_siguiente}", "values": [["X"], ["X"]]})
+                if cardiopatias:
+                    datos_a_actualizar.append({"range": f"W{f_actual}:W{f_siguiente}", "values": [["X"], ["X"]]})
+                if cancer:
+                    datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
+                if insuficiencia_renal:
+                    datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
+                if discapacidades:
+                    datos_a_actualizar.append({"range": f"AC{f_actual}:AC{f_siguiente}", "values": [["X"], ["X"]]})
+                if fibrosis_quistica:
+                    datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
+                if hipertension:
+                    datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
+
+                # Ejecutar actualización rápida de datos
+                worksheet.batch_update(datos_a_actualizar)
+
+                st.session_state.ultimo_paciente_registrado = {
+                    "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                    "curp_con_nacimiento": curp_con_nacimiento,
+                    "grupo_objetivo": grupo_sugerido,
+                    "folio": folio_asignado,
                 }
-                spreadsheet.batch_update(body_formato)
-            except Exception as err_estilos:
-                pass
-
-            # --- 2. MAPEO RÁPIDO DE DATOS CON SECUENCIA CORRECTA ---
-            datos_a_actualizar = [
-                {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
-                {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
-                {"range": f"D{f_actual}", "values": [[materno.upper() if materno else ""]]},
-                {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
-                {"range": f"F{f_actual}:F{f_siguiente}", "values": [[dia_n], [dia_n]]},
-                {"range": f"G{f_actual}:G{f_siguiente}", "values": [[mes_n], [mes_n]]},
-                {"range": f"H{f_actual}:H{f_siguiente}", "values": [[anio_n], [anio_n]]},
-                {"range": f"I{f_actual}:I{f_siguiente}", "values": [[anos_str], [anos_str]]},
-                {"range": f"J{f_actual}:J{f_siguiente}", "values": [[meses_str], [meses_str]]},
-                {"range": f"K{f_actual}:K{f_siguiente}", "values": [[sexo_letra], [sexo_letra]]},
-                {"range": f"L{f_actual}:L{f_siguiente}", "values": [[fecha_app_str], [fecha_app_str]]},
-                {"range": f"M{f_actual}:M{f_siguiente}", "values": [[calle_str], [calle_str]]},
-                {"range": f"N{f_actual}:N{f_siguiente}", "values": [[num_str], [num_str]]},
-                {"range": f"O{f_actual}:O{f_siguiente}", "values": [[col_str], [col_str]]},
-                {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
-                {"range": f"AN{f_actual}:AN{f_siguiente}", "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]]}
-            ]
-
-            # Grupos objetivo y comorbilidades
-            if grupo_sugerido == "6 A 59 MESES":
-                datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
-            elif grupo_sugerido == "60 Y MÁS":
-                datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
-
-            if planes_o_embarazo == "SÍ":
-                datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
-            if ocupacion == "PERSONAL DE SALUD":
-                datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
-            if vih:
-                datos_a_actualizar.append({"range": f"T{f_actual}:T{f_siguiente}", "values": [["X"], ["X"]]})
-            if diabetes:
-                datos_a_actualizar.append({"range": f"U{f_actual}:U{f_siguiente}", "values": [["X"], ["X"]]})
-            if obesidad:
-                datos_a_actualizar.append({"range": f"V{f_actual}:V{f_siguiente}", "values": [["X"], ["X"]]})
-            if cardiopatias:
-                datos_a_actualizar.append({"range": f"W{f_actual}:W{f_siguiente}", "values": [["X"], ["X"]]})
-            if cancer:
-                datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
-            if insuficiencia_renal:
-                datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
-            if fibrosis_quistica:
-                datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
-            if hipertension:
-                datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
-
-            # Ejecutar actualización rápida de datos
-            worksheet.batch_update(datos_a_actualizar)
-
-            st.session_state.ultimo_paciente_registrado = {
-                "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                "curp_con_nacimiento": curp_con_nacimiento,
-                "grupo_objetivo": grupo_sugerido,
-                "folio": folio_asignado,
-            }
-            st.rerun()
+                st.rerun()
 
         except Exception as e:
             st.error(f"Error al guardar en Google Sheets: {e}")
