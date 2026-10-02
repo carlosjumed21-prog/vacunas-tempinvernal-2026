@@ -733,10 +733,12 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA LIBRE (EN BLOQUES DE 2) ---
+            # --- CÁLCULO DE LA SIGUIENTE FILA LIBRE DE FORMA CONSECUTIVA ---
+            ultima_fila = worksheet.row_count
             columna_b_vals = worksheet.col_values(2)
-            siguiente_fila = 14
             
+            # Determinamos la siguiente fila buscando a partir de la fila 14
+            siguiente_fila = 14
             idx = 13
             while idx < len(columna_b_vals):
                 val_actual = str(columna_b_vals[idx]).strip()
@@ -756,18 +758,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             f_actual = siguiente_fila
             f_siguiente = siguiente_fila + 1
 
-            dia_n = str(fecha_nacimiento.day).zfill(2)
-            mes_n = str(fecha_nacimiento.month).zfill(2)
-            anio_n = str(fecha_nacimiento.year)
-            anos_str = str(calc_anos)
-            meses_str = str(calc_meses)
-            sexo_letra = "H" if sexo == "HOMBRE" else "M"
-            fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
-            calle_str = calle.upper()
-            num_str = numero.upper()
-            col_str = colonia.upper()
-
-            # --- 1. INSERTAR LAS 2 FILAS FÍSICAS Y COPIAR LA PLANTILLA ---
+            # --- 1. CLONAR LA PLANTILLA FIJA (FILAS 14-15) EXACTAMENTE COMO APPS SCRIPT ---
             try:
                 body_formato = {
                     "requests": [
@@ -786,10 +777,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                             "copyPaste": {
                                 "source": {
                                     "sheetId": worksheet.id,
-                                    "startRowIndex": 13,
-                                    "endIndex": 15,
-                                    "startColumnIndex": 0,
-                                    "endColumnIndex": 39,
+                                    "startRowIndex": 13,  # Fila 14 (Index 13)
+                                    "endIndex": 15,       # Fila 15 (Index 15)
+                                    "startColumnIndex": 0,  # Columna A (0)
+                                    "endColumnIndex": 39,   # Columna AM (39)
                                 },
                                 "destination": {
                                     "sheetId": worksheet.id,
@@ -817,10 +808,21 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 }
                 spreadsheet.batch_update(body_formato)
             except Exception as err_estilos:
-                st.error("⚠️ Error detallado al insertar/clonar la plantilla:")
+                st.error("⚠️ Error detallado al duplicar la plantilla fija:")
                 st.exception(err_estilos)
 
-            # --- 2. MAPEO RÁPIDO DE DATOS Y MIGRADOS SOBRE EL NUEVO BLOQUE ---
+            # --- 2. MIGRAMOS LOS DATOS SOBRE EL NUEVO BLOQUE ---
+            dia_n = str(fecha_nacimiento.day).zfill(2)
+            mes_n = str(fecha_nacimiento.month).zfill(2)
+            anio_n = str(fecha_nacimiento.year)
+            anos_str = str(calc_anos)
+            meses_str = str(calc_meses)
+            sexo_letra = "H" if sexo == "HOMBRE" else "M"
+            fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
+            calle_str = calle.upper()
+            num_str = numero.upper()
+            col_str = colonia.upper()
+
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -869,7 +871,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Ejecutar migración de datos sobre el bloque ya formateado
+            # Ejecutar actualización rápida de datos
             worksheet.batch_update(datos_a_actualizar)
 
             st.session_state.ultimo_paciente_registrado = {
