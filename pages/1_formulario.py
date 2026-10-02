@@ -767,7 +767,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. CLONAR DISEÑO Y ALTURA DESDE LA PLANTILLA (FILAS 14-15) ---
+            # --- 1. CLONAR DISEÑO Y ALTURA DESDE LA PLANTILLA (FILAS 14-15) DE COLUMNA A (0) A AM (39) ---
             try:
                 body_formato = {
                     "requests": [
@@ -777,14 +777,14 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                                     "sheetId": worksheet.id,
                                     "startRowIndex": 13,
                                     "endIndex": 15,
-                                    "startColumnIndex": 1,
+                                    "startColumnIndex": 0,
                                     "endColumnIndex": 39,
                                 },
                                 "destination": {
                                     "sheetId": worksheet.id,
                                     "startRowIndex": f_actual - 1,
                                     "endIndex": f_siguiente,
-                                    "startColumnIndex": 1,
+                                    "startColumnIndex": 0,
                                     "endColumnIndex": 39,
                                 },
                                 "pasteType": "PASTE_NORMAL",
@@ -801,7 +801,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                                 "properties": {"pixelSize": 55},
                                 "fields": "pixelSize",
                             }
-                        }
+                        },
                     ]
                 }
                 spreadsheet.batch_update(body_formato)
