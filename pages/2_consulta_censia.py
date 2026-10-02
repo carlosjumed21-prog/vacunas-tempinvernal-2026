@@ -33,7 +33,13 @@ if "ultimo_comprobante_vacunacion" not in st.session_state:
 def mostrar_modal_comprobante_vacunacion():
     p = st.session_state.ultimo_comprobante_vacunacion
     if p:
-        html_comprobante_component = """
+        nombre_val = p.get("nombre", "PACIENTE")
+        folio_val = p.get("folio", "S/F")
+        dosis_val = p.get("dosis_str", "N/A")
+        lotes_val = p.get("lotes_str", "N/A")
+        fecha_hora_val = p.get("fecha_hora", datetime.datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+        html_comprobante_component = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -118,11 +124,11 @@ def mostrar_modal_comprobante_vacunacion():
                     </div>
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN - VIGILE</div>
-                <p class="info-text"><b>Paciente:</b> {nombre}</p>
-                <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_str}</p>
-                <p class="info-text"><b>Lotes Registrados:</b> {lotes_str}</p>
-                <p class="info-text"><b>Aplicación:</b> {fecha_hora}</p>
-                <div class="folio-grande">Folio: {folio}</div>
+                <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
+                <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_val}</p>
+                <p class="info-text"><b>Lotes Registrados:</b> {lotes_val}</p>
+                <p class="info-text"><b>Aplicación:</b> {fecha_hora_val}</p>
+                <div class="folio-grande">Folio: {folio_val}</div>
                 <p class="leyenda-posterior">Sistema de Vacunación Universal • ISSSTE</p>
             </div>
             <div class="btn-container">
@@ -134,13 +140,13 @@ def mostrar_modal_comprobante_vacunacion():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_Vacunacion_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre}\\nFolio: *{folio}*\\nDosis: {dosis_str}\\nLotes: {lotes_str}\\nFecha: {fecha_hora}\\n✅ Aplicación registrada con éxito.`;
+                        const file = new File([blob], 'Comprobante_Vacunacion_{folio_val}.png', {{ type: 'image/png' }});
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_hora_val}\\n✅ Aplicación registrada con éxito.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
                             const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_Vacunacion_{folio}.png';
+                            enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
                             enlace.href = URL.createObjectURL(blob);
                             enlace.click();
                             window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
@@ -152,7 +158,7 @@ def mostrar_modal_comprobante_vacunacion():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_Vacunacion_{folio}.png';
+                    enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
                     enlace.href = canvas.toDataURL('image/png');
                     enlace.click();
                 }});
@@ -160,13 +166,7 @@ def mostrar_modal_comprobante_vacunacion():
             </script>
         </body>
         </html>
-        """.format(
-            nombre=p["nombre"],
-            folio=p["folio"],
-            dosis_str=p["dosis_str"],
-            lotes_str=p["lotes_str"],
-            fecha_hora=p["fecha_hora"],
-        )
+        """
 
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
