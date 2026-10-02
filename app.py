@@ -61,7 +61,7 @@ with col2:
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
     <div style="text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem;">
-        ISSSTE • Centro Médico Nacional "20 de Noviembre"<br>
+        Subdelegación Sur ISSSTE<br>
         Sistema VIGILE (Vigilancia, Inteligencia, Gestión e Intervención Lógica Epidemiológica)
     </div>
 """, unsafe_allow_html=True)
