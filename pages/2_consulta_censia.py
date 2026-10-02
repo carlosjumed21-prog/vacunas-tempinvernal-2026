@@ -91,7 +91,6 @@ else:
         unsafe_allow_html=True,
     )
 
-    # --- LECTURA Y BLOQUEO ESTRICTO POR PARÁMETRO DE URL ---
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
@@ -339,7 +338,7 @@ else:
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
 
-                                    # --- MAPEO ACTUALIZADO DE INFLUENZA ---
+                                    # --- INFLUENZA ---
                                     if inf_1ra:
                                         worksheet_activa.update(
                                             f"AG{f_actual}:AG{f_siguiente}",
@@ -356,7 +355,7 @@ else:
                                             [["X"], ["X"]],
                                         )
 
-                                    # --- MAPEO ACTUALIZADO DE COVID ---
+                                    # --- COVID ---
                                     if cov_1ra:
                                         worksheet_activa.update(
                                             f"AJ{f_actual}:AJ{f_siguiente}",
@@ -373,7 +372,7 @@ else:
                                             [["X"], ["X"]],
                                         )
 
-                                    # --- UNIÓN Y REGISTRO DE LOTES EN COLUMNA M (13) ---
+                                    # --- LOTES EN COLUMNA AM ---
                                     lote_final_str = ""
                                     if lote_inf_input and lote_cov_input:
                                         lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
@@ -384,7 +383,7 @@ else:
 
                                     if lote_final_str:
                                         worksheet_activa.update(
-                                            f"M{f_actual}:M{f_siguiente}",
+                                            f"AM{f_actual}:AM{f_siguiente}",
                                             [[lote_final_str], [lote_final_str]],
                                         )
 
