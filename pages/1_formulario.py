@@ -741,9 +741,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if len(todos_los_valores) >= 14:
                 for idx_fila in range(13, len(todos_los_valores)):
                     fila_actual = todos_los_valores[idx_fila]
-                    # La CURP se almacena en la columna C de la segunda fila del bloque (f_siguiente)
                     if len(fila_actual) > 2 and fila_actual[2].strip().upper() == curp_a_buscar:
-                        # El folio se encuentra en la columna B (índice 1)
                         if len(fila_actual) > 1 and fila_actual[1].strip():
                             folio_existente = fila_actual[1].strip()
                             break
@@ -781,7 +779,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 num_str = numero.upper()
                 col_str = colonia.upper()
 
-                # --- 1. CLONAR DISEÑO, BORDES Y ALTURA (FILAS 14-15) ANTES DE ESCRIBIR ---
+                # --- 1. CLONAR DISEÑO NATIVO COMPLETO (FILAS 14-15 MODELO) CON PASTE_ALL ---
                 try:
                     body_formato = {
                         "requests": [
@@ -789,10 +787,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                                 "copyPaste": {
                                     "source": {
                                         "sheetId": worksheet.id,
-                                        "startRowIndex": 13,
-                                        "endIndex": 15,
-                                        "startColumnIndex": 1,
-                                        "endColumnIndex": 39,
+                                        "startRowIndex": 13,  # Fila 14
+                                        "endIndex": 15,       # Fila 15
+                                        "startColumnIndex": 1,  # Columna B
+                                        "endColumnIndex": 39,   # Columna AM
                                     },
                                     "destination": {
                                         "sheetId": worksheet.id,
@@ -801,7 +799,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                                         "startColumnIndex": 1,
                                         "endColumnIndex": 39,
                                     },
-                                    "pasteType": "PASTE_NORMAL",
+                                    "pasteType": "PASTE_ALL",  # Copia formato, bordes, validaciones y diseño exacto
                                 }
                             },
                             {
@@ -822,7 +820,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 except Exception as err_estilos:
                     pass
 
-                # --- 2. MAPEO RÁPIDO DE DATOS SOBRE LA ESTRUCTURA FORMATEADA ---
+                # --- 2. MAPEO RÁPIDO DE DATOS SOBRE LA ESTRUCTURA YA FORMATEADA ---
                 datos_a_actualizar = [
                     {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                     {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
