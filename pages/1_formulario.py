@@ -720,7 +720,7 @@ if fecha_nacimiento is not None or personas_gestantes == "SÍ" or is_colectivo_r
         elif personas_gestantes == "SÍ":
             grupo_sugerido = "PERSONAS GESTANTES"
         elif calc_anos >= 60:
-            grupo_sugerido = "60 AÑOS Y MÁS"
+            grupo_sugerido = "60 Y MÁS"
         elif is_personal_salud:
             grupo_sugerido = "PERSONAL DE SALUD"
         elif (
@@ -742,6 +742,8 @@ if fecha_nacimiento is not None or personas_gestantes == "SÍ" or is_colectivo_r
             grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
         elif personas_gestantes == "SÍ":
             grupo_sugerido = "PERSONAS GESTANTES"
+        elif is_personal_salud:
+            grupo_sugerido = "PERSONAL DE SALUD"
         elif is_colectivo_riesgo:
             grupo_sugerido = ocupacion
         elif calc_anos >= 60:
