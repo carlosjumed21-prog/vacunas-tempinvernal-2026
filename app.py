@@ -6,6 +6,18 @@ aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
 
 st.markdown("""
     <style>
+        /* Ocultar la barra superior y el menú de Streamlit Cloud */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        #MainMenu {
+            visibility: hidden !important;
+        }
+        /* Ajustar el espacio superior para que el contenido suba de forma limpia */
+        .block-container {
+            padding-top: 1.5rem !important;
+        }
+        
         .main-header { font-size: 2.3rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; text-align: center; }
         .sub-header { font-size: 1.25rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; text-align: center; }
         .card-menu { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
