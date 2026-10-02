@@ -606,7 +606,7 @@ ocupacion = st.selectbox(
     "Seleccione su Ocupación *",
     options=[
         "SELECCIONE UNA OPCIÓN",
-        "PERSONAL DE SALUD",
+        "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)",
         "JUBILADO/A",
         "MAESTRO/A",
         "ADMINISTRATIVO/A",
