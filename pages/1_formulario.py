@@ -441,7 +441,10 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_num = "123 INT. 4B"
             st.session_state.input_col = "ROSA RIVAS"
             st.session_state.input_derecho = "SÍ"
-            st.session_state.input_ocupacion = "PERSONAL DE SALUD"
+            st.session_state.input_ocupacion = (
+                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+                " ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
+            )
             st.session_state.input_digitos = "26"
             st.session_state.input_vacuna = "COVID-19"
             st.session_state.ant_cov = "SÍ"
@@ -606,15 +609,24 @@ ocupacion = st.selectbox(
     "Seleccione su Ocupación *",
     options=[
         "SELECCIONE UNA OPCIÓN",
-        "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)",
+        (
+            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+            " ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
+        ),
         "JUBILADO/A",
         "MAESTRO/A",
         "ADMINISTRATIVO/A",
         "TRABAJO EN GUARDERÍA",
-        "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
+        (
+            "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
+            " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
+        ),
         "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
         "PERSONAL MILITAR",
-        "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
+        (
+            "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
+            " (PEMEX)"
+        ),
         "OTRAS PROFESIONES",
     ],
     key="input_ocupacion",
@@ -675,8 +687,20 @@ vacuna_interes = st.radio(
 
 edad_total_meses = (calc_anos * 12) + calc_meses
 
-# --- LÓGICA DE GRUPO OBJETIVO ---
+# --- LÓGICA DE GRUPO OBJETIVO UNIFICADA (COVID-19 / INFLUENZA) ---
 grupo_sugerido = "POBLACIÓN GENERAL"
+
+is_personal_salud = (
+    "PERSONAL DE SALUD" in ocupacion
+    or ocupacion
+    == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
+)
+is_colectivo_riesgo = is_personal_salud or ocupacion in [
+    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
+    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
+    "PERSONAL MILITAR",
+    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
+]
 
 if vacuna_interes == "COVID-19":
     if 6 <= edad_total_meses <= 59:
@@ -685,7 +709,7 @@ if vacuna_interes == "COVID-19":
         grupo_sugerido = "PERSONAS EMBARAZADAS"
     elif calc_anos >= 60:
         grupo_sugerido = "60 AÑOS Y MÁS"
-    elif ocupacion == "PERSONAL DE SALUD":
+    elif is_personal_salud:
         grupo_sugerido = "PERSONAL DE SALUD"
     elif (
         vih
@@ -704,15 +728,7 @@ else:  # INFLUENZA
         grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
     elif planes_o_embarazo == "SÍ":
         grupo_sugerido = "PERSONAS GESTANTES"
-    elif (
-        ocupacion == "PERSONAL DE SALUD"
-        or ocupacion == "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES"
-        or ocupacion
-        == "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
-        or ocupacion == "PERSONAL MILITAR"
-        or ocupacion
-        == "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)"
-    ):
+    elif is_colectivo_riesgo:
         grupo_sugerido = ocupacion
     elif calc_anos >= 60:
         grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
@@ -801,5 +817,5 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.rerun()
 
         except Exception as e:
-            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
+            st.error("⚠️️ Error general al procesar el registro en Google Sheets:")
             st.exception(e)
