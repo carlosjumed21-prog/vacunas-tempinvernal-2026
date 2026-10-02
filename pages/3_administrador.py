@@ -1,221 +1,464 @@
 import datetime
+import io
 import json
+import urllib.parse
+from config import (
+    GOOGLE_SCOPES,
+    GOOGLE_SHEET_ID,
+    UNIDADES_ISSSTE,
+    aplicar_configuracion_global,
+)
 from google.oauth2 import service_account
 import gspread
+import qrcode
 import streamlit as st
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
+aplicar_configuracion_global("Panel de Administración - Censo Nominal", "⚙️")
 
-def guardar_registro_censal(
-    sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
-):
-    """Migración ultra optimizada que actualiza los encabezados institucionales
+col_nav1, col_nav2 = st.columns([1, 1])
+with col_nav1:
+    if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
+        st.session_state.autenticado_admin = False
+        st.session_state.jornada_autorizada = False
+        st.session_state.hojas_creadas_recientes = []
+        st.rerun()
+with col_nav2:
+    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+        st.switch_page("app.py")
 
-    exactos y los datos del paciente en una sola petición de red.
-    """
-    try:
-        fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
-        tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
-        nombre_hoja_destino = (
-            f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
+st.markdown("---")
+
+if "autenticado_admin" not in st.session_state:
+    st.session_state.autenticado_admin = False
+if "unidad_anterior" not in st.session_state:
+    st.session_state.unidad_anterior = ""
+if "config_direccion_base" not in st.session_state:
+    st.session_state.config_direccion_base = (
+        "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de"
+        " México, CDMX"
+    )
+if "jornada_autorizada" not in st.session_state:
+    st.session_state.jornada_autorizada = False
+if "hojas_creadas_recientes" not in st.session_state:
+    st.session_state.hojas_creadas_recientes = []
+
+if not st.session_state.autenticado_admin:
+    st.markdown(
+        '<p class="main-header">Acceso Restringido - Panel de Administración</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="sub-header">Seleccione usuario autorizado e ingrese su'
+        " contraseña</p>",
+        unsafe_allow_html=True,
+    )
+
+    with st.form("form_login_admin"):
+        usuario_admin = st.selectbox(
+            "Seleccione Usuario:", options=["Seleccione...", "Admin", "EESP Wendy"]
+        )
+        password_admin = st.text_input("Contraseña:", type="password")
+        btn_login_admin = st.form_submit_button(
+            "Ingresar al Panel", use_container_width=True
         )
 
-        scope = GOOGLE_SCOPES
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = (
-                json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-            )
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
+        if btn_login_admin:
+            if (usuario_admin == "Admin" and password_admin == "OtaniOrochi26") or (
+                usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"
+            ):
+                st.session_state.autenticado_admin = True
+                st.rerun()
+            else:
+                st.error("Contraseña incorrecta o usuario no seleccionado.")
+else:
+    st.markdown(
+        '<p class="main-header">Panel de Control y Administración</p>',
+        unsafe_allow_html=True,
+    )
 
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
+    st.markdown(
+        '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+        ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+        ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">1.'
+        " Configuración de Operación y Unidad</div>",
+        unsafe_allow_html=True,
+    )
+
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        unidad_sel = st.selectbox(
+            "Unidad Médica ISSSTE:", options=list(UNIDADES_ISSSTE.keys())
         )
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        siglas_unidad = (
+            UNIDADES_ISSSTE[unidad_sel]["sigla"]
+            if unidad_sel in UNIDADES_ISSSTE
+            else ""
+        )
 
-        try:
-            worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-        except:
-            worksheet = spreadsheet.worksheet("CENSO NOMINAL")
+    with col_c2:
+        jornada_sel = st.selectbox(
+            "Tipo de Jornada:",
+            options=["Seleccione tipo...", "Intramuros I", "Extramuros E"],
+        )
+        tipo_jornada_letra = (
+            "I"
+            if "Intramuros" in jornada_sel
+            else ("E" if "Extramuros" in jornada_sel else "")
+        )
+        tipo_jornada_texto = (
+            "INTRA"
+            if tipo_jornada_letra == "I"
+            else ("EXTRA" if tipo_jornada_letra == "E" else "")
+        )
 
-        # --- CÁLCULO RÁPIDO DE LA SIGUIENTE FILA (CONSULTANDO SOLO COLUMNA B) ---
-        columna_b = worksheet.col_values(2)
-        fila_inicio_destino = 14
-        
-        idx = 13
-        while idx < len(columna_b):
-            val_actual = str(columna_b[idx]).strip()
-            if val_actual == "" or "POR ASIGNAR" in val_actual.upper():
-                fila_inicio_destino = idx + 1
-                break
-            idx += 2
-        else:
-            fila_inicio_destino = max(14, len(columna_b) + 1)
-            if (fila_inicio_destino - 14) % 2 != 0:
-                fila_inicio_destino += 1
+    if (
+        unidad_sel != "Seleccione una unidad médica..."
+        and st.session_state.unidad_anterior != unidad_sel
+    ):
+        st.session_state.unidad_anterior = unidad_sel
+        st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
+        st.session_state.jornada_autorizada = False
+        st.rerun()
 
-        siguiente_num = ((fila_inicio_destino - 14) // 2) + 1
-        aammmdd = val_fecha_app.strftime("%y%m%d")
-        folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
+    if (
+        unidad_sel == "Seleccione una unidad médica..."
+        or jornada_sel == "Seleccione tipo..."
+    ):
+        st.warning(
+            "⚠ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos"
+            " para habilitar la configuración."
+        )
+    else:
+        st.markdown("---")
+        jornadas_simultaneas = st.toggle(
+            "⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en"
+            " operación)",
+            value=False,
+        )
 
-        f_actual = fila_inicio_destino
-        f_siguiente = fila_inicio_destino + 1
-
-        # --- EXTRACCIÓN DE DATOS DEL PACIENTE ---
-        paterno = datos_paciente["paterno"]
-        materno = datos_paciente["materno"]
-        nombres = datos_paciente["nombres"]
-        fecha_nacimiento = datos_paciente["fecha_nacimiento"]
-        calc_anos = datos_paciente["calc_anos"]
-        calc_meses = datos_paciente["calc_meses"]
-        sexo = datos_paciente["sexo"]
-        calle = datos_paciente["calle"]
-        numero = datos_paciente["numero"]
-        colonia = datos_paciente["colonia"]
-        curp_con_nacimiento = datos_paciente["curp_con_nacimiento"]
-        cuenta_derechohabiencia = datos_paciente["cuenta_derechohabiencia"]
-        grupo_sugerido = datos_paciente["grupo_sugerido"]
-        planes_o_embarazo = datos_paciente["planes_o_embarazo"]
-        ocupacion = datos_paciente["ocupacion"]
-        comorbilidades = datos_paciente["comorbilidades"]
-        
-        # Obtenemos opcionalmente el responsable si viene en el diccionario
-        responsable_brigada = datos_paciente.get("responsable", "")
-
-        dia_n = str(fecha_nacimiento.day).zfill(2)
-        mes_n = str(fecha_nacimiento.month).zfill(2)
-        anio_n = str(fecha_nacimiento.year)
-        anos_str = str(calc_anos)
-        meses_str = str(calc_meses)
-        sexo_letra = "H" if sexo == "HOMBRE" else "M"
-        fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
-        calle_str = calle.upper()
-        num_str = numero.upper()
-        col_str = colonia.upper()
-
-        # --- CONSTRUCCIÓN DEL LOTE ÚNICO (MAPEO EXACTO DE ENCABEZADOS Y DATOS) ---
-        datos_a_actualizar = [
-            # Metadatos institucionales actualizados según requerimiento
-            {"range": "D7", "values": [["CDMX"]]},
-            {"range": "M7", "values": [["ISSSTE"]]},
-            {"range": "T7", "values": [["Delegación Sur"]]},
-            {"range": "AB7", "values": [["CDMX"]]},
-            {"range": "D8", "values": [["CDMX"]]},
-            {"range": "D9", "values": [[nombre_unidad_completo]]},
-            {"range": "M9", "values": [[""]]},
-            {"range": "S9", "values": [[""]]},
-            {"range": "AB9", "values": [[fecha_app_str]]},
-            {"range": "E10", "values": [[responsable_brigada]]},
-            
-            # Datos del paciente en las filas consecutivas (f_actual y f_siguiente)
-            {
-                "range": f"B{f_actual}:B{f_siguiente}",
-                "values": [[folio_asignado], [folio_asignado]],
-            },
-            {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
-            {
-                "range": f"D{f_actual}",
-                "values": [[materno.upper() if materno else ""]],
-            },
-            {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
-            {
-                "range": f"F{f_actual}:F{f_siguiente}",
-                "values": [[dia_n], [dia_n]],
-            },
-            {
-                "range": f"G{f_actual}:G{f_siguiente}",
-                "values": [[mes_n], [mes_n]],
-            },
-            {
-                "range": f"H{f_actual}:H{f_siguiente}",
-                "values": [[anio_n], [anio_n]],
-            },
-            {
-                "range": f"I{f_actual}:I{f_siguiente}",
-                "values": [[anos_str], [anos_str]],
-            },
-            {
-                "range": f"J{f_actual}:J{f_siguiente}",
-                "values": [[meses_str], [meses_str]],
-            },
-            {
-                "range": f"K{f_actual}:K{f_siguiente}",
-                "values": [[sexo_letra], [sexo_letra]],
-            },
-            {
-                "range": f"L{f_actual}:L{f_siguiente}",
-                "values": [[fecha_app_str], [fecha_app_str]],
-            },
-            {
-                "range": f"M{f_actual}:M{f_siguiente}",
-                "values": [[calle_str], [calle_str]],
-            },
-            {
-                "range": f"N{f_actual}:N{f_siguiente}",
-                "values": [[num_str], [num_str]],
-            },
-            {
-                "range": f"O{f_actual}:O{f_siguiente}",
-                "values": [[col_str], [col_str]],
-            },
-            {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
-            {
-                "range": f"AN{f_actual}:AN{f_siguiente}",
-                "values": [
-                    [cuenta_derechohabiencia],
-                    [cuenta_derechohabiencia],
-                ],
-            },
-        ]
-
-        # Grupos objetivo y comorbilidades
-        if grupo_sugerido == "6 A 59 MESES":
-            datos_a_actualizar.append(
-                {"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-        elif grupo_sugerido == "60 Y MÁS":
-            datos_a_actualizar.append(
-                {"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]}
+        num_jornadas = 1
+        if jornadas_simultaneas:
+            num_jornadas = st.number_input(
+                "Número de jornadas simultáneas a habilitar:",
+                min_value=2,
+                max_value=5,
+                value=2,
+                step=1,
             )
 
-        if planes_o_embarazo == "SÍ":
-            datos_a_actualizar.append(
-                {"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-        if ocupacion == "PERSONAL DE SALUD":
-            datos_a_actualizar.append(
-                {"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]}
-            )
+        st.markdown(
+            '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+            ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+            ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2.'
+            " Parámetros Independientes por Cédula / Brigada</div>",
+            unsafe_allow_html=True,
+        )
 
-        mapa_comorbilidades = {
-            "vih": "T",
-            "diabetes": "U",
-            "obesidad": "V",
-            "cardiopatias": "W",
-            "cancer": "Y",
-            "insuficiencia_renal": "AA",
-            "discapacidades": "AC",
-            "fibrosis_quistica": "AD",
-            "hipertension": "AE",
-        }
+        config_jornadas_activas = []
 
-        for key, col in mapa_comorbilidades.items():
-            if comorbilidades.get(key, False):
-                datos_a_actualizar.append(
-                    {
-                        "range": f"{col}{f_actual}:{col}{f_siguiente}",
-                        "values": [["X"], ["X"]],
-                    }
+        if not jornadas_simultaneas:
+            st.markdown('<div class="card-simultanea">', unsafe_allow_html=True)
+            resp_unico = st.text_input(
+                "👤 Nombre del responsable de vacunación:",
+                placeholder="Escriba el nombre completo...",
+            )
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                f_app = st.date_input(
+                    "Fecha de Aplicación:",
+                    value=datetime.date.today(),
+                    format="DD/MM/YYYY",
+                    key="f_app_unica",
+                )
+            with col_f2:
+                h_ini = st.time_input(
+                    "Hora Inicio:", value=datetime.time(8, 0), key="h_ini_unica"
+                )
+            with col_f3:
+                h_fin = st.time_input(
+                    "Hora Cierre:", value=datetime.time(14, 0), key="h_fin_unica"
                 )
 
-        # Ejecución masiva ultrarrápida en un solo viaje
-        worksheet.batch_update(datos_a_actualizar)
-        return folio_asignado
+            dir_oficial = st.text_area(
+                "📍 Dirección Oficial de esta Jornada:",
+                value=st.session_state.config_direccion_base,
+                height=70,
+                key="dir_unica",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    except Exception as e:
-        raise e
+            config_jornadas_activas.append({
+                "sufijo_hoja": "",
+                "sufijo_qr": "",
+                "responsable": resp_unico.upper() if resp_unico else "PERSONAL",
+                "fecha": f_app,
+                "hora_inicio": h_ini,
+                "hora_fin": h_fin,
+                "direccion": dir_oficial,
+            })
+        else:
+            st.info(
+                f"Configurando {num_jornadas} equipos simultáneos con fechas, horarios"
+                " y ubicaciones personalizadas:"
+            )
+            for i in range(1, num_jornadas + 1):
+                st.markdown(
+                    f'<div class="card-simultanea"><h4 style="color: #1e5b4f;'
+                    f' margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
+                    unsafe_allow_html=True,
+                )
+                resp_sim = st.text_input(
+                    f"👤 Responsable de Brigada #{i}:",
+                    placeholder=f"Nombre del responsable {i}...",
+                    key=f"resp_sim_{i}",
+                )
+
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    f_app_sim = st.date_input(
+                        f"Fecha de Aplicación #{i}:",
+                        value=datetime.date.today(),
+                        format="DD/MM/YYYY",
+                        key=f"f_app_sim_{i}",
+                    )
+                with col_f2:
+                    h_ini_sim = st.time_input(
+                        f"Hora Inicio #{i}:",
+                        value=datetime.time(8, 0),
+                        key=f"h_ini_sim_{i}",
+                    )
+                with col_f3:
+                    h_fin_sim = st.time_input(
+                        f"Hora Cierre #{i}:",
+                        value=datetime.time(14, 0),
+                        key=f"h_fin_sim_{i}",
+                    )
+
+                dir_sim = st.text_area(
+                    f"📍 Dirección Oficial para Brigada #{i}:",
+                    value=st.session_state.config_direccion_base,
+                    height=70,
+                    key=f"dir_sim_{i}",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                config_jornadas_activas.append({
+                    "sufijo_hoja": f"_JS{i}",
+                    "sufijo_qr": f"_JS{i}",
+                    "responsable": resp_sim.upper()
+                    if resp_sim
+                    else f"RESPONSABLE JS{i}",
+                    "fecha": f_app_sim,
+                    "hora_inicio": h_ini_sim,
+                    "hora_fin": h_fin_sim,
+                    "direccion": dir_sim,
+                })
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button(
+            "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
+            use_container_width=True,
+        ):
+            try:
+                scope = GOOGLE_SCOPES
+
+                if "GOOGLE_CREDENTIALS" in st.secrets:
+                    raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                    creds_dict = (
+                        json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+                    )
+                elif "gpex" in st.secrets:
+                    creds_dict = dict(st.secrets["gpex"])
+                else:
+                    primera_llave = list(st.secrets.keys())[0]
+                    creds_dict = dict(st.secrets[primera_llave])
+
+                creds = service_account.Credentials.from_service_account_info(
+                    creds_dict, scopes=scope
+                )
+                client = gspread.authorize(creds)
+                spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+
+                hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+                duplicadas_detectadas = []
+
+                for j_conf in config_jornadas_activas:
+                    fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+                    nombre_prueba = (
+                        f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                    )
+                    if nombre_prueba in hojas_existentes:
+                        duplicadas_detectadas.append(nombre_prueba)
+
+                if duplicadas_detectadas:
+                    st.error(
+                        "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
+                        f" {', '.join(duplicadas_detectadas)}"
+                    )
+                    st.warning(
+                        "Ya existe una jornada creada con esta misma nomenclatura y fecha."
+                        " Verifique los datos o cambie la fecha/sufijo."
+                    )
+                else:
+                    hojas_creadas_exito = []
+                    for j_conf in config_jornadas_activas:
+                        fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+                        nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
+
+                        plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+                        nueva_hoja = spreadsheet.duplicate_sheet(
+                            plantilla.id, new_sheet_name=nombre_nueva_hoja
+                        )
+                        spreadsheet.reorder_worksheets(
+                            [plantilla, nueva_hoja]
+                            + [
+                                h
+                                for h in spreadsheet.worksheets()
+                                if h.title not in ["CENSO NOMINAL", nombre_nueva_hoja]
+                            ]
+                        )
+
+                        hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+                        fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
+
+                        hoja_activa.update_acell("D6", "CDMX")
+                        hoja_activa.update_acell("M6", "ISSSTE")
+                        hoja_activa.update_acell("U6", "Delegación Sur")
+                        hoja_activa.update_acell("AC6", "CDMX")
+                        hoja_activa.update_acell("D7", "CDMX")
+                        hoja_activa.update_acell("D8", unidad_sel)
+                        hoja_activa.update_acell("AC8", fecha_formato_oficial)
+                        hoja_activa.update_acell("E9", j_conf["responsable"])
+
+                        hojas_creadas_exito.append({
+                            "nombre": nombre_nueva_hoja,
+                            "gid": str(hoja_activa.id),
+                        })
+
+                    st.session_state.jornada_autorizada = True
+                    st.session_state.hojas_creadas_recientes = hojas_creadas_exito
+                    st.success(
+                        "¡Jornadas autorizadas y hojas generadas con éxito en Google"
+                        " Sheets!"
+                    )
+
+            except Exception as e:
+                st.error(
+                    "Error al configurar Google Sheets. Asegúrate de que la hoja 'CENSO"
+                    " NOMINAL' exista y que el correo de servicio tenga permisos de"
+                    f" Editor. Detalle: {e}"
+                )
+
+        if (
+            st.session_state.jornada_autorizada
+            and st.session_state.hojas_creadas_recientes
+        ):
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            enlaces_html = ""
+            for h_info in st.session_state.hojas_creadas_recientes:
+                url_sheet_directa = f"https://docs.google.com/spreadsheets/d/1TH2KkQzNe4HwBcuJK_QR4gWfQ-wiyAyyczdTmLzn1Ds/edit#gid={h_info['gid']}"
+                enlaces_html += f"""
+                <div style="margin-bottom: 8px;">
+                    <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                        🔗 Ver Hoja: {h_info['nombre']}
+                    </a>
+                </div>
+                """
+
+            st.markdown(
+                f"""
+                <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                    <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+                    <p style="font-size: 1.05rem; color: #161a1d; margin-bottom: 12px;">
+                        Las hojas correspondientes han sido creadas con sus metadatos institucionales y están listas para recibir registros:
+                    </p>
+                    {enlaces_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800;'
+                ' color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem;'
+                ' border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3.'
+                " Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>",
+                unsafe_allow_html=True,
+            )
+
+            base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+            for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+                fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+                nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
+                fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                resp_encoded = urllib.parse.quote(j_conf["responsable"])
+
+                js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                
+                # Enlaces limpios para Streamlit Cloud (/formulario y /consulta_censia)
+                link_paciente = f"{base_url}/formulario?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+                
+                link_prueba_simulacion = link_paciente + "&test=true"
+
+                titulo_seccion_qr = (
+                    f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
+                    if j_conf["sufijo_hoja"]
+                    else "🔗 Enlaces Operativos"
+                )
+
+                st.markdown(
+                    f"<h4 style='color: #1e5b4f; margin-top:"
+                    f" 1.2rem;'>{titulo_seccion_qr}</h4>",
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
+                st.code(link_paciente, language="text")
+
+                st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
+                st.code(link_prueba_simulacion, language="text")
+
+                st.markdown(
+                    "🔹 **Enlace Directo para el Personal Operativo (Abre el panel censal/operativo):**"
+                )
+                st.code(link_operativo, language="text")
+
+                qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                qr.add_data(link_paciente)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                byte_im = buf.getvalue()
+
+                col_qr1, col_qr2 = st.columns([1, 2])
+                with col_qr1:
+                    st.image(
+                        byte_im,
+                        caption=f"QR de Registro {j_conf['sufijo_hoja']}",
+                        width=180,
+                    )
+                with col_qr2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.download_button(
+                        label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
+                        data=byte_im,
+                        file_name=(
+                            f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
+                        ),
+                        mime="image/png",
+                        key=f"dl_qr_{idx}",
+                        use_container_width=True,
+                    )
+                st.markdown("---")
+        else:
+            st.info(
+                "ℹ️ Configure los parámetros y presione el botón 'Autorizar"
+                " Jornada(s) y Generar Hoja(s) en Google Sheets' para habilitar y"
+                " visualizar los enlaces y códigos QR."
+            )
