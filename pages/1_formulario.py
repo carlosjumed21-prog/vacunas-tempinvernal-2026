@@ -533,6 +533,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+edad_total_meses = (calc_anos * 12) + calc_meses
+es_pediatrico_59m = 6 <= edad_total_meses <= 59
+
 st.markdown("<br>", unsafe_allow_html=True)
 col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
 with col_img2:
@@ -608,32 +611,37 @@ cuenta_derechohabiencia = st.selectbox(
 st.markdown(
     '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
 )
-ocupacion = st.selectbox(
-    "Seleccione su Ocupación *",
-    options=[
-        "SELECCIONE UNA OPCIÓN",
-        (
-            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-            " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
-        ),
-        "JUBILADO/A",
-        "MAESTRO/A",
-        "ADMINISTRATIVO/A",
-        "TRABAJO EN GUARDERÍA",
-        (
-            "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
-            " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
-        ),
-        "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-        "PERSONAL MILITAR",
-        (
-            "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
-            " (PEMEX)"
-        ),
-        "OTRAS PROFESIONES",
-    ],
-    key="input_ocupacion",
-)
+if es_pediatrico_59m:
+    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'No aplica (Población Pediátrica)'.")
+    ocupacion = "NO APLICA (POBLACIÓN PEDIÁTRICA)"
+else:
+    ocupacion = st.selectbox(
+        "Seleccione su Ocupación *",
+        options=[
+            "SELECCIONE UNA OPCIÓN",
+            (
+                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
+            ),
+            "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
+            "JUBILADO/A",
+            "MAESTRO/A",
+            "ADMINISTRATIVO/A",
+            "TRABAJO EN GUARDERÍA",
+            (
+                "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
+                " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
+            ),
+            "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
+            "PERSONAL MILITAR",
+            (
+                "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
+                " (PEMEX)"
+            ),
+            "OTRAS PROFESIONES",
+        ],
+        key="input_ocupacion",
+    )
 
 st.markdown(
     '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
@@ -687,8 +695,6 @@ vacuna_interes = st.radio(
     horizontal=True,
     key="input_vacuna",
 )
-
-edad_total_meses = (calc_anos * 12) + calc_meses
 
 # --- LÓGICA DE GRUPO OBJETIVO ---
 grupo_sugerido = "POR DESIGNAR"
@@ -774,6 +780,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("Seleccione una opción en Sexo.")
     elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
         st.error("Indique su derechohabiencia.")
+    elif not es_pediatrico_59m and ocupacion == "SELECCIONE UNA OPCIÓN":
+        st.error("Seleccione una opción en Ocupación.")
     else:
         try:
             comorbilidades_dict = {
