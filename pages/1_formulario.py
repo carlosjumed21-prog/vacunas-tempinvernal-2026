@@ -766,7 +766,48 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- MAPEO RÁPIDO POR LOTES (BATCH UPDATE DE DATOS) ---
+            # --- 1. CLONAR DISEÑO Y ALTURA (FILAS 14-15 MODELO) ---
+            try:
+                body_formato = {
+                    "requests": [
+                        {
+                            "copyPaste": {
+                                "source": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": 13,
+                                    "endIndex": 15,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 39,
+                                },
+                                "destination": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 39,
+                                },
+                                "pasteType": "PASTE_NORMAL",
+                            }
+                        },
+                        {
+                            "updateDimensionProperties": {
+                                "range": {
+                                    "sheetId": worksheet.id,
+                                    "dimension": "ROWS",
+                                    "startIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                },
+                                "properties": {"pixelSize": 55},
+                                "fields": "pixelSize",
+                            }
+                        }
+                    ]
+                }
+                spreadsheet.batch_update(body_formato)
+            except:
+                pass
+
+            # --- 2. MAPEO RÁPIDO DE DATOS Y CONFIGURACIÓN LIMPIA DE TEXTO (RESET DE ESTILO DE FUENTE) ---
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -815,55 +856,37 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # 1. Escribir datos rápidamente
+            # Aplicar datos
             worksheet.batch_update(datos_a_actualizar)
 
-            # 2. Clonar formato de diseño (filas 14-15 modelo) y altura de 55 px
+            # --- 3. NORMALIZAR EL ESTILO DE TEXTO (FORZAR TAMAÑO Y FUENTE CORRECTOS) ---
             try:
-                body_formato = {
+                body_estilo_texto = {
                     "requests": [
                         {
-                            "copyPaste": {
-                                "source": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": 13,  # Fila 14 modelo
-                                    "endIndex": 15,       # Fila 15 modelo
-                                    "startColumnIndex": 1,  # Columna B
-                                    "endColumnIndex": 39,   # Columna AM
-                                },
-                                "destination": {
+                            "repeatCell": {
+                                "range": {
                                     "sheetId": worksheet.id,
                                     "startRowIndex": f_actual - 1,
                                     "endIndex": f_siguiente,
                                     "startColumnIndex": 1,
                                     "endColumnIndex": 39,
                                 },
-                                "pasteType": "PASTE_NORMAL",
-                            }
-                        },
-                        {
-                            "updateDimensionProperties": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "dimension": "ROWS",
-                                    "startIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
+                                "cell": {
+                                    "userEnteredFormat": {
+                                        "textFormat": {
+                                            "fontSize": 9,
+                                            "fontFamily": "Arial"
+                                        }
+                                    }
                                 },
-                                "properties": {"pixelSize": 55},
-                                "fields": "pixelSize",
+                                "fields": "userEnteredFormat.textFormat(fontSize,fontFamily)"
                             }
                         }
                     ]
                 }
-                spreadsheet.batch_update(body_formato)
-
-                # Reaplicar textos clave para asegurar que se conserven perfectamente tras la clonación
-                worksheet.update(f"B{f_actual}:B{f_siguiente}", [[folio_asignado], [folio_asignado]])
-                worksheet.update_acell(f"C{f_actual}", paterno.upper())
-                worksheet.update_acell(f"D{f_actual}", materno.upper() if materno else "")
-                worksheet.update_acell(f"E{f_actual}", nombres.upper())
-                worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-            except Exception as err_estilos:
+                spreadsheet.batch_update(body_estilo_texto)
+            except:
                 pass
 
             st.session_state.ultimo_paciente_registrado = {
