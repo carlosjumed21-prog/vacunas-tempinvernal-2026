@@ -105,15 +105,15 @@ else:
                 if cat_b:
                     guia_covid_dict[cat_b] = desc_c
 
-        # Hoja INFLUENZA (Columna B -> Columna D)
+        # Hoja INFLUENZA (Columna B -> Columna C)
         ws_influenza = doc_censia.worksheet("INFLUENZA")
         datos_influenza = ws_influenza.get_all_values()
         for row in datos_influenza[1:]:  # Omitir encabezado
-            if len(row) >= 4:
+            if len(row) >= 3:
                 cat_b = row[1].strip().upper()
-                desc_d = row[3].strip()
+                desc_c = row[2].strip()
                 if cat_b:
-                    guia_influenza_dict[cat_b] = desc_d
+                    guia_influenza_dict[cat_b] = desc_c
     except Exception as e:
         pass  # Respaldo silencioso si hay problema de red con el documento externo
 
