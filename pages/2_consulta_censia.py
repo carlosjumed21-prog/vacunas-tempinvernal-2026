@@ -87,6 +87,36 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
+    # --- CARGAR GUÍA CENSIA DESDE EL GOOGLE SHEETS DE REFERENCIA ---
+    guia_covid_dict = {}
+    guia_influenza_dict = {}
+    try:
+        # ID del documento de lineamientos CENSIA compartido
+        sheet_censia_id = "1IevzrgHyvixoPfH0c1OWExekc1pSHYB7FcK5SIe5SqU"
+        doc_censia = client.open_by_key(sheet_censia_id)
+
+        # Hoja COVID (Columna B -> Columna C)
+        ws_covid = doc_censia.worksheet("COVID")
+        datos_covid = ws_covid.get_all_values()
+        for row in datos_covid[1:]:  # Omitir encabezado
+            if len(row) >= 3:
+                cat_b = row[1].strip().upper()
+                desc_c = row[2].strip()
+                if cat_b:
+                    guia_covid_dict[cat_b] = desc_c
+
+        # Hoja INFLUENZA (Columna B -> Columna D)
+        ws_influenza = doc_censia.worksheet("INFLUENZA")
+        datos_influenza = ws_influenza.get_all_values()
+        for row in datos_influenza[1:]:  # Omitir encabezado
+            if len(row) >= 4:
+                cat_b = row[1].strip().upper()
+                desc_d = row[3].strip()
+                if cat_b:
+                    guia_influenza_dict[cat_b] = desc_d
+    except Exception as e:
+        pass  # Respaldo silencioso si hay problema de red con el documento externo
+
     st.markdown(
         '<div class="section-title">1. Jornada Operativa Activa</div>',
         unsafe_allow_html=True,
@@ -125,7 +155,6 @@ else:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
             except:
-                # Respaldo seguro a la plantilla maestra base CENSO NOMINAL
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
             todos_los_datos = worksheet_activa.get_all_values()
@@ -216,7 +245,7 @@ else:
                             "P": "6 A 59 MESES",
                             "Q": "60 Y MÁS",
                             "R": "5 A 11 AÑOS (COVID-19)",
-                            "S": "EMBARAZADAS",
+                            "S": "PERSONAS GESTANTES",
                             "T": "PERSONAL DE SALUD",
                             "U": "VIH/sida",
                             "V": "DIABETES MELLITUS",
@@ -264,21 +293,56 @@ else:
                             " CENSIA</div>",
                             unsafe_allow_html=True,
                         )
+
+                        # Búsqueda dinámica en los diccionarios cargados de CENSIA
+                        desc_covid_censia = "Lineamiento no especificado en plantilla."
+                        desc_influenza_censia = "Lineamiento no especificado en plantilla."
+
+                        g_upper = grupo_detectado.upper()
+                        for k, v in guia_covid_dict.items():
+                            if (
+                                g_upper in k
+                                or k in g_upper
+                                or (
+                                    "6 A 59" in g_upper and "6 A 59" in k
+                                )
+                                or ("60" in g_upper and "60" in k)
+                                or ("GESTANTES" in g_upper and "GESTANTES" in k)
+                                or ("SALUD" in g_upper and "SALUD" in k)
+                            ):
+                                desc_covid_censia = v
+                                break
+
+                        for k, v in guia_influenza_dict.items():
+                            if (
+                                g_upper in k
+                                or k in g_upper
+                                or (
+                                    "6 A 59" in g_upper and "59 MESES" in k
+                                )
+                                or ("60" in g_upper and "60" in k)
+                                or ("GESTANTES" in g_upper and "GESTANTES" in k)
+                                or ("SALUD" in g_upper and "SALUD" in k)
+                            ):
+                                desc_influenza_censia = v
+                                break
+
                         st.markdown(
-                            """
-                            <div class="card-recomendacion">
-                                <h4>💉 Guía para Influenza Estacional</h4>
-                                <p><b>Esquema sugerido:</b> 1 dosis anual de 0.5 mL (Aplicación recomendada estacional).</p>
-                                <p><b>Vía y Sitio:</b> Intramuscular en región deltoidea del brazo izquierdo.</p>
+                            f"""
+                            <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #1e5b4f; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                <h4 style="color: #1e5b4f; margin-top: 0;">💉 Guía para Influenza Estacional</h4>
+                                <p><b>Grupo:</b> {grupo_detectado}</p>
+                                <p><b>Lineamiento CENSIA:</b> {desc_influenza_censia}</p>
                             </div>
                             """,
                             unsafe_allow_html=True,
                         )
                         st.markdown(
-                            """
-                            <div class="card-recomendacion">
-                                <h4>🦠 Guía para COVID-19</h4>
-                                <p><b>Esquema sugerido:</b> Refuerzo o dosis estacional actual según disponibilidad autorizada.</p>
+                            f"""
+                            <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #611232; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <h4 style="color: #611232; margin-top: 0;">🦠 Guía para COVID-19</h4>
+                                <p><b>Grupo:</b> {grupo_detectado}</p>
+                                <p><b>Lineamiento CENSIA:</b> {desc_covid_censia}</p>
                             </div>
                             """,
                             unsafe_allow_html=True,
@@ -340,7 +404,7 @@ else:
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
 
-                                    # --- INFLUENZA (Escritura celda por celda sin conflictos) ---
+                                    # --- INFLUENZA ---
                                     if inf_1ra:
                                         worksheet_activa.update(f"AG{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AG{f_siguiente}", [["X"]])
@@ -362,7 +426,7 @@ else:
                                         worksheet_activa.update(f"AL{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
 
-                                    # --- LOTES EN COLUMNA AM (14-15AM) SEPARADOS POR / ---
+                                    # --- LOTES EN COLUMNA AM ---
                                     lote_final_str = ""
                                     if lote_inf_input and lote_cov_input:
                                         lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
