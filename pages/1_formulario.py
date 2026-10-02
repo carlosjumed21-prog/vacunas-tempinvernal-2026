@@ -1,18 +1,10 @@
 import datetime
-import json
 import unicodedata
 import urllib.parse
-from config import (
-    GOOGLE_SCOPES,
-    GOOGLE_SHEET_ID,
-    MAPA_SIGLAS_INVERSO,
-    UNIDADES_ISSSTE,
-    aplicar_configuracion_global,
-)
-from google.oauth2 import service_account
-import gspread
 import streamlit as st
 import streamlit.components.v1 as components
+from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
+from sheets import guardar_registro_censal
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
@@ -690,167 +682,46 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("Indique su derechohabiencia.")
     else:
         try:
-            fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
-            tipo_texto_jornada = (
-                "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
+            comorbilidades_dict = {
+                "vih": vih,
+                "diabetes": diabetes,
+                "obesidad": obesidad,
+                "cardiopatias": cardiopatias,
+                "cancer": cancer,
+                "insuficiencia_renal": insuficiencia_renal,
+                "discapacidades": discapacidades,
+                "fibrosis_quistica": fibrosis_quistica,
+                "hipertension": hipertension,
+            }
+
+            datos_paciente = {
+                "paterno": paterno,
+                "materno": materno,
+                "nombres": nombres,
+                "fecha_nacimiento": fecha_nacimiento,
+                "calc_anos": calc_anos,
+                "calc_meses": calc_meses,
+                "sexo": sexo,
+                "calle": calle,
+                "numero": numero,
+                "colonia": colonia,
+                "curp_con_nacimiento": curp_con_nacimiento,
+                "cuenta_derechohabiencia": cuenta_derechohabiencia,
+                "grupo_sugerido": grupo_sugerido,
+                "planes_o_embarazo": planes_o_embarazo,
+                "ocupacion": ocupacion,
+                "comorbilidades": comorbilidades_dict,
+            }
+
+            # Llamada al módulo sheets.py optimizado
+            folio_asignado = guardar_registro_censal(
+                sigla_url=sigla_url,
+                sufijo_js=sufijo_js,
+                tipo_jornada=st.session_state.tipo_jornada,
+                val_fecha_app=val_fecha_app,
+                nombre_unidad_completo=st.session_state.nombre_unidad,
+                datos_paciente=datos_paciente,
             )
-            nombre_hoja_destino = (
-                f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
-            )
-
-            scope = GOOGLE_SCOPES
-            if "GOOGLE_CREDENTIALS" in st.secrets:
-                raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-                creds_dict = (
-                    json.loads(raw_creds)
-                    if isinstance(raw_creds, str)
-                    else raw_creds
-                )
-            elif "gpex" in st.secrets:
-                creds_dict = dict(st.secrets["gpex"])
-            else:
-                primera_llave = list(st.secrets.keys())[0]
-                creds_dict = dict(st.secrets[primera_llave])
-
-            creds = service_account.Credentials.from_service_account_info(
-                creds_dict, scopes=scope
-            )
-            client = gspread.authorize(creds)
-            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-
-            try:
-                worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-            except:
-                worksheet = spreadsheet.worksheet("CENSO NOMINAL")
-
-            # --- LLENADO DE ENCABEZADOS GENERALES ---
-            worksheet.update("D7", [["CDMX"]])
-            worksheet.update("M7", [["ISSSTE"]])
-            worksheet.update("T7", [["Delegación Sur"]])
-            worksheet.update("AB7", [["CDMX"]])
-            worksheet.update("D8", [["CDMX"]])
-            worksheet.update("D9", [[st.session_state.nombre_unidad]])
-            worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
-            worksheet.update("E10", [[""]])
-
-            # --- CÁLCULO IDÉNTICO A APPS SCRIPT PARA LA SIGUIENTE FILA LIBRE ---
-            todas_las_filas = worksheet.get_all_values()
-            ultima_fila = len(todas_las_filas)
-            fila_inicio_destino = max(16, ultima_fila + 1)
-            if (fila_inicio_destino - 14) % 2 != 0:
-                fila_inicio_destino += 1
-
-            siguiente_num = ((fila_inicio_destino - 14) // 2) + 1
-            aammmdd = val_fecha_app.strftime("%y%m%d")
-            folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
-
-            f_actual = fila_inicio_destino
-            f_siguiente = fila_inicio_destino + 1
-
-            # --- 1. COPIAR LA PLANTILLA FIJA (FILAS 14-15) EXACTAMENTE COMO APPS SCRIPT ---
-            try:
-                body_formato = {
-                    "requests": [
-                        {
-                            "copyPaste": {
-                                "source": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": 13,  # Fila 14
-                                    "endIndex": 15,       # Fila 15
-                                    "startColumnIndex": 0,  # Columna A
-                                    "endColumnIndex": 39,   # Columna AM
-                                },
-                                "destination": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                    "startColumnIndex": 0,
-                                    "endColumnIndex": 39,
-                                },
-                                "pasteType": "PASTE_NORMAL",
-                            }
-                        },
-                        {
-                            "updateDimensionProperties": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "dimension": "ROWS",
-                                    "startIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                },
-                                "properties": {"pixelSize": 55},
-                                "fields": "pixelSize",
-                            }
-                        },
-                    ]
-                }
-                spreadsheet.batch_update(body_formato)
-            except Exception as err_estilos:
-                st.error("⚠️️ Error detallado al duplicar la plantilla fija:")
-                st.exception(err_estilos)
-
-            # --- 2. MIGRAMOS LOS DATOS SOBRE EL NUEVO BLOQUE ---
-            dia_n = str(fecha_nacimiento.day).zfill(2)
-            mes_n = str(fecha_nacimiento.month).zfill(2)
-            anio_n = str(fecha_nacimiento.year)
-            anos_str = str(calc_anos)
-            meses_str = str(calc_meses)
-            sexo_letra = "H" if sexo == "HOMBRE" else "M"
-            fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
-            calle_str = calle.upper()
-            num_str = numero.upper()
-            col_str = colonia.upper()
-
-            datos_a_actualizar = [
-                {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
-                {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
-                {"range": f"D{f_actual}", "values": [[materno.upper() if materno else ""]]},
-                {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
-                {"range": f"F{f_actual}:F{f_siguiente}", "values": [[dia_n], [dia_n]]},
-                {"range": f"G{f_actual}:G{f_siguiente}", "values": [[mes_n], [mes_n]]},
-                {"range": f"H{f_actual}:H{f_siguiente}", "values": [[anio_n], [anio_n]]},
-                {"range": f"I{f_actual}:I{f_siguiente}", "values": [[anos_str], [anos_str]]},
-                {"range": f"J{f_actual}:J{f_siguiente}", "values": [[meses_str], [meses_str]]},
-                {"range": f"K{f_actual}:K{f_siguiente}", "values": [[sexo_letra], [sexo_letra]]},
-                {"range": f"L{f_actual}:L{f_siguiente}", "values": [[fecha_app_str], [fecha_app_str]]},
-                {"range": f"M{f_actual}:M{f_siguiente}", "values": [[calle_str], [calle_str]]},
-                {"range": f"N{f_actual}:N{f_siguiente}", "values": [[num_str], [num_str]]},
-                {"range": f"O{f_actual}:O{f_siguiente}", "values": [[col_str], [col_str]]},
-                {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
-                {"range": f"AN{f_actual}:AN{f_siguiente}", "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]]}
-            ]
-
-            # Grupos objetivo y comorbilidades
-            if grupo_sugerido == "6 A 59 MESES":
-                datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
-            elif grupo_sugerido == "60 Y MÁS":
-                datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
-
-            if planes_o_embarazo == "SÍ":
-                datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
-            if ocupacion == "PERSONAL DE SALUD":
-                datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
-            if vih:
-                datos_a_actualizar.append({"range": f"T{f_actual}:T{f_siguiente}", "values": [["X"], ["X"]]})
-            if diabetes:
-                datos_a_actualizar.append({"range": f"U{f_actual}:U{f_siguiente}", "values": [["X"], ["X"]]})
-            if obesidad:
-                datos_a_actualizar.append({"range": f"V{f_actual}:V{f_siguiente}", "values": [["X"], ["X"]]})
-            if cardiopatias:
-                datos_a_actualizar.append({"range": f"W{f_actual}:W{f_siguiente}", "values": [["X"], ["X"]]})
-            if cancer:
-                datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
-            if insuficiencia_renal:
-                datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
-            if discapacidades:
-                datos_a_actualizar.append({"range": f"AC{f_actual}:AC{f_siguiente}", "values": [["X"], ["X"]]})
-            if fibrosis_quistica:
-                datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
-            if hipertension:
-                datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
-
-            # Ejecutar actualización rápida de datos
-            worksheet.batch_update(datos_a_actualizar)
 
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
