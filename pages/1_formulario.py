@@ -389,6 +389,7 @@ def mostrar_modal_comprobante():
                 "chk_cardiopatias",
                 "chk_cancer",
                 "chk_insufren",
+                "chk_gestante",
             ]
             for k in keys_a_limpiar:
                 if k in st.session_state:
@@ -441,11 +442,15 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_num = "123 INT. 4B"
             st.session_state.input_col = "ROSA RIVAS"
             st.session_state.input_derecho = "SÍ"
-            st.session_state.input_ocupacion = "PERSONAL DE SALUD"
+            st.session_state.input_ocupacion = (
+                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
+            )
             st.session_state.input_digitos = "26"
             st.session_state.input_vacuna = "AMBAS"
             st.session_state.ant_cov = "SÍ"
             st.session_state.ant_inf = "SÍ"
+            st.session_state.chk_gestante = "NO"
             st.session_state.chk_discapacidad = True
             st.session_state.chk_fibrosis = False
             st.session_state.chk_hipertension = True
@@ -508,12 +513,13 @@ with col_fn3:
         "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
     )
 
-planes_o_embarazo = "NO"
+personas_gestantes = "NO"
 if sexo == "MUJER":
-    planes_o_embarazo = st.radio(
-        "¿Está embarazada o tiene planes de embarazo?",
+    personas_gestantes = st.radio(
+        "¿Es una persona gestante o tiene planes de embarazo?",
         options=["NO", "SÍ"],
         horizontal=True,
+        key="chk_gestante",
     )
 
 calc_anos, calc_meses, calc_dias = (
@@ -606,7 +612,10 @@ ocupacion = st.selectbox(
     "Seleccione su Ocupación *",
     options=[
         "SELECCIONE UNA OPCIÓN",
-        "PERSONAL DE SALUD",
+        (
+            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+            " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
+        ),
         "JUBILADO/A",
         "MAESTRO/A",
         "ADMINISTRATIVO/A",
@@ -684,7 +693,11 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 # --- LÓGICA DE GRUPO OBJETIVO ---
 grupo_sugerido = "POR DESIGNAR"
 
-is_personal_salud = ocupacion == "PERSONAL DE SALUD"
+is_personal_salud = (
+    "PERSONAL DE SALUD" in ocupacion
+    or ocupacion
+    == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
+)
 is_colectivo_riesgo = is_personal_salud or ocupacion in [
     "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
     "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
@@ -692,14 +705,14 @@ is_colectivo_riesgo = is_personal_salud or ocupacion in [
     "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
 ]
 
-if fecha_nacimiento is not None or planes_o_embarazo == "SÍ" or is_colectivo_riesgo or (
+if fecha_nacimiento is not None or personas_gestantes == "SÍ" or is_colectivo_riesgo or (
     vih or diabetes or obesidad or cardiopatias or cancer or insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
 ):
     if vacuna_interes == "COVID-19" or vacuna_interes == "AMBAS":
         if 6 <= edad_total_meses <= 59:
             grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
-        elif planes_o_embarazo == "SÍ":
-            grupo_sugerido = "PERSONAS EMBARAZADAS"
+        elif personas_gestantes == "SÍ":
+            grupo_sugerido = "PERSONAS GESTANTES"
         elif calc_anos >= 60:
             grupo_sugerido = "60 AÑOS Y MÁS"
         elif is_personal_salud:
@@ -721,7 +734,7 @@ if fecha_nacimiento is not None or planes_o_embarazo == "SÍ" or is_colectivo_ri
     elif vacuna_interes == "INFLUENZA":
         if 6 <= edad_total_meses <= 59:
             grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
-        elif planes_o_embarazo == "SÍ":
+        elif personas_gestantes == "SÍ":
             grupo_sugerido = "PERSONAS GESTANTES"
         elif is_colectivo_riesgo:
             grupo_sugerido = ocupacion
@@ -790,7 +803,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": planes_o_embarazo,
+                "personas_gestantes": personas_gestantes,
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
             }
