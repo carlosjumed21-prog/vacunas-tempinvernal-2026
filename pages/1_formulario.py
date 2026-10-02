@@ -441,10 +441,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_num = "123 INT. 4B"
             st.session_state.input_col = "ROSA RIVAS"
             st.session_state.input_derecho = "SÍ"
-            st.session_state.input_ocupacion = (
-                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-                " ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
-            )
+            st.session_state.input_ocupacion = "PERSONAL DE SALUD"
             st.session_state.input_digitos = "26"
             st.session_state.input_vacuna = "AMBAS"
             st.session_state.ant_cov = "SÍ"
@@ -609,10 +606,7 @@ ocupacion = st.selectbox(
     "Seleccione su Ocupación *",
     options=[
         "SELECCIONE UNA OPCIÓN",
-        (
-            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-            " ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
-        ),
+        "PERSONAL DE SALUD",
         "JUBILADO/A",
         "MAESTRO/A",
         "ADMINISTRATIVO/A",
@@ -690,11 +684,7 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 # --- LÓGICA DE GRUPO OBJETIVO ---
 grupo_sugerido = "POR DESIGNAR"
 
-is_personal_salud = (
-    "PERSONAL DE SALUD" in ocupacion
-    or ocupacion
-    == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN CONTACTO CON ÁREAS CLÍNICAS Y FARMACIAS)"
-)
+is_personal_salud = ocupacion == "PERSONAL DE SALUD"
 is_colectivo_riesgo = is_personal_salud or ocupacion in [
     "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
     "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
@@ -824,5 +814,5 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.rerun()
 
         except Exception as e:
-            st.error("⚠️️ Error general al procesar el registro en Google Sheets:")
+            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
             st.exception(e)
