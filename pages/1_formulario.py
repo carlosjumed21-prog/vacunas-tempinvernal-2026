@@ -734,7 +734,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("E10", [[""]])
 
             # --- CÁLCULO IDÉNTICO A APPS SCRIPT PARA LA SIGUIENTE FILA LIBRE ---
-            ultima_fila = worksheet.last_row
+            todas_las_filas = worksheet.get_all_values()
+            ultima_fila = len(todas_las_filas)
             fila_inicio_destino = max(16, ultima_fila + 1)
             if (fila_inicio_destino - 14) % 2 != 0:
                 fila_inicio_destino += 1
@@ -785,7 +786,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 }
                 spreadsheet.batch_update(body_formato)
             except Exception as err_estilos:
-                st.error("⚠️ Error detallado al duplicar la plantilla fija:")
+                st.error("⚠️️ Error detallado al duplicar la plantilla fija:")
                 st.exception(err_estilos)
 
             # --- 2. MIGRAMOS LOS DATOS SOBRE EL NUEVO BLOQUE ---
