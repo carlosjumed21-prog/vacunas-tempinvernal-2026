@@ -51,8 +51,16 @@ def mostrar_modal_comprobante_vacunacion():
         lotes_val = p.get("lotes_str", "N/A")
         fecha_val = p.get("fecha_hora", datetime.datetime.now().strftime("%d/%m/%Y")).split()[0]
 
-        # Texto estructurado para codificar dentro del Código QR
-        texto_qr = f"ISSSTE VIGILE\\nFOLIO: {folio_val}\\nPACIENTE: {nombre_val}\\nDOSIS: {dosis_val}\\nLOTES: {lotes_val}\\nFECHA: {fecha_val}\\nESTADO: VALIDO"
+        # Texto estructurado con saltos de línea reales para el QR
+        texto_qr = (
+            f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
+            f"FOLIO: {folio_val}\n"
+            f"PACIENTE: {nombre_val}\n"
+            f"DOSIS: {dosis_val}\n"
+            f"LOTES: {lotes_val}\n"
+            f"FECHA: {fecha_val}\n"
+            f"ESTADO: VÁLIDO Y VERIFICADO"
+        )
         url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
 
         html_comprobante_component = f"""
