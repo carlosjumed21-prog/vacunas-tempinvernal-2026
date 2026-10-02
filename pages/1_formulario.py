@@ -766,7 +766,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. CLONAR DISEÑO Y ALTURA (FILAS 14-15 MODELO) ---
+            # --- 1. CLONAR DISEÑO Y ALTURA DESDE LA PLANTILLA (FILAS 14-15) ---
             try:
                 body_formato = {
                     "requests": [
@@ -804,10 +804,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     ]
                 }
                 spreadsheet.batch_update(body_formato)
-            except:
+            except Exception as err_estilos:
                 pass
 
-            # --- 2. MAPEO RÁPIDO DE DATOS Y CONFIGURACIÓN LIMPIA DE TEXTO (RESET DE ESTILO DE FUENTE) ---
+            # --- 2. MAPEO RÁPIDO DE DATOS (HEREDA EL ESTILO NATIVO DE LA PLANTILLA) ---
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -856,38 +856,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Aplicar datos
+            # Ejecutar actualización rápida de datos
             worksheet.batch_update(datos_a_actualizar)
-
-            # --- 3. NORMALIZAR EL ESTILO DE TEXTO (FORZAR TAMAÑO Y FUENTE CORRECTOS) ---
-            try:
-                body_estilo_texto = {
-                    "requests": [
-                        {
-                            "repeatCell": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                    "startColumnIndex": 1,
-                                    "endColumnIndex": 39,
-                                },
-                                "cell": {
-                                    "userEnteredFormat": {
-                                        "textFormat": {
-                                            "fontSize": 9,
-                                            "fontFamily": "Arial"
-                                        }
-                                    }
-                                },
-                                "fields": "userEnteredFormat.textFormat(fontSize,fontFamily)"
-                            }
-                        }
-                    ]
-                }
-                spreadsheet.batch_update(body_estilo_texto)
-            except:
-                pass
 
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
