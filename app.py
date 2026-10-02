@@ -62,6 +62,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
     <div style="text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem;">
         Subdelegación Sur ISSSTE<br>
-        Sistema VIGILE (Vigilancia, Inteligencia, Gestión e Intervención Lógica Epidemiológica)
+        Proyecto de Captura de Jornadas de Vacunación by Carlos Ju Residente de 2do año de Epidemiología
     </div>
 """, unsafe_allow_html=True)
