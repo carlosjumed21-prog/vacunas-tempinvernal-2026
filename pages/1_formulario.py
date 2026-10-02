@@ -733,20 +733,24 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA SEGURA DE SIGUIENTE FILA Y SECUENCIA DE FOLIOS (DESDE FILA 14) ---
-            columna_c_vals = worksheet.col_values(3)
+            # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA LIBRE (EN BLOQUES DE 2) ---
+            # Obtenemos los valores de la columna B (donde van los folios) desde la fila 14 en adelante
+            columna_b_vals = worksheet.col_values(2)
             siguiente_fila = 14
-            for idx_val in range(13, len(columna_c_vals), 2):
-                val_actual = (
-                    columna_c_vals[idx_val]
-                    if idx_val < len(columna_c_vals)
-                    else ""
-                )
-                if val_actual.strip() == "" or "CURP" in val_actual.upper():
-                    siguiente_fila = idx_val + 1
+            
+            # Recorremos de 2 en 2 a partir de la fila 14 (índice 13 en Python)
+            idx = 13
+            while idx < len(columna_b_vals):
+                val_actual = str(columna_b_vals[idx]).strip()
+                if val_actual == "" or "POR ASIGNAR" in val_actual.upper():
+                    siguiente_fila = idx + 1
                     break
+                idx += 2
             else:
-                siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
+                # Si todas las filas leídas tienen datos, calculamos con base en la longitud real asegurando bloques pares
+                siguiente_fila = max(14, len(columna_b_vals) + 1)
+                if (siguiente_fila - 14) % 2 != 0:
+                    siguiente_fila += 1
 
             # Cálculo estricto del consecutivo numérico basado en bloques de 2 filas por paciente
             siguiente_num = ((siguiente_fila - 14) // 2) + 1
