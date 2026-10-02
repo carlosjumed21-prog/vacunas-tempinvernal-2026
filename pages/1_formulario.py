@@ -733,54 +733,31 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- CÁLCULO DE LA SIGUIENTE FILA LIBRE DE FORMA CONSECUTIVA ---
-            ultima_fila = worksheet.row_count
-            columna_b_vals = worksheet.col_values(2)
-            
-            # Determinamos la siguiente fila buscando a partir de la fila 14
-            siguiente_fila = 14
-            idx = 13
-            while idx < len(columna_b_vals):
-                val_actual = str(columna_b_vals[idx]).strip()
-                if val_actual == "" or "POR ASIGNAR" in val_actual.upper():
-                    siguiente_fila = idx + 1
-                    break
-                idx += 2
-            else:
-                siguiente_fila = max(14, len(columna_b_vals) + 1)
-                if (siguiente_fila - 14) % 2 != 0:
-                    siguiente_fila += 1
+            # --- CÁLCULO IDÉNTICO A APPS SCRIPT PARA LA SIGUIENTE FILA LIBRE ---
+            ultima_fila = worksheet.last_row
+            fila_inicio_destino = max(16, ultima_fila + 1)
+            if (fila_inicio_destino - 14) % 2 != 0:
+                fila_inicio_destino += 1
 
-            siguiente_num = ((siguiente_fila - 14) // 2) + 1
+            siguiente_num = ((fila_inicio_destino - 14) // 2) + 1
             aammmdd = val_fecha_app.strftime("%y%m%d")
             folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
-            f_actual = siguiente_fila
-            f_siguiente = siguiente_fila + 1
+            f_actual = fila_inicio_destino
+            f_siguiente = fila_inicio_destino + 1
 
-            # --- 1. CLONAR LA PLANTILLA FIJA (FILAS 14-15) EXACTAMENTE COMO APPS SCRIPT ---
+            # --- 1. COPIAR LA PLANTILLA FIJA (FILAS 14-15) EXACTAMENTE COMO APPS SCRIPT ---
             try:
                 body_formato = {
                     "requests": [
                         {
-                            "insertDimension": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "dimension": "ROWS",
-                                    "startIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                },
-                                "inheritFromBefore": False,
-                            }
-                        },
-                        {
                             "copyPaste": {
                                 "source": {
                                     "sheetId": worksheet.id,
-                                    "startRowIndex": 13,  # Fila 14 (Index 13)
-                                    "endIndex": 15,       # Fila 15 (Index 15)
-                                    "startColumnIndex": 0,  # Columna A (0)
-                                    "endColumnIndex": 39,   # Columna AM (39)
+                                    "startRowIndex": 13,  # Fila 14
+                                    "endIndex": 15,       # Fila 15
+                                    "startColumnIndex": 0,  # Columna A
+                                    "endColumnIndex": 39,   # Columna AM
                                 },
                                 "destination": {
                                     "sheetId": worksheet.id,
