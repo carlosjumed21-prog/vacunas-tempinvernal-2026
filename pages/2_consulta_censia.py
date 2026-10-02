@@ -5,6 +5,7 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
 import streamlit as st
+import streamlit.components.v1 as components
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
@@ -23,6 +24,158 @@ if "lote_covid_memoria" not in st.session_state:
 
 if "autenticado_consulta" not in st.session_state:
     st.session_state.autenticado_consulta = False
+
+if "ultimo_comprobante_vacunacion" not in st.session_state:
+    st.session_state.ultimo_comprobante_vacunacion = None
+
+
+@st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
+def mostrar_modal_comprobante_vacunacion():
+    p = st.session_state.ultimo_comprobante_vacunacion
+    if p:
+        html_comprobante_component = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <style>
+            body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
+            .card-comprobante {{ 
+                position: relative; 
+                background-color: #ffffff; 
+                border: 3px solid #1e5b4f; 
+                padding: 15px; 
+                border-radius: 10px; 
+                color: #161a1d; 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+                margin-bottom: 10px; 
+                overflow: hidden; 
+            }}
+            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.15rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
+            .info-text {{ margin: 4px 0; font-size: 0.82rem; z-index: 2; position: relative; }}
+            .leyenda-posterior {{ font-size: 0.70rem !important; font-weight: 700 !important; color: #1e5b4f !important; text-align: center; margin-top: 6px; margin-bottom: 0; z-index: 2; position: relative; }}
+            
+            .watermark-overlay {{
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                transform: rotate(-25deg);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-around;
+                align-items: center;
+                pointer-events: none;
+                z-index: 0;
+                overflow: hidden;
+            }}
+            .watermark-row {{
+                display: flex;
+                gap: 40px;
+                white-space: nowrap;
+                font-size: 1.05rem;
+                font-weight: 900;
+                color: transparent;
+                -webkit-text-stroke: 1px rgba(30, 91, 79, 0.12);
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }}
+            .watermark-row:nth-child(even) {{
+                transform: translateX(-40px);
+            }}
+            
+            .btn-container {{ display: flex; gap: 8px; }}
+            .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
+            .btn-wa {{ background-color: #25D366; color: white; }}
+            .btn-img {{ background-color: #1e5b4f; color: white; }}
+        </style>
+        </head>
+        <body>
+            <div id="comprobante-captura" class="card-comprobante">
+                <div class="watermark-overlay">
+                    <div class="watermark-row">
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                    </div>
+                </div>
+                <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN - VIGILE</div>
+                <p class="info-text"><b>Paciente:</b> {nombre}</p>
+                <p class="info-text"><b>Folio:</b> {folio}</p>
+                <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_str}</p>
+                <p class="info-text"><b>Lotes Registrados:</b> {lotes_str}</p>
+                <div class="folio-grande">ESTADO: APLICACIÓN EXITOSA</div>
+                <p class="leyenda-posterior">Sistema de Vacunación Universal • ISSSTE</p>
+            </div>
+            <div class="btn-container">
+                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
+                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
+            </div>
+            <script>
+            function compartirImagenWhatsApp() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    canvas.toBlob(blob => {{
+                        const file = new File([blob], 'Comprobante_Vacunacion_{folio}.png', {{ type: 'image/png' }});
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre}\\nFolio: *{folio}*\\nDosis: {dosis_str}\\nLotes: {lotes_str}\\n✅ Aplicación registrada con éxito.`;
+                        if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
+                            navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
+                        }} else {{
+                            const enlace = document.createElement('a');
+                            enlace.download = 'Comprobante_Vacunacion_{folio}.png';
+                            enlace.href = URL.createObjectURL(blob);
+                            enlace.click();
+                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
+                        }}
+                    }}, 'image/png');
+                }});
+            }}
+            function descargarCaptura() {{
+                const elemento = document.getElementById('comprobante-captura');
+                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                    const enlace = document.createElement('a');
+                    enlace.download = 'Comprobante_Vacunacion_{folio}.png';
+                    enlace.href = canvas.toDataURL('image/png');
+                    enlace.click();
+                }});
+            }}
+            </script>
+        </body>
+        </html>
+        """.format(
+            nombre=p["nombre"],
+            folio=p["folio"],
+            dosis_str=p["dosis_str"],
+            lotes_str=p["lotes_str"],
+        )
+
+        components.html(html_comprobante_component, height=310)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("✖ Cerrar Comprobante", use_container_width=True):
+            st.session_state.ultimo_comprobante_vacunacion = None
+            st.rerun()
+
+
+if st.session_state.ultimo_comprobante_vacunacion is not None:
+    mostrar_modal_comprobante_vacunacion()
 
 if not st.session_state.autenticado_consulta:
     st.markdown(
@@ -77,7 +230,6 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # Listar hojas disponibles excluyendo la plantilla maestra base
         todas_las_hojas = spreadsheet.worksheets()
         h_autorizadas = [
             h.title for h in todas_las_hojas if h.title != "CENSO NOMINAL"
@@ -91,31 +243,28 @@ else:
     guia_covid_dict = {}
     guia_influenza_dict = {}
     try:
-        # ID del documento de lineamientos CENSIA compartido
         sheet_censia_id = "1IevzrgHyvixoPfH0c1OWExekc1pSHYB7FcK5SIe5SqU"
         doc_censia = client.open_by_key(sheet_censia_id)
 
-        # Hoja COVID (Columna B -> Columna C)
         ws_covid = doc_censia.worksheet("COVID")
         datos_covid = ws_covid.get_all_values()
-        for row in datos_covid[1:]:  # Omitir encabezado
+        for row in datos_covid[1:]:
             if len(row) >= 3:
                 cat_b = row[1].strip().upper()
                 desc_c = row[2].strip()
                 if cat_b:
                     guia_covid_dict[cat_b] = desc_c
 
-        # Hoja INFLUENZA (Columna B -> Columna C)
         ws_influenza = doc_censia.worksheet("INFLUENZA")
         datos_influenza = ws_influenza.get_all_values()
-        for row in datos_influenza[1:]:  # Omitir encabezado
+        for row in datos_influenza[1:]:
             if len(row) >= 3:
                 cat_b = row[1].strip().upper()
                 desc_c = row[2].strip()
                 if cat_b:
                     guia_influenza_dict[cat_b] = desc_c
     except Exception as e:
-        pass  # Respaldo silencioso si hay problema de red con el documento externo
+        pass
 
     st.markdown(
         '<div class="section-title">1. Jornada Operativa Activa</div>',
@@ -294,7 +443,6 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Búsqueda dinámica en los diccionarios cargados de CENSIA
                         desc_covid_censia = "Lineamiento no especificado en plantilla."
                         desc_influenza_censia = "Lineamiento no especificado en plantilla."
 
@@ -303,9 +451,7 @@ else:
                             if (
                                 g_upper in k
                                 or k in g_upper
-                                or (
-                                    "6 A 59" in g_upper and "6 A 59" in k
-                                )
+                                or ("6 A 59" in g_upper and "6 A 59" in k)
                                 or ("60" in g_upper and "60" in k)
                                 or ("GESTANTES" in g_upper and "GESTANTES" in k)
                                 or ("SALUD" in g_upper and "SALUD" in k)
@@ -317,9 +463,7 @@ else:
                             if (
                                 g_upper in k
                                 or k in g_upper
-                                or (
-                                    "6 A 59" in g_upper and "59 MESES" in k
-                                )
+                                or ("6 A 59" in g_upper and "59 MESES" in k)
                                 or ("60" in g_upper and "60" in k)
                                 or ("GESTANTES" in g_upper and "GESTANTES" in k)
                                 or ("SALUD" in g_upper and "SALUD" in k)
@@ -404,29 +548,37 @@ else:
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
 
+                                    dosis_aplicadas_lista = []
+
                                     # --- INFLUENZA ---
                                     if inf_1ra:
                                         worksheet_activa.update(f"AG{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AG{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
                                     if inf_2da:
                                         worksheet_activa.update(f"AH{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AH{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (2da Dosis)")
                                     if inf_anual:
                                         worksheet_activa.update(f"AI{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AI{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
                                     # --- COVID ---
                                     if cov_1ra:
                                         worksheet_activa.update(f"AJ{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (1ra Dosis)")
                                     if cov_2da:
                                         worksheet_activa.update(f"AK{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AK{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (2da Dosis)")
                                     if cov_anual:
                                         worksheet_activa.update(f"AL{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (Dosis Anual)")
 
-                                    # --- LOTES EN COLUMNA AM ---
+                                    # --- LOTES ---
                                     lote_final_str = ""
                                     if lote_inf_input and lote_cov_input:
                                         lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
@@ -439,11 +591,15 @@ else:
                                         worksheet_activa.update(f"AM{f_actual}", [[lote_final_str]])
                                         worksheet_activa.update(f"AM{f_siguiente}", [[lote_final_str]])
 
-                                    st.success(
-                                        f"✅ ¡Aplicación registrada y base actualizada con éxito"
-                                        f" para {nombre_completo} en la hoja"
-                                        f" {hoja_seleccionada}!"
-                                    )
+                                    dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+
+                                    st.session_state.ultimo_comprobante_vacunacion = {
+                                        "nombre": nombre_completo,
+                                        "folio": folio_p,
+                                        "dosis_str": dosis_str,
+                                        "lotes_str": lote_final_str if lote_final_str else "N/A"
+                                    }
+                                    st.rerun()
 
                                 except Exception as e:
                                     st.error(
