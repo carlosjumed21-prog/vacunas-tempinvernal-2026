@@ -813,6 +813,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
+                "planes_o_embarazo": personas_gestantes,  # Llave corregida para Sheets
                 "personas_gestantes": personas_gestantes,
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
