@@ -767,7 +767,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. SIMULACIÓN EXACTA DE CTRL+C / CTRL+V DE FILAS COMPLETAS (DE COLUMNA A A AM) ---
+            # --- 1. ESTRATEGIA CTRL+C / CTRL+V: COPIA LA PLANTILLA (FILAS 14-15, COLUMNAS A(0) HASTA AM(39)) AL NUEVO BLOQUE ---
             try:
                 body_formato = {
                     "requests": [
@@ -806,9 +806,9 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 }
                 spreadsheet.batch_update(body_formato)
             except Exception as err_estilos:
-                pass
+                st.error(f"Error al clonar estructura de la plantilla: {err_estilos}")
 
-            # --- 2. MAPEO RÁPIDO DE DATOS CON SECUENCIA DE FOLIOS ---
+            # --- 2. MAPEO RÁPIDO DE DATOS Y MIGRADOS SOBRE EL NUEVO BLOQUE ---
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -857,7 +857,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Ejecutar actualización rápida de datos y folios
+            # Ejecutar migración de datos sobre el bloque ya formateado
             worksheet.batch_update(datos_a_actualizar)
 
             st.session_state.ultimo_paciente_registrado = {
