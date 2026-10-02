@@ -62,7 +62,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
     <div style="text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem;">
         Subdelegación Sur ISSSTE<br>
-        Unidad de Epidemiología<br>
+        Medicina Preventiva - Epidemiología<br>
         © 2026 Carlos Ju R2 Epidemiología. Proyecto de Captura de Jornadas de Vacunación.<br>
         Todos los derechos reservados. Prohibida su reproducción total o parcial sin autorización.
     </div>
