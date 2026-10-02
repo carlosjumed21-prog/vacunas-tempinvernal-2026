@@ -767,7 +767,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. INSERTAR LAS 2 FILAS FÍSICAS Y COPIAR LA PLANTILLA (ESTRATEGIA CTRL+C / CTRL+V) ---
+            # --- 1. INSERTAR LAS 2 FILAS FÍSICAS Y COPIAR LA PLANTILLA ---
             try:
                 body_formato = {
                     "requests": [
@@ -817,7 +817,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 }
                 spreadsheet.batch_update(body_formato)
             except Exception as err_estilos:
-                st.error(f"Error al insertar y clonar la plantilla: {err_estilos}")
+                st.error("⚠️ Error detallado al insertar/clonar la plantilla:")
+                st.exception(err_estilos)
 
             # --- 2. MAPEO RÁPIDO DE DATOS Y MIGRADOS SOBRE EL NUEVO BLOQUE ---
             datos_a_actualizar = [
@@ -880,4 +881,5 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error al guardar en Google Sheets: {e}")
+            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
+            st.exception(e)
