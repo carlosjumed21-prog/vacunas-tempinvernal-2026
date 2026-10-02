@@ -53,7 +53,7 @@ def mostrar_modal_comprobante_vacunacion():
                 overflow: hidden; 
             }}
             .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
-            .folio-grande {{ font-size: 1.15rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
             .info-text {{ margin: 4px 0; font-size: 0.82rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.70rem !important; font-weight: 700 !important; color: #1e5b4f !important; text-align: center; margin-top: 6px; margin-bottom: 0; z-index: 2; position: relative; }}
             
@@ -119,10 +119,10 @@ def mostrar_modal_comprobante_vacunacion():
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN - VIGILE</div>
                 <p class="info-text"><b>Paciente:</b> {nombre}</p>
-                <p class="info-text"><b>Folio:</b> {folio}</p>
                 <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_str}</p>
                 <p class="info-text"><b>Lotes Registrados:</b> {lotes_str}</p>
-                <div class="folio-grande">ESTADO: APLICACIÓN EXITOSA</div>
+                <p class="info-text"><b>Aplicación:</b> {fecha_hora}</p>
+                <div class="folio-grande">Folio: {folio}</div>
                 <p class="leyenda-posterior">Sistema de Vacunación Universal • ISSSTE</p>
             </div>
             <div class="btn-container">
@@ -135,7 +135,7 @@ def mostrar_modal_comprobante_vacunacion():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_Vacunacion_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre}\\nFolio: *{folio}*\\nDosis: {dosis_str}\\nLotes: {lotes_str}\\n✅ Aplicación registrada con éxito.`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre}\\nFolio: *{folio}*\\nDosis: {dosis_str}\\nLotes: {lotes_str}\\nFecha: {fecha_hora}\\n✅ Aplicación registrada con éxito.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -165,9 +165,10 @@ def mostrar_modal_comprobante_vacunacion():
             folio=p["folio"],
             dosis_str=p["dosis_str"],
             lotes_str=p["lotes_str"],
+            fecha_hora=p["fecha_hora"],
         )
 
-        components.html(html_comprobante_component, height=310)
+        components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
             st.session_state.ultimo_comprobante_vacunacion = None
@@ -592,12 +593,14 @@ else:
                                         worksheet_activa.update(f"AM{f_siguiente}", [[lote_final_str]])
 
                                     dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+                                    fecha_hora_actual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
 
                                     st.session_state.ultimo_comprobante_vacunacion = {
                                         "nombre": nombre_completo,
                                         "folio": folio_p,
                                         "dosis_str": dosis_str,
-                                        "lotes_str": lote_final_str if lote_final_str else "N/A"
+                                        "lotes_str": lote_final_str if lote_final_str else "N/A",
+                                        "fecha_hora": fecha_hora_actual
                                     }
                                     st.rerun()
 
