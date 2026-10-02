@@ -398,11 +398,9 @@ else:
 
                 js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
                 
-                # Enlace dirigido a la interfaz del formulario (pages/1_formulario.py)
-                link_paciente = f"{base_url}/1_formulario?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-                
-                # Enlace dirigido al panel operativo (pages/2_consulta_censia.py)
-                link_operativo = f"{base_url}/2_consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+                # Enlaces limpios para Streamlit Cloud (/formulario y /consulta_censia)
+                link_paciente = f"{base_url}/formulario?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
                 
                 link_prueba_simulacion = link_paciente + "&test=true"
 
