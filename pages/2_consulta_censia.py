@@ -77,6 +77,7 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
+        # Listar hojas disponibles excluyendo la plantilla maestra base
         todas_las_hojas = spreadsheet.worksheets()
         h_autorizadas = [
             h.title for h in todas_las_hojas if h.title != "CENSO NOMINAL"
@@ -124,6 +125,7 @@ else:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
             except:
+                # Respaldo seguro a la plantilla maestra base CENSO NOMINAL
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
             todos_los_datos = worksheet_activa.get_all_values()
@@ -338,41 +340,29 @@ else:
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
 
-                                    # --- INFLUENZA ---
+                                    # --- INFLUENZA (Escritura celda por celda sin conflictos) ---
                                     if inf_1ra:
-                                        worksheet_activa.update(
-                                            f"AG{f_actual}:AG{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AG{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AG{f_siguiente}", [["X"]])
                                     if inf_2da:
-                                        worksheet_activa.update(
-                                            f"AH{f_actual}:AH{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AH{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AH{f_siguiente}", [["X"]])
                                     if inf_anual:
-                                        worksheet_activa.update(
-                                            f"AI{f_actual}:AI{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AI{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AI{f_siguiente}", [["X"]])
 
                                     # --- COVID ---
                                     if cov_1ra:
-                                        worksheet_activa.update(
-                                            f"AJ{f_actual}:AJ{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AJ{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
                                     if cov_2da:
-                                        worksheet_activa.update(
-                                            f"AK{f_actual}:AK{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AK{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AK{f_siguiente}", [["X"]])
                                     if cov_anual:
-                                        worksheet_activa.update(
-                                            f"AL{f_actual}:AL{f_siguiente}",
-                                            [["X"], ["X"]],
-                                        )
+                                        worksheet_activa.update(f"AL{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
 
-                                    # --- LOTES EN COLUMNA AM ---
+                                    # --- LOTES EN COLUMNA AM (14-15AM) SEPARADOS POR / ---
                                     lote_final_str = ""
                                     if lote_inf_input and lote_cov_input:
                                         lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
@@ -382,10 +372,8 @@ else:
                                         lote_final_str = lote_cov_input.upper()
 
                                     if lote_final_str:
-                                        worksheet_activa.update(
-                                            f"AM{f_actual}:AM{f_siguiente}",
-                                            [[lote_final_str], [lote_final_str]],
-                                        )
+                                        worksheet_activa.update(f"AM{f_actual}", [[lote_final_str]])
+                                        worksheet_activa.update(f"AM{f_siguiente}", [[lote_final_str]])
 
                                     st.success(
                                         f"✅ ¡Aplicación registrada y base actualizada con éxito"
