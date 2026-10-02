@@ -51,6 +51,10 @@ def mostrar_modal_comprobante_vacunacion():
         lotes_val = p.get("lotes_str", "N/A")
         fecha_val = p.get("fecha_hora", datetime.datetime.now().strftime("%d/%m/%Y")).split()[0]
 
+        # Texto estructurado para codificar dentro del Código QR
+        texto_qr = f"ISSSTE VIGILE\\nFOLIO: {folio_val}\\nPACIENTE: {nombre_val}\\nDOSIS: {dosis_val}\\nLOTES: {lotes_val}\\nFECHA: {fecha_val}\\nESTADO: VALIDO"
+        url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
+
         html_comprobante_component = f"""
         <!DOCTYPE html>
         <html>
@@ -63,16 +67,20 @@ def mostrar_modal_comprobante_vacunacion():
                 position: relative; 
                 background-color: #ffffff; 
                 border: 3px solid #1e5b4f; 
-                padding: 15px; 
+                padding: 12px; 
                 border-radius: 10px; 
                 color: #161a1d; 
                 box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
                 margin-bottom: 10px; 
                 overflow: hidden; 
             }}
-            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
-            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
-            .info-text {{ margin: 4px 0; font-size: 0.82rem; z-index: 2; position: relative; }}
+            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
+            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
+            .info-container {{ flex: 1; }}
+            .qr-container {{ text-align: center; }}
+            .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
+            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
+            .info-text {{ margin: 3px 0; font-size: 0.78rem; z-index: 2; position: relative; }}
             
             .watermark-overlay {{
                 position: absolute;
@@ -129,16 +137,19 @@ def mostrar_modal_comprobante_vacunacion():
                         <span>COMPROBANTE DE VACUNACION OFICIAL</span>
                         <span>COMPROBANTE DE VACUNACION OFICIAL</span>
                     </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                    </div>
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
-                <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
-                <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_val}</p>
-                <p class="info-text"><b>Lotes Registrados:</b> {lotes_val}</p>
-                <p class="info-text"><b>Fecha de Aplicación:</b> {fecha_val}</p>
+                <div class="cuerpo-ticket">
+                    <div class="info-container">
+                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
+                        <p class="info-text"><b>Dosis:</b> {dosis_val}</p>
+                        <p class="info-text"><b>Lotes:</b> {lotes_val}</p>
+                        <p class="info-text"><b>Fecha:</b> {fecha_val}</p>
+                    </div>
+                    <div class="qr-container">
+                        <img src="{url_qr_api}" alt="QR Verificación">
+                    </div>
+                </div>
                 <div class="folio-grande">Folio: {folio_val}</div>
             </div>
             <div class="btn-container">
@@ -151,9 +162,8 @@ def mostrar_modal_comprobante_vacunacion():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Aplicación registrada con éxito.`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
                         
-                        // Forzar descarga de la imagen y apertura directa de WhatsApp Web
                         const enlace = document.createElement('a');
                         enlace.download = fileName;
                         enlace.href = URL.createObjectURL(blob);
@@ -177,7 +187,7 @@ def mostrar_modal_comprobante_vacunacion():
         </html>
         """
 
-        components.html(html_comprobante_component, height=310)
+        components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
             st.session_state.ultimo_comprobante_vacunacion = None
