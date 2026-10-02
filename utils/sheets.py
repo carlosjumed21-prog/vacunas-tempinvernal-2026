@@ -9,9 +9,9 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
-    """Migración ultra optimizada que agrupa encabezados y datos en una sola
+    """Migración ultra optimizada que actualiza los encabezados institucionales
 
-    petición de red para evitar latencia.
+    exactos y los datos del paciente en una sola petición de red.
     """
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
@@ -83,6 +83,9 @@ def guardar_registro_censal(
         planes_o_embarazo = datos_paciente["planes_o_embarazo"]
         ocupacion = datos_paciente["ocupacion"]
         comorbilidades = datos_paciente["comorbilidades"]
+        
+        # Obtenemos opcionalmente el responsable si viene en el diccionario
+        responsable_brigada = datos_paciente.get("responsable", "")
 
         dia_n = str(fecha_nacimiento.day).zfill(2)
         mes_n = str(fecha_nacimiento.month).zfill(2)
@@ -95,17 +98,19 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
-        # --- CONSTRUCCIÓN DEL LOTE ÚNICO (ENCABEZADOS + DATOS EN UN SOLO VIAJE DE RED) ---
+        # --- CONSTRUCCIÓN DEL LOTE ÚNICO (MAPEO EXACTO DE ENCABEZADOS Y DATOS) ---
         datos_a_actualizar = [
-            # Encabezados generales agrupados para evitar llamadas extra
+            # Metadatos institucionales actualizados según requerimiento
             {"range": "D7", "values": [["CDMX"]]},
             {"range": "M7", "values": [["ISSSTE"]]},
             {"range": "T7", "values": [["Delegación Sur"]]},
             {"range": "AB7", "values": [["CDMX"]]},
             {"range": "D8", "values": [["CDMX"]]},
             {"range": "D9", "values": [[nombre_unidad_completo]]},
-            {"range": "AB9", "values": [[val_fecha_app.strftime("%d/%m/%Y")]]},
-            {"range": "E10", "values": [[""]]},
+            {"range": "M9", "values": [[""]]},
+            {"range": "S9", "values": [[""]]},
+            {"range": "AB9", "values": [[fecha_app_str]]},
+            {"range": "E10", "values": [[responsable_brigada]]},
             
             # Datos del paciente en las filas consecutivas (f_actual y f_siguiente)
             {
@@ -208,7 +213,7 @@ def guardar_registro_censal(
                     }
                 )
 
-        # Una sola petición masiva que ejecuta todo de golpe
+        # Ejecución masiva ultrarrápida en un solo viaje
         worksheet.batch_update(datos_a_actualizar)
         return folio_asignado
 
