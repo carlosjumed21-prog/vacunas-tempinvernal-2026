@@ -733,22 +733,18 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA SEGURA DE SIGUIENTE FILA Y SECUENCIA DE FOLIOS (DESDE FILA 14) ---
+            # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA (AVANZA CORRECTAMENTE EN BLOQUES DE 2) ---
             columna_c_vals = worksheet.col_values(3)
-            siguiente_fila = 14
-            for idx_val in range(13, len(columna_c_vals), 2):
-                val_actual = (
-                    columna_c_vals[idx_val]
-                    if idx_val < len(columna_c_vals)
-                    else ""
-                )
-                if val_actual.strip() == "" or "CURP" in val_actual.upper():
-                    siguiente_fila = idx_val + 1
-                    break
-            else:
-                siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
+            ultima_fila = len(columna_c_vals)
 
-            # Cálculo estricto del consecutivo numérico basado en bloques de 2 filas por paciente
+            if ultima_fila < 14:
+                siguiente_fila = 14
+            else:
+                if ultima_fila % 2 != 0:
+                    siguiente_fila = ultima_fila + 1
+                else:
+                    siguiente_fila = ultima_fila + 2
+
             siguiente_num = ((siguiente_fila - 14) // 2) + 1
             aammmdd = val_fecha_app.strftime("%y%m%d")
             folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
@@ -808,7 +804,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except Exception as err_estilos:
                 pass
 
-            # --- 2. MAPEO RÁPIDO DE DATOS CON SECUENCIA DE FOLIOS ---
+            # --- 2. MAPEO RÁPIDO DE DATOS CON SECUENCIA CORRECTA ---
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -850,14 +846,12 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
             if insuficiencia_renal:
                 datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
-            if discapacidades:
-                datos_a_actualizar.append({"range": f"AC{f_actual}:AC{f_siguiente}", "values": [["X"], ["X"]]})
             if fibrosis_quistica:
                 datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Ejecutar actualización rápida de datos y folios
+            # Ejecutar actualización rápida de datos
             worksheet.batch_update(datos_a_actualizar)
 
             st.session_state.ultimo_paciente_registrado = {
