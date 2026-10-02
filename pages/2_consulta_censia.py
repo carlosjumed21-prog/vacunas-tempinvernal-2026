@@ -28,6 +28,18 @@ if "autenticado_consulta" not in st.session_state:
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
 
+st.markdown(
+    """
+    <style>
+        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 
 @st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
 def mostrar_modal_comprobante_vacunacion():
@@ -122,7 +134,7 @@ def mostrar_modal_comprobante_vacunacion():
                         <span>COMPROBANTE DE VACUNACION OFICIAL</span>
                     </div>
                 </div>
-                <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN - VIGILE</div>
+                <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
                 <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
                 <p class="info-text"><b>Dosis Aplicadas:</b> {dosis_val}</p>
                 <p class="info-text"><b>Lotes Registrados:</b> {lotes_val}</p>
@@ -139,7 +151,7 @@ def mostrar_modal_comprobante_vacunacion():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Comprobante_Vacunacion_{folio_val}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Aplicación registrada con éxito.`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Aplicación registrada con éxito.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -283,7 +295,7 @@ else:
     else:
         if not h_autorizadas:
             st.warning(
-                "⚠️ No hay jornadas autorizadas activas en Google Sheets. Solicite al"
+                "⚠️️ No hay jornadas autorizadas activas en Google Sheets. Solicite al"
                 " administrador que genere una hoja desde el Panel de Control."
             )
             hoja_seleccionada = None
