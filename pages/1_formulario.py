@@ -4,7 +4,7 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
-from sheets import guardar_registro_censal
+from utils.sheets import guardar_registro_censal
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
@@ -713,7 +713,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "comorbilidades": comorbilidades_dict,
             }
 
-            # Llamada al módulo sheets.py optimizado
             folio_asignado = guardar_registro_censal(
                 sigla_url=sigla_url,
                 sufijo_js=sufijo_js,
