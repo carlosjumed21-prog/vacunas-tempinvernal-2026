@@ -16,6 +16,14 @@ import streamlit.components.v1 as components
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
+# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
+col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+with col_nav1:
+    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+        st.switch_page("app.py")
+
+st.markdown("---")
+
 # --- RECUPERACIÓN CORRECTA DE PARÁMETROS DE URL ---
 params = st.query_params
 sigla_url = params.get("unidad", "20N").upper()
@@ -404,7 +412,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (ACTIVO CON ?test=true O ADMIN) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS ---
 if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
@@ -715,7 +723,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except:
                 worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-            # --- LLENADO DE ENCABEZADOS GENERALES (Celda por celda) ---
+            # --- LLENADO SEGURO DE ENCABEZADOS ---
             worksheet.update("D7", [["CDMX"]])
             worksheet.update("M7", [["ISSSTE"]])
             worksheet.update("T7", [["Delegación Sur"]])
@@ -725,7 +733,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA DE SIGUIENTE FILA (INICIANDO DESDE FILA 14 Y 15) ---
+            # --- BÚSQUEDA DE SIGUIENTE FILA (DESDE FILA 14 Y 15) ---
             columna_c_vals = worksheet.col_values(3)
             siguiente_fila = 14
             for idx_val in range(13, len(columna_c_vals), 2):
@@ -747,7 +755,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             f_actual = siguiente_fila
             f_siguiente = siguiente_fila + 1
 
-            # --- MAPEO SEGURO CELDA POR CELDA (Filas 14 y 15) ---
+            # --- MAPEO CELDA POR CELDA (EVITA ERRORES DE RANGO DOBLE EN GSPREAD) ---
             worksheet.update(f"B{f_actual}", [[folio_asignado]])
             worksheet.update(f"B{f_siguiente}", [[folio_asignado]])
             worksheet.update(f"C{f_actual}", [[paterno.upper()]])
