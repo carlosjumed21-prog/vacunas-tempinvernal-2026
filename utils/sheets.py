@@ -9,9 +9,9 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
-    """Realiza la migración de datos pura y optimizada en Google Sheets de forma
+    """Migración de datos ultrarrápida optimizada para evitar descargas pesadas
 
-    consecutiva, rápida y sin errores de formato.
+    de toda la hoja y escribir de inmediato en el siguiente bloque disponible.
     """
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
@@ -53,12 +53,22 @@ def guardar_registro_censal(
         worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
         worksheet.update("E10", [[""]])
 
-        # --- CÁLCULO DE LA SIGUIENTE FILA LIBRE ---
-        todas_las_filas = worksheet.get_all_values()
-        ultima_fila = len(todas_las_filas)
-        fila_inicio_destino = max(16, ultima_fila + 1)
-        if (fila_inicio_destino - 14) % 2 != 0:
-            fila_inicio_destino += 1
+        # --- CÁLCULO RÁPIDO DE LA SIGUIENTE FILA (CONSULTANDO SOLO COLUMNA B) ---
+        columna_b = worksheet.col_values(2)
+        fila_inicio_destino = 14
+        
+        # Buscamos la primera celda vacía o con "POR ASIGNAR" a partir de la fila 14 (índice 13)
+        idx = 13
+        while idx < len(columna_b):
+            val_actual = str(columna_b[idx]).strip()
+            if val_actual == "" or "POR ASIGNAR" in val_actual.upper():
+                fila_inicio_destino = idx + 1
+                break
+            idx += 2
+        else:
+            fila_inicio_destino = max(14, len(columna_b) + 1)
+            if (fila_inicio_destino - 14) % 2 != 0:
+                fila_inicio_destino += 1
 
         siguiente_num = ((fila_inicio_destino - 14) // 2) + 1
         aammmdd = val_fecha_app.strftime("%y%m%d")
@@ -96,7 +106,7 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
-        # --- CONSTRUCCIÓN DEL LOTE DE ACTUALIZACIÓN MASIVA (ULTRA RÁPIDO) ---
+        # --- CONSTRUCCIÓN DEL LOTE DE ACTUALIZACIÓN MASIVA ---
         datos_a_actualizar = [
             {
                 "range": f"B{f_actual}:B{f_siguiente}",
@@ -198,10 +208,9 @@ def guardar_registro_censal(
                     }
                 )
 
-        # Ejecución única por lotes (muy eficiente y veloz)
+        # Ejecución única por lotes (instantánea y precisa en las filas consecutivas)
         worksheet.batch_update(datos_a_actualizar)
         return folio_asignado
 
     except Exception as e:
         raise e
-        
