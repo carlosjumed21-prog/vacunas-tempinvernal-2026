@@ -306,6 +306,7 @@ def mostrar_modal_comprobante():
                 </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <p class="info-text"><b>Unidad:</b> {unidad}</p>
+                <p class="info-text"><b>Vacuna de Interés:</b> {vacuna_interes}</p>
                 <p class="info-text"><b>Paciente:</b> {nombre}</p>
                 <p class="info-text"><b>CURP:</b> {curp}</p>
                 <p class="info-text"><b>Grupo:</b> {grupo}</p>
@@ -322,7 +323,7 @@ def mostrar_modal_comprobante():
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nVacuna: {vacuna_interes}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
                             navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
@@ -349,13 +350,14 @@ def mostrar_modal_comprobante():
         </html>
         """.format(
             unidad=st.session_state.nombre_unidad,
+            vacuna_interes=p.get("vacuna_interes", "COVID-19"),
             nombre=p["nombre_completo"],
             curp=curp_mostrar,
             grupo=p["grupo_objetivo"],
             folio=p["folio"],
         )
 
-        components.html(html_comprobante_component, height=310)
+        components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button(
             "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -375,11 +377,18 @@ def mostrar_modal_comprobante():
                 "input_derecho",
                 "input_ocupacion",
                 "input_digitos",
+                "input_vacuna",
                 "ant_cov",
                 "ant_inf",
                 "chk_discapacidad",
                 "chk_fibrosis",
                 "chk_hipertension",
+                "chk_vih",
+                "chk_diabetes",
+                "chk_obesidad",
+                "chk_cardiopatias",
+                "chk_cancer",
+                "chk_insufren",
             ]
             for k in keys_a_limpiar:
                 if k in st.session_state:
@@ -434,6 +443,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_derecho = "SÍ"
             st.session_state.input_ocupacion = "PERSONAL DE SALUD"
             st.session_state.input_digitos = "26"
+            st.session_state.input_vacuna = "COVID-19"
             st.session_state.ant_cov = "SÍ"
             st.session_state.ant_inf = "SÍ"
             st.session_state.chk_discapacidad = True
@@ -612,14 +622,18 @@ st.markdown(
 )
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-    vih = st.checkbox("VIH / SIDA")
-    diabetes = st.checkbox("DIABETES MELLITUS")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA")
-    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+    vih = st.checkbox("VIH / SIDA", key="chk_vih")
+    diabetes = st.checkbox("DIABETES MELLITUS", key="chk_diabetes")
+    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="chk_obesidad")
+    cardiopatias = st.checkbox(
+        "CARDIOPATÍAS AGUDAS O CRÓNICAS", key="chk_cardiopatias"
+    )
     discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
 with col_r2:
-    cancer = st.checkbox("CÁNCER")
-    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
+    cancer = st.checkbox("CÁNCER", key="chk_cancer")
+    insuficiencia_renal = st.checkbox(
+        "INSUFICIENCIA RENAL", key="chk_insufren"
+    )
     hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
     fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
 
@@ -643,30 +657,74 @@ with col_av2:
         key="ant_inf",
     )
 
+# --- NUEVO APARTADO: 8. VACUNA DE INTERÉS ---
+st.markdown(
+    '<div class="section-title">8. Vacuna de Interés</div>',
+    unsafe_allow_html=True,
+)
+vacuna_interes = st.radio(
+    "Seleccione la vacuna de su interés para esta jornada:",
+    options=["COVID-19", "INFLUENZA"],
+    horizontal=True,
+    key="input_vacuna",
+)
+
 edad_total_meses = (calc_anos * 12) + calc_meses
+
+# --- LÓGICA DE GRUPO OBJETIVO BASADA EN HOJAS OFICIALES (COVID-19 / INFLUENZA) ---
 grupo_sugerido = "POBLACIÓN GENERAL"
-if fecha_nacimiento is not None:
+
+if vacuna_interes == "COVID-19":
     if 6 <= edad_total_meses <= 59:
-        grupo_sugerido = "6 A 59 MESES"
-    elif calc_anos >= 60:
-        grupo_sugerido = "60 Y MÁS"
+        grupo_sugerido = (
+            "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
+        )
     elif planes_o_embarazo == "SÍ":
-        grupo_sugerido = "EMBARAZADAS"
+        grupo_sugerido = "PERSONAS EMBARAZADAS"
+    elif calc_anos >= 60:
+        grupo_sugerido = "60 AÑOS Y MÁS"
     elif ocupacion == "PERSONAL DE SALUD":
         grupo_sugerido = "PERSONAL DE SALUD"
-    elif vih:
-        grupo_sugerido = "VIH/sida"
-    elif diabetes:
-        grupo_sugerido = "DIABETES MELLITUS"
-    elif obesidad:
-        grupo_sugerido = "OBESIDAD MORBIDA"
+    elif (
+        vih
+        or diabetes
+        or obesidad
+        or cardiopatias
+        or cancer
+        or insuficiencia_renal
+        or discapacidades
+        or fibrosis_quistica
+        or hipertension
+    ):
+        grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
+else:  # INFLUENZA
+    if 6 <= edad_total_meses <= 59:
+        grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
+    elif planes_o_embarazo == "SÍ":
+        grupo_sugerido = "PERSONAS GESTANTES"
+    elif ocupacion == "PERSONAL DE SALUD":
+        grupo_sugerido = "PERSONAL DE SALUD"
+    elif calc_anos >= 60:
+        grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
+    elif (
+        vih
+        or diabetes
+        or obesidad
+        or cardiopatias
+        or cancer
+        or insuficiencia_renal
+        or discapacidades
+        or fibrosis_quistica
+        or hipertension
+    ):
+        grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
 
 st.markdown(
     '<div class="section-title">7. Grupo Objetivo</div>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>',
+    f'<div class="card-grupo">🎯 Grupo Objetivo ({vacuna_interes}): {grupo_sugerido}</div>',
     unsafe_allow_html=True,
 )
 
@@ -707,6 +765,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "colonia": colonia,
                 "curp_con_nacimiento": curp_con_nacimiento,
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
+                "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
                 "planes_o_embarazo": planes_o_embarazo,
                 "ocupacion": ocupacion,
@@ -725,6 +784,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                 "curp_con_nacimiento": curp_con_nacimiento,
+                "vacuna_interes": vacuna_interes,
                 "grupo_objetivo": grupo_sugerido,
                 "folio": folio_asignado,
             }
