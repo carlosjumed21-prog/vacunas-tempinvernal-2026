@@ -150,13 +150,15 @@ def mostrar_modal_comprobante_vacunacion():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_Vacunacion_{folio_val}.png', {{ type: 'image/png' }});
+                        const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
+                        const file = new File([blob], fileName, {{ type: 'image/png' }});
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Aplicación registrada con éxito.`;
+                        
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
+                            navigator.share({{ files: [file], title: 'Comprobante de Vacunación', text: textoMensaje }}).catch(error => console.log('Error al compartir archivo:', error));
                         }} else {{
                             const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
+                            enlace.download = fileName;
                             enlace.href = URL.createObjectURL(blob);
                             enlace.click();
                             window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
@@ -295,7 +297,7 @@ else:
     else:
         if not h_autorizadas:
             st.warning(
-                "⚠️️ No hay jornadas autorizadas activas en Google Sheets. Solicite al"
+                "⚠️ No hay jornadas autorizadas activas en Google Sheets. Solicite al"
                 " administrador que genere una hoja desde el Panel de Control."
             )
             hoja_seleccionada = None
