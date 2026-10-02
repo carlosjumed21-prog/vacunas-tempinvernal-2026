@@ -733,7 +733,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
             worksheet.update("E10", [[""]])
 
-            # --- BÚSQUEDA DE SIGUIENTE FILA (DESDE FILA 14 Y 15) ---
+            # --- BÚSQUEDA SEGURA DE SIGUIENTE FILA Y SECUENCIA DE FOLIOS (DESDE FILA 14) ---
             columna_c_vals = worksheet.col_values(3)
             siguiente_fila = 14
             for idx_val in range(13, len(columna_c_vals), 2):
@@ -748,6 +748,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             else:
                 siguiente_fila = max(14, ((len(columna_c_vals) // 2) * 2))
 
+            # Cálculo estricto del consecutivo numérico basado en bloques de 2 filas por paciente
             siguiente_num = ((siguiente_fila - 14) // 2) + 1
             aammmdd = val_fecha_app.strftime("%y%m%d")
             folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
@@ -807,7 +808,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except Exception as err_estilos:
                 pass
 
-            # --- 2. MAPEO RÁPIDO DE DATOS (HEREDA EL ESTILO NATIVO DE LA PLANTILLA) ---
+            # --- 2. MAPEO RÁPIDO DE DATOS CON SECUENCIA DE FOLIOS ---
             datos_a_actualizar = [
                 {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
                 {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
@@ -856,7 +857,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             if hipertension:
                 datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Ejecutar actualización rápida de datos
+            # Ejecutar actualización rápida de datos y folios
             worksheet.batch_update(datos_a_actualizar)
 
             st.session_state.ultimo_paciente_registrado = {
