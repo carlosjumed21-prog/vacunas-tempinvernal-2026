@@ -9,9 +9,9 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
-    """Conecta con Google Sheets, duplica la plantilla de las filas 14-15 de forma
+    """Realiza la migración de datos pura y optimizada en Google Sheets de forma
 
-    consecutiva y vuelca la información del paciente.
+    consecutiva, rápida y sin errores de formato.
     """
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
@@ -67,36 +67,6 @@ def guardar_registro_censal(
         f_actual = fila_inicio_destino
         f_siguiente = fila_inicio_destino + 1
 
-        # --- COPIAR FORMATO Y DISEÑO NATIVO DE LA PLANTILLA (14-15) AL DESTINO ---
-        rango_origen = worksheet.get("A14:AM15")
-        # Aseguramos limpiar o asignar el bloque vacío en el destino manteniendo la estructura
-        worksheet.update(f"A{f_actual}:AM{f_siguiente}", [[""] * 39, [""] * 39])
-        
-        # Copiamos formato usando copyTo nativo de gspread
-        rango_fuente = worksheet.range("A14:AM15")
-        rango_destino = worksheet.range(f"A{f_actual}:AM{f_siguiente}")
-        
-        for i in range(len(rango_fuente)):
-            rango_destino[i].format = rango_fuente[i].format
-
-        worksheet.update_cells(rango_destino, value_input_option='USER_ENTERED')
-
-        # Ajustar alto de filas copiado de la plantilla (55 píxeles)
-        spreadsheet.batch_update({
-            "requests": [{
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "ROWS",
-                        "startIndex": f_actual - 1,
-                        "endIndex": f_siguiente,
-                    },
-                    "properties": {"pixelSize": 55},
-                    "fields": "pixelSize",
-                }
-            }]
-        })
-
         # --- EXTRACCIÓN DE DATOS DEL PACIENTE ---
         paterno = datos_paciente["paterno"]
         materno = datos_paciente["materno"]
@@ -126,6 +96,7 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
+        # --- CONSTRUCCIÓN DEL LOTE DE ACTUALIZACIÓN MASIVA (ULTRA RÁPIDO) ---
         datos_a_actualizar = [
             {
                 "range": f"B{f_actual}:B{f_siguiente}",
@@ -227,8 +198,10 @@ def guardar_registro_censal(
                     }
                 )
 
+        # Ejecución única por lotes (muy eficiente y veloz)
         worksheet.batch_update(datos_a_actualizar)
         return folio_asignado
 
     except Exception as e:
         raise e
+        
