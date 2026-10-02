@@ -51,8 +51,8 @@ with col1:
 with col2:
     st.markdown("""
         <div class="card-menu">
-            <h3>📋 Módulo CENSIA</h3>
-            <p>Consulta operativa, guías clínicas y registro de lotes de biológicos.</p>
+            <h3>📋 Operatividad</h3>
+            <p>Captura de dosis aplicadas, lotes y comprobantes.</p>
         </div>
     """, unsafe_allow_html=True)
     if st.button("Ir a Consulta CENSIA", use_container_width=True):
