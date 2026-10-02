@@ -272,7 +272,7 @@ def mostrar_modal_comprobante():
                 transform: rotate(-25deg);
                 display: flex;
                 flex-direction: column;
-                justify-content: space-around;
+                justify-content: space-between;
                 align-items: center;
                 pointer-events: none;
                 z-index: 0;
@@ -280,17 +280,17 @@ def mostrar_modal_comprobante():
             }}
             .watermark-row {{
                 display: flex;
-                gap: 40px;
+                gap: 20px;
                 white-space: nowrap;
-                font-size: 1.05rem;
+                font-size: 0.95rem;
                 font-weight: 900;
                 color: transparent;
-                -webkit-text-stroke: 1px rgba(97, 18, 50, 0.18);
+                -webkit-text-stroke: 1px rgba(97, 18, 50, 0.22);
                 text-transform: uppercase;
-                letter-spacing: 2px;
+                letter-spacing: 1px;
             }}
             .watermark-row:nth-child(even) {{
-                transform: translateX(-40px);
+                transform: translateX(-30px);
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -302,6 +302,18 @@ def mostrar_modal_comprobante():
         <body>
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
                     <div class="watermark-row">
                         <span>NO ES UN COMPROBANTE DE VACUNACION</span>
                         <span>NO ES UN COMPROBANTE DE VACUNACION</span>
