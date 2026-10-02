@@ -723,7 +723,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except:
                 worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-            # --- LLENADO SEGURO DE ENCABEZADOS ---
+            # --- LLENADO DE ENCABEZADOS GENERALES ---
             worksheet.update("D7", [["CDMX"]])
             worksheet.update("M7", [["ISSSTE"]])
             worksheet.update("T7", [["Delegación Sur"]])
@@ -755,104 +755,92 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             f_actual = siguiente_fila
             f_siguiente = siguiente_fila + 1
 
-            # --- MAPEO CELDA POR CELDA (EVITA ERRORES DE RANGO DOBLE EN GSPREAD) ---
-            worksheet.update(f"B{f_actual}", [[folio_asignado]])
-            worksheet.update(f"B{f_siguiente}", [[folio_asignado]])
-            worksheet.update(f"C{f_actual}", [[paterno.upper()]])
-            worksheet.update(
-                f"D{f_actual}", [[materno.upper() if materno else ""]]
-            )
-            worksheet.update(f"E{f_actual}", [[nombres.upper()]])
-
             dia_n = str(fecha_nacimiento.day).zfill(2)
             mes_n = str(fecha_nacimiento.month).zfill(2)
             anio_n = str(fecha_nacimiento.year)
-
-            worksheet.update(f"F{f_actual}", [[dia_n]])
-            worksheet.update(f"F{f_siguiente}", [[dia_n]])
-            worksheet.update(f"G{f_actual}", [[mes_n]])
-            worksheet.update(f"G{f_siguiente}", [[mes_n]])
-            worksheet.update(f"H{f_actual}", [[anio_n]])
-            worksheet.update(f"H{f_siguiente}", [[anio_n]])
-
             anos_str = str(calc_anos)
             meses_str = str(calc_meses)
-            worksheet.update(f"I{f_actual}", [[anos_str]])
-            worksheet.update(f"I{f_siguiente}", [[anos_str]])
-            worksheet.update(f"J{f_actual}", [[meses_str]])
-            worksheet.update(f"J{f_siguiente}", [[meses_str]])
-
             sexo_letra = "H" if sexo == "HOMBRE" else "M"
-            worksheet.update(f"K{f_actual}", [[sexo_letra]])
-            worksheet.update(f"K{f_siguiente}", [[sexo_letra]])
-
             fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
-            worksheet.update(f"L{f_actual}", [[fecha_app_str]])
-            worksheet.update(f"L{f_siguiente}", [[fecha_app_str]])
-
             calle_str = calle.upper()
             num_str = numero.upper()
             col_str = colonia.upper()
-            worksheet.update(f"M{f_actual}", [[calle_str]])
-            worksheet.update(f"M{f_siguiente}", [[calle_str]])
-            worksheet.update(f"N{f_actual}", [[num_str]])
-            worksheet.update(f"N{f_siguiente}", [[num_str]])
-            worksheet.update(f"O{f_actual}", [[col_str]])
-            worksheet.update(f"O{f_siguiente}", [[col_str]])
 
-            worksheet.update(f"C{f_siguiente}", [[curp_con_nacimiento]])
+            # --- MAPEO RÁPIDO POR LOTES (BATCH UPDATE DE DATOS) ---
+            datos_a_actualizar = [
+                {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
+                {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
+                {"range": f"D{f_actual}", "values": [[materno.upper() if materno else ""]]},
+                {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
+                {"range": f"F{f_actual}:F{f_siguiente}", "values": [[dia_n], [dia_n]]},
+                {"range": f"G{f_actual}:G{f_siguiente}", "values": [[mes_n], [mes_n]]},
+                {"range": f"H{f_actual}:H{f_siguiente}", "values": [[anio_n], [anio_n]]},
+                {"range": f"I{f_actual}:I{f_siguiente}", "values": [[anos_str], [anos_str]]},
+                {"range": f"J{f_actual}:J{f_siguiente}", "values": [[meses_str], [meses_str]]},
+                {"range": f"K{f_actual}:K{f_siguiente}", "values": [[sexo_letra], [sexo_letra]]},
+                {"range": f"L{f_actual}:L{f_siguiente}", "values": [[fecha_app_str], [fecha_app_str]]},
+                {"range": f"M{f_actual}:M{f_siguiente}", "values": [[calle_str], [calle_str]]},
+                {"range": f"N{f_actual}:N{f_siguiente}", "values": [[num_str], [num_str]]},
+                {"range": f"O{f_actual}:O{f_siguiente}", "values": [[col_str], [col_str]]},
+                {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
+                {"range": f"AN{f_actual}:AN{f_siguiente}", "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]]}
+            ]
 
-            # Grupo Objetivo (P o Q)
+            # Grupos objetivo y comorbilidades
             if grupo_sugerido == "6 A 59 MESES":
-                worksheet.update(f"P{f_actual}", [["X"]])
-                worksheet.update(f"P{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
             elif grupo_sugerido == "60 Y MÁS":
-                worksheet.update(f"Q{f_actual}", [["X"]])
-                worksheet.update(f"Q{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Grupos de riesgo y Comorbilidades
             if planes_o_embarazo == "SÍ":
-                worksheet.update(f"R{f_actual}", [["X"]])
-                worksheet.update(f"R{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
             if ocupacion == "PERSONAL DE SALUD":
-                worksheet.update(f"S{f_actual}", [["X"]])
-                worksheet.update(f"S{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
             if vih:
-                worksheet.update(f"T{f_actual}", [["X"]])
-                worksheet.update(f"T{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"T{f_actual}:T{f_siguiente}", "values": [["X"], ["X"]]})
             if diabetes:
-                worksheet.update(f"U{f_actual}", [["X"]])
-                worksheet.update(f"U{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"U{f_actual}:U{f_siguiente}", "values": [["X"], ["X"]]})
             if obesidad:
-                worksheet.update(f"V{f_actual}", [["X"]])
-                worksheet.update(f"V{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"V{f_actual}:V{f_siguiente}", "values": [["X"], ["X"]]})
             if cardiopatias:
-                worksheet.update(f"W{f_actual}", [["X"]])
-                worksheet.update(f"W{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"W{f_actual}:W{f_siguiente}", "values": [["X"], ["X"]]})
             if cancer:
-                worksheet.update(f"Y{f_actual}", [["X"]])
-                worksheet.update(f"Y{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
             if insuficiencia_renal:
-                worksheet.update(f"AA{f_actual}", [["X"]])
-                worksheet.update(f"AA{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
             if discapacidades:
-                worksheet.update(f"AC{f_actual}", [["X"]])
-                worksheet.update(f"AC{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"AC{f_actual}:AC{f_siguiente}", "values": [["X"], ["X"]]})
             if fibrosis_quistica:
-                worksheet.update(f"AD{f_actual}", [["X"]])
-                worksheet.update(f"AD{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
             if hipertension:
-                worksheet.update(f"AE{f_actual}", [["X"]])
-                worksheet.update(f"AE{f_siguiente}", [["X"]])
+                datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
 
-            # Derechohabiencia (AN)
-            worksheet.update(f"AN{f_actual}", [[cuenta_derechohabiencia]])
-            worksheet.update(f"AN{f_siguiente}", [[cuenta_derechohabiencia]])
+            # 1. Escribir datos rápidamente
+            worksheet.batch_update(datos_a_actualizar)
 
-            # --- ALTURA DE FILAS (55 PX) ---
+            # 2. Clonar formato de diseño (filas 14-15 modelo) y altura de 55 px
             try:
-                body = {
+                body_formato = {
                     "requests": [
+                        {
+                            "copyPaste": {
+                                "source": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": 13,  # Fila 14 modelo
+                                    "endIndex": 15,       # Fila 15 modelo
+                                    "startColumnIndex": 1,  # Columna B
+                                    "endColumnIndex": 39,   # Columna AM
+                                },
+                                "destination": {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": f_actual - 1,
+                                    "endIndex": f_siguiente,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 39,
+                                },
+                                "pasteType": "PASTE_NORMAL",
+                            }
+                        },
                         {
                             "updateDimensionProperties": {
                                 "range": {
@@ -867,8 +855,15 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                         }
                     ]
                 }
-                spreadsheet.batch_update(body)
-            except:
+                spreadsheet.batch_update(body_formato)
+
+                # Reaplicar textos clave para asegurar que se conserven perfectamente tras la clonación
+                worksheet.update(f"B{f_actual}:B{f_siguiente}", [[folio_asignado], [folio_asignado]])
+                worksheet.update_acell(f"C{f_actual}", paterno.upper())
+                worksheet.update_acell(f"D{f_actual}", materno.upper() if materno else "")
+                worksheet.update_acell(f"E{f_actual}", nombres.upper())
+                worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+            except Exception as err_estilos:
                 pass
 
             st.session_state.ultimo_paciente_registrado = {
