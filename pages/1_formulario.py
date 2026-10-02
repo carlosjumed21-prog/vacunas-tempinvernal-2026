@@ -216,7 +216,7 @@ estados_mexico = [
 ]
 
 
-@st.dialog("🎉 ¡REGISTRO EXITOSO - COMPROBANTE DIGITAL!")
+@st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
     p = st.session_state.ultimo_paciente_registrado
     if p:
@@ -232,8 +232,52 @@ def mostrar_modal_comprobante():
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ background-color: #ffffff; border: 3px solid #1e5b4f; padding: 12px; border-radius: 10px; color: #161a1d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; }}
-            .folio-grande {{ font-size: 1.3rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 5px 0; }}
+            .card-comprobante {{ 
+                position: relative; 
+                background-color: #ffffff; 
+                border: 3px solid #1e5b4f; 
+                padding: 15px; 
+                border-radius: 10px; 
+                color: #161a1d; 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+                margin-bottom: 10px; 
+                overflow: hidden; 
+            }}
+            .titulo-ticket {{ font-size: 0.95rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 8px; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.25rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 6px; border-radius: 6px; border: 2px dashed #a57f2c; margin: 8px 0 4px 0; z-index: 2; position: relative; }}
+            .info-text {{ margin: 4px 0; font-size: 0.85rem; z-index: 2; position: relative; }}
+            .leyenda-posterior {{ font-size: 0.72rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 4px; margin-bottom: 0; z-index: 2; position: relative; }}
+            
+            .watermark-overlay {{
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                transform: rotate(-25deg);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-around;
+                align-items: center;
+                pointer-events: none;
+                z-index: 0;
+                overflow: hidden;
+            }}
+            .watermark-row {{
+                display: flex;
+                gap: 40px;
+                white-space: nowrap;
+                font-size: 1.05rem;
+                font-weight: 900;
+                color: transparent;
+                -webkit-text-stroke: 1px rgba(97, 18, 50, 0.18);
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }}
+            .watermark-row:nth-child(even) {{
+                transform: translateX(-40px);
+            }}
+            
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -242,12 +286,39 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
-                <h3 style="color: #1e5b4f; text-align: center; margin-top: 0; font-size: 0.95rem;">COMPROBANTE DE REGISTRO - VIGILE</h3>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Unidad:</b> {unidad}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Paciente:</b> {nombre}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>CURP:</b> {curp}</p>
-                <p style="margin: 2px 0; font-size: 0.8rem;"><b>Grupo:</b> {grupo}</p>
+                <div class="watermark-overlay">
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                        <span>NO ES UN COMPROBANTE DE VACUNACION</span>
+                    </div>
+                </div>
+                <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
+                <p class="info-text"><b>Unidad:</b> {unidad}</p>
+                <p class="info-text"><b>Paciente:</b> {nombre}</p>
+                <p class="info-text"><b>CURP:</b> {curp}</p>
+                <p class="info-text"><b>Grupo:</b> {grupo}</p>
                 <div class="folio-grande">FOLIO: {folio}</div>
+                <p class="leyenda-posterior">Posterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
@@ -258,13 +329,13 @@ def mostrar_modal_comprobante():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     canvas.toBlob(blob => {{
-                        const file = new File([blob], 'Comprobante_{folio}.png', {{ type: 'image/png' }});
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n¡Presente este comprobante en el módulo!`;
+                        const file = new File([blob], 'Folio_{folio}.png', {{ type: 'image/png' }});
+                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nUnidad: {unidad}\\nFolio: *{folio}*\\nPaciente: {nombre}\\nCURP: {curp}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
                         if (navigator.canShare && navigator.canShare({{ files: [file] }})) {{
-                            navigator.share({{ files: [file], title: 'Comprobante', text: textoMensaje }}).catch(error => console.log('Error', error));
+                            navigator.share({{ files: [file], title: 'Folio de Vacunación', text: textoMensaje }}).catch(error => console.log('Error', error));
                         }} else {{
                             const enlace = document.createElement('a');
-                            enlace.download = 'Comprobante_{folio}.png';
+                            enlace.download = 'Folio_{folio}.png';
                             enlace.href = URL.createObjectURL(blob);
                             enlace.click();
                             window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
@@ -276,7 +347,7 @@ def mostrar_modal_comprobante():
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
                     const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_{folio}.png';
+                    enlace.download = 'Folio_{folio}.png';
                     enlace.href = canvas.toDataURL('image/png');
                     enlace.click();
                 }});
@@ -292,7 +363,7 @@ def mostrar_modal_comprobante():
             folio=p["folio"],
         )
 
-        components.html(html_comprobante_component, height=270)
+        components.html(html_comprobante_component, height=310)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button(
             "➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True
@@ -314,21 +385,22 @@ def mostrar_modal_comprobante():
                 "input_digitos",
                 "ant_cov",
                 "ant_inf",
+                "chk_discapacidad",
+                "chk_fibrosis",
+                "chk_hipertension",
             ]
             for k in keys_a_limpiar:
                 if k in st.session_state:
-                    del st.session_state[k]
+                    st.session_state[k] = (
+                        False
+                        if "chk_" in k
+                        else ("" if "input_" in k and "fnac" not in k else None)
+                    )
             st.rerun()
 
 
 if st.session_state.ultimo_paciente_registrado is not None:
     mostrar_modal_comprobante()
-
-# --- REINTEGRO DE LA IMAGEN INE.png EN EL ENCABEZADO ---
-try:
-    st.image("INE.png", width=120)
-except:
-    pass
 
 st.markdown(
     '<p class="main-header">Sistema de Registro Nominal de Vacunación</p>',
@@ -340,7 +412,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BOTÓN DE SIMULACIÓN DE DATOS (ACTIVO CON ?test=true O ADMIN) ---
+# --- BOTÓN DE SIMULACIÓN DE DATOS ---
 if params.get("test", "").lower() == "true" or st.session_state.get(
     "autenticado_admin", False
 ):
@@ -372,6 +444,9 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_digitos = "26"
             st.session_state.ant_cov = "SÍ"
             st.session_state.ant_inf = "SÍ"
+            st.session_state.chk_discapacidad = True
+            st.session_state.chk_fibrosis = False
+            st.session_state.chk_hipertension = True
             st.rerun()
 
 st.markdown(
@@ -450,6 +525,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown("<br>", unsafe_allow_html=True)
+col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
+with col_img2:
+    try:
+        st.image(
+            "assets/INE.png",
+            width=350,
+            caption=(
+                "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
+                " para Votar (INE)"
+            ),
+        )
+    except:
+        try:
+            st.image(
+                "INE.png",
+                width=350,
+                caption=(
+                    "📌 Ubicación de la Homoclave y Dígito Verificador en su"
+                    " Credencial para Votar (INE)"
+                ),
+            )
+        except:
+            pass
+st.markdown("<br>", unsafe_allow_html=True)
+
 digitos_faltantes = st.text_input(
     "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
     max_chars=2,
@@ -523,10 +624,12 @@ with col_r1:
     diabetes = st.checkbox("DIABETES MELLITUS")
     obesidad = st.checkbox("OBESIDAD MÓRBIDA")
     cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS")
+    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
 with col_r2:
     cancer = st.checkbox("CÁNCER")
     insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL")
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL ESENCIAL")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
+    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
 
 st.markdown(
     '<div class="section-title">6. Antecedente Vacunal</div>',
@@ -620,146 +723,162 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             except:
                 worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
-            columna_c_vals = worksheet.col_values(3)
-            siguiente_fila = 13
-            for idx_val in range(12, len(columna_c_vals), 2):
-                val_actual = (
-                    columna_c_vals[idx_val]
-                    if idx_val < len(columna_c_vals)
-                    else ""
-                )
-                if val_actual.strip() == "" or "CURP" in val_actual.upper():
-                    siguiente_fila = idx_val + 1
-                    break
+            # --- LLENADO DE ENCABEZADOS GENERALES ---
+            worksheet.update("D7", [["CDMX"]])
+            worksheet.update("M7", [["ISSSTE"]])
+            worksheet.update("T7", [["Delegación Sur"]])
+            worksheet.update("AB7", [["CDMX"]])
+            worksheet.update("D8", [["CDMX"]])
+            worksheet.update("D9", [[st.session_state.nombre_unidad]])
+            worksheet.update("AB9", [[val_fecha_app.strftime("%d/%m/%Y")]])
+            worksheet.update("E10", [[""]])
+
+            # --- VALIDACIÓN DE DUPLICADOS POR CURP ---
+            todos_los_valores = worksheet.get_all_values()
+            curp_a_buscar = curp_con_nacimiento.strip().upper()
+            folio_existente = None
+
+            if len(todos_los_valores) >= 14:
+                for idx_fila in range(13, len(todos_los_valores)):
+                    fila_actual = todos_los_valores[idx_fila]
+                    if len(fila_actual) > 2 and fila_actual[2].strip().upper() == curp_a_buscar:
+                        if len(fila_actual) > 1 and fila_actual[1].strip():
+                            folio_existente = fila_actual[1].strip()
+                            break
+
+            if folio_existente:
+                st.error(f"⚠️ El paciente con CURP **{curp_a_buscar}** ya se encuentra registrado en esta jornada con el folio: **{folio_existente}**.")
             else:
-                siguiente_fila = max(13, ((len(columna_c_vals) // 2) * 2) + 1)
+                # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA DISPONIBLE ---
+                columna_c_vals = worksheet.col_values(3)
+                ultima_fila = len(columna_c_vals)
 
-            siguiente_num = ((siguiente_fila - 13) // 2) + 1
-            aammmdd = val_fecha_app.strftime("%y%m%d")
-            folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
+                if ultima_fila < 14:
+                    siguiente_fila = 14
+                else:
+                    if ultima_fila % 2 != 0:
+                        siguiente_fila = ultima_fila + 1
+                    else:
+                        siguiente_fila = ultima_fila + 2
 
-            f_actual = siguiente_fila
-            f_siguiente = siguiente_fila + 1
+                siguiente_num = ((siguiente_fila - 14) // 2) + 1
+                aammmdd = val_fecha_app.strftime("%y%m%d")
+                folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
-            # --- 1. PRIMERO: ESCRIBIR LOS DATOS BÁSICOS ---
-            worksheet.update(
-                f"B{f_actual}:B{f_siguiente}",
-                [[folio_asignado], [folio_asignado]],
-            )
-            worksheet.update_acell(f"C{f_actual}", paterno.upper())
-            worksheet.update_acell(
-                f"D{f_actual}", materno.upper() if materno else ""
-            )
-            worksheet.update_acell(f"E{f_actual}", nombres.upper())
-            worksheet.update(
-                f"F{f_actual}:F{f_siguiente}",
-                [
-                    [str(fecha_nacimiento.day).zfill(2)],
-                    [str(fecha_nacimiento.day).zfill(2)],
-                ],
-            )
-            worksheet.update(
-                f"G{f_actual}:G{f_siguiente}",
-                [
-                    [str(fecha_nacimiento.month).zfill(2)],
-                    [str(fecha_nacimiento.month).zfill(2)],
-                ],
-            )
-            worksheet.update(
-                f"H{f_actual}:H{f_siguiente}",
-                [[str(fecha_nacimiento.year)], [str(fecha_nacimiento.year)]],
-            )
-            worksheet.update(
-                f"I{f_actual}:I{f_siguiente}", [[str(calc_anos)], [str(calc_anos)]]
-            )
-            worksheet.update(
-                f"J{f_actual}:J{f_siguiente}", [[str(calc_meses)], [str(calc_meses)]]
-            )
-            worksheet.update(
-                f"K{f_actual}:K{f_siguiente}",
-                [
-                    ["H" if sexo == "HOMBRE" else "M"],
-                    ["H" if sexo == "HOMBRE" else "M"],
-                ],
-            )
-            worksheet.update(
-                f"L{f_actual}:L{f_siguiente}",
-                [
-                    [val_fecha_app.strftime("%d/%m/%Y")],
-                    [val_fecha_app.strftime("%d/%m/%Y")],
-                ],
-            )
-            worksheet.update(
-                f"M{f_actual}:M{f_siguiente}", [[calle.upper()], [calle.upper()]]
-            )
-            worksheet.update(
-                f"N{f_actual}:N{f_siguiente}", [[numero.upper()], [numero.upper()]]
-            )
-            worksheet.update(
-                f"O{f_actual}:O{f_siguiente}", [[colonia.upper()], [colonia.upper()]]
-            )
-            worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
+                f_actual = siguiente_fila
+                f_siguiente = siguiente_fila + 1
 
-            # --- 2. SEGUNDO: CLONAR DISEÑO (B-AM) Y ALTURA EXACTA DE 55 PÍXELES ---
-            try:
-                body = {
-                    "requests": [
-                        {
-                            "copyPaste": {
-                                "source": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": 12,  # Fila 13 modelo
-                                    "endRowIndex": 14,   # Fila 14 modelo
-                                    "startColumnIndex": 1,  # Columna B
-                                    "endColumnIndex": 39,   # Columna AM
-                                },
-                                "destination": {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                    "startColumnIndex": 1,
-                                    "endColumnIndex": 39,
-                                },
-                                "pasteType": "PASTE_NORMAL",
+                dia_n = str(fecha_nacimiento.day).zfill(2)
+                mes_n = str(fecha_nacimiento.month).zfill(2)
+                anio_n = str(fecha_nacimiento.year)
+                anos_str = str(calc_anos)
+                meses_str = str(calc_meses)
+                sexo_letra = "H" if sexo == "HOMBRE" else "M"
+                fecha_app_str = val_fecha_app.strftime("%d/%m/%Y")
+                calle_str = calle.upper()
+                num_str = numero.upper()
+                col_str = colonia.upper()
+
+                # --- 1. CLONAR DISEÑO NATIVO COMPLETO (FILAS 14-15 MODELO) CON PASTE_ALL ---
+                try:
+                    body_formato = {
+                        "requests": [
+                            {
+                                "copyPaste": {
+                                    "source": {
+                                        "sheetId": worksheet.id,
+                                        "startRowIndex": 13,  # Fila 14
+                                        "endIndex": 15,       # Fila 15
+                                        "startColumnIndex": 1,  # Columna B
+                                        "endColumnIndex": 39,   # Columna AM
+                                    },
+                                    "destination": {
+                                        "sheetId": worksheet.id,
+                                        "startRowIndex": f_actual - 1,
+                                        "endIndex": f_siguiente,
+                                        "startColumnIndex": 1,
+                                        "endColumnIndex": 39,
+                                    },
+                                    "pasteType": "PASTE_ALL",  # Copia formato, bordes, validaciones y diseño exacto
+                                }
+                            },
+                            {
+                                "updateDimensionProperties": {
+                                    "range": {
+                                        "sheetId": worksheet.id,
+                                        "dimension": "ROWS",
+                                        "startIndex": f_actual - 1,
+                                        "endIndex": f_siguiente,
+                                    },
+                                    "properties": {"pixelSize": 55},
+                                    "fields": "pixelSize",
+                                }
                             }
-                        },
-                        {
-                            "updateDimensionProperties": {
-                                "range": {
-                                    "sheetId": worksheet.id,
-                                    "dimension": "ROWS",
-                                    "startIndex": f_actual - 1,
-                                    "endIndex": f_siguiente,
-                                },
-                                "properties": {"pixelSize": 55},
-                                "fields": "pixelSize",
-                            }
-                        }
-                    ]
+                        ]
+                    }
+                    spreadsheet.batch_update(body_formato)
+                except Exception as err_estilos:
+                    pass
+
+                # --- 2. MAPEO RÁPIDO DE DATOS SOBRE LA ESTRUCTURA YA FORMATEADA ---
+                datos_a_actualizar = [
+                    {"range": f"B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
+                    {"range": f"C{f_actual}", "values": [[paterno.upper()]]},
+                    {"range": f"D{f_actual}", "values": [[materno.upper() if materno else ""]]},
+                    {"range": f"E{f_actual}", "values": [[nombres.upper()]]},
+                    {"range": f"F{f_actual}:F{f_siguiente}", "values": [[dia_n], [dia_n]]},
+                    {"range": f"G{f_actual}:G{f_siguiente}", "values": [[mes_n], [mes_n]]},
+                    {"range": f"H{f_actual}:H{f_siguiente}", "values": [[anio_n], [anio_n]]},
+                    {"range": f"I{f_actual}:I{f_siguiente}", "values": [[anos_str], [anos_str]]},
+                    {"range": f"J{f_actual}:J{f_siguiente}", "values": [[meses_str], [meses_str]]},
+                    {"range": f"K{f_actual}:K{f_siguiente}", "values": [[sexo_letra], [sexo_letra]]},
+                    {"range": f"L{f_actual}:L{f_siguiente}", "values": [[fecha_app_str], [fecha_app_str]]},
+                    {"range": f"M{f_actual}:M{f_siguiente}", "values": [[calle_str], [calle_str]]},
+                    {"range": f"N{f_actual}:N{f_siguiente}", "values": [[num_str], [num_str]]},
+                    {"range": f"O{f_actual}:O{f_siguiente}", "values": [[col_str], [col_str]]},
+                    {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
+                    {"range": f"AN{f_actual}:AN{f_siguiente}", "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]]}
+                ]
+
+                # Grupos objetivo y comorbilidades
+                if grupo_sugerido == "6 A 59 MESES":
+                    datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
+                elif grupo_sugerido == "60 Y MÁS":
+                    datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
+
+                if planes_o_embarazo == "SÍ":
+                    datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
+                if ocupacion == "PERSONAL DE SALUD":
+                    datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
+                if vih:
+                    datos_a_actualizar.append({"range": f"T{f_actual}:T{f_siguiente}", "values": [["X"], ["X"]]})
+                if diabetes:
+                    datos_a_actualizar.append({"range": f"U{f_actual}:U{f_siguiente}", "values": [["X"], ["X"]]})
+                if obesidad:
+                    datos_a_actualizar.append({"range": f"V{f_actual}:V{f_siguiente}", "values": [["X"], ["X"]]})
+                if cardiopatias:
+                    datos_a_actualizar.append({"range": f"W{f_actual}:W{f_siguiente}", "values": [["X"], ["X"]]})
+                if cancer:
+                    datos_a_actualizar.append({"range": f"Y{f_actual}:Y{f_siguiente}", "values": [["X"], ["X"]]})
+                if insuficiencia_renal:
+                    datos_a_actualizar.append({"range": f"AA{f_actual}:AA{f_siguiente}", "values": [["X"], ["X"]]})
+                if discapacidades:
+                    datos_a_actualizar.append({"range": f"AC{f_actual}:AC{f_siguiente}", "values": [["X"], ["X"]]})
+                if fibrosis_quistica:
+                    datos_a_actualizar.append({"range": f"AD{f_actual}:AD{f_siguiente}", "values": [["X"], ["X"]]})
+                if hipertension:
+                    datos_a_actualizar.append({"range": f"AE{f_actual}:AE{f_siguiente}", "values": [["X"], ["X"]]})
+
+                # Ejecutar actualización rápida de datos
+                worksheet.batch_update(datos_a_actualizar)
+
+                st.session_state.ultimo_paciente_registrado = {
+                    "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                    "curp_con_nacimiento": curp_con_nacimiento,
+                    "grupo_objetivo": grupo_sugerido,
+                    "folio": folio_asignado,
                 }
-                spreadsheet.batch_update(body)
-
-                # Re-escribir los datos principales para asegurar que persistan sobre el formato copiado
-                worksheet.update(
-                    f"B{f_actual}:B{f_siguiente}",
-                    [[folio_asignado], [folio_asignado]],
-                )
-                worksheet.update_acell(f"C{f_actual}", paterno.upper())
-                worksheet.update_acell(
-                    f"D{f_actual}", materno.upper() if materno else ""
-                )
-                worksheet.update_acell(f"E{f_actual}", nombres.upper())
-                worksheet.update_acell(f"C{f_siguiente}", curp_con_nacimiento)
-            except Exception as err_copia:
-                pass
-
-            st.session_state.ultimo_paciente_registrado = {
-                "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                "curp_con_nacimiento": curp_con_nacimiento,
-                "grupo_objetivo": grupo_sugerido,
-                "folio": folio_asignado,
-            }
-            st.rerun()
+                st.rerun()
 
         except Exception as e:
             st.error(f"Error al guardar en Google Sheets: {e}")
