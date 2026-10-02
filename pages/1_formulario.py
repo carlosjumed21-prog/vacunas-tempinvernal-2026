@@ -734,11 +734,9 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             worksheet.update("E10", [[""]])
 
             # --- BÚSQUEDA ROBUSTA DE LA SIGUIENTE FILA LIBRE (EN BLOQUES DE 2) ---
-            # Obtenemos los valores de la columna B (donde van los folios) desde la fila 14 en adelante
             columna_b_vals = worksheet.col_values(2)
             siguiente_fila = 14
             
-            # Recorremos de 2 en 2 a partir de la fila 14 (índice 13 en Python)
             idx = 13
             while idx < len(columna_b_vals):
                 val_actual = str(columna_b_vals[idx]).strip()
@@ -747,12 +745,10 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     break
                 idx += 2
             else:
-                # Si todas las filas leídas tienen datos, calculamos con base en la longitud real asegurando bloques pares
                 siguiente_fila = max(14, len(columna_b_vals) + 1)
                 if (siguiente_fila - 14) % 2 != 0:
                     siguiente_fila += 1
 
-            # Cálculo estricto del consecutivo numérico basado en bloques de 2 filas por paciente
             siguiente_num = ((siguiente_fila - 14) // 2) + 1
             aammmdd = val_fecha_app.strftime("%y%m%d")
             folio_asignado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
@@ -771,7 +767,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
             num_str = numero.upper()
             col_str = colonia.upper()
 
-            # --- 1. CLONAR DISEÑO Y ALTURA DESDE LA PLANTILLA (FILAS 14-15) DE COLUMNA A (0) A AM (39) ---
+            # --- 1. SIMULACIÓN EXACTA DE CTRL+C / CTRL+V DE FILAS COMPLETAS (DE COLUMNA A A AM) ---
             try:
                 body_formato = {
                     "requests": [
