@@ -9,9 +9,9 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
-    """Maneja la conexión con Google Sheets, clona el bloque de la plantilla (14-15)
+    """Conecta con Google Sheets, duplica la plantilla de las filas 14-15 de forma
 
-    e inserta los datos del paciente de forma consecutiva.
+    consecutiva y vuelca la información del paciente.
     """
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
@@ -67,43 +67,35 @@ def guardar_registro_censal(
         f_actual = fila_inicio_destino
         f_siguiente = fila_inicio_destino + 1
 
-        # --- CLONAR LA PLANTILLA FIJA (FILAS 14-15) USANDO GRIDRANGE CORRECTO ---
-        body_formato = {
-            "requests": [
-                {
-                    "copyPaste": {
-                        "source": {
-                            "sheetId": worksheet.id,
-                            "startRowIndex": 13,  # Fila 14 (Index 13)
-                            "endIndex": 15,       # Fila 15 (Index 15)
-                            "startColumnIndex": 0,  # Columna A
-                            "endColumnIndex": 39,   # Columna AM
-                        },
-                        "destination": {
-                            "sheetId": worksheet.id,
-                            "startRowIndex": f_actual - 1,
-                            "endIndex": f_siguiente,
-                            "startColumnIndex": 0,
-                            "endColumnIndex": 39,
-                        },
-                        "pasteType": "PASTE_NORMAL",
-                    }
-                },
-                {
-                    "updateDimensionProperties": {
-                        "range": {
-                            "sheetId": worksheet.id,
-                            "dimension": "ROWS",
-                            "startIndex": f_actual - 1,
-                            "endIndex": f_siguiente,
-                        },
-                        "properties": {"pixelSize": 55},
-                        "fields": "pixelSize",
-                    }
-                },
-            ]
-        }
-        spreadsheet.batch_update(body_formato)
+        # --- COPIAR FORMATO Y DISEÑO NATIVO DE LA PLANTILLA (14-15) AL DESTINO ---
+        rango_origen = worksheet.get("A14:AM15")
+        # Aseguramos limpiar o asignar el bloque vacío en el destino manteniendo la estructura
+        worksheet.update(f"A{f_actual}:AM{f_siguiente}", [[""] * 39, [""] * 39])
+        
+        # Copiamos formato usando copyTo nativo de gspread
+        rango_fuente = worksheet.range("A14:AM15")
+        rango_destino = worksheet.range(f"A{f_actual}:AM{f_siguiente}")
+        
+        for i in range(len(rango_fuente)):
+            rango_destino[i].format = rango_fuente[i].format
+
+        worksheet.update_cells(rango_destino, value_input_option='USER_ENTERED')
+
+        # Ajustar alto de filas copiado de la plantilla (55 píxeles)
+        spreadsheet.batch_update({
+            "requests": [{
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": worksheet.id,
+                        "dimension": "ROWS",
+                        "startIndex": f_actual - 1,
+                        "endIndex": f_siguiente,
+                    },
+                    "properties": {"pixelSize": 55},
+                    "fields": "pixelSize",
+                }
+            }]
+        })
 
         # --- EXTRACCIÓN DE DATOS DEL PACIENTE ---
         paterno = datos_paciente["paterno"]
