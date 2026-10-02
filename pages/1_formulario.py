@@ -611,6 +611,10 @@ ocupacion = st.selectbox(
         "MAESTRO/A",
         "ADMINISTRATIVO/A",
         "TRABAJO EN GUARDERÍA",
+        "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
+        "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
+        "PERSONAL MILITAR",
+        "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
         "OTRAS PROFESIONES",
     ],
     key="input_ocupacion",
@@ -657,7 +661,7 @@ with col_av2:
         key="ant_inf",
     )
 
-# --- NUEVO APARTADO: 8. VACUNA DE INTERÉS ---
+# --- 8. VACUNA DE INTERÉS ---
 st.markdown(
     '<div class="section-title">8. Vacuna de Interés</div>',
     unsafe_allow_html=True,
@@ -671,14 +675,12 @@ vacuna_interes = st.radio(
 
 edad_total_meses = (calc_anos * 12) + calc_meses
 
-# --- LÓGICA DE GRUPO OBJETIVO BASADA EN HOJAS OFICIALES (COVID-19 / INFLUENZA) ---
+# --- LÓGICA DE GRUPO OBJETIVO ---
 grupo_sugerido = "POBLACIÓN GENERAL"
 
 if vacuna_interes == "COVID-19":
     if 6 <= edad_total_meses <= 59:
-        grupo_sugerido = (
-            "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
-        )
+        grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
     elif planes_o_embarazo == "SÍ":
         grupo_sugerido = "PERSONAS EMBARAZADAS"
     elif calc_anos >= 60:
@@ -702,8 +704,16 @@ else:  # INFLUENZA
         grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
     elif planes_o_embarazo == "SÍ":
         grupo_sugerido = "PERSONAS GESTANTES"
-    elif ocupacion == "PERSONAL DE SALUD":
-        grupo_sugerido = "PERSONAL DE SALUD"
+    elif (
+        ocupacion == "PERSONAL DE SALUD"
+        or ocupacion == "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES"
+        or ocupacion
+        == "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
+        or ocupacion == "PERSONAL MILITAR"
+        or ocupacion
+        == "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)"
+    ):
+        grupo_sugerido = ocupacion
     elif calc_anos >= 60:
         grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
     elif (
