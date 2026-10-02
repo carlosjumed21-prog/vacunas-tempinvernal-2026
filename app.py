@@ -32,7 +32,7 @@ with col_top3:
     if st.button("🔐 Panel Admin", use_container_width=True, key="btn_top_admin"):
         st.switch_page("pages/3_administrador.py")
 
-st.markdown('<p class="main-header">Sistema de Vigilancia y Censo Nominal</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
 
 # Verificación de parámetros URL institucionales
