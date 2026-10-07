@@ -233,7 +233,6 @@ def mostrar_modal_comprobante():
             f"FECHA: {fecha_val}\n"
             f"ESTADO: REGISTRADO"
         )
-        url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
 
         html_comprobante_component = f"""
         <!DOCTYPE html>
@@ -241,6 +240,8 @@ def mostrar_modal_comprobante():
         <head>
         <meta charset="utf-8">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <!-- Librería QRious para generar el código QR localmente como Canvas -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
         <style>
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
             .card-comprobante {{ 
@@ -258,7 +259,7 @@ def mostrar_modal_comprobante():
             .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
             .info-container {{ flex: 1; }}
             .qr-container {{ text-align: center; }}
-            .qr-container img {{ width: 95px; height: 95px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
+            .qr-container canvas {{ width: 95px !important; height: 95px !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
             .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 5px; margin-bottom: 0; z-index: 2; position: relative; }}
@@ -340,7 +341,7 @@ def mostrar_modal_comprobante():
                         <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
                     </div>
                     <div class="qr-container">
-                        <img src="{url_qr_api}" alt="QR Registro">
+                        <canvas id="qr-canvas"></canvas>
                     </div>
                 </div>
                 <div class="folio-grande">Folio: {folio_val}</div>
@@ -351,31 +352,40 @@ def mostrar_modal_comprobante():
                 <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
             </div>
             <script>
-            function compartirImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const fileName = 'Folio_{folio_val}.png';
-                        const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nCURP: {curp_mostrar}\\nVacuna: {vacuna_val}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
-                        
+                // Generar QR de manera local y síncrona con QRious
+                window.addEventListener('DOMContentLoaded', (event) => {{
+                    var qr = new QRious({{
+                        element: document.getElementById('qr-canvas'),
+                        value: {repr(texto_qr)},
+                        size: 150
+                    }});
+                }});
+
+                function compartirImagenWhatsApp() {{
+                    const elemento = document.getElementById('comprobante-captura');
+                    html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
+                        canvas.toBlob(blob => {{
+                            const fileName = 'Folio_{folio_val}.png';
+                            const textoMensaje = `💉 *FOLIO DE VACUNACIÓN - VIGILE*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nCURP: {curp_mostrar}\\nVacuna: {vacuna_val}\\n⚠️ No es un comprobante de vacunación.\\nPosterior a su asistencia a la jornada de vacunación se le entregará un comprobante oficial.`;
+                            
+                            const enlace = document.createElement('a');
+                            enlace.download = fileName;
+                            enlace.href = URL.createObjectURL(blob);
+                            enlace.click();
+                            
+                            window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
+                        }}, 'image/png');
+                    }});
+                }}
+                function descargarCaptura() {{
+                    const elemento = document.getElementById('comprobante-captura');
+                    html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
                         const enlace = document.createElement('a');
-                        enlace.download = fileName;
-                        enlace.href = URL.createObjectURL(blob);
+                        enlace.download = 'Folio_{folio_val}.png';
+                        enlace.href = canvas.toDataURL('image/png');
                         enlace.click();
-                        
-                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                    }}, 'image/png');
-                }});
-            }}
-            function descargarCaptura() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
-                    const enlace = document.createElement('a');
-                    enlace.download = 'Folio_{folio_val}.png';
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }});
-            }}
+                    }});
+                }}
             </script>
         </body>
         </html>
@@ -468,399 +478,4 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_derecho = "SÍ"
             st.session_state.input_ocupacion = (
                 "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
-            )
-            st.session_state.input_digitos = "26"
-            st.session_state.input_vacuna = "AMBAS"
-            st.session_state.ant_cov = "SÍ"
-            st.session_state.ant_inf = "SÍ"
-            st.session_state.chk_gestante = "NO"
-            st.session_state.chk_discapacidad = True
-            st.session_state.chk_fibrosis = False
-            st.session_state.chk_hipertension = True
-            st.rerun()
-
-st.markdown(
-    '<div class="section-title">1. Datos Generales y Fechas de Jornada</div>',
-    unsafe_allow_html=True,
-)
-col_g1, col_g2, col_g3 = st.columns(3)
-with col_g1:
-    st.date_input(
-        "Fecha de Registro",
-        value=datetime.date.today(),
-        format="DD/MM/YYYY",
-        disabled=True,
-    )
-with col_g2:
-    st.date_input(
-        "Fecha de Aplicación (Autorizada)",
-        value=val_fecha_app,
-        format="DD/MM/YYYY",
-        disabled=True,
-    )
-with col_g3:
-    st.markdown(
-        "**Folio Generado (Auto)**<br>`POR ASIGNAR`", unsafe_allow_html=True
-    )
-
-st.markdown(
-    '<div class="section-title">2. Identificación del Paciente</div>',
-    unsafe_allow_html=True,
-)
-col_n1, col_n2, col_n3 = st.columns(3)
-with col_n1:
-    paterno = st.text_input("Apellido Paterno *", key="input_paterno")
-with col_n2:
-    materno = st.text_input("Apellido Materno *", key="input_materno")
-with col_n3:
-    nombres = st.text_input("Nombre(s) *", key="input_nombres")
-
-col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1:
-    fecha_nacimiento = st.date_input(
-        "Fecha de Nacimiento *",
-        value=None,
-        min_value=datetime.date(1900, 1, 1),
-        max_value=datetime.date.today(),
-        format="DD/MM/YYYY",
-        key="input_fnac",
-    )
-with col_fn2:
-    sexo = st.selectbox(
-        "Sexo *",
-        options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
-        key="input_sexo",
-    )
-with col_fn3:
-    estado_nacimiento = st.selectbox(
-        "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
-    )
-
-personas_gestantes = "NO"
-if sexo == "MUJER":
-    personas_gestantes = st.radio(
-        "¿Es una persona gestante o tiene planes de embarazo?",
-        options=["NO", "SÍ"],
-        horizontal=True,
-        key="chk_gestante",
-    )
-
-calc_anos, calc_meses, calc_dias = (
-    calcular_edad_detallada(fecha_nacimiento, val_fecha_app)
-    if fecha_nacimiento
-    else (0, 0, 0)
-)
-st.markdown(
-    f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses}'
-    f" Meses</div>",
-    unsafe_allow_html=True,
-)
-
-edad_total_meses = (calc_anos * 12) + calc_meses
-es_pediatrico_59m = 6 <= edad_total_meses <= 59
-
-st.markdown("<br>", unsafe_allow_html=True)
-col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
-with col_img2:
-    try:
-        st.image(
-            "assets/INE.png",
-            width=350,
-            caption=(
-                "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
-                " para Votar (INE)"
-            ),
-        )
-    except:
-        try:
-            st.image(
-                "INE.png",
-                width=350,
-                caption=(
-                    "📌 Ubicación de la Homoclave y Dígito Verificador en su"
-                    " Credencial para Votar (INE)"
-                ),
-            )
-        except:
-            pass
-st.markdown("<br>", unsafe_allow_html=True)
-
-digitos_faltantes = st.text_input(
-    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
-    max_chars=2,
-    key="input_digitos",
-)
-curp_algoritmica = generar_curp_algoritmica(
-    paterno,
-    materno,
-    nombres,
-    fecha_nacimiento,
-    sexo,
-    estado_nacimiento,
-    digitos_faltantes,
-)
-curp_con_nacimiento = (
-    f"{curp_algoritmica}/{estado_nacimiento.upper()}"
-    if estado_nacimiento != "SELECCIONE UN ESTADO"
-    and "COMPLETA" not in curp_algoritmica
-    else curp_algoritmica
-)
-
-st.markdown(
-    f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    '<div class="section-title">3. Domicilio y Afiliación</div>',
-    unsafe_allow_html=True,
-)
-estado_residencia = st.selectbox(
-    "Estado de Residencia *", options=estados_mexico, key="input_estres"
-)
-col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-with col_dom1:
-    calle = st.text_input("Calle *", key="input_calle")
-with col_dom2:
-    numero = st.text_input("No. (Ext / Int) *", key="input_num")
-with col_dom3:
-    colonia = st.text_input("Colonia *", key="input_col")
-cuenta_derechohabiencia = st.selectbox(
-    "¿Cuenta con derechohabiencia? *",
-    options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"],
-    key="input_derecho",
-)
-
-st.markdown(
-    '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
-)
-if es_pediatrico_59m:
-    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'No aplica (Población Pediátrica)'.")
-    ocupacion = "NO APLICA (POBLACIÓN PEDIÁTRICA)"
-else:
-    ocupacion = st.selectbox(
-        "Seleccione su Ocupación *",
-        options=[
-            "SELECCIONE UNA OPCIÓN",
-            (
-                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
-            ),
-            "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
-            "JUBILADO/A",
-            "MAESTRO/A",
-            "ADMINISTRATIVO/A",
-            "TRABAJO EN GUARDERÍA",
-            (
-                "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
-                " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
-            ),
-            "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-            "PERSONAL MILITAR",
-            (
-                "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
-                " (PEMEX)"
-            ),
-            "OTRAS PROFESIONES",
-        ],
-        key="input_ocupacion",
-    )
-
-st.markdown(
-    '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
-    unsafe_allow_html=True,
-)
-col_r1, col_r2 = st.columns(2)
-with col_r1:
-    vih = st.checkbox("VIH / SIDA", key="chk_vih")
-    diabetes = st.checkbox("DIABETES MELLITUS", key="chk_diabetes")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="chk_obesidad")
-    cardiopatias = st.checkbox(
-        "CARDIOPATÍAS AGUDAS O CRÓNICAS", key="chk_cardiopatias"
-    )
-    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
-with col_r2:
-    cancer = st.checkbox("CÁNCER", key="chk_cancer")
-    insuficiencia_renal = st.checkbox(
-        "INSUFICIENCIA RENAL", key="chk_insufren"
-    )
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
-    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
-
-st.markdown(
-    '<div class="section-title">6. Antecedente Vacunal</div>',
-    unsafe_allow_html=True,
-)
-col_av1, col_av2 = st.columns(2)
-with col_av1:
-    antecedente_covid = st.radio(
-        "¿Cuenta con alguna dosis previa de COVID-19?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
-        horizontal=True,
-        key="ant_cov",
-    )
-with col_av2:
-    antecedente_influenza = st.radio(
-        "¿Cuenta con alguna dosis previa de Influenza?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
-        horizontal=True,
-        key="ant_inf",
-    )
-
-# --- 8. VACUNA DE INTERÉS ---
-st.markdown(
-    '<div class="section-title">8. Vacuna de Interés</div>',
-    unsafe_allow_html=True,
-)
-vacuna_interes = st.radio(
-    "Seleccione la vacuna de su interés para esta jornada:",
-    options=["AMBAS", "COVID-19", "INFLUENZA"],
-    horizontal=True,
-    key="input_vacuna",
-)
-
-# --- LÓGICA DE GRUPO OBJETIVO ---
-grupo_sugerido = "POR DESIGNAR"
-
-is_personal_salud = (
-    "PERSONAL DE SALUD" in ocupacion
-    or ocupacion
-    == "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
-)
-is_colectivo_riesgo = is_personal_salud or ocupacion in [
-    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
-    "PERSONAL MILITAR",
-    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
-]
-
-if fecha_nacimiento is not None or personas_gestantes == "SÍ" or is_colectivo_riesgo or (
-    vih or diabetes or obesidad or cardiopatias or cancer or insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
-):
-    if vacuna_interes == "COVID-19" or vacuna_interes == "AMBAS":
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO)"
-        elif personas_gestantes == "SÍ":
-            grupo_sugerido = "PERSONAS GESTANTES"
-        elif calc_anos >= 60:
-            grupo_sugerido = "60 Y MÁS"
-        elif is_personal_salud:
-            grupo_sugerido = "PERSONAL DE SALUD"
-        elif (
-            vih
-            or diabetes
-            or obesidad
-            or cardiopatias
-            or cancer
-            or insuficiencia_renal
-            or discapacidades
-            or fibrosis_quistica
-            or hipertension
-        ):
-            grupo_sugerido = "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS)"
-        else:
-            grupo_sugerido = "POBLACIÓN GENERAL"
-    elif vacuna_interes == "INFLUENZA":
-        if 6 <= edad_total_meses <= 59:
-            grupo_sugerido = "POBLACIÓN PEDIÁTRICA (6 A 59 MESES)"
-        elif personas_gestantes == "SÍ":
-            grupo_sugerido = "PERSONAS GESTANTES"
-        elif is_personal_salud:
-            grupo_sugerido = "PERSONAL DE SALUD"
-        elif is_colectivo_riesgo:
-            grupo_sugerido = ocupacion
-        elif calc_anos >= 60:
-            grupo_sugerido = "POBLACIÓN ADULTA (60 Y MÁS)"
-        elif (
-            vih
-            or diabetes
-            or obesidad
-            or cardiopatias
-            or cancer
-            or insuficiencia_renal
-            or discapacidades
-            or fibrosis_quistica
-            or hipertension
-        ):
-            grupo_sugerido = "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS)"
-        else:
-            grupo_sugerido = "POBLACIÓN GENERAL"
-
-st.markdown(
-    '<div class="section-title">7. Grupo Objetivo</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>',
-    unsafe_allow_html=True,
-)
-
-st.markdown("---")
-if st.button("Registrarme para la jornada", use_container_width=True):
-    if not fecha_nacimiento:
-        st.error("Por favor seleccione la Fecha de Nacimiento.")
-    elif not paterno or not nombres:
-        st.error("Complete Apellido Paterno y Nombre(s).")
-    elif sexo == "SELECCIONE UNA OPCIÓN":
-        st.error("Seleccione una opción en Sexo.")
-    elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
-        st.error("Indique su derechohabiencia.")
-    elif not es_pediatrico_59m and ocupacion == "SELECCIONE UNA OPCIÓN":
-        st.error("Seleccione una opción en Ocupación.")
-    else:
-        try:
-            comorbilidades_dict = {
-                "vih": vih,
-                "diabetes": diabetes,
-                "obesidad": obesidad,
-                "cardiopatias": cardiopatias,
-                "cancer": cancer,
-                "insuficiencia_renal": insuficiencia_renal,
-                "discapacidades": discapacidades,
-                "fibrosis_quistica": fibrosis_quistica,
-                "hipertension": hipertension,
-            }
-
-            datos_paciente = {
-                "paterno": paterno,
-                "materno": materno,
-                "nombres": nombres,
-                "fecha_nacimiento": fecha_nacimiento,
-                "calc_anos": calc_anos,
-                "calc_meses": calc_meses,
-                "sexo": sexo,
-                "calle": calle,
-                "numero": numero,
-                "colonia": colonia,
-                "curp_con_nacimiento": curp_con_nacimiento,
-                "cuenta_derechohabiencia": cuenta_derechohabiencia,
-                "vacuna_interes": vacuna_interes,
-                "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": personas_gestantes,
-                "personas_gestantes": personas_gestantes,
-                "ocupacion": ocupacion,
-                "comorbilidades": comorbilidades_dict,
-            }
-
-            folio_asignado = guardar_registro_censal(
-                sigla_url=sigla_url,
-                sufijo_js=sufijo_js,
-                tipo_jornada=st.session_state.tipo_jornada,
-                val_fecha_app=val_fecha_app,
-                nombre_unidad_completo=st.session_state.nombre_unidad,
-                datos_paciente=datos_paciente,
-            )
-
-            st.session_state.ultimo_paciente_registrado = {
-                "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                "curp_con_nacimiento": curp_con_nacimiento,
-                "vacuna_interes": vacuna_interes,
-                "grupo_objetivo": grupo_sugerido,
-                "folio": folio_asignado,
-            }
-            st.rerun()
-
-        except Exception as e:
-            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
-            st.exception(e)
+                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y
