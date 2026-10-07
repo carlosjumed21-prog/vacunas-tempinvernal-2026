@@ -314,7 +314,7 @@ else:
                         hoja_activa.update_acell("D7", "CDMX")
                         hoja_activa.update_acell("D8", unidad_sel)
                         hoja_activa.update_acell("AC8", fecha_formato_oficial)
-                        hoja_activa.update_acell("E9", j_conf["responsable"])
+                        hoja_activa.update_acell("E10", j_conf["responsable"])  # Actualizado a E10
 
                         hojas_creadas_exito.append({
                             "nombre": nombre_nueva_hoja,
