@@ -41,7 +41,6 @@ unidad_url = params.get("unidad", "").upper()
 jornada_url = params.get("jornada", "").upper()
 
 # --- LÓGICA DE ENRUTAMIENTO DINÁMICO ---
-# Si la unidad es 20N, redirige al formulario exclusivo de 20 de Noviembre; de lo contrario, al general.
 pagina_formulario = "pages/registro_20_noviembre.py" if unidad_url == "20N" else "pages/1_formulario.py"
 
 if unidad_url:
