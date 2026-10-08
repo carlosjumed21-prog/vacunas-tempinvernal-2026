@@ -211,7 +211,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja de Google Sheets designada.
+    en la hoja de Google Sheets designada con formato de doble plantilla.
     """
     try:
         scope = GOOGLE_SCOPES
@@ -233,7 +233,18 @@ def guardar_registro_censal_20_nov(datos_paciente):
         
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
-        worksheet = spreadsheet.get_worksheet(0)
+
+        val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
+        tipo_jornada = datos_paciente.get("tipo_jornada", "I")
+        fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
+        tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
+        
+        nombre_hoja_nominal = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_NOMINAL"
+
+        try:
+            worksheet = spreadsheet.worksheet(nombre_hoja_nominal)
+        except:
+            worksheet = spreadsheet.get_worksheet(0)
 
         columna_a = worksheet.col_values(1)
         fila_inicio_destino = 2
