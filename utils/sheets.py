@@ -10,7 +10,6 @@ def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
     """Migración ultra optimizada que actualiza los encabezados institucionales
-
     exactos y los datos del paciente en una sola petición de red.
     """
     try:
@@ -218,7 +217,6 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-
     en la hoja de Google Sheets designada (ID: 1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE).
     """
     try:
@@ -259,4 +257,56 @@ def guardar_registro_censal_20_nov(datos_paciente):
         # Extracción y mapeo exacto de variables
         rfc = datos_paciente["rfc"]
         dh = datos_paciente["dh"]
-        tipo_
+        tipo_dh = datos_paciente["tipo_dh"]
+        trabaja_cmn = datos_paciente["trabaja_cmn"]
+        num_trabajador = datos_paciente["num_trabajador"]
+        personal_salud = datos_paciente["personal_salud"]
+        categoria = datos_paciente["categoria"]
+        servicio = datos_paciente["servicio"]
+        coordinacion = datos_paciente["coordinacion"]
+        turno = datos_paciente["turno"]
+        nombre = datos_paciente["nombre"]
+        paterno = datos_paciente["paterno"]
+        materno = datos_paciente["materno"]
+        edo_nac = datos_paciente["edo_nac"]
+        muni_nac = datos_paciente["muni_nac"]
+        fn_dia = datos_paciente["fn_dia"]
+        fn_mes = datos_paciente["fn_mes"]
+        fn_ano = datos_paciente["fn_ano"]
+        anos = datos_paciente["anos"]
+        meses = datos_paciente["meses"]
+        sexo = datos_paciente["sexo"]
+        embarazo = datos_paciente["embarazo"]
+
+        fila_actual = fila_inicio_destino
+        datos_a_actualizar = [
+            {"range": f"A{fila_actual}", "values": [[siguiente_num]]},
+            {"range": f"B{fila_actual}", "values": [[rfc]]},
+            {"range": f"C{fila_actual}", "values": [[dh]]},
+            {"range": f"D{fila_actual}", "values": [[tipo_dh]]},
+            {"range": f"E{fila_actual}", "values": [[trabaja_cmn]]},
+            {"range": f"F{fila_actual}", "values": [[num_trabajador]]},
+            {"range": f"G{fila_actual}", "values": [[personal_salud]]},
+            {"range": f"H{fila_actual}", "values": [[categoria]]},
+            {"range": f"I{fila_actual}", "values": [[servicio]]},
+            {"range": f"J{fila_actual}", "values": [[coordinacion]]},
+            {"range": f"K{fila_actual}", "values": [[turno]]},
+            {"range": f"L{fila_actual}", "values": [[nombre]]},
+            {"range": f"M{fila_actual}", "values": [[paterno]]},
+            {"range": f"N{fila_actual}", "values": [[materno]]},
+            {"range": f"O{fila_actual}", "values": [[edo_nac]]},
+            {"range": f"P{fila_actual}", "values": [[muni_nac]]},
+            {"range": f"Q{fila_actual}", "values": [[fn_dia]]},
+            {"range": f"R{fila_actual}", "values": [[fn_mes]]},
+            {"range": f"S{fila_actual}", "values": [[fn_ano]]},
+            {"range": f"T{fila_actual}", "values": [[anos]]},
+            {"range": f"U{fila_actual}", "values": [[meses]]},
+            {"range": f"V{fila_actual}", "values": [[sexo]]},
+            {"range": f"W{fila_actual}", "values": [[embarazo]]},
+        ]
+
+        worksheet.batch_update(datos_a_actualizar)
+        return siguiente_num
+
+    except Exception as e:
+        raise e
