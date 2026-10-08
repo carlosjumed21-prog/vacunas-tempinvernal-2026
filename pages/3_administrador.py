@@ -293,23 +293,32 @@ else:
                         fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
 
                         if siglas_unidad == "20N":
-                            # Duplicar Hoja 1 (Censo Nominal) y Hoja 2 (Censo) en orden subsecuente
                             nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                             nombre_copia_2 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
 
+                            # Duplicar Hoja 1 (Censo Nominal) dejando fijas las originales al inicio
                             try:
                                 plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
-                                copia_1 = spreadsheet.duplicate_sheet(plantilla_1.id, new_sheet_name=nombre_copia_1)
+                                copia_1 = spreadsheet.duplicate_sheet(
+                                    plantilla_1.id, 
+                                    insert_sheet_index=len(spreadsheet.worksheets()), 
+                                    new_sheet_name=nombre_copia_1
+                                )
                             except:
                                 copia_1 = spreadsheet.add_worksheet(title=nombre_copia_1, rows=1000, cols=30)
 
+                            # Duplicar Hoja 2 (Censo)
                             try:
                                 plantilla_2 = spreadsheet.worksheet("CENSO")
-                                spreadsheet.duplicate_sheet(plantilla_2.id, new_sheet_name=nombre_copia_2)
+                                spreadsheet.duplicate_sheet(
+                                    plantilla_2.id, 
+                                    insert_sheet_index=len(spreadsheet.worksheets()), 
+                                    new_sheet_name=nombre_copia_2
+                                )
                             except:
                                 spreadsheet.add_worksheet(title=nombre_copia_2, rows=1000, cols=30)
 
-                            # Inyectar metadatos en la Hoja 1 (Copia Principal)
+                            # Inyectar metadatos institucionales exactos en la Hoja 1
                             hoja_activa = spreadsheet.worksheet(nombre_copia_1)
                             try:
                                 hoja_activa.update_acell("D7", "CDMX")
@@ -334,7 +343,9 @@ else:
                             try:
                                 plantilla = spreadsheet.worksheet("CENSO NOMINAL")
                                 nueva_hoja = spreadsheet.duplicate_sheet(
-                                    plantilla.id, new_sheet_name=nombre_nueva_hoja
+                                    plantilla.id, 
+                                    insert_sheet_index=len(spreadsheet.worksheets()), 
+                                    new_sheet_name=nombre_nueva_hoja
                                 )
                             except:
                                 nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=26)
@@ -354,7 +365,7 @@ else:
 
                             hojas_creadas_exito.append({
                                 "nombre": nombre_nueva_hoja,
-                                "gid": str(hoja_activa.id),
+                                "gid": str(nueva_hoja.id),
                             })
 
                     st.session_state.jornada_autorizada = True
@@ -378,3 +389,75 @@ else:
             for h_info in st.session_state.hojas_creadas_recientes:
                 id_sheet_activo = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
                 url_sheet_directa = f"https://docs.google.com/spreadsheets/d/{id_sheet_activo}/edit?usp=sharing#gid={h_info['gid']}"
+                enlaces_html += f"""
+                <div style="margin-bottom: 8px;">
+                    <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                        🔗 Ver Hoja: {h_info['nombre']}
+                    </a>
+                </div>
+                """
+
+            st.markdown(
+                f"""
+                <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                    <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+                    {enlaces_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR</div>',
+                unsafe_allow_html=True,
+            )
+
+            base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+            for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+                fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+                if siglas_unidad == "20N":
+                    nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+                else:
+                    nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+
+                fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                resp_encoded = urllib.parse.quote(j_conf["responsable"])
+
+                js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
+
+                link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+                link_prueba_simulacion = link_paciente + "&test=true"
+
+                st.markdown("🔹 **Enlace Público para Registro de Pacientes:**")
+                st.code(link_paciente, language="text")
+                st.markdown("🔹 **Enlace de Prueba (Simulación):**")
+                st.code(link_prueba_simulacion, language="text")
+
+                qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                qr.add_data(link_paciente)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                byte_im = buf.getvalue()
+
+                col_qr1, col_qr2 = st.columns([1, 2])
+                with col_qr1:
+                    st.image(byte_im, width=180)
+                with col_qr2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.download_button(
+                        label="📥 Descargar QR Paciente",
+                        data=byte_im,
+                        file_name=f"QR_{siglas_unidad}.png",
+                        mime="image/png",
+                        key=f"dl_qr_{idx}",
+                        use_container_width=True,
+                    )
+                st.markdown("---")
+        else:
+            st.info("ℹ️ Configure los parámetros y autorice la jornada para generar los códigos QR.")
