@@ -405,7 +405,7 @@ else:
             )
 
             st.markdown(
-                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR</div>',
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>',
                 unsafe_allow_html=True,
             )
 
@@ -428,10 +428,25 @@ else:
                 link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
                 link_prueba_simulacion = link_paciente + "&test=true"
 
-                st.markdown("🔹 **Enlace Público para Registro de Pacientes:**")
+                titulo_seccion_qr = (
+                    f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
+                    if j_conf["sufijo_hoja"]
+                    else "🔗 Enlaces Operativos y Públicos"
+                )
+
+                st.markdown(
+                    f"<h4 style='color: #1e5b4f; margin-top: 1.2rem;'>{titulo_seccion_qr}</h4>",
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
                 st.code(link_paciente, language="text")
-                st.markdown("🔹 **Enlace de Prueba (Simulación):**")
+
+                st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
                 st.code(link_prueba_simulacion, language="text")
+
+                st.markdown("🔹 **Enlace Directo para el Personal Operativo (Abre el panel censal/operativo):**")
+                st.code(link_operativo, language="text")
 
                 qr = qrcode.QRCode(version=1, box_size=10, border=4)
                 qr.add_data(link_paciente)
@@ -444,13 +459,19 @@ else:
 
                 col_qr1, col_qr2 = st.columns([1, 2])
                 with col_qr1:
-                    st.image(byte_im, width=180)
+                    st.image(
+                        byte_im,
+                        caption=f"QR de Registro {j_conf['sufijo_hoja']}",
+                        width=180,
+                    )
                 with col_qr2:
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.download_button(
-                        label="📥 Descargar QR Paciente",
+                        label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
                         data=byte_im,
-                        file_name=f"QR_{siglas_unidad}.png",
+                        file_name=(
+                            f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
+                        ),
                         mime="image/png",
                         key=f"dl_qr_{idx}",
                         use_container_width=True,
