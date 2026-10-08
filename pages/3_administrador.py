@@ -265,8 +265,6 @@ else:
                 )
                 client = gspread.authorize(creds)
                 
-                # Determinamos a qué archivo de Sheets enviar
-                # Si es 20N, apunta al nuevo Google Sheets; de lo contrario, al general.
                 if siglas_unidad == "20N":
                     sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
                 else:
@@ -299,15 +297,12 @@ else:
                         fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
                         nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
 
-                        # Nota: Si el sheet de 20N no tiene una pestaña plantilla CENSO NOMINAL, 
-                        # podemos duplicar la primera o crearla en blanco.
                         try:
                             plantilla = spreadsheet.worksheet("CENSO NOMINAL")
                             nueva_hoja = spreadsheet.duplicate_sheet(
                                 plantilla.id, new_sheet_name=nombre_nueva_hoja
                             )
                         except:
-                            # Si es el archivo nuevo de 20N y no usa plantilla, crea una hoja normal
                             nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=26)
 
                         hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
@@ -323,11 +318,94 @@ else:
                             hoja_activa.update_acell("AC8", fecha_formato_oficial)
                             hoja_activa.update_acell("E10", j_conf["responsable"])
                         except:
-                            pass # Ignorar si la estructura difiere en el archivo de 20N
+                            pass
 
                         hojas_creadas_exito.append({
                             "nombre": nombre_nueva_hoja,
                             "gid": str(hoja_activa.id),
                         })
 
-                    st.session_state.jornada
+                    st.session_state.jornada_autorizada = True
+                    st.session_state.hojas_creadas_recientes = hojas_creadas_exito
+                    st.success(
+                        "¡Jornadas autorizadas y hojas generadas con éxito en Google Sheets!"
+                    )
+
+            except Exception as e:
+                st.error(
+                    "Error al configurar Google Sheets. Asegúrate de que los permisos de Editor estén correctos. Detalle: "
+                    + str(e)
+                )
+
+        if (
+            st.session_state.jornada_autorizada
+            and st.session_state.hojas_creadas_recientes
+        ):
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            enlaces_html = ""
+            for h_info in st.session_state.hojas_creadas_recientes:
+                id_sheet_activo = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
+                url_sheet_directa = f"https://docs.google.com/spreadsheets/d/{id_sheet_activo}/edit?usp=sharing#gid={h_info['gid']}"
+                enlaces_html += f"""
+                <div style="margin-bottom: 8px;">
+                    <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                        🔗 Ver Hoja: {h_info['nombre']}
+                    </a>
+                </div>
+                """
+
+            st.markdown(
+                f"""
+                <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                    <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+                    <p style="font-size: 1.05rem; color: #161a1d; margin-bottom: 12px;">
+                        Las hojas correspondientes han sido creadas con sus metadatos institucionales y están listas para recibir registros:
+                    </p>
+                    {enlaces_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>',
+                unsafe_allow_html=True,
+            )
+
+            base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+            for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+                fecha_str_hoja = j_conf["fecha"].strftime("%d%m%y")
+                nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_hoja}"
+                fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                resp_encoded = urllib.parse.quote(j_conf["responsable"])
+
+                js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                
+                ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
+
+                link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+                
+                link_prueba_simulacion = link_paciente + "&test=true"
+
+                titulo_seccion_qr = (
+                    f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
+                    if j_conf["sufijo_hoja"]
+                    else "🔗 Enlaces Operativos"
+                )
+
+                st.markdown(
+                    f"<h4 style='color: #1e5b4f; margin-top: 1.2rem;'>{titulo_seccion_qr}</h4>",
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
+                st.code(link_paciente, language="text")
+
+                st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
+                st.code(link_prueba_simulacion, language="text")
+
+                st.markdown(
+                    "🔹 **Enlace Directo para el Personal Operativo
