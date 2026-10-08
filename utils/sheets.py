@@ -217,7 +217,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja de Google Sheets designada (ID: 1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE).
+    en la hoja de Google Sheets designada.
     """
     try:
         scope = GOOGLE_SCOPES
@@ -241,7 +241,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         spreadsheet = client.open_by_key(sheet_id_20n)
         worksheet = spreadsheet.get_worksheet(0)
 
-        # Cálculo automático de la siguiente fila disponible a partir de la Fila 2
         columna_a = worksheet.col_values(1)
         fila_inicio_destino = 2
         for idx in range(1, len(columna_a)):
@@ -254,7 +253,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         siguiente_num = fila_inicio_destino - 1
 
-        # Extracción y mapeo exacto de variables
         rfc = datos_paciente["rfc"]
         dh = datos_paciente["dh"]
         tipo_dh = datos_paciente["tipo_dh"]
