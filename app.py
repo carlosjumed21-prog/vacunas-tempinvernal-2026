@@ -37,14 +37,19 @@ st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>
 
 # Verificación de parámetros URL institucionales
 params = st.query_params
-unidad_url = params.get("unidad", "")
-jornada_url = params.get("jornada", "")
+unidad_url = params.get("unidad", "").upper()
+jornada_url = params.get("jornada", "").upper()
+
+# --- LÓGICA DE ENRUTAMIENTO DINÁMICO ---
+# Si la unidad es 20N, redirige al formulario exclusivo de 20 de Noviembre; de lo contrario, al general.
+pagina_formulario = "pages/registro_20_noviembre.py" if unidad_url == "20N" else "pages/1_formulario.py"
 
 if unidad_url:
     st.markdown(f"""
         <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <span style="font-weight: bold; color: #1e5b4f; font-size: 1.1rem;">🔗 Enlace Institucional Detectado</span><br>
-            <span>Unidad clave: <b>{unidad_url}</b> | Jornada: <b>{'Extramuros' if jornada_url == 'E' else 'Intramuros'}</b></span>
+            <span>Unidad clave: <b>{unidad_url}</b> | Jornada: <b>{'Extramuros' if jornada_url == 'E' else 'Intramuros'}</b></span><br>
+            <span style="font-size: 0.85rem; color: #611232;">{'✨ Redirección especializada activada para CMN 20 de Noviembre.' if unidad_url == '20N' else ''}</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -58,7 +63,7 @@ with col1:
         </div>
     """, unsafe_allow_html=True)
     if st.button("Ir al Formulario de Registro", use_container_width=True):
-        st.switch_page("pages/1_formulario.py")
+        st.switch_page(pagina_formulario)
 
 with col2:
     st.markdown("""
