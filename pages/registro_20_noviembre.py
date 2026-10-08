@@ -100,38 +100,44 @@ def obtener_primera_consonante_interna(palabra):
 
 
 estados_curp = {
-    "AGUASCALIENTES": "AS",
-    "BAJA CALIFORNIA": "BC",
-    "BAJA CALIFORNIA SUR": "BS",
-    "CAMPECHE": "CC",
-    "CHIAPAS": "CS",
-    "CHIHUAHUA": "CH",
-    "CIUDAD DE MÉXICO": "DF",
-    "COAHUILA": "CL",
-    "COLIMA": "CM",
-    "DURANGO": "DG",
-    "ESTADO DE MÉXICO": "MC",
-    "GUANAJUATO": "GT",
-    "GUERRERO": "GR",
-    "HIDALGO": "HG",
-    "JALISCO": "JC",
-    "MICHOACÁN": "MN",
-    "MORELOS": "MS",
-    "NAYARIT": "NT",
-    "NUEVO LEÓN": "NL",
-    "OAXACA": "OC",
-    "PUEBLA": "PL",
-    "QUERÉTARO": "QT",
-    "QUINTANA ROO": "QR",
-    "SAN LUIS POTOSÍ": "SP",
-    "SINALOA": "SL",
-    "SONORA": "SR",
-    "TABASCO": "TC",
-    "TAMAULIPAS": "TS",
-    "TLAXCALA": "TL",
-    "VERACRUZ": "VZ",
-    "YUCATÁN": "YN",
-    "ZACATECAS": "ZS",
+    "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
+    "CAMPECHE": "CC", "CHIAPAS": "CS", "CHIHUAHUA": "CH", "CIUDAD DE MÉXICO": "DF",
+    "COAHUILA": "CL", "COLIMA": "CM", "DURANGO": "DG", "ESTADO DE MÉXICO": "MC",
+    "GUANAJUATO": "GT", "GUERRERO": "GR", "HIDALGO": "HG", "JALISCO": "JC",
+    "MICHOACÁN": "MN", "MORELOS": "MS", "NAYARIT": "NT", "NUEVO LEÓN": "NL",
+    "OAXACA": "OC", "PUEBLA": "PL", "QUERÉTARO": "QT", "QUINTANA ROO": "QR",
+    "SAN LUIS POTOSÍ": "SP", "SINALOA": "SL", "SONORA": "SR", "TABASCO": "TC",
+    "TAMAULIPAS": "TS", "TLAXCALA": "TL", "VERACRUZ": "VZ", "YUCATÁN": "YN", "ZACATECAS": "ZS",
+}
+
+# Diccionario de Municipios / Alcaldías de Nacimiento por Entidad
+municipios_por_estado = {
+    "CIUDAD DE MÉXICO": [
+        "ÁLVARO OBREGÓN", "AZCAPOTZALCO", "BENITO JUÁREZ", "COYOACÁN", "CUAJIMALPA DE MORELOS",
+        "CUAUHTÉMOC", "GUSTAVO A. MADERO", "IZTACALCO", "IZTAPALAPA", "LA MAGDALENA CONTRERAS",
+        "MIGUEL HIDALGO", "MILPA ALTA", "TÁHUAC", "TLALPAN", "VENUSTIANO CARRANZA", "XOCHIMILCO"
+    ],
+    "ESTADO DE MÉXICO": [
+        "ECATEPEC DE MORELOS", "NEZAHUALCÓYOTL", "NAUCALPAN DE JUÁREZ", "TOLUCA", "TLANEPANTLA DE BAZ",
+        "CHIMALHUACÁN", "CUAUTITLÁN IZCALLI", "ATIZAPÁN DE ZARAGOZA", "IXTAPALUCA", "CHICOLOAPAN",
+        "METEPEC", "TEXCOCO", "VALLE DE CHALCO SOLIDARIDAD", "ACAMBAY", "ATLACOMULCO", "OTRO"
+    ],
+    "PUEBLA": [
+        "PUEBLA", "TEHUACÁN", "SAN MARTÍN TEXMELUCAN", "ATLIXCO", "SAN PEDRO CHOLULA",
+        "SAN ANDRÉS CHOLULA", "TECAMACHALCO", "HUAUCHINANGO", "ZACATLÁN", "TEZIUTLÁN", "OTRO"
+    ],
+    "HIDALGO": [
+        "PACHUCA DE SOTO", "TULA DE ALLENDE", "TULANCINGO DE BRAVO", "TIZAYUCA", "TEPEJI DEL RÍO", "HUEJUTLA DE REYES", "OTRO"
+    ],
+    "MORELOS": [
+        "CUERNAVACA", "JIUTEPEC", "CUAUTLA", "TEMIXCO", "EMILIANO ZAPATA", "YAUTEPEC", "JOJUTLA", "OTRO"
+    ],
+    "TLAXCALA": [
+        "TLAXCALA", "APIZACO", "HUAMANTLA", "CHIAUTEMPAN", "ZACATELCO", "SAN PABLO DEL MONTE", "OTRO"
+    ],
+    "VERACRUZ": [
+        "VERACRUZ", "XALAPA", "COATZACOALCOS", "CÓRDOBA", "POZA RICA DE HIDALGO", "ORIZABA", "MINATITLÁN", "TUXPAN", "OTRO"
+    ]
 }
 
 
@@ -184,41 +190,8 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     return f"{c1}{c2}{c3}{c4}{yy}{mm}{dd}XXX"
 
 
-estados_mexico = [
-    "SELECCIONE UN ESTADO",
-    "AGUASCALIENTES",
-    "BAJA CALIFORNIA",
-    "BAJA CALIFORNIA SUR",
-    "CAMPECHE",
-    "CHIAPAS",
-    "CHIHUAHUA",
-    "CIUDAD DE MÉXICO",
-    "COAHUILA",
-    "COLIMA",
-    "DURANGO",
-    "ESTADO DE MÉXICO",
-    "GUANAJUATO",
-    "GUERRERO",
-    "HIDALGO",
-    "JALISCO",
-    "MICHOACÁN",
-    "MORELOS",
-    "NAYARIT",
-    "NUEVO LEÓN",
-    "OAXACA",
-    "PUEBLA",
-    "QUERÉTARO",
-    "QUINTANA ROO",
-    "SAN LUIS POTOSÍ",
-    "SINALOA",
-    "SONORA",
-    "TABASCO",
-    "TAMAULIPAS",
-    "TLAXCALA",
-    "VERACRUZ",
-    "YUCATÁN",
-    "ZACATECAS",
-]
+estados_mexico = list(estados_curp.keys())
+estados_mexico.insert(0, "SELECCIONE UN ESTADO")
 
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - 20 DE NOVIEMBRE!")
@@ -235,12 +208,14 @@ def mostrar_modal_comprobante_20n():
 if st.session_state.ultimo_paciente_20n is not None:
     mostrar_modal_comprobante_20n()
 
+modalidad_texto = "Extramuros" if st.session_state.tipo_jornada == "E" else "Intramuros"
+
 st.markdown(
     '<p class="main-header">CMN "20 de Noviembre" - Registro Nominal</p>',
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b></p>',
+    f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{modalidad_texto}</b></p>',
     unsafe_allow_html=True,
 )
 
@@ -283,7 +258,12 @@ with col_fn2:
 with col_fn3:
     edo_nac = st.selectbox("Estado de Nacimiento (Edo Nac) *", options=estados_mexico, key="20n_edonac")
 
-muni_nac = st.text_input("Municipio de Nacimiento (Muni Nac) *", key="20n_muninac")
+# Menú dinámico de Municipio / Alcaldía según el Estado seleccionado
+lista_municipios = municipios_por_estado.get(edo_nac, ["OTRO (ESPECIFIQUE)"])
+if edo_nac in municipios_por_estado:
+    muni_nac = st.selectbox("Municipio / Alcaldía de Nacimiento (Muni Nac) *", options=lista_municipios, key="20n_muninac_sel")
+else:
+    muni_nac = st.text_input("Municipio / Alcaldía de Nacimiento (Muni Nac) *", key="20n_muninac_txt")
 
 embarazo = "NO"
 if sexo == "MUJER":
@@ -300,7 +280,6 @@ curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nac
 curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "COMPLETA" not in curp_algoritmica else curp_algoritmica
 st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
 
-# RFC Generado y Editable
 rfc_generado = generar_rfc_algoritmico(paterno, materno, nombres, fecha_nacimiento)
 rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado, key="20n_rfc")
 st.markdown(f'<div class="card-rfc">📋 RFC: {rfc_final}</div>', unsafe_allow_html=True)
@@ -328,11 +307,7 @@ else:
         options=[
             "SELECCIONE UNA OPCIÓN",
             "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
-            "ESTUDIANTE",
-            "JUBILADO/A",
-            "MAESTRO/A",
-            "ADMINISTRATIVO/A",
-            "OTRO",
+            "ESTUDIANTE", "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "OTRO",
         ],
         key="20n_ocupacion",
     )
@@ -432,7 +407,9 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
                 "numero": numero.upper(),
                 "colonia": colonia.upper(),
                 "vacuna_interes": vacuna_interes,
-                "comorbilidades": comorbilidades_dict
+                "comorbilidades": comorbilidades_dict,
+                "tipo_jornada": st.session_state.tipo_jornada,
+                "val_fecha_app": val_fecha_app
             }
 
             folio_asignado = guardar_registro_censal_20_nov(datos_20n)
