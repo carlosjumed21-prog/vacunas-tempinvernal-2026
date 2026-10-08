@@ -9,6 +9,9 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
 ):
+    """Migración ultra optimizada que actualiza los encabezados institucionales
+    exactos y los datos del paciente en una sola petición de red.
+    """
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
         tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
@@ -39,6 +42,7 @@ def guardar_registro_censal(
         except:
             worksheet = spreadsheet.worksheet("CENSO NOMINAL")
 
+        # --- CÁLCULO RÁPIDO DE LA SIGUIENTE FILA (CONSULTANDO SOLO COLUMNA B) ---
         columna_b = worksheet.col_values(2)
         fila_inicio_destino = 14
         
@@ -61,6 +65,7 @@ def guardar_registro_censal(
         f_actual = fila_inicio_destino
         f_siguiente = fila_inicio_destino + 1
 
+        # --- EXTRACCIÓN DE DATOS DEL PACIENTE ---
         paterno = datos_paciente["paterno"]
         materno = datos_paciente["materno"]
         nombres = datos_paciente["nombres"]
@@ -91,6 +96,7 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
+        # --- CONSTRUCCIÓN DEL LOTE ÚNICO ---
         datos_a_actualizar = [
             {"range": "D7", "values": [["CDMX"]]},
             {"range": "M7", "values": [["ISSSTE"]]},
@@ -211,7 +217,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja de Google Sheets designada con formato de doble plantilla.
+    en la hoja de Google Sheets duplicada correspondiente (Hoja 1 / NOMINAL).
     """
     try:
         scope = GOOGLE_SCOPES
@@ -244,7 +250,12 @@ def guardar_registro_censal_20_nov(datos_paciente):
         try:
             worksheet = spreadsheet.worksheet(nombre_hoja_nominal)
         except:
-            worksheet = spreadsheet.get_worksheet(0)
+            plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
+            worksheet = spreadsheet.duplicate_sheet(
+                plantilla_1.id, 
+                insert_sheet_index=len(spreadsheet.worksheets()), 
+                new_sheet_name=nombre_hoja_nominal
+            )
 
         columna_a = worksheet.col_values(1)
         fila_inicio_destino = 2
