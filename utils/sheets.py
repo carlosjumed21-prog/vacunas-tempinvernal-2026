@@ -172,7 +172,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja 'CENSO' y en la hoja nominal dinámica, aplicando el mapeo exacto.
+    en la hoja nominal duplicada y en la hoja de censo correspondiente.
     """
     try:
         scope = GOOGLE_SCOPES
@@ -202,7 +202,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         
         nombre_hoja_nominal = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_NOMINAL"
 
-        # --- 1. ESCRITURA EN LA HOJA 1 (DINÁMICA / ESTándar 14-15) ---
+        # --- 1. ESCRITURA EN LA HOJA NOMINAL DINÁMICA (DUPLICADA) ---
         try:
             ws_nominal = spreadsheet.worksheet(nombre_hoja_nominal)
         except:
@@ -232,9 +232,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         siglas_unidad = st.session_state.get("siglas_unidad", "20N")
         folio_asignado = f"{aammmdd}-{tipo_jornada}{siglas_unidad}-{str(num_nom).zfill(3)}"
 
-        fn_dt = datetime.datetime.strptime(f"{datos_paciente['fn_ano']}-{datos_paciente['fn_mes']}-{datos_paciente['fn_dia']}", "%Y-%m-%d").date()
-        
-        # Mapeo de comorbilidades y grupos de riesgo para la hoja 1
         comorb = datos_paciente.get("comorbilidades", {})
         updates_hoja1 = [
             {"range": "D7", "values": [["CDMX"]]},
@@ -283,11 +280,20 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         ws_nominal.batch_update(updates_hoja1)
 
-        # --- 2. ESCRITURA EN LA HOJA 2 ("CENSO") ---
+        # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR (CON NOMBRE PERSONALIZADO O 'CENSO') ---
+        nombre_hoja_censo = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_CENSO"
         try:
-            ws_censo = spreadsheet.worksheet("CENSO")
+            ws_censo = spreadsheet.worksheet(nombre_hoja_censo)
         except:
-            ws_censo = spreadsheet.worksheet("CENSO NOMINAL")
+            try:
+                ws_censo = spreadsheet.worksheet("CENSO")
+            except:
+                plantilla_censo = spreadsheet.worksheet("CENSO NOMINAL")
+                ws_censo = spreadsheet.duplicate_sheet(
+                    plantilla_censo.id, 
+                    insert_sheet_index=len(spreadsheet.worksheets()), 
+                    new_sheet_name=nombre_hoja_censo
+                )
 
         col_a_censo = ws_censo.col_values(1)
         fila_censo = 14
