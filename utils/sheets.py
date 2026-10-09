@@ -91,16 +91,18 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
-        # Mapeo actualizado de cabecera para unidades generales (D6, M6, U6, AC6, D7, D8, AC8, E10)
+        # Mapeo exacto de cabecera con tus coordenadas específicas (D7, M7, T7, AB7, D8, D9, M9, S9, AB9, E10)
         datos_a_actualizar = [
-            {"range": "D6", "values": [["CDMX"]]},                  # Entidad Federativa
-            {"range": "M6", "values": [["ISSSTE"]]},                 # Institución
-            {"range": "U6", "values": [["Delegación Sur"]]},       # Jurisdicción / Delegación
-            {"range": "AC6", "values": [["CDMX"]]},                # Municipio
-            {"range": "D7", "values": [["CDMX"]]},                  # Localidad
-            {"range": "D8", "values": [[nombre_unidad_completo]]},  # Unidad de Salud
-            {"range": "AC8", "values": [[fecha_app_str]]},          # Fecha de aplicación
-            {"range": "E10", "values": [[responsable_brigada]]},    # Responsable de vacunación
+            {"range": "D7", "values": [["CDMX"]]},                  # Entidad Federativa (7D)
+            {"range": "M7", "values": [["ISSSTE"]]},                 # Institución (7M)
+            {"range": "T7", "values": [["Delegación Sur"]]},       # Jurisdicción / Delegación (7T)
+            {"range": "AB7", "values": [["CDMX"]]},                # Municipio (7AB)
+            {"range": "D8", "values": [["CDMX"]]},                  # Localidad (8D)
+            {"range": "D9", "values": [[nombre_unidad_completo]]},  # Unidad de Salud (9D)
+            {"range": "M9", "values": [[""]]},                      # AGEB (blanco) (9M)
+            {"range": "S9", "values": [[""]]},                      # Sector (blanco) (9S)
+            {"range": "AB9", "values": [[fecha_app_str]]},          # Fecha de aplicación (9AB)
+            {"range": "E10", "values": [[responsable_brigada]]},    # Nombre del responsable de vacunación (10E)
             
             {
                 "range": f"B{f_actual}:B{f_siguiente}",
