@@ -172,7 +172,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja de Google Sheets correspondiente (Columnas A a W, fila 2 en adelante).
+    en la hoja 'CENSO' y en la hoja nominal dinámica, aplicando el mapeo exacto.
     """
     try:
         scope = GOOGLE_SCOPES
@@ -202,29 +202,137 @@ def guardar_registro_censal_20_nov(datos_paciente):
         
         nombre_hoja_nominal = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_NOMINAL"
 
+        # --- 1. ESCRITURA EN LA HOJA 1 (DINÁMICA / ESTándar 14-15) ---
         try:
-            worksheet = spreadsheet.worksheet(nombre_hoja_nominal)
+            ws_nominal = spreadsheet.worksheet(nombre_hoja_nominal)
         except:
             plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
-            worksheet = spreadsheet.duplicate_sheet(
+            ws_nominal = spreadsheet.duplicate_sheet(
                 plantilla_1.id, 
                 insert_sheet_index=len(spreadsheet.worksheets()), 
                 new_sheet_name=nombre_hoja_nominal
             )
 
-        columna_a = worksheet.col_values(1)
-        fila_inicio_destino = 2
-        for idx in range(1, len(columna_a)):
-            val = str(columna_a[idx]).strip()
-            if val == "" or not val.isdigit():
-                fila_inicio_destino = idx + 1
+        col_b_nom = ws_nominal.col_values(2)
+        fila_nom = 14
+        idx_n = 13
+        while idx_n < len(col_b_nom):
+            val_a = str(col_b_nom[idx_n]).strip()
+            if val_a == "" or "POR ASIGNAR" in val_a.upper():
+                fila_nom = idx_n + 1
                 break
+            idx_n += 2
         else:
-            fila_inicio_destino = max(2, len(columna_a) + 1)
+            fila_nom = max(14, len(col_b_nom) + 1)
+            if (fila_nom - 14) % 2 != 0:
+                fila_nom += 1
 
-        siguiente_num = fila_inicio_destino - 1
-
-        # Generación de nomenclatura oficial de folio (Ej: 261009-I20N-001)
+        num_nom = ((fila_nom - 14) // 2) + 1
         aammmdd = val_fecha_app.strftime("%y%m%d")
         siglas_unidad = st.session_state.get("siglas_unidad", "20N")
-        folio_asignado = f"{aammmdd}-{tipo_jornada}{siglas_unidad}-{str(siguiente_num).z
+        folio_asignado = f"{aammmdd}-{tipo_jornada}{siglas_unidad}-{str(num_nom).zfill(3)}"
+
+        fn_dt = datetime.datetime.strptime(f"{datos_paciente['fn_ano']}-{datos_paciente['fn_mes']}-{datos_paciente['fn_dia']}", "%Y-%m-%d").date()
+        
+        # Mapeo de comorbilidades y grupos de riesgo para la hoja 1
+        comorb = datos_paciente.get("comorbilidades", {})
+        updates_hoja1 = [
+            {"range": "D7", "values": [["CDMX"]]},
+            {"range": "M7", "values": [["ISSSTE"]]},
+            {"range": "T7", "values": [["Delegación Sur"]]},
+            {"range": "AB7", "values": [["CDMX"]]},
+            {"range": "D8", "values": [["CDMX"]]},
+            {"range": "D9", "values": [[st.session_state.get("nombre_unidad", "CMN 20 DE NOVIEMBRE")]]},
+            {"range": "AB9", "values": [[val_fecha_app.strftime("%d/%m/%Y")]]},
+            {"range": f"B{fila_nom}:B{fila_nom+1}", "values": [[folio_asignado], [folio_asignado]]},
+            {"range": f"C{fila_nom}", "values": [[datos_paciente['paterno'].upper()]]},
+            {"range": f"D{fila_nom}", "values": [[datos_paciente['materno'].upper() if datos_paciente['materno'] else ""]]},
+            {"range": f"E{fila_nom}", "values": [[datos_paciente['nombre'].upper()]]},
+            {"range": f"F{fila_nom}:F{fila_nom+1}", "values": [[datos_paciente['fn_dia']], [datos_paciente['fn_dia']]]},
+            {"range": f"G{fila_nom}:G{fila_nom+1}", "values": [[datos_paciente['fn_mes']], [datos_paciente['fn_mes']]]},
+            {"range": f"H{fila_nom}:H{fila_nom+1}", "values": [[datos_paciente['fn_ano']], [datos_paciente['fn_ano']]]},
+            {"range": f"I{fila_nom}:I{fila_nom+1}", "values": [[str(datos_paciente['anos'])], [str(datos_paciente['anos'])]]},
+            {"range": f"J{fila_nom}:J{fila_nom+1}", "values": [[str(datos_paciente['meses'])], [str(datos_paciente['meses'])]]},
+            {"range": f"K{fila_nom}:K{fila_nom+1}", "values": [["H" if datos_paciente['sexo']=="HOMBRE" else "M"], ["H" if datos_paciente['sexo']=="HOMBRE" else "M"]]},
+            {"range": f"L{fila_nom}:L{fila_nom+1}", "values": [[val_fecha_app.strftime("%d/%m/%Y")], [val_fecha_app.strftime("%d/%m/%Y")]]},
+            {"range": f"M{fila_nom}:M{fila_nom+1}", "values": [[datos_paciente.get('calle','').upper()], [datos_paciente.get('calle','').upper()]]},
+            {"range": f"N{fila_nom}:N{fila_nom+1}", "values": [[datos_paciente.get('numero','').upper()], [datos_paciente.get('numero','').upper()]]},
+            {"range": f"O{fila_nom}:O{fila_nom+1}", "values": [[datos_paciente.get('colonia','').upper()], [datos_paciente.get('colonia','').upper()]]},
+            {"range": f"C{fila_nom+1}", "values": [[datos_paciente.get('curp','')]]},
+            {"range": f"AN{fila_nom}:AN{fila_nom+1}", "values": [[datos_paciente['dh']], [datos_paciente['dh']]]},
+        ]
+        
+        if int(datos_paciente['anos']) < 5:
+            updates_hoja1.append({"range": f"P{fila_nom}:P{fila_nom+1}", "values": [["X"], ["X"]]})
+        elif int(datos_paciente['anos']) >= 60:
+            updates_hoja1.append({"range": f"Q{fila_nom}:Q{fila_nom+1}", "values": [["X"], ["X"]]})
+
+        if datos_paciente.get('embarazo') == "SÍ":
+            updates_hoja1.append({"range": f"R{fila_nom}:R{fila_nom+1}", "values": [["X"], ["X"]]})
+        if datos_paciente.get('personal_salud') == "SÍ":
+            updates_hoja1.append({"range": f"S{fila_nom}:S{fila_nom+1}", "values": [["X"], ["X"]]})
+
+        map_comorb_h1 = {
+            "vih": "T", "diabetes": "U", "obesidad": "V", "cardiopatias": "W",
+            "cancer": "Y", "insuficiencia_renal": "AA", "discapacidades": "AC",
+            "fibrosis_quistica": "AD", "hipertension": "AE"
+        }
+        for k_c, col_c in map_comorb_h1.items():
+            if comorb.get(k_c, False):
+                updates_hoja1.append({"range": f"{col_c}{fila_nom}:{col_c}{fila_nom+1}", "values": [["X"], ["X"]]})
+
+        ws_nominal.batch_update(updates_hoja1)
+
+        # --- 2. ESCRITURA EN LA HOJA 2 ("CENSO") ---
+        try:
+            ws_censo = spreadsheet.worksheet("CENSO")
+        except:
+            ws_censo = spreadsheet.worksheet("CENSO NOMINAL")
+
+        col_a_censo = ws_censo.col_values(1)
+        fila_censo = 14
+        for idx_c in range(13, len(col_a_censo)):
+            val_c = str(col_a_censo[idx_c]).strip()
+            if val_c == "" or not val_c.isdigit():
+                fila_censo = idx_c + 1
+                break
+        else:
+            fila_censo = max(14, len(col_a_censo) + 1)
+
+        consecutivo_censo = fila_censo - 13
+
+        ps_val = "SI" if datos_paciente.get("personal_salud") == "SÍ" else "NO"
+        emb_val = "SI" if datos_paciente.get("embarazo") == "SÍ" else "NO"
+
+        updates_censo = [
+            {"range": f"A{fila_censo}", "values": [[consecutivo_censo]]},
+            {"range": f"B{fila_censo}", "values": [[folio_asignado]]},
+            {"range": f"C{fila_censo}", "values": [[datos_paciente["rfc"]]]},
+            {"range": f"D{fila_censo}", "values": [[datos_paciente["dh"]]]},
+            {"range": f"E{fila_censo}", "values": [[datos_paciente["tipo_dh"]]]},
+            {"range": f"F{fila_censo}", "values": [[datos_paciente["trabaja_cmn"]]]},
+            {"range": f"G{fila_censo}", "values": [[datos_paciente["num_trabajador"]]]},
+            {"range": f"H{fila_censo}", "values": [[ps_val]]},
+            {"range": f"I{fila_censo}", "values": [[datos_paciente["categoria"]]]},
+            {"range": f"J{fila_censo}", "values": [[datos_paciente["servicio"]]]},
+            {"range": f"K{fila_censo}", "values": [[datos_paciente["coordinacion"]]]},
+            {"range": f"L{fila_censo}", "values": [[datos_paciente["turno"]]]},
+            {"range": f"M{fila_censo}", "values": [[datos_paciente["nombre"].upper()]]},
+            {"range": f"N{fila_censo}", "values": [[datos_paciente["paterno"].upper()]]},
+            {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente["materno"] else ""]] },
+            {"range": f"P{fila_censo}", "values": [[datos_paciente["edo_nac"]]]},
+            {"range": f"Q{fila_censo}", "values": [[datos_paciente["muni_nac"].upper()]]},
+            {"range": f"R{fila_censo}", "values": [[datos_paciente["fn_dia"]]]},
+            {"range": f"S{fila_censo}", "values": [[datos_paciente["fn_mes"]]]},
+            {"range": f"T{fila_censo}", "values": [[datos_paciente["fn_ano"]]]},
+            {"range": f"U{fila_censo}", "values": [[str(datos_paciente["anos"])]]},
+            {"range": f"V{fila_censo}", "values": [[str(datos_paciente["meses"])]]},
+            {"range": f"W{fila_censo}", "values": [[datos_paciente["sexo"]]]},
+            {"range": f"X{fila_censo}", "values": [[emb_val]]},
+        ]
+
+        ws_censo.batch_update(updates_censo)
+        return folio_asignado
+
+    except Exception as e:
+        raise e
