@@ -12,7 +12,7 @@ aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 if "aviso_aceptado" not in st.session_state:
     st.session_state.aviso_aceptado = False
 
-# Definimos el modal nativo para el aviso de privacidad
+# Definimos el modal nativo con el texto completo del Aviso de Privacidad
 @st.dialog("🛡️ Aviso de Privacidad - Registro de Jornadas de Vacunación", width="large")
 def mostrar_modal_aviso():
     st.markdown(
@@ -53,7 +53,7 @@ def mostrar_modal_aviso():
             st.session_state.aviso_aceptado = True
             st.rerun()
 
-# Si no ha aceptado, lanzamos el modal automáticamente al abrir la página
+# Si no ha aceptado, lanza el modal automáticamente al abrir
 if not st.session_state.aviso_aceptado:
     mostrar_modal_aviso()
 
