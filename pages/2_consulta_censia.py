@@ -51,7 +51,6 @@ def mostrar_modal_comprobante_vacunacion():
         lotes_val = p.get("lotes_str", "N/A")
         fecha_val = p.get("fecha_hora", datetime.datetime.now().strftime("%d/%m/%Y")).split()[0]
 
-        # Texto estructurado con saltos de línea reales para el QR
         texto_qr = (
             f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
             f"FOLIO: {folio_val}\n"
@@ -130,20 +129,10 @@ def mostrar_modal_comprobante_vacunacion():
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
                     <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span><span>COMPROBANTE DE VACUNACION OFICIAL</span>
                     </div>
                     <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE DE VACUNACION OFICIAL</span><span>COMPROBANTE DE VACUNACION OFICIAL</span>
                     </div>
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
@@ -167,7 +156,7 @@ def mostrar_modal_comprobante_vacunacion():
             <script>
             function compartirImagenWhatsApp() {{
                 const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
@@ -183,7 +172,7 @@ def mostrar_modal_comprobante_vacunacion():
             }}
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2 }}).then(canvas => {{
+                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
                     const enlace = document.createElement('a');
                     enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
                     enlace.href = canvas.toDataURL('image/png');
@@ -267,30 +256,30 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- CARGAR GUÍA CENSIA DESDE EL GOOGLE SHEETS DE REFERENCIA ---
-    guia_covid_dict = {}
-    guia_influenza_dict = {}
+    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE EL NUEVO GOOGLE SHEET DE REFERENCIA ---
+    guia_censia_registros = []
     try:
-        sheet_censia_id = "1IevzrgHyvixoPfH0c1OWExekc1pSHYB7FcK5SIe5SqU"
+        sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
-
-        ws_covid = doc_censia.worksheet("COVID")
-        datos_covid = ws_covid.get_all_values()
-        for row in datos_covid[1:]:
-            if len(row) >= 3:
-                cat_b = row[1].strip().upper()
-                desc_c = row[2].strip()
-                if cat_b:
-                    guia_covid_dict[cat_b] = desc_c
-
-        ws_influenza = doc_censia.worksheet("INFLUENZA")
-        datos_influenza = ws_influenza.get_all_values()
-        for row in datos_influenza[1:]:
-            if len(row) >= 3:
-                cat_b = row[1].strip().upper()
-                desc_c = row[2].strip()
-                if cat_b:
-                    guia_influenza_dict[cat_b] = desc_c
+        ws_guia = doc_censia.worksheet(doc_censia.worksheets()[0].title)
+        filas_guia = ws_guia.get_all_values()
+        
+        # Mapeo: Columna A (Vacuna), B (Grupos blancos), D (Esquema), E (Dosis), F (Intervalo)
+        for row in filas_guia[1:]:
+            if len(row) >= 6:
+                vacuna_val = row[0].strip()
+                grupo_val = row[1].strip()
+                esquema_val = row[3].strip()
+                dosis_val = row[4].strip()
+                intervalo_val = row[5].strip()
+                if vacuna_val or grupo_val:
+                    guia_censia_registros.append({
+                        "vacuna": vacuna_val,
+                        "grupo": grupo_val,
+                        "esquema": esquema_val,
+                        "dosis": dosis_val,
+                        "intervalo": intervalo_val
+                    })
     except Exception as e:
         pass
 
@@ -431,15 +420,8 @@ else:
                         }
                         grupo_detectado = "POBLACIÓN GENERAL"
                         col_indices = {
-                            "P": 15,
-                            "Q": 16,
-                            "R": 17,
-                            "S": 18,
-                            "T": 19,
-                            "U": 20,
-                            "V": 21,
-                            "W": 22,
-                            "X": 23,
+                            "P": 15, "Q": 16, "R": 17, "S": 18,
+                            "T": 19, "U": 20, "V": 21, "W": 22, "X": 23,
                         }
                         for letra, idx_col in col_indices.items():
                             if (
@@ -471,40 +453,43 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        desc_covid_censia = "Lineamiento no especificado en plantilla."
-                        desc_influenza_censia = "Lineamiento no especificado en plantilla."
+                        # --- FILTRADO DINÁMICO DESDE EL NUEVO GOOGLE SHEET DE GUÍA ---
+                        guia_inf_match = None
+                        guia_cov_match = None
 
                         g_upper = grupo_detectado.upper()
-                        for k, v in guia_covid_dict.items():
-                            if (
-                                g_upper in k
-                                or k in g_upper
-                                or ("6 A 59" in g_upper and "6 A 59" in k)
-                                or ("60" in g_upper and "60" in k)
-                                or ("GESTANTES" in g_upper and "GESTANTES" in k)
-                                or ("SALUD" in g_upper and "SALUD" in k)
-                            ):
-                                desc_covid_censia = v
-                                break
+                        for item in guia_censia_registros:
+                            v_clean = item["vacuna"].upper()
+                            g_target = item["grupo"].upper()
+                            
+                            # Coincidencia flexible por texto de grupo o rangos
+                            if g_target in g_upper or g_upper in g_target or ("6 A 59" in g_upper and "59" in g_target) or ("60" in g_upper and "60" in g_target):
+                                if "INFLUENZA" in v_clean:
+                                    guia_inf_match = item
+                                elif "COVID" in v_clean:
+                                    guia_cov_match = item
 
-                        for k, v in guia_influenza_dict.items():
-                            if (
-                                g_upper in k
-                                or k in g_upper
-                                or ("6 A 59" in g_upper and "59 MESES" in k)
-                                or ("60" in g_upper and "60" in k)
-                                or ("GESTANTES" in g_upper and "GESTANTES" in k)
-                                or ("SALUD" in g_upper and "SALUD" in k)
-                            ):
-                                desc_influenza_censia = v
-                                break
+                        # Si no hay match exacto, tomamos genéricos de respaldo
+                        if not guia_inf_match and guia_censia_registros:
+                            for item in guia_censia_registros:
+                                if "INFLUENZA" in item["vacuna"].upper():
+                                    guia_inf_match = item
+                                    break
+                        if not guia_cov_match and guia_censia_registros:
+                            for item in guia_censia_registros:
+                                if "COVID" in item["vacuna"].upper():
+                                    guia_cov_match = item
+                                    break
+
+                        txt_inf = f"<b>Esquema:</b> {guia_inf_match['esquema']} | <b>Dosis:</b> {guia_inf_match['dosis']} | <b>Intervalo:</b> {guia_inf_match['intervalo']}" if guia_inf_match else "Lineamiento no especificado."
+                        txt_cov = f"<b>Esquema:</b> {guia_cov_match['esquema']} | <b>Dosis:</b> {guia_cov_match['dosis']} | <b>Intervalo:</b> {guia_cov_match['intervalo']}" if guia_cov_match else "Lineamiento no especificado."
 
                         st.markdown(
                             f"""
                             <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #1e5b4f; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
                                 <h4 style="color: #1e5b4f; margin-top: 0;">💉 Guía para Influenza Estacional</h4>
                                 <p><b>Grupo:</b> {grupo_detectado}</p>
-                                <p><b>Lineamiento CENSIA:</b> {desc_influenza_censia}</p>
+                                <p><b>Lineamiento CENSIA:</b> {txt_inf}</p>
                             </div>
                             """,
                             unsafe_allow_html=True,
@@ -514,7 +499,7 @@ else:
                             <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #611232; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                                 <h4 style="color: #611232; margin-top: 0;">🦠 Guía para COVID-19</h4>
                                 <p><b>Grupo:</b> {grupo_detectado}</p>
-                                <p><b>Lineamiento CENSIA:</b> {desc_covid_censia}</p>
+                                <p><b>Lineamiento CENSIA:</b> {txt_cov}</p>
                             </div>
                             """,
                             unsafe_allow_html=True,
