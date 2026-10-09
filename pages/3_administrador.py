@@ -367,15 +367,17 @@ else:
 
                                 hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
                                 try:
-                                    # Mapeo actualizado para las otras unidades médicas en el administrador
-                                    hoja_activa.update_acell("D6", "CDMX")                  # Entidad Federativa
-                                    hoja_activa.update_acell("M6", "ISSSTE")                 # Institución
-                                    hoja_activa.update_acell("U6", "Delegación Sur")         # Jurisdicción / Delegación
-                                    hoja_activa.update_acell("AC6", "CDMX")                # Municipio
-                                    hoja_activa.update_acell("D7", "CDMX")                   # Localidad
-                                    hoja_activa.update_acell("D8", unidad_sel)               # Unidad de Salud
-                                    hoja_activa.update_acell("AC8", fecha_formato_oficial)   # Fecha de aplicación
-                                    hoja_activa.update_acell("E10", j_conf["responsable"])     # Responsable de vacunación
+                                    # Mapeo exacto actualizado con tus celdas (7D, 7M, 7T, 7AB, 8D, 9D, 9M, 9S, 9AB, 10E)
+                                    hoja_activa.update_acell("D7", "CDMX")                  # Entidad Federativa (7D)
+                                    hoja_activa.update_acell("M7", "ISSSTE")                 # Institución (7M)
+                                    hoja_activa.update_acell("T7", "Delegación Sur")         # Jurisdicción / Delegación (7T)
+                                    hoja_activa.update_acell("AB7", "CDMX")                # Municipio (7AB)
+                                    hoja_activa.update_acell("D8", "CDMX")                   # Localidad (8D)
+                                    hoja_activa.update_acell("D9", unidad_sel)               # Unidad de Salud (9D)
+                                    hoja_activa.update_acell("M9", "")                       # AGEB blanco (9M)
+                                    hoja_activa.update_acell("S9", "")                       # Sector blanco (9S)
+                                    hoja_activa.update_acell("AB9", fecha_formato_oficial)   # Fecha de aplicación (9AB)
+                                    hoja_activa.update_acell("E10", j_conf["responsable"])     # Nombre del responsable (10E)
                                 except:
                                     pass
 
