@@ -428,6 +428,7 @@ dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "S�
 tipo_dh = "NO APLICA"
 trabaja_cmn = "NO"
 num_trabajador = ""
+personal_salud_val = "NO"
 categoria = "NO APLICA"
 servicio = "NO APLICA"
 coordinacion = "NO APLICA"
@@ -443,19 +444,23 @@ if dh == "SÍ":
     if trabaja_cmn == "SÍ":
         num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador")
         
-        # --- APARTADOS INSTITUCIONALES CONDICIONALES (SOLO SI TRABAJA EN CMN) ---
-        col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
-        with col_lab1:
-            categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
-        with col_lab2:
-            servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
-        with col_lab3:
-            coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
-        with col_lab4:
-            turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
+        # --- APARTADO CONDICIONAL DE PERSONAL DE SALUD ---
+        personal_salud_radio = st.radio("¿Es usted Personal de Salud?", options=["NO", "SÍ"], horizontal=True, key="20n_pers_salud_radio")
+        personal_salud_val = personal_salud_radio
 
-        turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
-        turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
+        if personal_salud_val == "SÍ":
+            col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
+            with col_lab1:
+                categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
+            with col_lab2:
+                servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
+            with col_lab3:
+                coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
+            with col_lab4:
+                turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
+
+            turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
+            turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
 
 # --- 2. IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -516,25 +521,6 @@ with col_dom2:
     numero = st.text_input("No. (Ext / Int) *", key="20n_num")
 with col_dom3:
     colonia = st.text_input("Colonia *", key="20n_col")
-
-# --- 4. OCUPACIÓN Y ADSCRIPCIÓN INSTITUCIONAL ---
-st.markdown('<div class="section-title">4. Ocupación y Adscripción Institucional</div>', unsafe_allow_html=True)
-if es_pediatrico_59m:
-    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'No aplica (Población Pediátrica)'.")
-    ocupacion = "NO APLICA (POBLACIÓN PEDIÁTRICA)"
-    personal_salud_val = "NO"
-else:
-    personal_salud_opc = st.selectbox(
-        "Seleccione su Ocupación *",
-        options=[
-            "SELECCIONE UNA OPCIÓN",
-            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
-            "ESTUDIANTE", "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "OTRO",
-        ],
-        key="20n_ocupacion",
-    )
-    ocupacion = personal_salud_opc
-    personal_salud_val = "SÍ" if "PERSONAL DE SALUD" in personal_salud_opc else "NO"
 
 # --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
