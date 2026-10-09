@@ -12,6 +12,15 @@ aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 # --- MOSTRAR AVISO DE PRIVACIDAD OBLIGATORIO AL ENTRAR ---
 mostrar_aviso_privacidad_si_necesario()
 
+# --- INICIALIZACIÓN DE ESTADOS DE SESIÓN ---
+if "form_version" not in st.session_state:
+    st.session_state.form_version = 0
+
+if "ultimo_paciente_20n" not in st.session_state:
+    st.session_state.ultimo_paciente_20n = None
+
+v_form = st.session_state.form_version
+
 # --- CARGA DINÁMICA DE CATÁLOGOS DESDE LA PESTAÑA 'LISTAS' ---
 @st.cache_data(show_spinner=False)
 def cargar_catalogos_excel():
@@ -92,10 +101,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if "ultimo_paciente_20n" not in st.session_state:
-    st.session_state.ultimo_paciente_20n = None
-
-
 def calcular_edad_detallada(fecha_nac, fecha_ref):
     if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
         return 0, 0, 0
@@ -116,13 +121,11 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
         meses += 12
     return max(0, anos), max(0, meses), max(0, dias)
 
-
 def limpiar_texto(texto):
     if not texto:
         return ""
     nfkd = unicodedata.normalize("NFKD", texto)
     return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
-
 
 def obtener_primera_vocal_interna(palabra):
     for letra in palabra[1:]:
@@ -130,13 +133,11 @@ def obtener_primera_vocal_interna(palabra):
             return letra
     return "X"
 
-
 def obtener_primera_consonante_interna(palabra):
     for letra in palabra[1:]:
         if letra in "BCDFGHJKLMNPQRSTVWXYZ":
             return letra
     return "X"
-
 
 estados_curp = {
     "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
@@ -178,7 +179,6 @@ municipios_por_estado = {
     ]
 }
 
-
 def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""):
     p = limpiar_texto(paterno)
     m = limpiar_texto(materno) if materno else ""
@@ -207,7 +207,6 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
     return f"{curp_16}{sufijo}"
 
-
 def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     p = limpiar_texto(paterno)
     m = limpiar_texto(materno) if materno else ""
@@ -232,10 +231,8 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     dd = str(fecha_nac.day).zfill(2)
     return f"{c1}{c2}{c3}{c4}{yy}{mm}{dd}"
 
-
 estados_mexico = list(estados_curp.keys())
 estados_mexico.insert(0, "SELECCIONE UN ESTADO")
-
 
 # --- MODAL DE COMPROBANTE CON CÓDIGO QR Y OPCIONES DE DESCARGA ---
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
@@ -403,8 +400,8 @@ def mostrar_modal_comprobante_20n():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro (Reiniciar Formulario)", use_container_width=True):
             st.session_state.ultimo_paciente_20n = None
+            st.session_state.form_version += 1
             st.rerun()
-
 
 if st.session_state.ultimo_paciente_20n is not None:
     mostrar_modal_comprobante_20n()
@@ -423,7 +420,7 @@ st.markdown(
 # --- 1. DERECHOHABIENCIA Y ADSCRIPCIÓN LABORAL ---
 st.markdown('<div class="section-title">1. Derechohabiencia y Adscripción Laboral</div>', unsafe_allow_html=True)
 
-dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "SÍ", "NO"], key="20n_dh")
+dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "SÍ", "NO"], key=f"20n_dh_{v_form}")
 
 tipo_dh = "NO APLICA"
 trabaja_cmn = "NO"
@@ -437,27 +434,26 @@ turno_val = "NO APLICA"
 if dh == "SÍ":
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE"] + opt_tipo_dh, key="20n_tipo_dh")
+        tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE"] + opt_tipo_dh, key=f"20n_tipo_dh_{v_form}")
     with col_d2:
-        trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key="20n_trabaja_cmn")
+        trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key=f"20n_trabaja_cmn_{v_form}")
 
     if trabaja_cmn == "SÍ":
-        num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador")
+        num_trabajador = st.text_input("Número de Trabajador", key=f"20n_num_trabajador_{v_form}")
         
-        # --- APARTADO CONDICIONAL DE PERSONAL DE SALUD ---
-        personal_salud_radio = st.radio("¿Es usted Personal de Salud?", options=["NO", "SÍ"], horizontal=True, key="20n_pers_salud_radio")
+        personal_salud_radio = st.radio("¿Es usted Personal de Salud?", options=["NO", "SÍ"], horizontal=True, key=f"20n_pers_salud_radio_{v_form}")
         personal_salud_val = personal_salud_radio
 
         if personal_salud_val == "SÍ":
             col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
             with col_lab1:
-                categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
+                categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key=f"20n_categoria_{v_form}")
             with col_lab2:
-                servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
+                servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key=f"20n_servicio_{v_form}")
             with col_lab3:
-                coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
+                coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key=f"20n_coordinacion_{v_form}")
             with col_lab4:
-                turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
+                turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key=f"20n_turno_{v_form}")
 
             turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
             turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
@@ -466,11 +462,11 @@ if dh == "SÍ":
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
-    paterno = st.text_input("Apellido Paterno *", key="20n_paterno")
+    paterno = st.text_input("Apellido Paterno *", key=f"20n_paterno_{v_form}")
 with col_n2:
-    materno = st.text_input("Apellido Materno (Opcional)", key="20n_materno")
+    materno = st.text_input("Apellido Materno (Opcional)", key=f"20n_materno_{v_form}")
 with col_n3:
-    nombres = st.text_input("Nombre(s) *", key="20n_nombres")
+    nombres = st.text_input("Nombre(s) *", key=f"20n_nombres_{v_form}")
 
 col_fn1, col_fn2, col_fn3 = st.columns(3)
 with col_fn1:
@@ -480,22 +476,22 @@ with col_fn1:
         min_value=datetime.date(1900, 1, 1),
         max_value=datetime.date.today(),
         format="DD/MM/YYYY",
-        key="20n_fnac",
+        key=f"20n_fnac_{v_form}",
     )
 with col_fn2:
-    sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="20n_sexo")
+    sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key=f"20n_sexo_{v_form}")
 with col_fn3:
-    edo_nac = st.selectbox("Estado de Nacimiento (Edo Nac) *", options=estados_mexico, key="20n_edonac")
+    edo_nac = st.selectbox("Estado de Nacimiento (Edo Nac) *", options=estados_mexico, key=f"20n_edonac_{v_form}")
 
 lista_municipios = municipios_por_estado.get(edo_nac, ["OTRO (ESPECIFIQUE)"])
 if edo_nac in municipios_por_estado:
-    muni_nac = st.selectbox("Municipio / Alcaldía de Nacimiento (Muni Nac) *", options=lista_municipios, key="20n_muninac_sel")
+    muni_nac = st.selectbox("Municipio / Alcaldía de Nacimiento (Muni Nac) *", options=lista_municipios, key=f"20n_muninac_sel_{v_form}")
 else:
-    muni_nac = st.text_input("Municipio / Alcaldía de Nacimiento (Muni Nac) *", key="20n_muninac_txt")
+    muni_nac = st.text_input("Municipio / Alcaldía de Nacimiento (Muni Nac) *", key=f"20n_muninac_txt_{v_form}")
 
 embarazo = "NO"
 if sexo == "MUJER":
-    embarazo = st.radio("¿Embarazo?", options=["NO", "SÍ"], horizontal=True, key="20n_embarazo")
+    embarazo = st.radio("¿Embarazo?", options=["NO", "SÍ"], horizontal=True, key=f"20n_embarazo_{v_form}")
 
 calc_anos, calc_meses, calc_dias = calcular_edad_detallada(fecha_nacimiento, val_fecha_app) if fecha_nacimiento else (0, 0, 0)
 st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses} Meses</div>', unsafe_allow_html=True)
@@ -503,7 +499,7 @@ st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {ca
 edad_total_meses = (calc_anos * 12) + calc_meses
 es_pediatrico_59m = 6 <= edad_total_meses <= 59
 
-digitos_faltantes = st.text_input("Homoclave y Dígito Verificador (Opcional - CURP)", max_chars=2, key="20n_digitos")
+digitos_faltantes = st.text_input("Homoclave y Dígito Verificador (Opcional - CURP)", max_chars=2, key=f"20n_digitos_{v_form}")
 curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, edo_nac, digitos_faltantes)
 curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "FALTAN" not in curp_algoritmica else curp_algoritmica
 st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
@@ -513,39 +509,39 @@ st.markdown(f'<div class="card-rfc">📋 RFC Generado: {rfc_generado}</div>', un
 
 # --- 3. DOMICILIO Y AFILIACIÓN ---
 st.markdown('<div class="section-title">3. Domicilio y Afiliación</div>', unsafe_allow_html=True)
-estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="20n_estres")
+estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key=f"20n_estres_{v_form}")
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1:
-    calle = st.text_input("Calle *", key="20n_calle")
+    calle = st.text_input("Calle *", key=f"20n_calle_{v_form}")
 with col_dom2:
-    numero = st.text_input("No. (Ext / Int) *", key="20n_num")
+    numero = st.text_input("No. (Ext / Int) *", key=f"20n_num_{v_form}")
 with col_dom3:
-    colonia = st.text_input("Colonia *", key="20n_col")
+    colonia = st.text_input("Colonia *", key=f"20n_col_{v_form}")
 
 # --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-    vih = st.checkbox("VIH / SIDA", key="20n_vih")
-    diabetes = st.checkbox("DIABETES MELLITUS", key="20n_diabetes")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="20n_obesidad")
-    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="20n_cardiopatias")
-    discapacidades = st.checkbox("DISCAPACIDADES", key="20n_discapacidad")
+    vih = st.checkbox("VIH / SIDA", key=f"20n_vih_{v_form}")
+    diabetes = st.checkbox("DIABETES MELLITUS", key=f"20n_diabetes_{v_form}")
+    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key=f"20n_obesidad_{v_form}")
+    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key=f"20n_cardiopatias_{v_form}")
+    discapacidades = st.checkbox("DISCAPACIDADES", key=f"20n_discapacidad_{v_form}")
 with col_r2:
-    cancer = st.checkbox("CÁNCER", key="20n_cancer")
-    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="20n_insufren")
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="20n_hipertension")
-    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="20n_fibrosis")
+    cancer = st.checkbox("CÁNCER", key=f"20n_cancer_{v_form}")
+    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key=f"20n_insufren_{v_form}")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key=f"20n_hipertension_{v_form}")
+    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key=f"20n_fibrosis_{v_form}")
 
 # --- 6. ANTECEDENTE VACUNAL Y VACUNA DE INTERÉS ---
 st.markdown('<div class="section-title">6. Antecedente Vacunal y Vacuna de Interés</div>', unsafe_allow_html=True)
 col_av1, col_av2 = st.columns(2)
 with col_av1:
-    antecedente_covid = st.radio("¿Dosis previa COVID-19?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key="20n_ant_cov")
+    antecedente_covid = st.radio("¿Dosis previa COVID-19?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key=f"20n_ant_cov_{v_form}")
 with col_av2:
-    antecedente_influenza = st.radio("¿Dosis previa Influenza?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key="20n_ant_inf")
+    antecedente_influenza = st.radio("¿Dosis previa Influenza?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key=f"20n_ant_inf_{v_form}")
 
-vacuna_interes = st.radio("Vacuna de interés:", options=["AMBAS", "COVID-19", "INFLUENZA"], horizontal=True, key="20n_vacuna")
+vacuna_interes = st.radio("Vacuna de interés:", options=["AMBAS", "COVID-19", "INFLUENZA"], horizontal=True, key=f"20n_vacuna_{v_form}")
 
 st.markdown("---")
 if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
