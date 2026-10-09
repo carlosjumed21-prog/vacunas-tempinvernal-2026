@@ -8,22 +8,32 @@ from utils.sheets import guardar_registro_censal_20_nov
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- CARGA DE CATÁLOGOS DESDE LA PESTAÑA 'Hoja 1 LISTAS' ---
+# --- CARGA DE CATÁLOGOS LEYENDO DESDE LOS ENCABEZADOS DE LA FILA 1 ---
 @st.cache_data(show_spinner=False)
 def cargar_catalogos_excel():
     try:
-        df = pd.read_excel("assets/lista vac.xlsx", sheet_name="Hoja 1 LISTAS", dtype=str)
+        df = pd.read_excel("assets/lista vac.xlsx", sheet_name="Hoja 1 LISTAS", header=0, dtype=str)
         
-        def limpiar_columna(serie):
-            if serie is not None and not serie.empty:
-                return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() != "NAN"])
+        # Normalizar nombres de columnas del DataFrame para buscarlos sin problemas de acentos o mayúsculas
+        df.columns = [str(c).strip().upper() for c in df.columns]
+
+        def extraer_columna(posible_nombre, indice_alternativo):
+            for col in df.columns:
+                if posible_nombre in col:
+                    serie = df[col]
+                    return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() not in ["NAN", "NAT"]])
+            # Respaldo por índice exacto si no encuentra el nombre exacto
+            if df.shape[1] > indice_alternativo:
+                serie = df.iloc[:, indice_alternativo]
+                return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() not in ["NAN", "NAT"]])
             return []
 
-        opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []
-        opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []
-        opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else []
-        opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []
-        opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else []
+        # Mapeo exacto según tus encabezados y columnas:
+        opt_dh = extraer_columna("DERECHOHABIENCIA", 0)       # Columna A (Tipo de DH)
+        opt_serv = extraer_columna("SERVICIO", 1)             # Columna B (Servicio)
+        opt_coord = extraer_columna("COORDINACION", 2)        # Columna C (Coordinación)
+        opt_cat = extraer_columna("CATEGORIA", 3)             # Columna D (Categoría)
+        opt_turno = extraer_columna("TURNO", 4)               # Columna E (Turno)
 
         return (
             opt_dh or ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
