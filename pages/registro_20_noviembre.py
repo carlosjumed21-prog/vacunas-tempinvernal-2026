@@ -1,11 +1,35 @@
 import datetime
 import unicodedata
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal_20_nov
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
+
+# --- CARGA DE CATÁLOGOS DESDE EXCEL ---
+@st.cache_data
+def cargar_catalogos_excel():
+    try:
+        df = pd.read_excel("assets/lista vac.xlsx")
+        tipos_dh = df.iloc[:, 0].dropna().astype(str).str.strip().unique().tolist()
+        servicios = df.iloc[:, 1].dropna().astype(str).str.strip().unique().tolist()
+        coordinaciones = df.iloc[:, 2].dropna().astype(str).str.strip().unique().tolist()
+        categorias = df.iloc[:, 3].dropna().astype(str).str.strip().unique().tolist()
+        turnos = df.iloc[:, 4].dropna().astype(str).str.strip().unique().tolist()
+        return tipos_dh, servicios, coordinaciones, categorias, turnos
+    except Exception as e:
+        # Valores de respaldo por si el archivo no existe o hay error de lectura
+        return (
+            ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
+            ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
+            ["DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"],
+            ["MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"],
+            ["Matutino", "Vespertino", "Nocturno", "Jornada Acumulada"]
+        )
+
+opt_tipo_dh, opt_servicio, opt_coordinacion, opt_categoria, opt_turno = cargar_catalogos_excel()
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
@@ -110,7 +134,6 @@ estados_curp = {
     "TAMAULIPAS": "TS", "TLAXCALA": "TL", "VERACRUZ": "VZ", "YUCATÁN": "YN", "ZACATECAS": "ZS",
 }
 
-# Diccionario de Municipios / Alcaldías de Nacimiento por Entidad
 municipios_por_estado = {
     "CIUDAD DE MÉXICO": [
         "ÁLVARO OBREGÓN", "AZCAPOTZALCO", "BENITO JUÁREZ", "COYOACÁN", "CUAJIMALPA DE MORELOS",
@@ -221,17 +244,22 @@ st.markdown(
 
 # --- 1. DERECHOHABIENCIA Y ADSCRIPCIÓN LABORAL ---
 st.markdown('<div class="section-title">1. Derechohabiencia y Adscripción Laboral</div>', unsafe_allow_html=True)
-col_d1, col_d2 = st.columns(2)
-with col_d1:
-    dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "SÍ", "NO"], key="20n_dh")
-with col_d2:
-    tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE", "TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"], key="20n_tipo_dh")
 
-col_t1, col_t2 = st.columns(2)
-with col_t1:
-    trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key="20n_trabaja_cmn")
-with col_t2:
-    num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador") if trabaja_cmn == "SÍ" else ""
+dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "SÍ", "NO"], key="20n_dh")
+
+tipo_dh = "NO APLICA"
+trabaja_cmn = "NO"
+num_trabajador = ""
+
+if dh == "SÍ":
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE"] + opt_tipo_dh, key="20n_tipo_dh")
+    with col_d2:
+        trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key="20n_trabaja_cmn")
+
+    if trabaja_cmn == "SÍ":
+        num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador")
 
 # --- 2. IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -258,7 +286,6 @@ with col_fn2:
 with col_fn3:
     edo_nac = st.selectbox("Estado de Nacimiento (Edo Nac) *", options=estados_mexico, key="20n_edonac")
 
-# Menú dinámico de Municipio / Alcaldía según el Estado seleccionado
 lista_municipios = municipios_por_estado.get(edo_nac, ["OTRO (ESPECIFIQUE)"])
 if edo_nac in municipios_por_estado:
     muni_nac = st.selectbox("Municipio / Alcaldía de Nacimiento (Muni Nac) *", options=lista_municipios, key="20n_muninac_sel")
@@ -316,16 +343,16 @@ else:
 
 col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
 with col_lab1:
-    categoria = st.selectbox("Categoría", options=["SELECCIONE", "MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"], key="20n_categoria")
+    categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
 with col_lab2:
-    servicio = st.selectbox("Servicio", options=["SELECCIONE", "EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"], key="20n_servicio")
+    servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
 with col_lab3:
-    coordinacion = st.selectbox("Coordinación", options=["SELECCIONE", "DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"], key="20n_coordinacion")
+    coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
 with col_lab4:
-    turno_full = st.selectbox("Turno", options=["SELECCIONE", "Matutino", "Vespertino", "Nocturno", "Jornada Acumulada"], key="20n_turno")
+    turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
 
 turno_map = {"Matutino": "M", "Vespertino": "V", "Nocturno": "N", "Jornada Acumulada": "JA"}
-turno_val = turno_map.get(turno_full, "")
+turno_val = turno_map.get(turno_full, turno_full[:1] if turno_full != "SELECCIONE" else "")
 
 # --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
@@ -360,7 +387,7 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
         st.error("Complete Apellido Paterno y Nombre(s).")
     elif dh == "SELECCIONE":
         st.error("Indique si cuenta con derechohabiencia.")
-    elif tipo_dh == "SELECCIONE":
+    elif dh == "SÍ" and tipo_dh == "SELECCIONE":
         st.error("Seleccione el Tipo de DH.")
     elif sexo == "SELECCIONE UNA OPCIÓN":
         st.error("Seleccione el Sexo.")
@@ -394,7 +421,7 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
                 "paterno": paterno.upper(),
                 "materno": materno.upper() if materno else "",
                 "edo_nac": edo_nac,
-                "muni_nac": muni_nac.upper(),
+                "muni_nac": muni_nac.upper() if muni_nac else "",
                 "fn_dia": fn_dia,
                 "fn_mes": fn_mes,
                 "fn_ano": fn_ano,
@@ -415,7 +442,7 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
             folio_asignado = guardar_registro_censal_20_nov(datos_20n)
 
             st.session_state.ultimo_paciente_20n = {
-                "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                "nombre_completo": f"{paterno.upper()} {materno.upper() if materno else ''} {nombres.upper()}".strip(),
                 "folio": folio_asignado,
                 "rfc": rfc_final,
             }
