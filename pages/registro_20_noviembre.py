@@ -428,6 +428,10 @@ dh = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "S�
 tipo_dh = "NO APLICA"
 trabaja_cmn = "NO"
 num_trabajador = ""
+categoria = "NO APLICA"
+servicio = "NO APLICA"
+coordinacion = "NO APLICA"
+turno_val = "NO APLICA"
 
 if dh == "SÍ":
     col_d1, col_d2 = st.columns(2)
@@ -438,6 +442,20 @@ if dh == "SÍ":
 
     if trabaja_cmn == "SÍ":
         num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador")
+        
+        # --- APARTADOS INSTITUCIONALES CONDICIONALES (SOLO SI TRABAJA EN CMN) ---
+        col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
+        with col_lab1:
+            categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
+        with col_lab2:
+            servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
+        with col_lab3:
+            coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
+        with col_lab4:
+            turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
+
+        turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
+        turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
 
 # --- 2. IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -517,19 +535,6 @@ else:
     )
     ocupacion = personal_salud_opc
     personal_salud_val = "SÍ" if "PERSONAL DE SALUD" in personal_salud_opc else "NO"
-
-col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
-with col_lab1:
-    categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
-with col_lab2:
-    servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
-with col_lab3:
-    coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
-with col_lab4:
-    turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
-
-turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
-turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
 
 # --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
