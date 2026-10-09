@@ -19,6 +19,7 @@ def cargar_catalogos_excel():
                 return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() not in ["NAN", "NAT", ""]])
             return []
 
+        # Mapeo exacto por posición de columna según tu archivo:
         opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []     # Columna A: TIPO DE DERECHOHABIENCIA
         opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []  # Columna B: SERVICIO
         opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else [] # Columna C: COORDINACIONES
@@ -216,7 +217,6 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
         primer_nombre = nombres_lista[1]
     c1 = p[0] if p else "X"
     c2 = obtener_primera_vocal_interna(p)
-    # Corrección: si no hay apellido materno, toma la segunda letra del apellido paterno sin fallar
     if m:
         c3 = m[0]
     elif len(p) > 1:
