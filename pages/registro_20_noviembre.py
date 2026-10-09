@@ -8,28 +8,23 @@ from utils.sheets import guardar_registro_censal_20_nov
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- CARGA ROBUSTA DE CATÁLOGOS DESDE EXCEL ---
+# --- CARGA DE CATÁLOGOS DESDE LA PESTAÑA ESPECÍFICA 'Hoja 1 LISTAS' ---
 @st.cache_data(show_spinner=False)
 def cargar_catalogos_excel():
     try:
-        # Lee el archivo Excel asegurando lectura de texto
-        df = pd.read_excel("assets/lista vac.xlsx", dtype=str)
+        # Indicamos explícitamente el nombre de la pestaña exacta
+        df = pd.read_excel("assets/lista vac.xlsx", sheet_name="Hoja 1 LISTAS", dtype=str)
         
         def limpiar_columna(serie):
             if serie is not None and not serie.empty:
-                # Elimina nulos, espacios en blanco y convierte a mayúsculas
                 return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() != "NAN"])
             return []
 
-        # Columna A: Tipo de DH (índice 0)
+        # Columna A (Tipo DH), Columna B (Servicio), Columna C (Coordinación), Columna D (Categoría), Columna E (Turno)
         opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []
-        # Columna B: Servicio (índice 1)
         opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []
-        # Columna C: Coordinación (índice 2)
         opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else []
-        # Columna D: Categoría (índice 3)
         opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []
-        # Columna E: Turno (índice 4)
         opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else []
 
         return (
@@ -40,7 +35,7 @@ def cargar_catalogos_excel():
             opt_turno or ["MATUTINO", "VESPERTINO", "NOCTURNO", "JORNADA ACUMULADA"]
         )
     except Exception as e:
-        # Respaldo en caso de que no se encuentre el archivo en assets/
+        # Respaldo por si ocurre algún inconveniente con el archivo
         return (
             ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
             ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
@@ -278,195 +273,4 @@ if dh == "SÍ":
         trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key="20n_trabaja_cmn")
 
     if trabaja_cmn == "SÍ":
-        num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trabajador")
-
-# --- 2. IDENTIFICACIÓN DEL PACIENTE ---
-st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
-col_n1, col_n2, col_n3 = st.columns(3)
-with col_n1:
-    paterno = st.text_input("Apellido Paterno *", key="20n_paterno")
-with col_n2:
-    materno = st.text_input("Apellido Materno *", key="20n_materno")
-with col_n3:
-    nombres = st.text_input("Nombre(s) *", key="20n_nombres")
-
-col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1:
-    fecha_nacimiento = st.date_input(
-        "Fecha de Nacimiento *",
-        value=None,
-        min_value=datetime.date(1900, 1, 1),
-        max_value=datetime.date.today(),
-        format="DD/MM/YYYY",
-        key="20n_fnac",
-    )
-with col_fn2:
-    sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="20n_sexo")
-with col_fn3:
-    edo_nac = st.selectbox("Estado de Nacimiento (Edo Nac) *", options=estados_mexico, key="20n_edonac")
-
-lista_municipios = municipios_por_estado.get(edo_nac, ["OTRO (ESPECIFIQUE)"])
-if edo_nac in municipios_por_estado:
-    muni_nac = st.selectbox("Municipio / Alcaldía de Nacimiento (Muni Nac) *", options=lista_municipios, key="20n_muninac_sel")
-else:
-    muni_nac = st.text_input("Municipio / Alcaldía de Nacimiento (Muni Nac) *", key="20n_muninac_txt")
-
-embarazo = "NO"
-if sexo == "MUJER":
-    embarazo = st.radio("¿Embarazo?", options=["NO", "SÍ"], horizontal=True, key="20n_embarazo")
-
-calc_anos, calc_meses, calc_dias = calcular_edad_detallada(fecha_nacimiento, val_fecha_app) if fecha_nacimiento else (0, 0, 0)
-st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses} Meses</div>', unsafe_allow_html=True)
-
-edad_total_meses = (calc_anos * 12) + calc_meses
-es_pediatrico_59m = 6 <= edad_total_meses <= 59
-
-digitos_faltantes = st.text_input("Homoclave y Dígito Verificador (Opcional - CURP)", max_chars=2, key="20n_digitos")
-curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, edo_nac, digitos_faltantes)
-curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "COMPLETA" not in curp_algoritmica else curp_algoritmica
-st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
-
-rfc_generado = generar_rfc_algoritmico(paterno, materno, nombres, fecha_nacimiento)
-rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado, key="20n_rfc")
-st.markdown(f'<div class="card-rfc">📋 RFC: {rfc_final}</div>', unsafe_allow_html=True)
-
-# --- 3. DOMICILIO Y AFILIACIÓN ---
-st.markdown('<div class="section-title">3. Domicilio y Afiliación</div>', unsafe_allow_html=True)
-estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="20n_estres")
-col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-with col_dom1:
-    calle = st.text_input("Calle *", key="20n_calle")
-with col_dom2:
-    numero = st.text_input("No. (Ext / Int) *", key="20n_num")
-with col_dom3:
-    colonia = st.text_input("Colonia *", key="20n_col")
-
-# --- 4. OCUPACIÓN Y ADSCRIPCIÓN INSTITUCIONAL ---
-st.markdown('<div class="section-title">4. Ocupación y Adscripción Institucional</div>', unsafe_allow_html=True)
-if es_pediatrico_59m:
-    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'No aplica (Población Pediátrica)'.")
-    ocupacion = "NO APLICA (POBLACIÓN PEDIÁTRICA)"
-    personal_salud_val = "NO"
-else:
-    personal_salud_opc = st.selectbox(
-        "Seleccione su Ocupación *",
-        options=[
-            "SELECCIONE UNA OPCIÓN",
-            "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
-            "ESTUDIANTE", "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "OTRO",
-        ],
-        key="20n_ocupacion",
-    )
-    ocupacion = personal_salud_opc
-    personal_salud_val = "SÍ" if "PERSONAL DE SALUD" in personal_salud_opc else "NO"
-
-col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
-with col_lab1:
-    categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="20n_categoria")
-with col_lab2:
-    servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="20n_servicio")
-with col_lab3:
-    coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="20n_coordinacion")
-with col_lab4:
-    turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
-
-turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
-turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
-
-# --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
-st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
-col_r1, col_r2 = st.columns(2)
-with col_r1:
-    vih = st.checkbox("VIH / SIDA", key="20n_vih")
-    diabetes = st.checkbox("DIABETES MELLITUS", key="20n_diabetes")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="20n_obesidad")
-    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="20n_cardiopatias")
-    discapacidades = st.checkbox("DISCAPACIDADES", key="20n_discapacidad")
-with col_r2:
-    cancer = st.checkbox("CÁNCER", key="20n_cancer")
-    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="20n_insufren")
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="20n_hipertension")
-    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="20n_fibrosis")
-
-# --- 6. ANTECEDENTE VACUNAL Y VACUNA DE INTERÉS ---
-st.markdown('<div class="section-title">6. Antecedente Vacunal y Vacuna de Interés</div>', unsafe_allow_html=True)
-col_av1, col_av2 = st.columns(2)
-with col_av1:
-    antecedente_covid = st.radio("¿Dosis previa COVID-19?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key="20n_ant_cov")
-with col_av2:
-    antecedente_influenza = st.radio("¿Dosis previa Influenza?", options=["SÍ", "NO", "LO DESCONOCE"], horizontal=True, key="20n_ant_inf")
-
-vacuna_interes = st.radio("Vacuna de interés:", options=["AMBAS", "COVID-19", "INFLUENZA"], horizontal=True, key="20n_vacuna")
-
-st.markdown("---")
-if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
-    if not fecha_nacimiento:
-        st.error("Seleccione la fecha de nacimiento.")
-    elif not paterno or not nombres:
-        st.error("Complete Apellido Paterno y Nombre(s).")
-    elif dh == "SELECCIONE":
-        st.error("Indique si cuenta con derechohabiencia.")
-    elif dh == "SÍ" and tipo_dh == "SELECCIONE":
-        st.error("Seleccione el Tipo de DH.")
-    elif sexo == "SELECCIONE UNA OPCIÓN":
-        st.error("Seleccione el Sexo.")
-    else:
-        try:
-            fn_dia = str(fecha_nacimiento.day).zfill(2)
-            fn_mes = str(fecha_nacimiento.month).zfill(2)
-            fn_ano = str(fecha_nacimiento.year)
-
-            comorbilidades_dict = {
-                "vih": vih, "diabetes": diabetes, "obesidad": obesidad,
-                "cardiopatias": cardiopatias, "cancer": cancer,
-                "insuficiencia_renal": insuficiencia_renal,
-                "discapacidades": discapacidades,
-                "fibrosis_quistica": fibrosis_quistica,
-                "hipertension": hipertension
-            }
-
-            datos_20n = {
-                "rfc": rfc_final,
-                "dh": dh,
-                "tipo_dh": tipo_dh,
-                "trabaja_cmn": trabaja_cmn,
-                "num_trabajador": num_trabajador,
-                "personal_salud": personal_salud_val,
-                "categoria": categoria,
-                "servicio": servicio,
-                "coordinacion": coordinacion,
-                "turno": turno_val,
-                "nombre": nombres.upper(),
-                "paterno": paterno.upper(),
-                "materno": materno.upper() if materno else "",
-                "edo_nac": edo_nac,
-                "muni_nac": muni_nac.upper() if muni_nac else "",
-                "fn_dia": fn_dia,
-                "fn_mes": fn_mes,
-                "fn_ano": fn_ano,
-                "anos": calc_anos,
-                "meses": calc_meses,
-                "sexo": sexo,
-                "embarazo": embarazo,
-                "curp": curp_con_nacimiento,
-                "calle": calle.upper(),
-                "numero": numero.upper(),
-                "colonia": colonia.upper(),
-                "vacuna_interes": vacuna_interes,
-                "comorbilidades": comorbilidades_dict,
-                "tipo_jornada": st.session_state.tipo_jornada,
-                "val_fecha_app": val_fecha_app
-            }
-
-            folio_asignado = guardar_registro_censal_20_nov(datos_20n)
-
-            st.session_state.ultimo_paciente_20n = {
-                "nombre_completo": f"{paterno.upper()} {materno.upper() if materno else ''} {nombres.upper()}".strip(),
-                "folio": folio_asignado,
-                "rfc": rfc_final,
-            }
-            st.rerun()
-
-        except Exception as e:
-            st.error("⚠️ Error al registrar en la hoja de Google Sheets del CMN 20 de Noviembre:")
-            st.exception(e)
+        num_trabajador = st.text_input("Número de Trabajador", key="20n_num_trab
