@@ -16,7 +16,7 @@ if "aviso_aceptado" not in st.session_state:
 @st.dialog("🛡️ Aviso de Privacidad - Registro de Jornadas de Vacunación", width="large")
 def mostrar_modal_aviso():
     st.markdown("**Responsable del tratamiento:**")
-    st.markdown("Las instituciones del Sistema Nacional de Salud participantes en el programa de jornadas de vacunación son las responsables de recabar, tratar y proteger los datos personales proporcionados, los cuales serán resguardados bajo estrictas medidas de seguridad y confidencialidad.")
+    st.markdown("Las instituciones del Sistema Nacional de Salud participantes en el programa de jornadas de vacunación son las responsables de recabar, tratar y proteger los datos personales proporcionados, los cuales serão resguardados bajo estrictas medidas de seguridad y confidencialidad.")
     
     st.markdown("**Finalidades del tratamiento de datos:**")
     st.markdown("Los datos personales y clínicos recabados (identificación, datos sociodemográficos y antecedentes de salud para la inmunización) serán utilizados exclusivamente para:")
@@ -265,7 +265,6 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     yy = str(fecha_nac.year)[-2:]
     mm = str(fecha_nac.month).zfill(2)
     dd = str(fecha_nac.day).zfill(2)
-    # Sin homoclave (solo 4 letras y 6 dígitos de fecha)
     return f"{c1}{c2}{c3}{c4}{yy}{mm}{dd}"
 
 
@@ -364,7 +363,6 @@ curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SEL
 st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
 
 rfc_generado = generar_rfc_algoritmico(paterno, materno, nombres, fecha_nacimiento)
-rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado if "FALTAN" not in rfc_generado else "", key="20n_rfc")
 st.markdown(f'<div class="card-rfc">📋 RFC Generado: {rfc_generado}</div>', unsafe_allow_html=True)
 
 # --- 3. DOMICILIO Y AFILIACIÓN ---
@@ -463,7 +461,7 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
             }
 
             datos_20n = {
-                "rfc": rfc_final,
+                "rfc": rfc_generado,
                 "dh": dh,
                 "tipo_dh": tipo_dh,
                 "trabaja_cmn": trabaja_cmn,
@@ -500,7 +498,7 @@ if st.button("Registrar en CMN 20 de Noviembre", use_container_width=True):
             st.session_state.ultimo_paciente_20n = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper() if materno else ''} {nombres.upper()}".strip(),
                 "folio": folio_asignado,
-                "rfc": rfc_final,
+                "rfc": rfc_generado,
             }
             st.rerun()
 
