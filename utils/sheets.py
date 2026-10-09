@@ -91,18 +91,17 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
-        # Mapeo exacto de cabecera con tus coordenadas específicas (D7, M7, T7, AB7, D8, D9, M9, S9, AB9, E10)
         datos_a_actualizar = [
-            {"range": "D7", "values": [["CDMX"]]},                  # Entidad Federativa (7D)
-            {"range": "M7", "values": [["ISSSTE"]]},                 # Institución (7M)
-            {"range": "T7", "values": [["Delegación Sur"]]},       # Jurisdicción / Delegación (7T)
-            {"range": "AB7", "values": [["CDMX"]]},                # Municipio (7AB)
-            {"range": "D8", "values": [["CDMX"]]},                  # Localidad (8D)
-            {"range": "D9", "values": [[nombre_unidad_completo]]},  # Unidad de Salud (9D)
-            {"range": "M9", "values": [[""]]},                      # AGEB (blanco) (9M)
-            {"range": "S9", "values": [[""]]},                      # Sector (blanco) (9S)
-            {"range": "AB9", "values": [[fecha_app_str]]},          # Fecha de aplicación (9AB)
-            {"range": "E10", "values": [[responsable_brigada]]},    # Nombre del responsable de vacunación (10E)
+            {"range": "D7", "values": [["CDMX"]]},
+            {"range": "M7", "values": [["ISSSTE"]]},
+            {"range": "T7", "values": [["Delegación Sur"]]},
+            {"range": "AB7", "values": [["CDMX"]]},
+            {"range": "D8", "values": [["CDMX"]]},
+            {"range": "D9", "values": [[nombre_unidad_completo]]},
+            {"range": "M9", "values": [[""]]},
+            {"range": "S9", "values": [[""]]},
+            {"range": "AB9", "values": [[fecha_app_str]]},
+            {"range": "E10", "values": [[responsable_brigada]]},
             
             {
                 "range": f"B{f_actual}:B{f_siguiente}",
@@ -164,45 +163,6 @@ def guardar_registro_censal(
             },
         ]
 
-        if grupo_sugerido == "6 A 59 MESES":
-            datos_a_actualizar.append(
-                {"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-        elif grupo_sugerido == "60 Y MÁS":
-            datos_a_actualizar.append(
-                {"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-
-        if planes_o_embarazo == "SÍ":
-            datos_a_actualizar.append(
-                {"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-        if ocupacion == "PERSONAL DE SALUD":
-            datos_a_actualizar.append(
-                {"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]}
-            )
-
-        mapa_comorbilidades = {
-            "vih": "T",
-            "diabetes": "U",
-            "obesidad": "V",
-            "cardiopatias": "W",
-            "cancer": "Y",
-            "insuficiencia_renal": "AA",
-            "discapacidades": "AC",
-            "fibrosis_quistica": "AD",
-            "hipertension": "AE",
-        }
-
-        for key, col in mapa_comorbilidades.items():
-            if comorbilidades.get(key, False):
-                datos_a_actualizar.append(
-                    {
-                        "range": f"{col}{f_actual}:{col}{f_siguiente}",
-                        "values": [["X"], ["X"]],
-                    }
-                )
-
         worksheet.batch_update(datos_a_actualizar)
         return folio_asignado
 
@@ -212,7 +172,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja de Google Sheets duplicada correspondiente (Hoja 1 / NOMINAL).
+    en la hoja de Google Sheets correspondiente siguiendo la nomenclatura oficial.
     """
     try:
         scope = GOOGLE_SCOPES
@@ -263,6 +223,11 @@ def guardar_registro_censal_20_nov(datos_paciente):
             fila_inicio_destino = max(2, len(columna_a) + 1)
 
         siguiente_num = fila_inicio_destino - 1
+
+        # Generación de nomenclatura oficial de folio (Ej: 261009-I20N-001)
+        aammmdd = val_fecha_app.strftime("%y%m%d")
+        siglas_unidad = st.session_state.get("siglas_unidad", "20N")
+        folio_asignado = f"{aammmdd}-{tipo_jornada}{siglas_unidad}-{str(siguiente_num).zfill(3)}"
 
         rfc = datos_paciente["rfc"]
         dh = datos_paciente["dh"]
@@ -315,7 +280,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         ]
 
         worksheet.batch_update(datos_a_actualizar)
-        return siguiente_num
+        return folio_asignado
 
     except Exception as e:
         raise e
