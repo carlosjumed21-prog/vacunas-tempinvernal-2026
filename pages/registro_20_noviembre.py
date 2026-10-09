@@ -5,57 +5,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal_20_nov
+from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- CONTROL DE SESIÓN PARA EL AVISO DE PRIVACIDAD ---
-if "aviso_aceptado" not in st.session_state:
-    st.session_state.aviso_aceptado = False
-
-# Definimos el modal nativo con el texto completo del Aviso de Privacidad
-@st.dialog("🛡️ Aviso de Privacidad - Registro de Jornadas de Vacunación", width="large")
-def mostrar_modal_aviso():
-    st.markdown(
-        """
-        <div style="text-align: justify; font-size: 0.95rem;">
-            <p><b>Responsable del tratamiento:</b><br>
-            Las instituciones del Sistema Nacional de Salud participantes en el programa de jornadas de vacunación son las responsables de recabar, tratar y proteger los datos personales proporcionados, los cuales serán resguardados bajo estrictas medidas de seguridad y confidencialidad.</p>
-            
-            <p><b>Finalidades del tratamiento de datos:</b><br>
-            Los datos personales y clínicos recabados (identificación, datos sociodemográficos y antecedentes de salud para la inmunización) serán utilizados exclusivamente para:</p>
-            <ul>
-                <li>El registro nominal de aplicación de biológicos y control operativo de la campaña.</li>
-                <li>Fines estadísticos, análisis epidemiológico, seguimiento de coberturas y evaluación de metas institucionales.</li>
-                <li>La notificación y vigilancia de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización (ESAVI), en estricto cumplimiento con la normatividad vigente.</li>
-            </ul>
-            
-            <p><b>Transferencia y confidencialidad estadística:</b><br>
-            La información podrá ser integrada en informes estadísticos y sistemas oficiales de seguimiento (tales como plataformas institucionales de la Secretaría de Salud y CENSIA) garantizando en todo momento la disociación de los datos personales para proteger la identidad de los usuarios.</p>
-            
-            <p><b>Ejercicio de Derechos ARCO:</b><br>
-            Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición directamente ante la unidad o instancia responsable del programa.</p>
-            
-            <p style="text-align: center; font-weight: bold; color: #1e5b4f; margin-top: 15px;">
-                Al hacer clic en "Acepto y continuar", confirmas que has leído este aviso y otorgas tu consentimiento para el tratamiento de tus datos bajo los fines descritos.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        if st.button("❌ Rechazar / Salir", use_container_width=True):
-            st.error("Has rechazado el aviso de privacidad.")
-            st.stop()
-    with col_m2:
-        if st.button("✅ Acepto y continuar", use_container_width=True):
-            st.session_state.aviso_aceptado = True
-            st.rerun()
-
-# Si no ha aceptado, lanza el modal automáticamente al abrir
-if not st.session_state.aviso_aceptado:
-    mostrar_modal_aviso()
+# --- MOSTRAR AVISO DE PRIVACIDAD OBLIGATORIO AL ENTRAR ---
+mostrar_aviso_privacidad_si_necesario()
 
 # --- CARGA DINÁMICA DE CATÁLOGOS DESDE LA PESTAÑA 'LISTAS' ---
 @st.cache_data(show_spinner=False)
