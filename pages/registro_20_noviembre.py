@@ -358,11 +358,10 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 es_pediatrico_59m = 6 <= edad_total_meses <= 59
 
 digitos_faltantes = st.text_input("Homoclave y Dígito Verificador (Opcional - CURP)", max_chars=2, key="20n_digitos")
-curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, est_nac, digitos_faltantes)
+curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, edo_nac, digitos_faltantes)
 curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "FALTAN" not in curp_algoritmica else curp_algoritmica
 st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
 
-# Cálculo automático del RFC idéntico al CURP
 rfc_generado = generar_rfc_algoritmico(paterno, materno, nombres, fecha_nacimiento)
 rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado if "FALTAN" not in rfc_generado else "", key="20n_rfc")
 st.markdown(f'<div class="card-rfc">📋 RFC Generado: {rfc_generado}</div>', unsafe_allow_html=True)
