@@ -265,7 +265,8 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     yy = str(fecha_nac.year)[-2:]
     mm = str(fecha_nac.month).zfill(2)
     dd = str(fecha_nac.day).zfill(2)
-    return f"{c1}{c2}{c3}{c4}{yy}{mm}{dd}XXX"
+    # Sin homoclave (solo 4 letras y 6 dígitos de fecha)
+    return f"{c1}{c2}{c3}{c4}{yy}{mm}{dd}"
 
 
 estados_mexico = list(estados_curp.keys())
