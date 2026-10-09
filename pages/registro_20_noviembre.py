@@ -5,12 +5,47 @@ import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal_20_nov
-from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- MOSTRAR AVISO DE PRIVACIDAD OBLIGATORIO AL ENTRAR ---
-mostrar_aviso_privacidad_si_necesario()
+# --- CONTROL DE SESIÓN PARA EL AVISO DE PRIVACIDAD ---
+if "aviso_aceptado" not in st.session_state:
+    st.session_state.aviso_aceptado = False
+
+# Definimos el modal nativo con formato Markdown limpio y profesional
+@st.dialog("🛡️ Aviso de Privacidad - Registro de Jornadas de Vacunación", width="large")
+def mostrar_modal_aviso():
+    st.markdown("**Responsable del tratamiento:**")
+    st.markdown("Las instituciones del Sistema Nacional de Salud participantes en el programa de jornadas de vacunación son las responsables de recabar, tratar y proteger los datos personales proporcionados, los cuales serán resguardados bajo estrictas medidas de seguridad y confidencialidad.")
+    
+    st.markdown("**Finalidades del tratamiento de datos:**")
+    st.markdown("Los datos personales y clínicos recabados (identificación, datos sociodemográficos y antecedentes de salud para la inmunización) serán utilizados exclusivamente para:")
+    st.markdown("- El registro nominal de aplicación de biológicos y control operativo de la campaña.")
+    st.markdown("- Fines estadísticos, análisis epidemiológico, seguimiento de coberturas y evaluación de metas institucionales.")
+    st.markdown("- La notificación y vigilancia de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización (ESAVI), en estricto cumplimiento con la normatividad vigente.")
+    
+    st.markdown("**Transferencia y confidencialidad estadística:**")
+    st.markdown("La información podrá ser integrada en informes estadísticos y sistemas oficiales de seguimiento (tales como plataformas institucionales de la Secretaría de Salud y CENSIA) garantizando en todo momento la disociación de los datos personales para proteger la identidad de los usuarios.")
+    
+    st.markdown("**Ejercicio de Derechos ARCO:**")
+    st.markdown("Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición directamente ante la unidad o instancia responsable del programa.")
+    
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; font-weight: bold; color: #1e5b4f;'>Al hacer clic en \"Acepto y continuar\", confirmas que has leído este aviso y otorgas tu consentimiento para el tratamiento de tus datos bajo los fines descritos.</p>", unsafe_allow_html=True)
+    
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        if st.button("❌ Rechazar / Salir", use_container_width=True):
+            st.error("Has rechazado el aviso de privacidad.")
+            st.stop()
+    with col_m2:
+        if st.button("✅ Acepto y continuar", use_container_width=True):
+            st.session_state.aviso_aceptado = True
+            st.rerun()
+
+# Si no ha aceptado, lanza el modal automáticamente al abrir
+if not st.session_state.aviso_aceptado:
+    mostrar_modal_aviso()
 
 # --- CARGA DINÁMICA DE CATÁLOGOS DESDE LA PESTAÑA 'LISTAS' ---
 @st.cache_data(show_spinner=False)
@@ -184,7 +219,7 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     m = limpiar_texto(materno) if materno else ""
     n = limpiar_texto(nombres)
     if not p or not n or not fecha_nac:
-        return "COMPLETA DATOS Y FECHA"
+        return "FALTAN DATOS"
     nombres_lista = n.split()
     primer_nombre = nombres_lista[0] if nombres_lista else "X"
     if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
@@ -213,7 +248,7 @@ def generar_rfc_algoritmico(paterno, materno, nombres, fecha_nac):
     m = limpiar_texto(materno) if materno else ""
     n = limpiar_texto(nombres)
     if not p or not n or not fecha_nac:
-        return "COMPLETA DATOS Y FECHA"
+        return "FALTAN DATOS"
     nombres_lista = n.split()
     primer_nombre = nombres_lista[0] if nombres_lista else "X"
     if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
@@ -323,13 +358,14 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 es_pediatrico_59m = 6 <= edad_total_meses <= 59
 
 digitos_faltantes = st.text_input("Homoclave y Dígito Verificador (Opcional - CURP)", max_chars=2, key="20n_digitos")
-curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, edo_nac, digitos_faltantes)
-curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "COMPLETA" not in curp_algoritmica else curp_algoritmica
+curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, est_nac, digitos_faltantes)
+curp_con_nacimiento = f"{curp_algoritmica}/{edo_nac.upper()}" if edo_nac != "SELECCIONE UN ESTADO" and "FALTAN" not in curp_algoritmica else curp_algoritmica
 st.markdown(f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
 
+# Cálculo automático del RFC idéntico al CURP
 rfc_generado = generar_rfc_algoritmico(paterno, materno, nombres, fecha_nacimiento)
-rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado, key="20n_rfc")
-st.markdown(f'<div class="card-rfc">📋 RFC: {rfc_final}</div>', unsafe_allow_html=True)
+rfc_final = st.text_input("RFC (Calculado / Editable) *", value=rfc_generado if "FALTAN" not in rfc_generado else "", key="20n_rfc")
+st.markdown(f'<div class="card-rfc">📋 RFC Generado: {rfc_generado}</div>', unsafe_allow_html=True)
 
 # --- 3. DOMICILIO Y AFILIACIÓN ---
 st.markdown('<div class="section-title">3. Domicilio y Afiliación</div>', unsafe_allow_html=True)
