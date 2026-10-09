@@ -91,17 +91,16 @@ def guardar_registro_censal(
         num_str = numero.upper()
         col_str = colonia.upper()
 
+        # Mapeo actualizado de cabecera para unidades generales (D6, M6, U6, AC6, D7, D8, AC8, E10)
         datos_a_actualizar = [
-            {"range": "D7", "values": [["CDMX"]]},
-            {"range": "M7", "values": [["ISSSTE"]]},
-            {"range": "T7", "values": [["Delegación Sur"]]},
-            {"range": "AB7", "values": [["CDMX"]]},
-            {"range": "D8", "values": [["CDMX"]]},
-            {"range": "D9", "values": [[nombre_unidad_completo]]},
-            {"range": "M9", "values": [[""]]},
-            {"range": "S9", "values": [[""]]},
-            {"range": "AB9", "values": [[fecha_app_str]]},
-            {"range": "E10", "values": [[responsable_brigada]]},
+            {"range": "D6", "values": [["CDMX"]]},                  # Entidad Federativa
+            {"range": "M6", "values": [["ISSSTE"]]},                 # Institución
+            {"range": "U6", "values": [["Delegación Sur"]]},       # Jurisdicción / Delegación
+            {"range": "AC6", "values": [["CDMX"]]},                # Municipio
+            {"range": "D7", "values": [["CDMX"]]},                  # Localidad
+            {"range": "D8", "values": [[nombre_unidad_completo]]},  # Unidad de Salud
+            {"range": "AC8", "values": [[fecha_app_str]]},          # Fecha de aplicación
+            {"range": "E10", "values": [[responsable_brigada]]},    # Responsable de vacunación
             
             {
                 "range": f"B{f_actual}:B{f_siguiente}",
