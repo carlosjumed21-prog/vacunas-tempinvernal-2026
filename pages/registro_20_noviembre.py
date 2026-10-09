@@ -8,25 +8,45 @@ from utils.sheets import guardar_registro_censal_20_nov
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- CARGA DE CATÁLOGOS DESDE EXCEL ---
-@st.cache_data
+# --- CARGA ROBUSTA DE CATÁLOGOS DESDE EXCEL ---
+@st.cache_data(show_spinner=False)
 def cargar_catalogos_excel():
     try:
-        df = pd.read_excel("assets/lista vac.xlsx")
-        tipos_dh = df.iloc[:, 0].dropna().astype(str).str.strip().unique().tolist()
-        servicios = df.iloc[:, 1].dropna().astype(str).str.strip().unique().tolist()
-        coordinaciones = df.iloc[:, 2].dropna().astype(str).str.strip().unique().tolist()
-        categorias = df.iloc[:, 3].dropna().astype(str).str.strip().unique().tolist()
-        turnos = df.iloc[:, 4].dropna().astype(str).str.strip().unique().tolist()
-        return tipos_dh, servicios, coordinaciones, categorias, turnos
+        # Lee el archivo Excel asegurando lectura de texto
+        df = pd.read_excel("assets/lista vac.xlsx", dtype=str)
+        
+        def limpiar_columna(serie):
+            if serie is not None and not serie.empty:
+                # Elimina nulos, espacios en blanco y convierte a mayúsculas
+                return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() != "NAN"])
+            return []
+
+        # Columna A: Tipo de DH (índice 0)
+        opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []
+        # Columna B: Servicio (índice 1)
+        opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []
+        # Columna C: Coordinación (índice 2)
+        opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else []
+        # Columna D: Categoría (índice 3)
+        opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []
+        # Columna E: Turno (índice 4)
+        opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else []
+
+        return (
+            opt_dh or ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
+            opt_serv or ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
+            opt_coord or ["DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"],
+            opt_cat or ["MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"],
+            opt_turno or ["MATUTINO", "VESPERTINO", "NOCTURNO", "JORNADA ACUMULADA"]
+        )
     except Exception as e:
-        # Valores de respaldo por si el archivo no existe o hay error de lectura
+        # Respaldo en caso de que no se encuentre el archivo en assets/
         return (
             ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
             ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
             ["DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"],
             ["MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"],
-            ["Matutino", "Vespertino", "Nocturno", "Jornada Acumulada"]
+            ["MATUTINO", "VESPERTINO", "NOCTURNO", "JORNADA ACUMULADA"]
         )
 
 opt_tipo_dh, opt_servicio, opt_coordinacion, opt_categoria, opt_turno = cargar_catalogos_excel()
@@ -69,7 +89,6 @@ st.markdown(
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
         .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-rfc { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
-        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
     </style>
@@ -351,8 +370,8 @@ with col_lab3:
 with col_lab4:
     turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="20n_turno")
 
-turno_map = {"Matutino": "M", "Vespertino": "V", "Nocturno": "N", "Jornada Acumulada": "JA"}
-turno_val = turno_map.get(turno_full, turno_full[:1] if turno_full != "SELECCIONE" else "")
+turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
+turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
 
 # --- 5. GRUPOS DE RIESGO Y COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
