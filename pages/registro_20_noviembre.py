@@ -5,8 +5,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal_20_nov
+from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
+
+# --- MOSTRAR AVISO DE PRIVACIDAD OBLIGATORIO AL ENTRAR ---
+mostrar_aviso_privacidad_si_necesario()
 
 # --- CARGA DINÁMICA DE CATÁLOGOS DESDE LA PESTAÑA 'LISTAS' ---
 @st.cache_data(show_spinner=False)
@@ -19,7 +23,6 @@ def cargar_catalogos_excel():
                 return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() not in ["NAN", "NAT", ""]])
             return []
 
-        # Mapeo exacto por posición de columna según tu archivo:
         opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []     # Columna A: TIPO DE DERECHOHABIENCIA
         opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []  # Columna B: SERVICIO
         opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else [] # Columna C: COORDINACIONES
