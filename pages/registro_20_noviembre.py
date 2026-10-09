@@ -8,7 +8,7 @@ from utils.sheets import guardar_registro_censal_20_nov
 
 aplicar_configuracion_global("Censo Nominal - 20 de Noviembre", "💉")
 
-# --- CARGA DINÁMICA DE CATÁLOGOS DESDE EL EXCEL ---
+# --- CARGA DINÁMICA DE CATÁLOGOS DESDE LA PESTAÑA 'LISTAS' ---
 @st.cache_data(show_spinner=False)
 def cargar_catalogos_excel():
     try:
@@ -19,11 +19,12 @@ def cargar_catalogos_excel():
                 return sorted([str(x).strip().upper() for x in serie.dropna().unique() if str(x).strip() and str(x).strip().upper() not in ["NAN", "NAT", ""]])
             return []
 
-        opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []
-        opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []
-        opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else []
-        opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []
-        opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else []
+        # Mapeo exacto por posición de columna según tu archivo:
+        opt_dh = limpiar_columna(df.iloc[:, 0]) if df.shape[1] > 0 else []     # Columna A: TIPO DE DERECHOHABIENCIA
+        opt_serv = limpiar_columna(df.iloc[:, 1]) if df.shape[1] > 1 else []  # Columna B: SERVICIO
+        opt_coord = limpiar_columna(df.iloc[:, 2]) if df.shape[1] > 2 else [] # Columna C: COORDINACIONES
+        opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []   # Columna D: CATEGORIA
+        opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else [] # Columna E: TURNO
 
         return opt_dh, opt_serv, opt_coord, opt_cat, opt_turno
     except Exception as e:
