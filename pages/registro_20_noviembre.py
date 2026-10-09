@@ -26,9 +26,21 @@ def cargar_catalogos_excel():
         opt_cat = limpiar_columna(df.iloc[:, 3]) if df.shape[1] > 3 else []   # Columna D: CATEGORIA
         opt_turno = limpiar_columna(df.iloc[:, 4]) if df.shape[1] > 4 else [] # Columna E: TURNO
 
-        return opt_dh, opt_serv, opt_coord, opt_cat, opt_turno
+        return (
+            opt_dh or ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
+            opt_serv or ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
+            opt_coord or ["DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"],
+            opt_cat or ["MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"],
+            opt_turno or ["MATUTINO", "VESPERTINO", "NOCTURNO", "JORNADA ACUMULADA"]
+        )
     except Exception as e:
-        return [], [], [], [], []
+        return (
+            ["TRABAJADOR ACTIVO", "JUBILADO / PENSIONADO", "FAMILIAR", "OTRO"],
+            ["EPIDEMIOLOGÍA", "URGENCIAS", "PEDIATRÍA", "MEDICINA INTERNA", "CIRUGÍA", "OTRO"],
+            ["DIRECCIÓN MÉDICA", "SUBDIRECCIÓN", "ENFERMERÍA", "OTRO"],
+            ["MÉDICO", "ENFERMERA", "ADMINISTRATIVO", "OTRO"],
+            ["MATUTINO", "VESPERTINO", "NOCTURNO", "JORNADA ACUMULADA"]
+        )
 
 opt_tipo_dh, opt_servicio, opt_coordinacion, opt_categoria, opt_turno = cargar_catalogos_excel()
 
