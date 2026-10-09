@@ -363,18 +363,19 @@ else:
                                         new_sheet_name=nombre_nueva_hoja
                                     )
                                 except:
-                                    nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=26)
+                                    nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=30)
 
                                 hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
                                 try:
-                                    hoja_activa.update_acell("D6", "CDMX")
-                                    hoja_activa.update_acell("M6", "ISSSTE")
-                                    hoja_activa.update_acell("U6", "Delegación Sur")
-                                    hoja_activa.update_acell("AC6", "CDMX")
-                                    hoja_activa.update_acell("D7", "CDMX")
-                                    hoja_activa.update_acell("D8", unidad_sel)
-                                    hoja_activa.update_acell("AC8", fecha_formato_oficial)
-                                    hoja_activa.update_acell("E10", j_conf["responsable"])
+                                    # Mapeo actualizado para las otras unidades médicas en el administrador
+                                    hoja_activa.update_acell("D6", "CDMX")                  # Entidad Federativa
+                                    hoja_activa.update_acell("M6", "ISSSTE")                 # Institución
+                                    hoja_activa.update_acell("U6", "Delegación Sur")         # Jurisdicción / Delegación
+                                    hoja_activa.update_acell("AC6", "CDMX")                # Municipio
+                                    hoja_activa.update_acell("D7", "CDMX")                   # Localidad
+                                    hoja_activa.update_acell("D8", unidad_sel)               # Unidad de Salud
+                                    hoja_activa.update_acell("AC8", fecha_formato_oficial)   # Fecha de aplicación
+                                    hoja_activa.update_acell("E10", j_conf["responsable"])     # Responsable de vacunación
                                 except:
                                     pass
 
