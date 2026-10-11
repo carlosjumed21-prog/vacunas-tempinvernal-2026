@@ -192,6 +192,7 @@ estados_mexico = [
     "MORELOS",
     "NAYARIT",
     "NUEVO LEÓN",
+    "NUEVO LEÓN",
     "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
@@ -875,7 +876,6 @@ st.markdown(
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-# Forzar dinámicamente el estado en st.session_state para corregir al cambiar a Hombre u otras opciones
 st.session_state.chk_personas_embarazadas = es_embarazada_activa
 st.session_state.chk_personal_salud_riesgo = es_personal_salud_ocupacion
 
@@ -899,7 +899,7 @@ with col_r1:
 
 with col_r2:
     cancer = st.checkbox("CÁNCER", key="chk_cancer")
-    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS CRÓNICOS QUE REQUIERAN CONSUMO PROLONGADO DE SALICILATOS*", key="chk_cardiacas_congenitas")
+    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACas O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS CRÓNICOS QUE REQUIERAN CONSUMO PROLONGADO DE SALICILATOS*", key="chk_cardiacas_congenitas")
     insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="chk_insufren")
     inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA POR ENFERMEDAD O TRATAMIENTO, EXCEPTO VIH/sida", key="chk_inmunosupresion")
     discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
