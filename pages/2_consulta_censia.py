@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML para el calendario compacto a la derecha
+                        # Componente HTML para el calendario compacto estático alineado arriba
                         inline_calendar_html = """
                         <!DOCTYPE html>
                         <html>
@@ -661,20 +661,20 @@ else:
                                 background: #ffffff;
                                 border: 2px solid #1e5b4f;
                                 border-radius: 8px;
-                                padding: 6px;
-                                width: 250px;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                                padding: 5px;
+                                width: 240px;
+                                box-shadow: 0 2px 6px rgba(0,0,0,0.05);
                             }
                             .cal-header {
                                 display: flex;
                                 justify-content: space-between;
                                 align-items: center;
-                                margin-bottom: 4px;
+                                margin-bottom: 3px;
                                 gap: 2px;
                             }
                             .cal-header select, .cal-header button {
                                 padding: 2px 4px;
-                                font-size: 0.75rem;
+                                font-size: 0.72rem;
                                 border: 1px solid #a57f2c;
                                 border-radius: 4px;
                                 background: #fff;
@@ -689,14 +689,14 @@ else:
                                 gap: 1px;
                             }
                             .cal-day-name {
-                                font-size: 0.65rem;
+                                font-size: 0.6rem;
                                 font-weight: bold;
                                 color: #611232;
                                 padding-bottom: 2px;
                             }
                             .cal-day {
                                 padding: 3px 0;
-                                font-size: 0.75rem;
+                                font-size: 0.72rem;
                                 border-radius: 3px;
                                 cursor: pointer;
                                 color: #161a1d;
@@ -795,66 +795,66 @@ else:
 
                         with st.form("form_aplicacion_lotes"):
                             st.markdown("##### 💉 INFLUENZA")
-                            # Fila 1: Dosis horizontales
-                            c_inf_d1, c_inf_d2, c_inf_d3, _ = st.columns([1, 1, 1, 1.5])
-                            with c_inf_d1:
-                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
-                            with c_inf_d2:
-                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
-                            with c_inf_d3:
-                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
+                            c_inf_izq, c_inf_der = st.columns([2.2, 1.5])
+                            with c_inf_izq:
+                                c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
+                                with c_inf_d1:
+                                    inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
+                                with c_inf_d2:
+                                    inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
+                                with c_inf_d3:
+                                    inf_anual = st.checkbox("Anual", key="chk_inf_anual")
 
-                            # Fila 2: Lote compacto, Caducidad compacta y Calendario a ladito
-                            c_inf_l, c_inf_c, c_inf_cal = st.columns([1.1, 1.1, 1.6])
-                            with c_inf_l:
-                                lote_inf_input = st.text_input(
-                                    "Lote Influenza",
-                                    value=st.session_state.lote_influenza_memoria,
-                                    placeholder="Ej. A1234",
-                                    key="lote_inf"
-                                )
-                            with c_inf_c:
-                                cad_inf_input = st.text_input(
-                                    "Caducidad Influenza",
-                                    value=st.session_state.cad_inf_str,
-                                    placeholder="DD/MM/AAAA",
-                                    key="cad_inf_txt"
-                                )
-                            with c_inf_cal:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario:</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=165)
+                                c_inf_l, c_inf_c = st.columns(2)
+                                with c_inf_l:
+                                    lote_inf_input = st.text_input(
+                                        "Lote Influenza",
+                                        value=st.session_state.lote_influenza_memoria,
+                                        placeholder="Ej. A1234",
+                                        key="lote_inf"
+                                    )
+                                with c_inf_c:
+                                    cad_inf_input = st.text_input(
+                                        "Caducidad Influenza",
+                                        value=st.session_state.cad_inf_str,
+                                        placeholder="DD/MM/AAAA",
+                                        key="cad_inf_txt"
+                                    )
+                            with c_inf_der:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=155)
 
                             st.markdown("---")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                            # Fila 1: Dosis COVID horizontales
-                            c_cov_d1, c_cov_d2, c_cov_d3, _ = st.columns([1, 1, 1, 1.5])
-                            with c_cov_d1:
-                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
-                            with c_cov_d2:
-                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
-                            with c_cov_d3:
-                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
+                            c_cov_izq, c_cov_der = st.columns([2.2, 1.5])
+                            with c_cov_izq:
+                                c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
+                                with c_cov_d1:
+                                    cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
+                                with c_cov_d2:
+                                    cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
+                                with c_cov_d3:
+                                    cov_anual = st.checkbox("Anual", key="chk_cov_anual")
 
-                            # Fila 2: Lote compacto, Caducidad compacta y Calendario a ladito
-                            c_cov_l, c_cov_c, c_cov_cal = st.columns([1.1, 1.1, 1.6])
-                            with c_cov_l:
-                                lote_cov_input = st.text_input(
-                                    "Lote COVID-19",
-                                    value=st.session_state.lote_covid_memoria,
-                                    placeholder="Ej. C5678",
-                                    key="lote_cov"
-                                )
-                            with c_cov_c:
-                                cad_cov_input = st.text_input(
-                                    "Caducidad COVID",
-                                    value=st.session_state.cad_cov_str,
-                                    placeholder="DD/MM/AAAA",
-                                    key="cad_cov_txt"
-                                )
-                            with c_cov_cal:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario:</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=165)
+                                c_cov_l, c_cov_c = st.columns(2)
+                                with c_cov_l:
+                                    lote_cov_input = st.text_input(
+                                        "Lote COVID-19",
+                                        value=st.session_state.lote_covid_memoria,
+                                        placeholder="Ej. C5678",
+                                        key="lote_cov"
+                                    )
+                                with c_cov_c:
+                                    cad_cov_input = st.text_input(
+                                        "Caducidad COVID",
+                                        value=st.session_state.cad_cov_str,
+                                        placeholder="DD/MM/AAAA",
+                                        key="cad_cov_txt"
+                                    )
+                            with c_cov_der:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=155)
 
                             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
