@@ -10,7 +10,7 @@ from utils.sheets_esquemas import obtener_recomendaciones_paciente
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
-# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS DE CAMPOS DESHABILITADOS ---
+# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS DE CAMPOS ---
 st.markdown(
     """
     <style>
@@ -19,7 +19,6 @@ st.markdown(
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-        /* Evitar que los inputs deshabilitados se vean excesivamente opacos */
         input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
     </style>
 """,
@@ -298,7 +297,6 @@ else:
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-        # --- LLAVE UNIVERSAL: Si eres tú (Admin), ves todas las hojas del libro ---
         if correo_sesion == "carlosju.med21@gmail.com":
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
@@ -525,35 +523,34 @@ else:
                         grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
                         grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
-                        # --- RECUADRO ÚNICO: DATOS GENERALES Y EDICIÓN OPCIONAL ---
-                        with st.form(f"form_editar_paciente_{fila_idx}"):
-                            st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
-                            
-                            habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición", key=f"chk_edit_{fila_idx}")
-                            
-                            c_ed1, c_ed2, c_ed3 = st.columns(3)
-                            with c_ed1:
-                                ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, disabled=not habilitar_edicion, key=f"ed_pat_{fila_idx}")
-                            with c_ed2:
-                                ed_materno = st.text_input("Apellido Materno:", value=materno_p, disabled=not habilitar_edicion, key=f"ed_mat_{fila_idx}")
-                            with c_ed3:
-                                ed_nombres = st.text_input("Nombres:", value=nombres_p, disabled=not habilitar_edicion, key=f"ed_nom_{fila_idx}")
+                        # --- CASILLA DE EDICIÓN FUERA DEL FORMULARIO PRINCIPAL PARA REACTIVACIÓN INMEDIATA ---
+                        st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
+                        
+                        habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición en vivo", key=f"chk_edit_{fila_idx}")
 
-                            c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
-                            with c_ed4:
-                                ed_d = st.text_input("Día (Nac):", value=dd_n, disabled=not habilitar_edicion, key=f"ed_d_{fila_idx}")
-                            with c_ed5:
-                                ed_m = st.text_input("Mes (Nac):", value=mm_n, disabled=not habilitar_edicion, key=f"ed_m_{fila_idx}")
-                            with c_ed6:
-                                ed_y = st.text_input("Año (Nac):", value=yy_n, disabled=not habilitar_edicion, key=f"ed_y_{fila_idx}")
-                            with c_ed7:
-                                ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, disabled=not habilitar_edicion, key=f"ed_sex_{fila_idx}")
+                        # Campos editables en tiempo real
+                        c_ed1, c_ed2, c_ed3 = st.columns(3)
+                        with c_ed1:
+                            ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, disabled=not habilitar_edicion, key=f"ed_pat_{fila_idx}")
+                        with c_ed2:
+                            ed_materno = st.text_input("Apellido Materno:", value=materno_p, disabled=not habilitar_edicion, key=f"ed_mat_{fila_idx}")
+                        with c_ed3:
+                            ed_nombres = st.text_input("Nombres:", value=nombres_p, disabled=not habilitar_edicion, key=f"ed_nom_{fila_idx}")
 
-                            ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=not habilitar_edicion, key=f"ed_curp_{fila_idx}")
+                        c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
+                        with c_ed4:
+                            ed_d = st.text_input("Día (Nac):", value=dd_n, disabled=not habilitar_edicion, key=f"ed_d_{fila_idx}")
+                        with c_ed5:
+                            ed_m = st.text_input("Mes (Nac):", value=mm_n, disabled=not habilitar_edicion, key=f"ed_m_{fila_idx}")
+                        with c_ed6:
+                            ed_y = st.text_input("Año (Nac):", value=yy_n, disabled=not habilitar_edicion, key=f"ed_y_{fila_idx}")
+                        with c_ed7:
+                            ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, disabled=not habilitar_edicion, key=f"ed_sex_{fila_idx}")
 
-                            btn_guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", use_container_width=True, disabled=not habilitar_edicion)
+                        ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=not habilitar_edicion, key=f"ed_curp_{fila_idx}")
 
-                            if btn_guardar_edicion:
+                        if habilitar_edicion:
+                            if st.button("💾 Guardar Correcciones del Paciente en Google Sheets", use_container_width=True):
                                 try:
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
@@ -726,6 +723,20 @@ else:
 
                                     dosis_aplicadas_lista = []
                                     datos_a_actualizar = []
+
+                                    # --- Si el usuario modificó los datos generales antes de guardar, los guardamos también ---
+                                    if habilitar_edicion:
+                                        datos_a_actualizar.extend([
+                                            {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                                            {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                                            {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                                            {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                                            {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                                            {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                                            {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                                            {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+                                        ])
+                                        nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
 
                                     # --- Mapeo exacto de columnas para INFLUENZA ---
                                     if inf_1ra:
