@@ -31,7 +31,7 @@ st.markdown(
 def mostrar_dialogo_cerrar_sesion():
     st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
     st.markdown("¿Deseas cerrar sesión y regresar al menú principal?")
-    
+
     col_dlg1, col_dlg2 = st.columns(2)
     with col_dlg1:
         if st.button("Sí, Cerrar Sesión", use_container_width=True):
@@ -120,7 +120,7 @@ def mostrar_modal_comprobante_vacunacion():
             .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
             .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-            
+
             .watermark-overlay {{
                 position: absolute;
                 top: 0;
@@ -146,7 +146,7 @@ def mostrar_modal_comprobante_vacunacion():
                 letter-spacing: 1px;
                 transform: rotate(-25deg);
             }}
-            
+
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -194,12 +194,12 @@ def mostrar_modal_comprobante_vacunacion():
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha Aplicación: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
-                        
+
                         const enlace = document.createElement('a');
                         enlace.download = fileName;
                         enlace.href = URL.createObjectURL(blob);
                         enlace.click();
-                        
+
                         window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
                     }}, 'image/png');
                 }});
@@ -246,7 +246,7 @@ if not st.session_state.autenticado_consulta:
             placeholder="ejemplo@issste.gob.mx"
         )
         password = st.text_input("Contraseña:", type="password")
-        
+
         btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
 
         if btn_login:
@@ -256,11 +256,7 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_limpio
-                    st.rerun()
-                elif password == "OperativoInv26":
+                if (correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26") or (password == "OperativoInv26"):
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
                     st.rerun()
@@ -297,7 +293,7 @@ else:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         todas_las_hojas = spreadsheet.worksheets()
-        
+
         correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
@@ -650,412 +646,96 @@ else:
 
                     with st.form("form_aplicacion_lotes"):
                         st.markdown("##### 💉 INFLUENZA")
-                        c_inf_izq, c_inf_der = st.columns([2.2, 1.5])
-                        with c_inf_izq:
-                            c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
-                            with c_inf_d1:
-                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
-                            with c_inf_d2:
-                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
-                            with c_inf_d3:
-                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
+                        c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
+                        with c_inf_d1:
+                            inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
+                        with c_inf_d2:
+                            inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
+                        with c_inf_d3:
+                            inf_anual = st.checkbox("Anual", key="chk_inf_anual")
 
-                            # Detectar si hay al menos una dosis de influenza seleccionada
-                            tiene_dosis_influenza = inf_1ra or inf_2da or inf_anual
+                        tiene_dosis_influenza = inf_1ra or inf_2da or inf_anual
 
-                            c_inf_l, c_inf_c = st.columns(2)
-                            with c_inf_l:
-                                lote_inf_input = st.text_input(
-                                    "Lote Influenza",
-                                    value=st.session_state.lote_influenza_memoria,
-                                    placeholder="Ej. A1234",
-                                    key="lote_inf",
-                                    disabled=not tiene_dosis_influenza
-                                )
-                            with c_inf_c:
-                                cad_inf_input = st.text_input(
-                                    "Caducidad Influenza",
-                                    value=st.session_state.cad_inf_val,
-                                    placeholder="DD/MM/AAAA",
-                                    key="cad_inf_val",
-                                    disabled=not tiene_dosis_influenza
-                                )
-                        with c_inf_der:
-                            if tiene_dosis_influenza:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Seleccione fecha en el calendario:</p>", unsafe_allow_html=True)
-                                calendar_html_inf = f"""
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                <meta charset="utf-8">
-                                <style>
-                                    body {{ font-family: sans-serif; background: transparent; margin: 0; padding: 0; }}
-                                    .cal-box {{
-                                        background: #ffffff;
-                                        border: 2px solid #1e5b4f;
-                                        border-radius: 8px;
-                                        padding: 5px;
-                                        width: 240px;
-                                        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-                                    }}
-                                    .cal-header {{
-                                        display: flex;
-                                        justify-content: space-between;
-                                        align-items: center;
-                                        margin-bottom: 3px;
-                                        gap: 2px;
-                                    }}
-                                    .cal-header select, .cal-header button {{
-                                        padding: 2px 4px;
-                                        font-size: 0.72rem;
-                                        border: 1px solid #a57f2c;
-                                        border-radius: 4px;
-                                        background: #fff;
-                                        font-weight: bold;
-                                        color: #1e5b4f;
-                                    }}
-                                    .cal-header button {{ background: #f7f4eb; color: #611232; cursor: pointer; }}
-                                    .cal-grid {{
-                                        display: grid;
-                                        grid-template-columns: repeat(7, 1fr);
-                                        text-align: center;
-                                        gap: 1px;
-                                    }}
-                                    .cal-day-name {{
-                                        font-size: 0.6rem;
-                                        font-weight: bold;
-                                        color: #611232;
-                                        padding-bottom: 2px;
-                                    }}
-                                    .cal-day {{
-                                        padding: 3px 0;
-                                        font-size: 0.72rem;
-                                        border-radius: 3px;
-                                        cursor: pointer;
-                                        color: #161a1d;
-                                        font-weight: 600;
-                                    }}
-                                    .cal-day:hover {{ background-color: #f7f4eb; }}
-                                    .cal-day.selected {{ background-color: #1e5b4f !important; color: white !important; font-weight: bold; }}
-                                    .cal-day.other-month {{ color: #ccc; }}
-                                </style>
-                                </head>
-                                <body>
-                                <div class="cal-box">
-                                    <div class="cal-header">
-                                        <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
-                                        <select id="s-m" onchange="actFecha()">
-                                            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-                                            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-                                            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-                                            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                                        </select>
-                                        <select id="s-y" onchange="actFecha()"></select>
-                                        <button type="button" onclick="cambiarMes(1)">&#10095;</button>
-                                    </div>
-                                    <div class="cal-grid">
-                                        <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
-                                        <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
-                                        <div class="cal-day-name">D</div>
-                                    </div>
-                                    <div class="cal-grid" id="c-body"></div>
-                                </div>
-                                <script>
-                                    let cDate = new Date();
-                                    let currentVal = "{st.session_state.cad_inf_val}";
-                                    let parts = currentVal.split('/');
-                                    let selectedDay = parts.length === 3 ? parseInt(parts[0]) : null;
-                                    let selectedMonth = parts.length === 3 ? parseInt(parts[1]) - 1 : null;
-                                    let selectedYear = parts.length === 3 ? parseInt(parts[2]) : null;
-                                    if (selectedYear) {{ cDate.setFullYear(selectedYear); cDate.setMonth(selectedMonth); }}
+                        c_inf_l, c_inf_c = st.columns(2)
+                        with c_inf_l:
+                            lote_inf_input = st.text_input(
+                                "Lote Influenza",
+                                value=st.session_state.lote_influenza_memoria,
+                                placeholder="Ej. A1234",
+                                key="lote_inf",
+                                disabled=not tiene_dosis_influenza
+                            )
+                        with c_inf_c:
+                            cad_inf_input = st.text_input(
+                                "Caducidad Influenza (DD/MM/AAAA)",
+                                value=st.session_state.cad_inf_val,
+                                placeholder="DD/MM/AAAA",
+                                key="cad_inf",
+                                disabled=not tiene_dosis_influenza
+                            )
 
-                                    function initYears() {{
-                                        const sy = document.getElementById('s-y');
-                                        const yr = new Date().getFullYear();
-                                        for(let y=yr+6; y>=2020; y--) {{
-                                            let o = document.createElement('option');
-                                            o.value = y; o.text = y;
-                                            sy.appendChild(o);
-                                        }}
-                                    }}
-
-                                    function renderCal() {{
-                                        const y = cDate.getFullYear();
-                                        const m = cDate.getMonth();
-                                        document.getElementById('s-m').value = m;
-                                        document.getElementById('s-y').value = y;
-                                        const cb = document.getElementById('c-body');
-                                        cb.innerHTML = '';
-                                        const firstDay = new Date(y, m, 1);
-                                        let start = firstDay.getDay();
-                                        start = (start === 0) ? 6 : start - 1;
-                                        const lastDate = new Date(y, m + 1, 0).getDate();
-                                        const prevLastDate = new Date(y, m, 0).getDate();
-
-                                        for(let i=start-1; i>=0; i--) {{
-                                            let d = document.createElement('div');
-                                            d.className = 'cal-day other-month';
-                                            d.innerText = prevLastDate - i;
-                                            cb.appendChild(d);
-                                        }}
-
-                                        for(let d=1; d<=lastDate; d++) {{
-                                            let div = document.createElement('div');
-                                            div.className = 'cal-day';
-                                            div.innerText = d;
-
-                                            if (selectedDay === d && selectedMonth === m && selectedYear === y) {{
-                                                div.classList.add('selected');
-                                            }}
-
-                                            div.onclick = function() {{
-                                                selectedDay = d;
-                                                selectedMonth = m;
-                                                selectedYear = y;
-
-                                                let dd = String(d).padStart(2, '0');
-                                                let mm = String(m + 1).padStart(2, '0');
-                                                let fechaStr = dd + '/' + mm + '/' + y;
-                                                
-                                                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                                                for(let inp of inputs) {{
-                                                    if(inp.value !== undefined && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes("Caducidad Influenza")) {{
-                                                        inp.value = fechaStr;
-                                                        inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                                        break;
-                                                    }}
-                                                }}
-                                                renderCal();
-                                            }};
-                                            cb.appendChild(div);
-                                        }}
-                                    }}
-
-                                    function cambiarMes(delta) {{
-                                        cDate.setMonth(cDate.getMonth() + delta);
-                                        renderCal();
-                                    }}
-
-                                    function actFecha() {{
-                                        cDate.setFullYear(parseInt(document.getElementById('s-y').value));
-                                        cDate.setMonth(parseInt(document.getElementById('s-m').value));
-                                        renderCal();
-                                    }}
-
-                                    initYears();
-                                    renderCal();
-                                </script>
-                                </body>
-                                </html>
-                                """
-                                components.html(calendar_html_inf, height=155)
-                            else:
-                                st.info("🔒 Seleccione una dosis de Influenza para habilitar el lote, caducidad y calendario.")
+                        if tiene_dosis_influenza:
+                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1e5b4f; margin-top:8px;'>📅 Seleccionar Fecha de Caducidad (Influenza):</p>", unsafe_allow_html=True)
+                            c_cal_i1, c_cal_i2, c_cal_i3 = st.columns(3)
+                            with c_cal_i1:
+                                cad_i_d = st.selectbox("Día", options=[str(d).zfill(2) for d in range(1, 32)], key="cal_inf_d")
+                            with c_cal_i2:
+                                cad_i_m = st.selectbox("Mes", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key="cal_inf_m")
+                            with c_cal_i3:
+                                anio_actual = datetime.date.today().year
+                                cad_i_y = st.selectbox("Año", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key="cal_inf_y")
+                            cad_inf_input = f"{cad_i_d}/{cad_i_m}/{cad_i_y}"
+                            st.session_state.cad_inf_val = cad_inf_input
+                            st.markdown(f"<b>Fecha seleccionada:</b> <code style='color:#1e5b4f;'>{cad_inf_input}</code>", unsafe_allow_html=True)
+                        else:
+                            st.info("🔒 Seleccione una dosis de Influenza para habilitar el lote y la fecha de caducidad.")
 
                         st.markdown("---")
 
                         st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                        c_cov_izq, c_cov_der = st.columns([2.2, 1.5])
-                        with c_cov_izq:
-                            c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
-                            with c_cov_d1:
-                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
-                            with c_cov_d2:
-                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
-                            with c_cov_d3:
-                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
+                        c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
+                        with c_cov_d1:
+                            cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
+                        with c_cov_d2:
+                            cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
+                        with c_cov_d3:
+                            cov_anual = st.checkbox("Anual", key="chk_cov_anual")
 
-                            # Detectar si hay al menos una dosis de COVID seleccionada
-                            tiene_dosis_covid = cov_1ra or cov_2da or cov_anual
+                        tiene_dosis_covid = cov_1ra or cov_2da or cov_anual
 
-                            c_cov_l, c_cov_c = st.columns(2)
-                            with c_cov_l:
-                                lote_cov_input = st.text_input(
-                                    "Lote COVID-19",
-                                    value=st.session_state.lote_covid_memoria,
-                                    placeholder="Ej. C5678",
-                                    key="lote_cov",
-                                    disabled=not tiene_dosis_covid
-                                )
-                            with c_cov_c:
-                                cad_cov_input = st.text_input(
-                                    "Caducidad COVID",
-                                    value=st.session_state.cad_cov_val,
-                                    placeholder="DD/MM/AAAA",
-                                    key="cad_cov_val",
-                                    disabled=not tiene_dosis_covid
-                                )
-                        with c_cov_der:
-                            if tiene_dosis_covid:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Seleccione fecha en el calendario:</p>", unsafe_allow_html=True)
-                                calendar_html_cov = f"""
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                <meta charset="utf-8">
-                                <style>
-                                    body {{ font-family: sans-serif; background: transparent; margin: 0; padding: 0; }}
-                                    .cal-box {{
-                                        background: #ffffff;
-                                        border: 2px solid #611232;
-                                        border-radius: 8px;
-                                        padding: 5px;
-                                        width: 240px;
-                                        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-                                    }}
-                                    .cal-header {{
-                                        display: flex;
-                                        justify-content: space-between;
-                                        align-items: center;
-                                        margin-bottom: 3px;
-                                        gap: 2px;
-                                    }}
-                                    .cal-header select, .cal-header button {{
-                                        padding: 2px 4px;
-                                        font-size: 0.72rem;
-                                        border: 1px solid #a57f2c;
-                                        border-radius: 4px;
-                                        background: #fff;
-                                        font-weight: bold;
-                                        color: #611232;
-                                    }}
-                                    .cal-header button {{ background: #f7f4eb; color: #611232; cursor: pointer; }}
-                                    .cal-grid {{
-                                        display: grid;
-                                        grid-template-columns: repeat(7, 1fr);
-                                        text-align: center;
-                                        gap: 1px;
-                                    }}
-                                    .cal-day-name {{
-                                        font-size: 0.6rem;
-                                        font-weight: bold;
-                                        color: #611232;
-                                        padding-bottom: 2px;
-                                    }}
-                                    .cal-day {{
-                                        padding: 3px 0;
-                                        font-size: 0.72rem;
-                                        border-radius: 3px;
-                                        cursor: pointer;
-                                        color: #161a1d;
-                                        font-weight: 600;
-                                    }}
-                                    .cal-day:hover {{ background-color: #f7f4eb; }}
-                                    .cal-day.selected {{ background-color: #611232 !important; color: white !important; font-weight: bold; }}
-                                    .cal-day.other-month {{ color: #ccc; }}
-                                </style>
-                                </head>
-                                <body>
-                                <div class="cal-box">
-                                    <div class="cal-header">
-                                        <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
-                                        <select id="s-m" onchange="actFecha()">
-                                            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-                                            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-                                            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-                                            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                                        </select>
-                                        <select id="s-y" onchange="actFecha()"></select>
-                                        <button type="button" onclick="cambiarMes(1)">&#10095;</button>
-                                    </div>
-                                    <div class="cal-grid">
-                                        <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
-                                        <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
-                                        <div class="cal-day-name">D</div>
-                                    </div>
-                                    <div class="cal-grid" id="c-body"></div>
-                                </div>
-                                <script>
-                                    let cDate = new Date();
-                                    let currentVal = "{st.session_state.cad_cov_val}";
-                                    let parts = currentVal.split('/');
-                                    let selectedDay = parts.length === 3 ? parseInt(parts[0]) : null;
-                                    let selectedMonth = parts.length === 3 ? parseInt(parts[1]) - 1 : null;
-                                    let selectedYear = parts.length === 3 ? parseInt(parts[2]) : null;
-                                    if (selectedYear) {{ cDate.setFullYear(selectedYear); cDate.setMonth(selectedMonth); }}
+                        c_cov_l, c_cov_c = st.columns(2)
+                        with c_cov_l:
+                            lote_cov_input = st.text_input(
+                                "Lote COVID-19",
+                                value=st.session_state.lote_covid_memoria,
+                                placeholder="Ej. C5678",
+                                key="lote_cov",
+                                disabled=not tiene_dosis_covid
+                            )
+                        with c_cov_c:
+                            cad_cov_input = st.text_input(
+                                "Caducidad COVID (DD/MM/AAAA)",
+                                value=st.session_state.cad_cov_val,
+                                placeholder="DD/MM/AAAA",
+                                key="cad_cov",
+                                disabled=not tiene_dosis_covid
+                            )
 
-                                    function initYears() {{
-                                        const sy = document.getElementById('s-y');
-                                        const yr = new Date().getFullYear();
-                                        for(let y=yr+6; y>=2020; y--) {{
-                                            let o = document.createElement('option');
-                                            o.value = y; o.text = y;
-                                            sy.appendChild(o);
-                                        }}
-                                    }}
-
-                                    function renderCal() {{
-                                        const y = cDate.getFullYear();
-                                        const m = cDate.getMonth();
-                                        document.getElementById('s-m').value = m;
-                                        document.getElementById('s-y').value = y;
-                                        const cb = document.getElementById('c-body');
-                                        cb.innerHTML = '';
-                                        const firstDay = new Date(y, m, 1);
-                                        let start = firstDay.getDay();
-                                        start = (start === 0) ? 6 : start - 1;
-                                        const lastDate = new Date(y, m + 1, 0).getDate();
-                                        const prevLastDate = new Date(y, m, 0).getDate();
-
-                                        for(let i=start-1; i>=0; i--) {{
-                                            let d = document.createElement('div');
-                                            d.className = 'cal-day other-month';
-                                            d.innerText = prevLastDate - i;
-                                            cb.appendChild(d);
-                                        }}
-
-                                        for(let d=1; d<=lastDate; d++) {{
-                                            let div = document.createElement('div');
-                                            div.className = 'cal-day';
-                                            div.innerText = d;
-
-                                            if (selectedDay === d && selectedMonth === m && selectedYear === y) {{
-                                                div.classList.add('selected');
-                                            }}
-
-                                            div.onclick = function() {{
-                                                selectedDay = d;
-                                                selectedMonth = m;
-                                                selectedYear = y;
-
-                                                let dd = String(d).padStart(2, '0');
-                                                let mm = String(m + 1).padStart(2, '0');
-                                                let fechaStr = dd + '/' + mm + '/' + y;
-                                                
-                                                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
-                                                for(let inp of inputs) {{
-                                                    if(inp.value !== undefined && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes("Caducidad COVID")) {{
-                                                        inp.value = fechaStr;
-                                                        inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                                        break;
-                                                    }}
-                                                }}
-                                                renderCal();
-                                            }};
-                                            cb.appendChild(div);
-                                        }}
-                                    }}
-
-                                    function cambiarMes(delta) {{
-                                        cDate.setMonth(cDate.getMonth() + delta);
-                                        renderCal();
-                                    }}
-
-                                    function actFecha() {{
-                                        cDate.setFullYear(parseInt(document.getElementById('s-y').value));
-                                        cDate.setMonth(parseInt(document.getElementById('s-m').value));
-                                        renderCal();
-                                    }}
-
-                                    initYears();
-                                    renderCal();
-                                </script>
-                                </body>
-                                </html>
-                                """
-                                components.html(calendar_html_cov, height=155)
-                            else:
-                                st.info("🔒 Seleccione una dosis de COVID-19 para habilitar el lote, caducidad y calendario.")
+                        if tiene_dosis_covid:
+                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#611232; margin-top:8px;'>📅 Seleccionar Fecha de Caducidad (COVID-19):</p>", unsafe_allow_html=True)
+                            c_cal_c1, c_cal_c2, c_cal_c3 = st.columns(3)
+                            with c_cal_c1:
+                                cad_c_d = st.selectbox("Día", options=[str(d).zfill(2) for d in range(1, 32)], key="cal_cov_d")
+                            with c_cal_c2:
+                                cad_c_m = st.selectbox("Mes", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key="cal_cov_m")
+                            with c_cal_c3:
+                                anio_actual = datetime.date.today().year
+                                cad_c_y = st.selectbox("Año", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key="cal_cov_y")
+                            cad_cov_input = f"{cad_c_d}/{cad_c_m}/{cad_c_y}"
+                            st.session_state.cad_cov_val = cad_cov_input
+                            st.markdown(f"<b>Fecha seleccionada:</b> <code style='color:#611232;'>{cad_cov_input}</code>", unsafe_allow_html=True)
+                        else:
+                            st.info("🔒 Seleccione una dosis de COVID-19 para habilitar el lote y la fecha de caducidad.")
 
                         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
@@ -1130,6 +810,8 @@ else:
                                             {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
                                         ])
                                         nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
+                                    else:
+                                        nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
                                     if inf_1ra:
                                         datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
