@@ -428,7 +428,8 @@ else:
 
                     matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada)
 
-                    mostrar_influenza = True
+                    # --- CONDICIÓN ESTRICTA DE VISUALIZACIÓN DE TARJETAS ACORDE AL REGISTRO ---
+                    mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
                     biologico_covid_elegido = "Moderna"
@@ -449,18 +450,17 @@ else:
 
                     col_card1, col_card2 = st.columns(2)
                     with col_card1:
-                        if mostrar_influenza:
-                            inf_obj = match_inf_prioritario if match_inf_prioritario else {'categoria': 'Población General', 'grupos_blancos': 'Población susceptible', 'esquema': 'Anual', 'dosis': '0.5 mL', 'intervalo': 'N/A', 'recomendacion': 'Aplicación estacional'}
+                        if mostrar_influenza and match_inf_prioritario:
                             st.markdown(
                                 f"""
                                 <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
                                     <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                    <p><b>Categoría:</b> {inf_obj.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos:</b> {inf_obj.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema:</b> {inf_obj.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis:</b> {inf_obj.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo:</b> {inf_obj.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación:</b> {inf_obj.get('recomendacion', 'N/A')}</p>
+                                    <p><b>Categoría:</b> {match_inf_prioritario.get('categoria', 'N/A')}</p>
+                                    <p><b>Grupos blancos:</b> {match_inf_prioritario.get('grupos_blancos', 'N/A')}</p>
+                                    <p><b>Esquema:</b> {match_inf_prioritario.get('esquema', 'N/A')}</p>
+                                    <p><b>Dosis:</b> {match_inf_prioritario.get('dosis', 'N/A')}</p>
+                                    <p><b>Intervalo:</b> {match_inf_prioritario.get('intervalo', 'N/A')}</p>
+                                    <p><b>Recomendación:</b> {match_inf_prioritario.get('recomendacion', 'N/A')}</p>
                                 </div>
                                 """,
                                 unsafe_allow_html=True,
@@ -486,7 +486,7 @@ else:
 
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
-                    # --- GESTIÓN DE DOSIS FUERA DE FORMULARIO PARA REACTIVIDAD INMEDIATA ---
+                    # --- REGISTRO DE DOSIS (INDEPENDIENTES Y REACTIVOS) ---
                     st.markdown("##### 💉 INFLUENZA")
                     c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
                     with c_inf_d1:
