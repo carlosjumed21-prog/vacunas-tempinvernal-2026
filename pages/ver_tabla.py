@@ -22,8 +22,8 @@ st.markdown(
         .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-4 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-5 { background-color: #fce8e6; border: 2px solid #611232; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } /* Rojo para Sin Aplicar */
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } /* Amarillo para Influenza */
         .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; }
 
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
@@ -143,13 +143,13 @@ else:
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
             for row in filas_principales:
-                # 1. Validar fecha de registro/aplicación (índice 11 aprox, o evaluando si corresponde a hoy o histórico)
+                # 1. Validar fecha de registro/aplicación
                 fecha_fila = row[11].strip() if len(row) > 11 else ""
 
                 if fecha_fila == fecha_hoy_str:
                     registros_nuevos_hoy += 1
                 else:
-                    total_preregistros += 1  # Históricos / anteriores a hoy
+                    total_preregistros += 1
 
                 # 2. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
                 tiene_aplicacion = False
@@ -173,7 +173,7 @@ else:
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_covid += 1
 
-            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS CON COLORES ---
+            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS CON NUEVOS COLORES ---
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             with m1:
                 st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
