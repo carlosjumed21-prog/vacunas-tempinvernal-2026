@@ -29,6 +29,7 @@ col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
     if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
         st.session_state.autenticado_admin = False
+        st.session_state.usuario_admin_actual = ""
         st.session_state.jornada_autorizada = False
         st.session_state.hojas_creadas_recientes = []
         st.rerun()
@@ -40,6 +41,8 @@ st.markdown("---")
 
 if "autenticado_admin" not in st.session_state:
     st.session_state.autenticado_admin = False
+if "usuario_admin_actual" not in st.session_state:
+    st.session_state.usuario_admin_actual = ""
 if "unidad_anterior" not in st.session_state:
     st.session_state.unidad_anterior = ""
 if "config_direccion_base" not in st.session_state:
@@ -78,6 +81,7 @@ if not st.session_state.autenticado_admin:
                 usuario_admin == "EESP Wendy" and password_admin == "MedPrev26"
             ):
                 st.session_state.autenticado_admin = True
+                st.session_state.usuario_admin_actual = usuario_admin
                 st.rerun()
             else:
                 st.error("Contraseña incorrecta o usuario no seleccionado.")
@@ -668,7 +672,7 @@ else:
             st.warning("⚠️ Por favor ingrese un correo electrónico para desbloquear y visualizar sus hojas asignadas.")
         else:
             correo_limpio = correo_filtro.strip().lower()
-            if usuario_admin == "Admin":
+            if st.session_state.get("usuario_admin_actual") == "Admin":
                 jornadas_a_mostrar = st.session_state.historial_jornadas
                 st.info("👑 Vista de Administrador General: Mostrando todas las hojas activas.")
             else:
