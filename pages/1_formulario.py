@@ -605,6 +605,8 @@ def mostrar_modal_comprobante():
                 "chk_discapacidad",
                 "chk_fibrosis",
                 "chk_hipertension",
+                "chk_otro",
+                "txt_otro_riesgo",
                 "chk_gestante",
             ]
             for k in keys_a_limpiar:
@@ -908,6 +910,12 @@ with col_r2:
     discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
     fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
     hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
+    
+    # Opción OTRO agregada con campo de texto libre
+    otro_riesgo = st.checkbox("OTRO", key="chk_otro")
+    texto_otro_riesgo = ""
+    if otro_riesgo:
+        texto_otro_riesgo = st.text_input("Especifique otro grupo de riesgo:", key="txt_otro_riesgo")
 
 st.markdown(
     '<div class="section-title">6. Antecedente Vacunal</div>',
@@ -948,7 +956,7 @@ else:
     tiene_comorbilidades = (
         vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or 
         cancer or cardiacas_congenitas or insuficiencia_renal or inmunosupresion or 
-        discapacidades or fibrosis_quistica or hipertension or personas_embarazadas or personal_salud_riesgo
+        discapacidades or fibrosis_quistica or hipertension or otro_riesgo or personas_embarazadas or personal_salud_riesgo
     )
 
     grupo_sugerido = determinar_grupo_desde_sheets(
@@ -998,6 +1006,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "discapacidades": discapacidades,
                 "fibrosis_quistica": fibrosis_quistica,
                 "hipertension": hipertension,
+                "otro": otro_riesgo,
+                "texto_otro": texto_otro_riesgo.upper()
             }
 
             datos_paciente = {
