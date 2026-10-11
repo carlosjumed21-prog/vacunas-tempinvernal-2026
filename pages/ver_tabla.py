@@ -40,7 +40,7 @@ st.markdown(
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
 
-        /* --- CONTENEDOR FIJO PARA LA CABECERA Y MÉTRICAS --- */
+        /* --- CONTENEDOR FIJO PARA LA CABECERA Y MÉTRICAS (SUPERIOR) --- */
         .fixed-top-container {
             position: sticky;
             top: 0;
@@ -48,13 +48,6 @@ st.markdown(
             background-color: #ffffff;
             padding-bottom: 10px;
             border-bottom: 1px solid #e0e0e0;
-        }
-
-        /* --- CONTENEDOR CON SCROLL INDEPENDIENTE PARA LA TABLA --- */
-        .scrollable-table-container {
-            max-height: 700px;
-            overflow-y: auto;
-            margin-top: 10px;
         }
     </style>
 """,
@@ -188,10 +181,9 @@ else:
                 elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
 
-            # --- ZONA FIJA SUPERIOR (CONTENEDOR STICKY) ---
+            # --- ZONA FIJA SUPERIOR (CONTENEDOR STICKY DE MÉTRICAS Y TÍTULO) ---
             st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
-            # --- ENCABEZADO CON TÍTULO Y BOTONES ---
             col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
             with col_tit1:
                 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -200,7 +192,6 @@ else:
                 if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                     st.rerun()
 
-            # --- BOTÓN DE DESCARGA EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
             with col_tit3:
                 st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                 try:
@@ -250,7 +241,7 @@ else:
 
             st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
-            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo
+            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
             # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ) ---
             def colorear_completados(row):
@@ -268,15 +259,13 @@ else:
 
             df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
 
-            # --- ZONA DE LA TABLA CON SCROLL INDEPENDIENTE ---
-            st.markdown('<div class="scrollable-table-container">', unsafe_allow_html=True)
+            # --- TABLA NATIVA CON ENCABEZADOS Y SCROLL INTERNO AUTOMÁTICO ---
             st.dataframe(
                 df_estilizado,
                 use_container_width=True,
-                height=650,
+                height=600,
                 hide_index=True
             )
-            st.markdown('</div>', unsafe_allow_html=True)
 
         else:
             st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
