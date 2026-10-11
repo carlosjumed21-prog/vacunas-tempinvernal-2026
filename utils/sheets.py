@@ -35,7 +35,7 @@ def guardar_registro_censal(
 ):
     """Registra los datos del paciente mapeando exactamente las columnas
 
-    especificadas para el Censo Nominal (Fila inicial 14 en adelante).
+    en la hoja correspondiente a la unidad/jornada activa en la URL.
     """
     try:
         client = obtener_cliente_gspread()
@@ -46,10 +46,21 @@ def guardar_registro_censal(
         if sufijo_js:
             nombre_hoja = f"{sigla_url}_{sufijo_js}"
 
+        # Búsqueda precisa de la worksheet
+        ws = None
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
         except Exception:
-            ws = spreadsheet.get_worksheet(0)
+            # Si no existe la hoja exacta, buscamos si alguna hoja contiene la sigla URL
+            hojas_disponibles = spreadsheet.worksheets()
+            for h in hojas_disponibles:
+                if sigla_url.upper() in h.title.upper():
+                    ws = h
+                    break
+            
+            # Si de plano no existe ninguna coincidencia, la creamos automáticamente con el nombre correcto
+            if ws is None:
+                ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=50)
 
         # Determinar consecutivo a partir de la fila 14
         todos_los_valores = ws.get_all_values()
@@ -70,8 +81,6 @@ def guardar_registro_censal(
         edad_anos = str(p.get("calc_anos", 0))
         edad_meses = str(p.get("calc_meses", 0))
 
-        # Determinación de Grupos Objetivo marcados con "X"
-        # 6 a 59 meses (Col P) / 60 y más (Col Q)
         es_menor_59m = (p.get("calc_anos", 0) * 12) + p.get("calc_meses", 0) <= 59
         es_mayor_60 = p.get("calc_anos", 0) >= 60
 
@@ -80,26 +89,7 @@ def guardar_registro_censal(
 
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # --- MAPEO EXACTO COLUMNA POR COLUMNA (HOJA 1: CENSO NOMINAL) ---
-        # A: Columna de número consecutivo
-        # B: Folio Generado
-        # C: Apellido Paterno
-        # D: Apellido Materno
-        # E: Nombre(s)
-        # F, G, H: Fecha Nacimiento (dd, mm, yyyy)
-        # I, J: Edad (Años A, Meses M)
-        # K: Sexo
-        # L: Fecha de Aplicación (Autorizada)
-        # M, N, O: Domicilio (Calle, No. Ext/Int, Colonia)
-        # P, Q: Grupo Objetivo (6 a 59 meses, 60 y más)
-        # R a AE: Grupos de riesgo (Embarazadas, Personal de salud, VIH, etc.)
-        # AF: Otros grupos de riesgo (texto)
-        # AG a AK: Influenza (1ra dosis, 2da dosis, Dosis anual, Lote, Caducidad)
-        # AL a AP: COVID (1ra dosis, 2da dosis, Dosis anual, Lote, Caducidad)
-        # AQ: Derechohabiencia
-        # AR, AS: Antecedente Vacunal (Influenza Si/No, COVID Si/No)
-        # AT, AU, AV: Vacuna de Interés (Influenza X, COVID X, Ambas X)
-
+        # Mapeo exacto por columnas para la Hoja activa correspondiente
         fila_registro = [
             str(consecutivo),                                   # Col A: Número consecutivo
             folio_asignado,                                     # Col B: Fila 14-15B (Folio)
