@@ -198,7 +198,6 @@ estados_mexico = [
     "MORELOS",
     "NAYARIT",
     "NUEVO LEÓN",
-    "NUEVO LEÓN",
     "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
@@ -884,13 +883,11 @@ componente_calendario_html = f"""
                 fechaSeleccionada = new Date(year, month, d);
                 renderCalendario();
                 
-                // Formatear a YYYY-MM-DD y actualizar Streamlit
                 let yyyy = fechaSeleccionada.getFullYear();
                 let mm = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
                 let dd = String(fechaSeleccionada.getDate()).padStart(2, '0');
                 let fechaFormateada = yyyy + '-' + mm + '-' + dd;
 
-                // Enviar al input oculto en Streamlit
                 const docInput = window.parent.document.querySelector('input[aria-label="Fecha Seleccionada"]');
                 if (docInput) {{
                     docInput.value = fechaFormateada;
@@ -927,7 +924,6 @@ componente_calendario_html = f"""
 
 components.html(componente_calendario_html, height=290)
 
-# Convertir la fecha ingresada por el calendario a objeto date
 fecha_nacimiento = None
 if st.session_state.get("fecha_nac_str"):
     try:
@@ -1256,6 +1252,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "curp_con_nacimiento": curp_con_nacimiento,
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
+                "antecedente_covid": antecedente_covid,         # <--- Agregado para columna AS
+                "antecedente_influenza": antecedente_influenza, # <--- Agregado para columna AR
                 "grupo_sugerido": grupo_sugerido,
                 "planes_o_embarazo": (
                     "SÍ" if personas_embarazadas else personas_gestantes
@@ -1271,7 +1269,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 sigla_url=sigla_url,
                 sufijo_js=sufijo_js,
                 tipo_jornada=st.session_state.tipo_jornada,
-                val_fecha_app=val_fecha_app,
+                val_fecha_app=val_fecha_app,                    # <--- Agregado para columna AW
                 nombre_unidad_completo=st.session_state.nombre_unidad,
                 datos_paciente=datos_paciente,
             )
