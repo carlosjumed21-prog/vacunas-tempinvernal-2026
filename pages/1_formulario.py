@@ -432,8 +432,8 @@ def mostrar_modal_comprobante():
             .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
             .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
             .info-container {{ flex: 1; }}
-            .qr-container {{ text-align: center; }}
-            .qr-container canvas {{ width: 95px !important; height: 95px !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
+            .qr-container {{ width: 110px; text-align: center; }}
+            .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
             .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; z-index: 2; position: relative; }}
             .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin-top: 5px; margin-bottom: 0; z-index: 2; position: relative; }}
@@ -530,7 +530,7 @@ def mostrar_modal_comprobante():
                     var qr = new QRious({{
                         element: document.getElementById('qr-canvas'),
                         value: {repr(texto_qr)},
-                        size: 150
+                        size: 250
                     }});
                 }});
 
