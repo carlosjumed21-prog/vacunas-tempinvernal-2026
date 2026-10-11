@@ -81,15 +81,15 @@ def guardar_registro_censal(
         # Calcular el consecutivo correspondiente (Bloque 1->1, Bloque 2->2, etc.)
         consecutivo = ((fila_destino - 14) // 2) + 1
 
-        # --- NUEVO FORMATO DE FOLIO ESTRICTO ---
-        # Fecha YYYYMMDD + Modalidad (INT o EXT) + 3 letras de la unidad + 4 dígitos consecutivos (Ej. 20261011INT20N0001)
+        # --- NUEVO FORMATO DE FOLIO CON GUIONES ---
+        # Fecha YYYYMMDD - Modalidad (INT o EXT) - 3 letras de la unidad - Consecutivo (Ej. 20261011-INT-20N-0001)
         fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
         modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
         siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
         secuencial_str = str(consecutivo).zfill(4)
 
-        folio_asignado = f"{fecha_str}{mod_str}{siglas_3}{secuencial_str}"
+        folio_asignado = f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
 
         p = datos_paciente
         com = p.get("comorbilidades", {})
