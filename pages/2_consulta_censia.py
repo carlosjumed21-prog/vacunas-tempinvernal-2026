@@ -4,7 +4,6 @@ import urllib.parse
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
-from gspread.cell_range import CellRange
 import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
@@ -33,23 +32,8 @@ def aplicar_formato_condicional_sheets(worksheet):
     las filas de los pacientes a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
     try:
         rules = worksheet.get_conditional_format_rules()
-        
-        # Fórmula limpia para evaluar el rango relativo desde la fila 14
-        # Nota: gspread / Sheets requiere usar comas o punto y coma según la región, 
-        # la regla estándar de fórmula personalizada en Sheets usa CONTAR.SI o COUNTIF en inglés.
         formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
         
-        # Color verde claro corporativo (#d4edda -> RGB normalizado a escala 0-1 para Google API)
-        color_verde = {
-            "red": 0.831,
-            "green": 0.929,
-            "blue": 0.855
-        }
-        
-        # Rango completo al que aplica la regla (desde la fila 14 hasta la 1000 en columnas A hasta AZ)
-        rango_aplicacion = "A14:AZ1000"
-        
-        # Verificamos si la regla ya existe para no duplicarla
         regla_existente = False
         for rule in rules:
             if formula_regla in str(rule.booleanProperty):
@@ -58,9 +42,14 @@ def aplicar_formato_condicional_sheets(worksheet):
                 
         if not regla_existente:
             from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
+            from gspread.utils import range_to_addr_dict
+            
+            # Rango completo desde la fila 14 hasta la 1000
+            rango_dict = range_to_addr_dict("A14:AZ1000")
+            rango_dict['sheetId'] = worksheet.id
             
             rule = ConditionalFormatRule(
-                ranges=[CellRange(worksheet, rango_aplicacion)],
+                ranges=[rango_dict],
                 boolean=BooleanRule(
                     condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
                     format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855))
@@ -69,7 +58,6 @@ def aplicar_formato_condicional_sheets(worksheet):
             rules.append(rule)
             worksheet.set_conditional_format_rules(rules)
     except Exception as e:
-        # Si ocurre algún detalle menor con la API de formato, no interrumpe la operación principal
         pass
 
 
@@ -401,7 +389,7 @@ else:
             except:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
-            # Aplicar formato condicional verde de manera automática en la hoja de Google Sheets
+            # Aplicar formato condicional verde automáticamente en la hoja de Google Sheets
             aplicar_formato_condicional_sheets(worksheet_activa)
 
             todos_los_datos = worksheet_activa.get_all_values()
