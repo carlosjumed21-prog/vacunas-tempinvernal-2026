@@ -7,7 +7,6 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando los secretos de Streamlit."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
@@ -33,39 +32,43 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
-    """Registra los datos del paciente mapeando exactamente las columnas
-
-    en la hoja correspondiente a la unidad/jornada activa en la URL.
-    """
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # Definir el nombre de la hoja según la unidad o jornada activa
         nombre_hoja = sigla_url
         if sufijo_js:
             nombre_hoja = f"{sigla_url}_{sufijo_js}"
 
-        # Búsqueda precisa de la worksheet
+        # Búsqueda precisa de la worksheet o creación automática si no existe
         ws = None
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
         except Exception:
-            # Si no existe la hoja exacta, buscamos si alguna hoja contiene la sigla URL
             hojas_disponibles = spreadsheet.worksheets()
             for h in hojas_disponibles:
                 if sigla_url.upper() in h.title.upper():
                     ws = h
                     break
-            
-            # Si de plano no existe ninguna coincidencia, la creamos automáticamente con el nombre correcto
             if ws is None:
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=50)
 
-        # Determinar consecutivo a partir de la fila 14
+        # Validación estricta para reinicio de folio y consecutivo a partir de la fila 14
         todos_los_valores = ws.get_all_values()
-        consecutivo = max(14, len(todos_los_valores) + 1)
         
+        # Si hay menos de 14 filas, o la fila 14 está completamente vacía, reiniciamos el consecutivo en 1
+        if len(todos_los_valores) < 14 or not any(todos_los_valores[13]):
+            consecutivo = 1
+            fila_destino = 14
+        else:
+            # Contamos cuántos registros válidos hay desde la fila 14 en adelante
+            filas_con_datos = 0
+            for fila in todos_los_valores[13:]:
+                if any(fila):  # Si la fila tiene algún dato
+                    filas_con_datos += 1
+            consecutivo = filas_con_datos + 1
+            fila_destino = 13 + consecutivo
+
         folio_asignado = (
             f"VIGILE-{sigla_url}-{datetime.datetime.now().strftime('%Y%m%d')}-{consecutivo:04d}"
         )
@@ -86,10 +89,8 @@ def guardar_registro_censal(
 
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
-
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # Mapeo exacto por columnas para la Hoja activa correspondiente
         fila_registro = [
             str(consecutivo),                                   # Col A: Número consecutivo
             folio_asignado,                                     # Col B: Fila 14-15B (Folio)
@@ -141,7 +142,8 @@ def guardar_registro_censal(
             "X" if vacuna_interes == "AMBAS" else "",              # Col AV: AMBAS marcar X
         ]
 
-        ws.append_row(fila_registro)
+        # Insertar directamente en la fila exacta calculada
+        ws.insert_row(fila_registro, index=fila_destino)
         return folio_asignado
 
     except Exception as e:
