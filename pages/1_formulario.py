@@ -62,7 +62,7 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
 def limpiar_texto(texto):
     if not texto:
         return ""
-    nfkd = unicodedata.normalize("NFKD", texto)
+    nfkd = unicodedata.normalize("NFKD", str(texto))
     return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
 
 
