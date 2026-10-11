@@ -661,7 +661,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_paterno = "BADILLO"
             st.session_state.input_materno = "XICOHTENCATL"
             st.session_state.input_nombres = "CARLOS"
-            st.session_state.fecha_nac_str = "1993-10-15"
+            st.session_state.fecha_nac_str = "15/10/1993"
             st.session_state.input_sexo = "HOMBRE"
             st.session_state.input_estnac = "CIUDAD DE MÉXICO"
             st.session_state.input_estres = "CIUDAD DE MÉXICO"
@@ -724,6 +724,21 @@ st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
 )
+
+# Preparar fecha inicial en formato ISO si existe en el session_state (para que JS la interprete)
+fecha_inicial_iso = ""
+if st.session_state.get('fecha_nac_str'):
+    try:
+        # Intentar parsear por si viene en DD/MM/YYYY o YYYY-MM-DD
+        val_str = st.session_state.fecha_nac_str
+        if "/" in val_str:
+            partes = val_str.split("/")
+            if len(partes) == 3:
+                fecha_inicial_iso = f"{partes[2]}-{partes[1]}-{partes[0]}"
+        else:
+            fecha_inicial_iso = val_str
+    except:
+        pass
 
 # 1. Renderizamos PRIMERO el componente HTML del calendario interactivo
 componente_calendario_html = f"""
@@ -828,7 +843,7 @@ componente_calendario_html = f"""
 
 <script>
     let fechaActual = new Date(1993, 9, 15);
-    let fechaSeleccionada = {f"new Date('{st.session_state.fecha_nac_str}')" if st.session_state.get('fecha_nac_str') else 'null'};
+    let fechaSeleccionada = {f"new Date('{fecha_inicial_iso}')" if fecha_inicial_iso else 'null'};
 
     function inicializarAnios() {{
         const selectYear = document.getElementById('select-year');
@@ -884,7 +899,7 @@ componente_calendario_html = f"""
                 let yyyy = fechaSeleccionada.getFullYear();
                 let mm = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
                 let dd = String(fechaSeleccionada.getDate()).padStart(2, '0');
-                let fechaFormateada = yyyy + '-' + mm + '-' + dd;
+                let fechaFormateada = dd + '/' + mm + '/' + yyyy;
 
                 const docInput = window.parent.document.querySelector('input[aria-label="Fecha Seleccionada"]');
                 if (docInput) {{
@@ -922,15 +937,20 @@ componente_calendario_html = f"""
 
 components.html(componente_calendario_html, height=290)
 
-# 2. Colocamos el campo de texto sincronizado ABAJO del componente visual del calendario
-fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="Toque una fecha en el calendario arriba...")
+# 2. Colocamos el campo de texto sincronizado ABAJO en formato DD/MM/YYYY
+fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="DD/MM/YYYY")
 
 fecha_nacimiento = None
 if st.session_state.get("fecha_nac_str"):
     try:
-        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
+        # Convertir DD/MM/YYYY a objeto date para Python
+        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%d/%m/%Y").date()
     except:
-        pass
+        try:
+            # Fallback por si acaso se guardó en formato YYYY-MM-DD anteriormente
+            fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
+        except:
+            pass
 
 col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
@@ -1253,8 +1273,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "curp_con_nacimiento": curp_con_nacimiento,
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
-                "antecedente_covid": antecedente_covid,          # <--- Agregado para columna AS
-                "antecedente_influenza": antecedente_influenza, # <--- Agregado para columna AR
+                "antecedente_covid": antecedente_covid,
+                "antecedente_influenza": antecedente_influenza,
                 "grupo_sugerido": grupo_sugerido,
                 "planes_o_embarazo": (
                     "SÍ" if personas_embarazadas else personas_gestantes
@@ -1270,7 +1290,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 sigla_url=sigla_url,
                 sufijo_js=sufijo_js,
                 tipo_jornada=st.session_state.tipo_jornada,
-                val_fecha_app=val_fecha_app,                    # <--- Agregado para columna AW
+                val_fecha_app=val_fecha_app,
                 nombre_unidad_completo=st.session_state.nombre_unidad,
                 datos_paciente=datos_paciente,
             )
