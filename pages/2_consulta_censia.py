@@ -315,17 +315,18 @@ else:
         )
 
         st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>', unsafe_allow_html=True)
+        
+        col_busq1, col_busq2 = st.columns([4, 1])
+        with col_busq1:
+            query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...", key="input_busqueda_lupa")
+        with col_busq2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Actualizar Lupa", use_container_width=True):
+                st.rerun()
+
         if not pacientes_cargados:
             st.info("La jornada seleccionada aún no cuenta con pacientes registrados en el censo.")
         else:
-            col_busq1, col_busq2 = st.columns([4, 1])
-            with col_busq1:
-                query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...", key="input_busqueda_lupa")
-            with col_busq2:
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("🔄 Actualizar Lupa", use_container_width=True):
-                    st.rerun()
-
             q_clean = query_busqueda.strip().upper()
             pacientes_filtrados = pacientes_cargados if not q_clean else [
                 p for p in pacientes_cargados if q_clean in p["folio"].upper() or q_clean in p["paterno"].upper() or q_clean in p["materno"].upper() or q_clean in p["nombres"].upper()
@@ -428,7 +429,6 @@ else:
 
                     matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada)
 
-                    # --- CONDICIÓN ESTRICTA DE VISUALIZACIÓN DE TARJETAS ACORDE AL REGISTRO ---
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
@@ -486,7 +486,6 @@ else:
 
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
-                    # --- REGISTRO DE DOSIS (INDEPENDIENTES Y REACTIVOS) ---
                     st.markdown("##### 💉 INFLUENZA")
                     c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
                     with c_inf_d1:
@@ -677,6 +676,9 @@ else:
                                 lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
                                 dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+
+                                # --- REINICIAR EL BUSCADOR AL GUARDAR ---
+                                st.session_state.input_busqueda_lupa = ""
 
                                 st.session_state.ultimo_comprobante_vacunacion = {
                                     "nombre": nombre_completo,
