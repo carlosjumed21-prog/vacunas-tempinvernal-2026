@@ -351,6 +351,12 @@ else:
             hoja_seleccionada = hoja_enlace
 
     if hoja_seleccionada:
+        # --- BOTÓN DE ACTUALIZACIÓN / RECARGA DE DATOS EN VIVO ---
+        col_act1, col_act2 = st.columns([3, 1])
+        with col_act2:
+            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                st.rerun()
+
         try:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
@@ -367,8 +373,8 @@ else:
                     fecha_aplicacion_hoja = val_ab9
 
             pacientes_cargados = []
-            if len(todos_los_datos) >= 13:
-                for idx, row in enumerate(todos_los_datos[12:], start=13):
+            if len(todos_los_datos) >= 14:
+                for idx, row in enumerate(todos_los_datos[13:], start=14):
                     if len(row) > 3 and row[1].strip() and row[2].strip():
                         pacientes_cargados.append({
                             "fila": idx,
@@ -382,23 +388,34 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- VISUALIZACIÓN ESTILO GOOGLE SHEETS DENTRO DE LA APP (CON LIMPIEZA DE COLUMNAS) ---
+        # --- VISUALIZACIÓN ESTILO GOOGLE SHEETS (COMBINANDO FILA 12 Y 13 COMO CABECERAS) ---
         st.markdown(
             '<div class="section-title">📊 Visualización de Censo (Estilo Hoja de Cálculo)</div>',
             unsafe_allow_html=True,
         )
         
         try:
-            if len(todos_los_datos) >= 12:
-                encabezados_tabla = todos_los_datos[11]
-                filas_tabla = todos_los_datos[12:]
+            if len(todos_los_datos) >= 14:
+                # Fila 12 (índice 11) y Fila 13 (índice 12) del Sheets original
+                fila_cabecera_1 = todos_los_datos[11]
+                fila_cabecera_2 = todos_los_datos[12]
+                filas_tabla = todos_los_datos[13:]
                 
-                # Limpieza automática de nombres vacíos o duplicados para evitar conflictos en Pandas
-                columnas_limpias = []
+                # Combinamos inteligentemente las dos filas de cabecera para formar etiquetas claras y únicas
+                encabezados_combinados = []
                 conteo_nombres = {}
-                for idx, col in enumerate(encabezados_tabla):
-                    col_str = str(col).strip()
-                    if not col_str:
+                
+                for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
+                    val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
+                    val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
+                    
+                    if val1 and val2 and val1 != val2:
+                        col_str = f"{val1} - {val2}"
+                    elif val2:
+                        col_str = val2
+                    elif val1:
+                        col_str = val1
+                    else:
                         col_str = f"Col_{idx+1}"
                     
                     if col_str in conteo_nombres:
@@ -407,11 +424,11 @@ else:
                     else:
                         conteo_nombres[col_str] = 0
                     
-                    columnas_limpias.append(col_str)
+                    encabezados_combinados.append(col_str)
 
-                filas_ajustadas = [row[:len(columnas_limpias)] + [''] * max(0, len(columnas_limpias) - len(row)) for row in filas_tabla]
+                filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
 
-                df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=columnas_limpias)
+                df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
                 
                 st.dataframe(
                     df_tabla_segura,
@@ -444,7 +461,7 @@ else:
                 )
             with col_busq2:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("🔄 Actualizar", use_container_width=True, help="Actualizar listado de pacientes en vivo"):
+                if st.button("🔄 Actualizar Lupa", use_container_width=True, help="Actualizar listado de pacientes en vivo"):
                     st.rerun()
             st.caption("💡 Tip: Presione **Enter** después de escribir en el buscador.")
 
