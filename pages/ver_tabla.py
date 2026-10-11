@@ -172,21 +172,21 @@ else:
                 else:
                     total_sin_aplicar += 1
 
-                # 3. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
+                # 3. Dosis de Influenza (Columnas AG a AI -> índices 32, 33, 34)
                 tiene_influenza_fila = False
                 for i in range(32, min(35, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_influenza += 1
                         tiene_influenza_fila = True
 
-                # 4. Dosis de COVID (AL, AM, AN -> índices 37, 38, 39)
+                # 4. Dosis de COVID (Columnas AL a AN -> índices 37, 38, 39)
                 tiene_covid_fila = False
                 for i in range(37, min(40, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_covid += 1
                         tiene_covid_fila = True
 
-                # 5. Simultáneas (Ambas columnas AG-AI y AL-AN con "X")
+                # 5. Simultáneas (Pacientes que tienen al menos una "X" en AG-AI Y también en AL-AN)
                 if tiene_influenza_fila and tiene_covid_fila:
                     total_simultaneas += 1
 
