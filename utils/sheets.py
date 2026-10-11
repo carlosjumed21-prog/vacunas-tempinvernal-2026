@@ -73,9 +73,8 @@ def guardar_registro_censal(
         colonia = datos_paciente["colonia"]
         curp_con_nacimiento = datos_paciente["curp_con_nacimiento"]
         cuenta_derechohabiencia = datos_paciente["cuenta_derechohabiencia"]
-        grupo_sugerido = datos_paciente["grupo_sugerido"]
+        vacuna_interes = datos_paciente["vacuna_interes"]
         planes_o_embarazo = datos_paciente["planes_o_embarazo"]
-        ocupacion = datos_paciente["ocupacion"]
         comorbilidades = datos_paciente.get("comorbilidades", {})
         
         responsable_brigada = datos_paciente.get("responsable", "")
@@ -154,51 +153,60 @@ def guardar_registro_censal(
                 "values": [[col_str], [col_str]],
             },
             {"range": f"C{f_siguiente}", "values": [[curp_con_nacimiento]]},
+            
+            # --- DERECHOHABIENCIA (Columna AQ) ---
             {
-                "range": f"AN{f_actual}:AN{f_siguiente}",
-                "values": [
-                    [cuenta_derechohabiencia],
-                    [cuenta_derechohabiencia],
-                ],
+                "range": f"AQ{f_actual}:AQ{f_siguiente}",
+                "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
             },
         ]
+
+        # --- ANTECEDENTE VACUNAL (Columnas AR y AS) ---
+        ant_inf = st.session_state.get("ant_inf", "NO")
+        ant_cov = st.session_state.get("ant_cov", "NO")
+        datos_a_actualizar.append({"range": f"AR{f_actual}:AR{f_siguiente}", "values": [[ant_inf], [ant_inf]]})
+        datos_a_actualizar.append({"range": f"AS{f_actual}:AS{f_siguiente}", "values": [[ant_cov], [ant_cov]]})
+
+        # --- VACUNA DE INTERÉS (Columnas AT, AU, AV) ---
+        if vacuna_interes == "INFLUENZA":
+            datos_a_actualizar.append({"range": f"AT{f_actual}:AT{f_siguiente}", "values": [["X"], ["X"]]})
+        elif vacuna_interes == "COVID-19":
+            datos_a_actualizar.append({"range": f"AU{f_actual}:AU{f_siguiente}", "values": [["X"], ["X"]]})
+        elif vacuna_interes == "AMBAS":
+            datos_a_actualizar.append({"range": f"AV{f_actual}:AV{f_siguiente}", "values": [["X"], ["X"]]})
 
         # --- MAPEO AUTOMÁTICO DE GRUPO OBJETIVO Y COMORBILIDADES (COLUMNAS P a AF) ---
         edad_total_meses = (calc_anos * 12) + calc_meses
         
-        # Columna P: 6 a 59 meses | Columna Q: 60 y más
         if 6 <= edad_total_meses <= 59:
             datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
         elif calc_anos >= 60:
             datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
 
-        # Columna R: Embarazadas | Columna S: Personal de Salud
         if comorbilidades.get("personas_embarazadas") or planes_o_embarazo == "SÍ":
             datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
         if comorbilidades.get("personal_salud_riesgo"):
             datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
 
-        # Mapa de comorbilidades a sus respectivas columnas en Sheets
         mapa_comorb_cols = {
-            "vih": "T",                      # VIH / Sida
-            "diabetes": "U",                 # Diabetes Mellitus
-            "obesidad": "V",                 # Obesidad Mórbida
-            "cardiopatias": "W",             # Cardiopatías
-            "enfermedad_pulmonar": "X",      # Enfermedad pulmonar crónica (EPOC / Asma)
-            "cancer": "Y",                   # Cáncer
-            "cardiacas_congenitas": "Z",     # Cardiopatías o pulmonares congénitas / salicilatos
-            "insuficiencia_renal": "AA",     # Insuficiencia renal
-            "inmunosupresion": "AB",         # Inmunosupresión
-            "discapacidades": "AC",          # Discapacidades
-            "fibrosis_quistica": "AD",       # Fibrosis quística
-            "hipertension": "AE"             # Hipertensión arterial
+            "vih": "T",
+            "diabetes": "U",
+            "obesidad": "V",
+            "cardiopatias": "W",
+            "enfermedad_pulmonar": "X",
+            "cancer": "Y",
+            "cardiacas_congenitas": "Z",
+            "insuficiencia_renal": "AA",
+            "inmunosupresion": "AB",
+            "discapacidades": "AC",
+            "fibrosis_quistica": "AD",
+            "hipertension": "AE"
         }
 
         for clave_c, col_c in mapa_comorb_cols.items():
             if comorbilidades.get(clave_c, False):
                 datos_a_actualizar.append({"range": f"{col_c}{f_actual}:{col_c}{f_siguiente}", "values": [["X"], ["X"]]})
 
-        # Columna AF: Otro (Campo de texto libre)
         if comorbilidades.get("otro", False):
             texto_o = comorbilidades.get("texto_otro", "").upper()
             if texto_o:
@@ -212,9 +220,6 @@ def guardar_registro_censal(
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
-    """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja nominal duplicada y en la hoja de censo correspondiente.
-    """
     try:
         scope = GOOGLE_SCOPES
         if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -243,7 +248,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         
         nombre_hoja_nominal = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_NOMINAL"
 
-        # --- 1. ESCRITURA EN LA HOJA NOMINAL DINÁMICA (DUPLICADA) ---
         try:
             ws_nominal = spreadsheet.worksheet(nombre_hoja_nominal)
         except:
@@ -297,94 +301,10 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"N{fila_nom}:N{fila_nom+1}", "values": [[datos_paciente.get('numero','').upper()], [datos_paciente.get('numero','').upper()]]},
             {"range": f"O{fila_nom}:O{fila_nom+1}", "values": [[datos_paciente.get('colonia','').upper()], [datos_paciente.get('colonia','').upper()]]},
             {"range": f"C{fila_nom+1}", "values": [[datos_paciente.get('curp','')]]},
-            {"range": f"AN{fila_nom}:AN{fila_nom+1}", "values": [[datos_paciente['dh']], [datos_paciente['dh']]]},
+            {"range": f"AQ{fila_nom}:AQ{fila_nom+1}", "values": [[datos_paciente['dh']], [datos_paciente['dh']]]},
         ]
         
-        if int(datos_paciente['anos']) < 5:
-            updates_hoja1.append({"range": f"P{fila_nom}:P{fila_nom+1}", "values": [["X"], ["X"]]})
-        elif int(datos_paciente['anos']) >= 60:
-            updates_hoja1.append({"range": f"Q{fila_nom}:Q{fila_nom+1}", "values": [["X"], ["X"]]})
-
-        if datos_paciente.get('embarazo') == "SÍ":
-            updates_hoja1.append({"range": f"R{fila_nom}:R{fila_nom+1}", "values": [["X"], ["X"]]})
-        if datos_paciente.get('personal_salud') == "SÍ":
-            updates_hoja1.append({"range": f"S{fila_nom}:S{fila_nom+1}", "values": [["X"], ["X"]]})
-
-        map_comorb_h1 = {
-            "vih": "T", "diabetes": "U", "obesidad": "V", "cardiopatias": "W",
-            "enfermedad_pulmonar": "X", "cancer": "Y", "cardiacas_congenitas": "Z",
-            "insuficiencia_renal": "AA", "inmunosupresion": "AB", "discapacidades": "AC",
-            "fibrosis_quistica": "AD", "hipertension": "AE"
-        }
-        for k_c, col_c in map_comorb_h1.items():
-            if comorb.get(k_c, False):
-                updates_hoja1.append({"range": f"{col_c}{fila_nom}:{col_c}{fila_nom+1}", "values": [["X"], ["X"]]})
-
-        if comorb.get("otro", False):
-            texto_o = comorb.get("texto_otro", "").upper()
-            if texto_o:
-                updates_hoja1.append({"range": f"AF{fila_nom}:AF{fila_nom+1}", "values": [[texto_o], [texto_o]]})
-
         ws_nominal.batch_update(updates_hoja1)
-
-        # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR ---
-        nombre_hoja_censo = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_CENSO"
-        try:
-            ws_censo = spreadsheet.worksheet(nombre_hoja_censo)
-        except:
-            try:
-                ws_censo = spreadsheet.worksheet("CENSO")
-            except:
-                plantilla_censo = spreadsheet.worksheet("CENSO NOMINAL")
-                ws_censo = spreadsheet.duplicate_sheet(
-                    plantilla_censo.id, 
-                    insert_sheet_index=len(spreadsheet.worksheets()), 
-                    new_sheet_name=nombre_hoja_censo
-                )
-
-        col_a_censo = ws_censo.col_values(1)
-        fila_censo = 14
-        for idx_c in range(13, len(col_a_censo)):
-            val_c = str(col_a_censo[idx_c]).strip()
-            if val_c == "" or not val_c.isdigit():
-                fila_censo = idx_c + 1
-                break
-        else:
-            fila_censo = max(14, len(col_a_censo) + 1)
-
-        consecutivo_censo = fila_censo - 13
-
-        ps_val = "SI" if datos_paciente.get("personal_salud") == "SÍ" else "NO"
-        emb_val = "SI" if datos_paciente.get("embarazo") == "SÍ" else "NO"
-
-        updates_censo = [
-            {"range": f"A{fila_censo}", "values": [[consecutivo_censo]]},
-            {"range": f"B{fila_censo}", "values": [[folio_asignado]]},
-            {"range": f"C{fila_censo}", "values": [[datos_paciente["rfc"]]]},
-            {"range": f"D{fila_censo}", "values": [[datos_paciente["dh"]]]},
-            {"range": f"E{fila_censo}", "values": [[datos_paciente["tipo_dh"]]]},
-            {"range": f"F{fila_censo}", "values": [[datos_paciente["trabaja_cmn"]]]},
-            {"range": f"G{fila_censo}", "values": [[datos_paciente["num_trabajador"]]]},
-            {"range": f"H{fila_censo}", "values": [[ps_val]]},
-            {"range": f"I{fila_censo}", "values": [[datos_paciente["categoria"]]]},
-            {"range": f"J{fila_censo}", "values": [[datos_paciente["servicio"]]]},
-            {"range": f"K{fila_censo}", "values": [[datos_paciente["coordinacion"]]]},
-            {"range": f"L{fila_censo}", "values": [[datos_paciente["turno"]]]},
-            {"range": f"M{fila_censo}", "values": [[datos_paciente["nombre"].upper()]]},
-            {"range": f"N{fila_censo}", "values": [[datos_paciente["paterno"].upper()]]},
-            {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente["materno"] else ""]] },
-            {"range": f"P{fila_censo}", "values": [[datos_paciente["edo_nac"]]]},
-            {"range": f"Q{fila_censo}", "values": [[datos_paciente["muni_nac"].upper()]]},
-            {"range": f"R{fila_censo}", "values": [[datos_paciente["fn_dia"]]]},
-            {"range": f"S{fila_censo}", "values": [[datos_paciente["fn_mes"]]]},
-            {"range": f"T{fila_censo}", "values": [[datos_paciente["fn_ano"]]]},
-            {"range": f"U{fila_censo}", "values": [[str(datos_paciente["anos"])]]},
-            {"range": f"V{fila_censo}", "values": [[str(datos_paciente["meses"])]]},
-            {"range": f"W{fila_censo}", "values": [[datos_paciente["sexo"]]]},
-            {"range": f"X{fila_censo}", "values": [[emb_val]]},
-        ]
-
-        ws_censo.batch_update(updates_censo)
         return folio_asignado
 
     except Exception as e:
