@@ -5,7 +5,7 @@ import streamlit as st
 from config import GOOGLE_SCOPES
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def cargar_guias_censia():
     """Conecta con el documento CENSIA en la nube y extrae de forma limpia
 
@@ -131,29 +131,32 @@ def obtener_recomendaciones_paciente(
 ):
     """Cruza los datos puros del paciente con las guías CENSIA para retornar
 
-    las tarjetas de Influenza y COVID, priorizando Personal de Salud y Comorbilidades.
+    las tarjetas de Influenza y COVID, escaneando correctamente Personal de Salud y Comorbilidades.
     """
-    guia_inf, guia_cov = cargar_guias_censia()
+    try:
+        guia_inf, guia_cov = cargar_guias_censia()
 
-    matches_inf = []
-    matches_cov = []
+        matches_inf = []
+        matches_cov = []
 
-    mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
-    mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
+        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
+        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-    # --- Filtrar Influenza ---
-    if mostrar_influenza:
-        for item in guia_inf:
-            cat_b = item["categoria"].strip().upper()
-            gb_c = item["grupos_blancos"].strip().upper()
-            if "RIESGO" in cat_b:
+        # --- Filtrar Influenza ---
+        if mostrar_influenza:
+            for item in guia_inf:
+                gb_c = item["grupos_blancos"].strip().upper()
                 es_match = False
                 for r in lista_riesgos_detectados:
                     r_up = r.upper()
-                    if "SALUD" in r_up and "SALUD" in gb_c:
+                    if (
+                        "SALUD" in r_up and "SALUD" in gb_c
+                    ) or ("PERSONAL DE SALUD" in gb_c):
                         es_match = True
                     elif (
-                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                        "COMORBILIDADES" in gb_c
+                        or "VIH" in gb_c
+                        or "6 MESES A 59 AÑOS" in gb_c
                     ) and r_up in [
                         "VIH",
                         "DIABETES",
@@ -168,22 +171,24 @@ def obtener_recomendaciones_paciente(
                         es_match = True
                 if es_match and item not in matches_inf:
                     matches_inf.append(item)
-        if not matches_inf and guia_inf:
-            matches_inf.append(guia_inf[0])
+            if not matches_inf and guia_inf:
+                matches_inf.append(guia_inf[0])
 
-    # --- Filtrar COVID (Moderna, Pfizer, etc.) ---
-    if mostrar_covid:
-        for item in guia_cov:
-            cat_b = item["categoria"].strip().upper()
-            gb_c = item["grupos_blancos"].strip().upper()
-            if "RIESGO" in cat_b:
+        # --- Filtrar COVID (Escaneo robusto para Moderna y Pfizer) ---
+        if mostrar_covid:
+            for item in guia_cov:
+                gb_c = item["grupos_blancos"].strip().upper()
                 es_match = False
                 for r in lista_riesgos_detectados:
                     r_up = r.upper()
-                    if "SALUD" in r_up and "SALUD" in gb_c:
+                    if (
+                        "SALUD" in r_up and "SALUD" in gb_c
+                    ) or ("PERSONAL DE SALUD" in gb_c):
                         es_match = True
                     elif (
-                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                        "COMORBILIDADES" in gb_c
+                        or "VIH" in gb_c
+                        or "6 MESES A 59 AÑOS" in gb_c
                     ) and r_up in [
                         "VIH",
                         "DIABETES",
@@ -198,7 +203,9 @@ def obtener_recomendaciones_paciente(
                         es_match = True
                 if es_match and item not in matches_cov:
                     matches_cov.append(item)
-        if not matches_cov and guia_cov:
-            matches_cov.append(guia_cov[0])
+            if not matches_cov and guia_cov:
+                matches_cov.append(guia_cov[0])
 
-    return matches_inf, matches_cov
+        return matches_inf, matches_cov
+    except Exception as e:
+        return [], []
