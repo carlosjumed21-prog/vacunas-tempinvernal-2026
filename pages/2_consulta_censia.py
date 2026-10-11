@@ -325,7 +325,6 @@ else:
                 " el censo."
             )
         else:
-            # --- CAMPO DE BÚSQUEDA Y BOTÓN DE ACTUALIZACIÓN CON LUPA Y ENTER ---
             col_busq1, col_busq2 = st.columns([4, 1])
             with col_busq1:
                 query_busqueda = st.text_input(
@@ -390,7 +389,6 @@ else:
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                         sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
-                        # --- LECTURA EXACTA DE VACUNA SOLICITADA (AT=Influenza, AU=COVID, AV=Ambas) ---
                         vacuna_registrada = "AMBAS"
                         if len(fila_datos) > 47:
                             at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
@@ -404,7 +402,6 @@ else:
                             elif au_val == "X":
                                 vacuna_registrada = "COVID-19"
 
-                        # --- DETECCIÓN EXACTA DE RIESGOS Y CATEGORÍA ---
                         lista_riesgos_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
@@ -454,7 +451,6 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # --- OBTENER RECOMENDACIONES DESDE EL MÓDULO AUXILIAR ---
                         matches_inf, matches_covid = obtener_recomendaciones_paciente(
                             categoria_paciente, lista_riesgos_detectados, vacuna_registrada
                         )
@@ -462,7 +458,6 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- SELECTOR DE BIOLÓGICO COVID-19 (Moderna vs Pfizer/BioNTech Comirnaty) ---
                         biologico_covid_elegido = "Moderna"
                         if mostrar_covid:
                             matches_moderna = [m for m in matches_covid if "moderna" in m.get('tipo_vacuna', '').lower() or "spikevax" in m.get('tipo_vacuna', '').lower()]
@@ -484,11 +479,9 @@ else:
                         else:
                             matches_covid_filtrados = matches_covid
 
-                        # --- PRIORIZAR UN SOLO GRUPO ---
                         match_inf_prioritario = matches_inf[0] if matches_inf else None
                         match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
 
-                        # --- RENDERIZADO DE LA CARD DE INFLUENZA (SOLO 1) ---
                         if mostrar_influenza and match_inf_prioritario:
                             simultanea_inf = match_inf_prioritario.get("aplicacion_simultanea", "")
                             st.markdown(
@@ -507,7 +500,6 @@ else:
                                 unsafe_allow_html=True,
                             )
 
-                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1) ---
                         if mostrar_covid and match_cov_prioritario:
                             tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
                             simultanea_cov = match_cov_prioritario.get("aplicacion_simultanea", "")
@@ -575,59 +567,60 @@ else:
                             if btn_actualizar_dosis:
                                 try:
                                     if lote_inf_input:
-                                        st.session_state.lote_influenza_memoria = (
-                                            lote_inf_input.upper()
-                                        )
+                                        st.session_state.lote_influenza_memoria = lote_inf_input.upper()
                                     if lote_cov_input:
-                                        st.session_state.lote_covid_memoria = (
-                                            lote_cov_input.upper()
-                                        )
+                                        st.session_state.lote_covid_memoria = lote_cov_input.upper()
 
                                     f_actual = fila_idx
                                     f_siguiente = fila_idx + 1
 
                                     dosis_aplicadas_lista = []
+                                    datos_a_actualizar = []
 
-                                    # --- INFLUENZA ---
+                                    # --- Mapeo directo según la estructura solicitada ---
                                     if inf_1ra:
-                                        worksheet_activa.update(f"AG{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AG{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
                                     if inf_2da:
-                                        worksheet_activa.update(f"AH{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AH{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append("Influenza (2da Dosis)")
                                     if inf_anual:
-                                        worksheet_activa.update(f"AI{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AI{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
-                                    # --- COVID ---
+                                    if lote_inf_input:
+                                        lote_i = lote_inf_input.upper()
+                                        datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+                                    if cad_inf_input:
+                                        cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
+                                        datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+
                                     if cov_1ra:
-                                        worksheet_activa.update(f"AJ{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
                                     if cov_2da:
-                                        worksheet_activa.update(f"AK{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AK{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
                                     if cov_anual:
-                                        worksheet_activa.update(f"AL{f_actual}", [["X"]])
-                                        worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
+                                        datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
 
-                                    # --- LOTES Y CADUCIDADES ---
+                                    if lote_cov_input:
+                                        lote_c = lote_cov_input.upper()
+                                        datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+                                    if cad_cov_input:
+                                        cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
+                                        datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+
+                                    if datos_a_actualizar:
+                                        worksheet_activa.batch_update(datos_a_actualizar)
+
                                     lote_final_partes = []
                                     if lote_inf_input:
                                         lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
                                     if lote_cov_input:
                                         lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
-                                    
-                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else ""
-
-                                    if lote_final_str:
-                                        worksheet_activa.update(f"AM{f_actual}", [[lote_final_str]])
-                                        worksheet_activa.update(f"AM{f_siguiente}", [[lote_final_str]])
+                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
                                     dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
                                     fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
@@ -636,7 +629,7 @@ else:
                                         "nombre": nombre_completo,
                                         "folio": folio_p,
                                         "dosis_str": dosis_str,
-                                        "lotes_str": lote_final_str if lote_final_str else "N/A",
+                                        "lotes_str": lote_final_str,
                                         "fecha_hora": fecha_actual
                                     }
                                     st.rerun()
