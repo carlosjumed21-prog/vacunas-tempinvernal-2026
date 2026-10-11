@@ -150,24 +150,26 @@ def obtener_recomendaciones_paciente(
                 for r in lista_riesgos_detectados:
                     r_up = r.upper()
                     if (
-                        "SALUD" in r_up and "SALUD" in gb_c
-                    ) or ("PERSONAL DE SALUD" in gb_c):
+                        ("SALUD" in r_up and "SALUD" in gb_c)
+                        or ("PERSONAL DE SALUD" in gb_c)
+                    ):
                         es_match = True
                     elif (
-                        "COMORBILIDADES" in gb_c
+                        ("COMORBILIDADES" in gb_c
                         or "VIH" in gb_c
-                        or "6 MESES A 59 AÑOS" in gb_c
-                    ) and r_up in [
-                        "VIH",
-                        "DIABETES",
-                        "OBESIDAD",
-                        "CARDIOPATÍAS",
-                        "ENFERMEDAD PULMONAR",
-                        "CÁNCER",
-                        "RENAL",
-                        "INMUNOSUPRESIÓN",
-                        "HIPERTENSIÓN",
-                    ]:
+                        or "6 MESES A 59 AÑOS" in gb_c)
+                        and r_up in [
+                            "VIH",
+                            "DIABETES",
+                            "OBESIDAD",
+                            "CARDIOPATÍAS",
+                            "ENFERMEDAD PULMONAR",
+                            "CÁNCER",
+                            "RENAL",
+                            "INMUNOSUPRESIÓN",
+                            "HIPERTENSIÓN",
+                        ]
+                    ):
                         es_match = True
                 if es_match and item not in matches_inf:
                     matches_inf.append(item)
@@ -182,24 +184,26 @@ def obtener_recomendaciones_paciente(
                 for r in lista_riesgos_detectados:
                     r_up = r.upper()
                     if (
-                        "SALUD" in r_up and "SALUD" in gb_c
-                    ) or ("PERSONAL DE SALUD" in gb_c):
+                        ("SALUD" in r_up and "SALUD" in gb_c)
+                        or ("PERSONAL DE SALUD" in gb_c)
+                    ):
                         es_match = True
                     elif (
-                        "COMORBILIDADES" in gb_c
+                        ("COMORBILIDADES" in gb_c
                         or "VIH" in gb_c
-                        or "6 MESES A 59 AÑOS" in gb_c
-                    ) and r_up in [
-                        "VIH",
-                        "DIABETES",
-                        "OBESIDAD",
-                        "CARDIOPATÍAS",
-                        "ENFERMEDAD PULMONAR",
-                        "CÁNCER",
-                        "RENAL",
-                        "INMUNOSUPRESIÓN",
-                        "HIPERTENSIÓN",
-                    ]:
+                        or "6 MESES A 59 AÑOS" in gb_c)
+                        and r_up in [
+                            "VIH",
+                            "DIABETES",
+                            "OBESIDAD",
+                            "CARDIOPATÍAS",
+                            "ENFERMEDAD PULMONAR",
+                            "CÁNCER",
+                            "RENAL",
+                            "INMUNOSUPRESIÓN",
+                            "HIPERTENSIÓN",
+                        ]
+                    ):
                         es_match = True
                 if es_match and item not in matches_cov:
                     matches_cov.append(item)
