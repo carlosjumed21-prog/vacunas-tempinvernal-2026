@@ -27,17 +27,35 @@ st.markdown(
         .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
         [data-testid="stSidebar"] {display: none;}
         
-        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; } /* Gris para Censo Total */
+        /* --- ESTILOS DE TARJETAS DE MÉTRICAS --- */
+        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; } 
         .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } /* Rojo para Sin Aplicar */
-        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } /* Amarillo para Influenza Exclusiva */
-        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } /* Celeste para COVID Exclusiva */
-        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } /* Morado para Simultáneas */
+        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } 
 
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
+
+        /* --- CONTENEDOR FIJO PARA LA CABECERA Y MÉTRICAS --- */
+        .fixed-top-container {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background-color: #ffffff;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        /* --- CONTENEDOR CON SCROLL INDEPENDIENTE PARA LA TABLA --- */
+        .scrollable-table-container {
+            max-height: 700px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -81,43 +99,6 @@ else:
         ws = spreadsheet.worksheet(hoja_activa_tabla)
         gid_hoja = ws.id
         todos_los_datos = ws.get_all_values()
-
-        # --- ENCABEZADO CON TÍTULO Y BOTONES ---
-        col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-        with col_tit1:
-            st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-        with col_tit2:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
-                st.rerun()
-
-        # --- BOTÓN DE DESCARGA EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
-        with col_tit3:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-            try:
-                if not creds.valid:
-                    from google.auth.transport.requests import Request
-                    creds.refresh(Request())
-
-                url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                req = urllib.request.Request(
-                    url_export,
-                    headers={'Authorization': f'Bearer {creds.token}'}
-                )
-
-                with urllib.request.urlopen(req) as response:
-                    excel_original_bytes = response.read()
-
-                st.download_button(
-                    label="📥 Descargar Hoja Excel",
-                    data=excel_original_bytes,
-                    file_name=f"{hoja_activa_tabla}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
-                )
-            except Exception as err:
-                st.error(f"No se pudo descargar el archivo: {err}")
 
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
@@ -166,12 +147,10 @@ else:
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
             for row in filas_principales:
-                # 0. Censo Total de Registros (contar filas que tienen número o texto en Columna A - índice 0)
                 val_col_a = str(row[0]).strip() if len(row) > 0 else ""
                 if val_col_a != "":
                     total_censo_registros += 1
 
-                # 1. Validar fecha de registro (Registros hoy vs Pre-Registros) basada en la columna AW (índice 48)
                 fecha_fila = row[48].strip() if len(row) > 48 else ""
 
                 if fecha_fila == fecha_hoy_str:
@@ -179,7 +158,6 @@ else:
                 else:
                     total_preregistros += 1
 
-                # 2. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
                 tiene_aplicacion = False
                 for i in range(32, min(43, len(row))):
                     if str(row[i]).strip().upper() == "X":
@@ -191,27 +169,64 @@ else:
                 else:
                     total_sin_aplicar += 1
 
-                # 3. Detectar si tiene Influenza (AG a AI -> índices 32, 33, 34)
                 tiene_influenza = False
                 for i in range(32, min(35, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         tiene_influenza = True
                         break
 
-                # 4. Detectar si tiene COVID (AL a AN -> índices 37, 38, 39)
                 tiene_covid = False
                 for i in range(37, min(40, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         tiene_covid = True
                         break
 
-                # 5. Aplicar lógica estricta de exclusividad y simultaneidad
                 if tiene_influenza and not tiene_covid:
                     total_dosis_influenza += 1
                 elif tiene_covid and not tiene_influenza:
                     total_dosis_covid += 1
                 elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
+
+            # --- ZONA FIJA SUPERIOR (CONTENEDOR STICKY) ---
+            st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+
+            # --- ENCABEZADO CON TÍTULO Y BOTONES ---
+            col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+            with col_tit1:
+                st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+            with col_tit2:
+                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                    st.rerun()
+
+            # --- BOTÓN DE DESCARGA EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
+            with col_tit3:
+                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                try:
+                    if not creds.valid:
+                        from google.auth.transport.requests import Request
+                        creds.refresh(Request())
+
+                    url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+                    req = urllib.request.Request(
+                        url_export,
+                        headers={'Authorization': f'Bearer {creds.token}'}
+                    )
+
+                    with urllib.request.urlopen(req) as response:
+                        excel_original_bytes = response.read()
+
+                    st.download_button(
+                        label="📥 Descargar Hoja Excel",
+                        data=excel_original_bytes,
+                        file_name=f"{hoja_activa_tabla}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
+                    )
+                except Exception as err:
+                    st.error(f"No se pudo descargar el archivo: {err}")
 
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
             m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
@@ -233,9 +248,10 @@ else:
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
-            
+            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo
+
             # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ) ---
             def colorear_completados(row):
                 completado = False
@@ -252,12 +268,16 @@ else:
 
             df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
 
+            # --- ZONA DE LA TABLA CON SCROLL INDEPENDIENTE ---
+            st.markdown('<div class="scrollable-table-container">', unsafe_allow_html=True)
             st.dataframe(
                 df_estilizado,
                 use_container_width=True,
-                height=700,
+                height=650,
                 hide_index=True
             )
+            st.markdown('</div>', unsafe_allow_html=True)
+
         else:
             st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
 
