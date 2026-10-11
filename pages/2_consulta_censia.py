@@ -9,6 +9,22 @@ import streamlit.components.v1 as components
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
+# --- OCULTAR BARRA SUPERIOR Y FOOTER NATIVO DE STREAMLIT ---
+st.markdown(
+    """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
 with col_nav1:
@@ -27,18 +43,6 @@ if "autenticado_consulta" not in st.session_state:
 
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
-
-st.markdown(
-    """
-    <style>
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
 
 
 @st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
@@ -263,7 +267,7 @@ else:
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
         
-        # Hoja 1: Influenza (A: Vacuna, B: Categoría, C: Grupos blancos, D: Esquema, E: Dosis, F: Intervalo, G: Recomendación, H: Aplicación Simultánea)
+        # Hoja 1: Influenza (A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
         try:
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
@@ -282,7 +286,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID (A: Vacuna, B: Categoría, C: Grupos blancos, D: Esquema, E: Dosis, F: Intervalo, G: Recomendación, H: Aplicación Simultánea)
+        # Hoja 2: COVID (A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -428,9 +432,22 @@ else:
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                         sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
-                        vacuna_registrada = fila_datos[25].strip().upper() if len(fila_datos) > 25 else "AMBAS"
+                        # --- LECTURA DE VACUNA SOLICITADA SEGÚN EL NUEVO MAPEO (AT=Influenza, AU=COVID, AV=Ambas) ---
+                        # Columnas 0-indexed: AT es columna 45 (índice 45), AU es 46 (índice 46), AV es 47 (índice 47)
+                        vacuna_registrada = "AMBAS"
+                        if len(fila_datos) > 47:
+                            at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
+                            au_val = fila_datos[46].strip().upper() if len(fila_datos) > 46 else ""
+                            av_val = fila_datos[47].strip().upper() if len(fila_datos) > 47 else ""
+                            
+                            if av_val == "X" or (at_val == "X" and au_val == "X"):
+                                vacuna_registrada = "AMBAS"
+                            elif at_val == "X":
+                                vacuna_registrada = "INFLUENZA"
+                            elif au_val == "X":
+                                vacuna_registrada = "COVID-19"
 
-                        # --- LECTURA EXACTA DE LAS COLUMNAS DE GRUPOS Y RIESGOS (P hasta AF) ---
+                        # --- LECTURA DE RIESGOS DESDE LAS COLUMNAS P hasta AF ---
                         lista_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
@@ -483,7 +500,7 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # Seleccionamos filas de coincidencia o respaldos seguros para asegurar que SIEMPRE aparezcan las CARDS
+                        # Seleccionamos registros de las hojas externas o respaldos garantizados
                         match_inf = guia_influenza_registros[0] if guia_influenza_registros else None
                         match_cov = guia_covid_registros[0] if guia_covid_registros else None
 
@@ -501,7 +518,7 @@ else:
                                 match_cov = item
                                 break
 
-                        # --- RENDERIZADO DE CARDS ---
+                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN ---
                         if mostrar_influenza and match_inf:
                             simultanea_inf = match_inf.get("aplicacion_simultanea", "")
                             st.markdown(
