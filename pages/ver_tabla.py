@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
+import io
 import urllib.request
 import urllib.parse
 from google.oauth2 import service_account
@@ -14,8 +15,11 @@ st.markdown(
     """
     <style>
         header {visibility: hidden;}
-        .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
+        .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
         [data-testid="stSidebar"] {display: none;}
+        .metric-card { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 10px; border-radius: 8px; text-align: center; color: #161a1d; }
+        .metric-value { font-size: 1.3rem; font-weight: 800; color: #1e5b4f; }
+        .metric-label { font-size: 0.8rem; font-weight: 700; color: #611232; text-transform: uppercase; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -46,9 +50,10 @@ else:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         ws = spreadsheet.worksheet(hoja_activa_tabla)
-        gid_hoja = ws.id  # Identificador numérico único de esta pestaña exacta en Google Sheets
+        gid_hoja = ws.id
+        todos_los_datos = ws.get_all_values()
 
-        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL ORIGINAL DE GOOGLE DRIVE ---
+        # --- ENCABEZADO CON TÍTULO Y BOTONES ---
         col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -57,18 +62,15 @@ else:
             if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                 st.rerun()
 
-        # --- BOTÓN DE DESCARGA DIRECTA DEL EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
+        # --- BOTÓN DE DESCARGA EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
         with col_tit3:
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             try:
-                # Refrescar token de acceso de las credenciales de servicio
                 if not creds.valid:
                     from google.auth.transport.requests import Request
                     creds.refresh(Request())
 
-                # URL oficial de exportación de Google Drive para descargar una pestaña específica respetando todo el formato original
                 url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                
                 req = urllib.request.Request(
                     url_export,
                     headers={'Authorization': f'Bearer {creds.token}'}
@@ -83,12 +85,10 @@ else:
                     file_name=f"{hoja_activa_tabla}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
-                    help=f"Descargar la hoja '{hoja_activa_tabla}' exactamente con el formato y diseño original de Google Sheets"
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
                 )
             except Exception as err:
-                st.error(f"No se pudo descargar el archivo original de Google Drive: {err}")
-
-        todos_los_datos = ws.get_all_values()
+                st.error(f"No se pudo descargar el archivo: {err}")
 
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
@@ -120,10 +120,56 @@ else:
                 encabezados_combinados.append(col_str)
 
             filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
-
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
-            
-            st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros en verde indican aplicación registrada (rango AG-AQ).*")
+
+            # --- CÁLCULO DE MÉTRICAS DINÁMICAS ---
+            total_preregistros = len(filas_tabla)
+            total_aplicaciones = 0
+            total_dosis_influenza = 0
+            total_dosis_covid = 0
+            registros_nuevos_hoy = 0
+
+            fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
+
+            for row in filas_tabla:
+                # 1. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
+                tiene_aplicacion = False
+                for i in range(32, min(43, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        tiene_aplicacion = True
+                        break
+                if tiene_aplicacion:
+                    total_aplicaciones += 1
+
+                # 2. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
+                for i in range(32, min(35, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        total_dosis_influenza += 1
+
+                # 3. Dosis de COVID (AL, AM, AN -> índices 37, 38, 39)
+                for i in range(37, min(40, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        total_dosis_covid += 1
+
+                # 4. Registros nuevos del día (columna Fecha de Aplicación -> índice 11 aprox o validando si se aplicó hoy)
+                if len(row) > 11 and row[11].strip() == fecha_hoy_str:
+                    registros_nuevos_hoy += 1
+
+            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS ---
+            m1, m2, m3, m4, m5 = st.columns(5)
+            with m1:
+                st.markdown(f'<div class="metric-card"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
+            with m2:
+                st.markdown(f'<div class="metric-card"><div class="metric-label">Registros Nuevos (Hoy)</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
+            with m3:
+                st.markdown(f'<div class="metric-card"><div class="metric-label">Aplicaciones Totales</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
+            with m4:
+                st.markdown(f'<div class="metric-card"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+            with m5:
+                st.markdown(f'<div class="metric-card"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
             
             # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ) ---
             def colorear_completados(row):
@@ -144,7 +190,7 @@ else:
             st.dataframe(
                 df_estilizado,
                 use_container_width=True,
-                height=750,
+                height=700,
                 hide_index=True
             )
         else:
