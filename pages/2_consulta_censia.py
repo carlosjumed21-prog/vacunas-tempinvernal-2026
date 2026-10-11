@@ -456,7 +456,6 @@ else:
                         # --- SELECTOR DE BIOLÓGICO COVID-19 (Moderna vs Pfizer/BioNTech Comirnaty) ---
                         biologico_covid_elegido = "Moderna"
                         if mostrar_covid:
-                            # Filtramos los matches disponibles por tipo de vacuna COVID
                             matches_moderna = [m for m in matches_covid if "moderna" in m.get('tipo_vacuna', '').lower() or "spikevax" in m.get('tipo_vacuna', '').lower()]
                             matches_pfizer = [m for m in matches_covid if "pfizer" in m.get('tipo_vacuna', '').lower() or "comirnaty" in m.get('tipo_vacuna', '').lower()]
 
@@ -476,7 +475,7 @@ else:
                         else:
                             matches_covid_filtrados = matches_covid
 
-                        # --- PRIORIZAR UN SOLO GRUPO ---
+                        # --- PRIORIZAR UN SOLO GRUPO (Tomamos únicamente el primer match relevante) ---
                         match_inf_prioritario = matches_inf[0] if matches_inf else None
                         match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
 
@@ -499,7 +498,7 @@ else:
                                 unsafe_allow_html=True,
                             )
 
-                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1 - MODERNA O PFIZER) ---
+                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1) ---
                         if mostrar_covid and match_cov_prioritario:
                             tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
                             simultanea_cov = match_cov_prioritario.get("aplicacion_simultanea", "")
