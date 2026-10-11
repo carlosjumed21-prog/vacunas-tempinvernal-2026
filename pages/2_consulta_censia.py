@@ -492,8 +492,6 @@ else:
 
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
-                    meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
-
                     st.markdown("##### 💉 INFLUENZA")
                     c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
                     with c_inf_d1:
@@ -517,6 +515,7 @@ else:
                             with c_ci2:
                                 mes_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
                                 cad_i_m_nombre = st.selectbox("Mes Inf", options=mes_nombres, key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
+                                meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
                                 cad_i_m = meses_dict_num[cad_i_m_nombre]
                             with c_ci3:
                                 anio_actual = datetime.date.today().year
