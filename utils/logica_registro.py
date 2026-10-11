@@ -85,7 +85,6 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     m = limpiar_texto(materno) if materno else ""
     n = limpiar_texto(nombres)
     
-    # Validar que los campos indispensables estén llenos
     if not p or not n or not fecha_nac or sexo == "SELECCIONE UNA OPCIÓN" or est_nac == "SELECCIONE UN ESTADO":
         return "COMPLETA DATOS, SEXO Y ESTADO"
         
@@ -113,7 +112,6 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     
     curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
     
-    # Si hay dígitos verificadores opcionales los usa, de lo contrario completa con homoclave temporal '00'
     extra_limpio = limpiar_texto(digitos_extra)
     sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
     
@@ -242,3 +240,47 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     
     secuencial_str = str(consecutivo_num).zfill(4)
     return f"{fecha_str}{mod_letra}{siglas_3}{secuencial_str}"
+
+
+@st.cache_data(ttl=30)
+def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
+        ]
+        if "gcp_service_account" in st.secrets:
+            credentials = Credentials.from_service_account_info(
+                dict(st.secrets["gcp_service_account"]), scopes=scopes
+            )
+            gc = gspread.authorize(credentials)
+        else:
+            gc = gspread.oauth()
+            
+        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
+        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
+        if sufijo_js:
+            nombre_tabla += f"_{sufijo_js}"
+            
+        worksheet = sh.worksheet(nombre_tabla)
+        return worksheet.get_all_records()
+    except Exception:
+        return []
+
+
+def verificar_curp_duplicada(curp_actual, sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
+    if not curp_actual or len(curp_actual) < 10 or "COMPLETA" in curp_actual:
+        return False, None
+        
+    prefijo_actual = curp_actual[:10].upper()
+    registros = obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app)
+    
+    for reg in registros:
+        curp_registrada = str(reg.get("CURP", reg.get("curp_con_nacimiento", ""))).upper()
+        if curp_registrada and curp_registrada[:10] == prefijo_actual:
+            folio_existente = reg.get("Folio", reg.get("folio", "DESCONOCIDO"))
+            return True, folio_existente
+            
+    return False, None
