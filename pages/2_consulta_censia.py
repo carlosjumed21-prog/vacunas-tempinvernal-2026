@@ -382,7 +382,7 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- NUEVA VISUALIZACIÓN ESTILO GOOGLE SHEETS DENTRO DE LA APP ---
+        # --- VISUALIZACIÓN ESTILO GOOGLE SHEETS DENTRO DE LA APP (CON LIMPIEZA DE COLUMNAS) ---
         st.markdown(
             '<div class="section-title">📊 Visualización de Censo (Estilo Hoja de Cálculo)</div>',
             unsafe_allow_html=True,
@@ -390,12 +390,28 @@ else:
         
         try:
             if len(todos_los_datos) >= 12:
-                # Fila 12 (índice 11) como cabecera y filas posteriores como datos
                 encabezados_tabla = todos_los_datos[11]
                 filas_tabla = todos_los_datos[12:]
                 
-                # Creamos el DataFrame de Pandas para simular la cuadrícula exacta de Google Sheets
-                df_tabla_segura = pd.DataFrame(filas_tabla, columns=encabezados_tabla[:len(filas_tabla[0])])
+                # Limpieza automática de nombres vacíos o duplicados para evitar conflictos en Pandas
+                columnas_limpias = []
+                conteo_nombres = {}
+                for idx, col in enumerate(encabezados_tabla):
+                    col_str = str(col).strip()
+                    if not col_str:
+                        col_str = f"Col_{idx+1}"
+                    
+                    if col_str in conteo_nombres:
+                        conteo_nombres[col_str] += 1
+                        col_str = f"{col_str}_{conteo_nombres[col_str]}"
+                    else:
+                        conteo_nombres[col_str] = 0
+                    
+                    columnas_limpias.append(col_str)
+
+                filas_ajustadas = [row[:len(columnas_limpias)] + [''] * max(0, len(columnas_limpias) - len(row)) for row in filas_tabla]
+
+                df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=columnas_limpias)
                 
                 st.dataframe(
                     df_tabla_segura,
