@@ -619,6 +619,9 @@ def mostrar_modal_comprobante():
                                 or "input_estnac" in k
                                 or "input_estres" in k
                                 or "input_ocupacion" in k
+                                or "ant_cov" in k
+                                or "ant_inf" in k
+                                or "input_vacuna" in k
                                 else ""
                             )
                         )
@@ -977,15 +980,17 @@ st.markdown(
 col_av1, col_av2 = st.columns(2)
 with col_av1:
     antecedente_covid = st.radio(
-        "¿Cuenta con alguna dosis previa de COVID-19?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
+        "¿Cuenta con alguna dosis previa de COVID-19? *",
+        options=["SELECCIONE", "SÍ", "NO", "LO DESCONOCE"],
+        index=0,
         horizontal=True,
         key="ant_cov",
     )
 with col_av2:
     antecedente_influenza = st.radio(
-        "¿Cuenta con alguna dosis previa de Influenza?",
-        options=["SÍ", "NO", "LO DESCONOCE"],
+        "¿Cuenta con alguna dosis previa de Influenza? *",
+        options=["SELECCIONE", "SÍ", "NO", "LO DESCONOCE"],
+        index=0,
         horizontal=True,
         key="ant_inf",
     )
@@ -995,13 +1000,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 vacuna_interes = st.radio(
-    "Seleccione la vacuna de su interés para esta jornada:",
-    options=["AMBAS", "COVID-19", "INFLUENZA"],
+    "Seleccione la vacuna de su interés para esta jornada: *",
+    options=["SELECCIONE", "AMBAS", "COVID-19", "INFLUENZA"],
+    index=0,
     horizontal=True,
     key="input_vacuna",
 )
 
-if fecha_nacimiento is None:
+if fecha_nacimiento is None or vacuna_interes == "SELECCIONE":
     grupo_sugerido = "POR ASIGNAR"
 else:
     tiene_comorbilidades = (
@@ -1051,6 +1057,12 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("⚠️ Indique si cuenta con derechohabiencia.")
     elif not es_rango_infantil and ocupacion == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Ocupación.")
+    elif antecedente_covid == "SELECCIONE":
+        st.error("⚠️ Indique su antecedente vacunal de COVID-19.")
+    elif antecedente_influenza == "SELECCIONE":
+        st.error("⚠️ Indique su antecedente vacunal de Influenza.")
+    elif vacuna_interes == "SELECCIONE":
+        st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
         try:
             comorbilidades_dict = {
@@ -1106,7 +1118,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 datos_paciente=datos_paciente,
             )
 
-            # Forzar actualización en automático de la vista de consulta
             st.cache_data.clear()
 
             st.session_state.ultimo_paciente_registrado = {
