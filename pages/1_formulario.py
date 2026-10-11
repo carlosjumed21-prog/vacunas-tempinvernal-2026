@@ -198,6 +198,7 @@ estados_mexico = [
     "MORELOS",
     "NAYARIT",
     "NUEVO LEÓN",
+    "NUEVO LEÓN",
     "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
@@ -579,9 +580,7 @@ def mostrar_modal_comprobante():
                 "input_paterno",
                 "input_materno",
                 "input_nombres",
-                "sel_anio",
-                "sel_mes",
-                "sel_dia",
+                "fecha_nac_str",
                 "input_sexo",
                 "input_estnac",
                 "input_estres",
@@ -618,17 +617,13 @@ def mostrar_modal_comprobante():
                         False
                         if "chk_" in k
                         else (
-                            "SELECCIONE"
-                            if "sel_" in k
-                            else (
-                                "SELECCIONE UNA OPCIÓN"
-                                if "input_sexo" in k
-                                or "input_derecho" in k
-                                or "input_estnac" in k
-                                or "input_estres" in k
-                                or "input_ocupacion" in k
-                                else None
-                            )
+                            "SELECCIONE UNA OPCIÓN"
+                            if "input_sexo" in k
+                            or "input_derecho" in k
+                            or "input_estnac" in k
+                            or "input_estres" in k
+                            or "input_ocupacion" in k
+                            else (None if "ant_" in k or "input_vacuna" in k else "")
                         )
                     )
             st.rerun()
@@ -667,9 +662,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_paterno = "BADILLO"
             st.session_state.input_materno = "XICOHTENCATL"
             st.session_state.input_nombres = "CARLOS"
-            st.session_state.sel_anio = 1993
-            st.session_state.sel_mes = "Octubre"
-            st.session_state.sel_dia = 15
+            st.session_state.fecha_nac_str = "1993-10-15"
             st.session_state.input_sexo = "HOMBRE"
             st.session_state.input_estnac = "CIUDAD DE MÉXICO"
             st.session_state.input_estres = "CIUDAD DE MÉXICO"
@@ -727,21 +720,23 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SELECTORES DE MES Y AÑO ---
+# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SINCRONIZACIÓN DE FECHA ---
 st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
 )
 
-# Renderizamos el calendario interactivo con selectores superiores de mes y año
-componente_calendario_html = """
+# Campo oculto para recibir la fecha seleccionada desde JavaScript
+fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="Toque una fecha en el calendario arriba...")
+
+componente_calendario_html = f"""
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-    body { font-family: sans-serif; background-color: transparent; margin: 0; padding: 2px; }
-    .calendar-card {
+    body {{ font-family: sans-serif; background-color: transparent; margin: 0; padding: 2px; }}
+    .calendar-card {{
         background: #ffffff;
         border: 2px solid #1e5b4f;
         border-radius: 8px;
@@ -749,55 +744,55 @@ componente_calendario_html = """
         max-width: 100%;
         box-sizing: border-box;
         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-    .calendar-header {
+    }}
+    .calendar-header {{
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 12px;
         gap: 6px;
-    }
-    .calendar-header select, .calendar-header button {
+    }}
+    .calendar-header select, .calendar-header button {{
         padding: 6px 8px;
         font-size: 0.95rem;
         border: 1px solid #a57f2c;
         border-radius: 4px;
         background: #fff;
         cursor: pointer;
-    }
-    .calendar-header select { font-weight: bold; color: #1e5b4f; flex: 1; }
-    .calendar-header button { font-weight: bold; color: #611232; background: #f7f4eb; }
-    .calendar-grid {
+    }}
+    .calendar-header select {{ font-weight: bold; color: #1e5b4f; flex: 1; }}
+    .calendar-header button {{ font-weight: bold; color: #611232; background: #f7f4eb; }}
+    .calendar-grid {{
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         text-align: center;
         gap: 4px;
-    }
-    .calendar-day-name {
+    }}
+    .calendar-day-name {{
         font-size: 0.8rem;
         font-weight: bold;
         color: #611232;
         padding-bottom: 6px;
-    }
-    .calendar-day {
+    }}
+    .calendar-day {{
         padding: 8px 0;
         font-size: 0.95rem;
         border-radius: 4px;
         cursor: pointer;
         color: #161a1d;
         font-weight: 600;
-    }
-    .calendar-day:hover {
+    }}
+    .calendar-day:hover {{
         background-color: #f7f4eb;
-    }
-    .calendar-day.selected {
+    }}
+    .calendar-day.selected {{
         background-color: #1e5b4f;
         color: white;
         font-weight: bold;
-    }
-    .calendar-day.other-month {
+    }}
+    .calendar-day.other-month {{
         color: #ccc;
-    }
+    }}
 </style>
 </head>
 <body>
@@ -836,20 +831,20 @@ componente_calendario_html = """
 
 <script>
     let fechaActual = new Date(1993, 9, 15);
-    let fechaSeleccionada = null;
+    let fechaSeleccionada = {f"new Date('{st.session_state.fecha_nac_str}')" if st.session_state.get('fecha_nac_str') else 'null'};
 
-    function inicializarAnios() {
+    function inicializarAnios() {{
         const selectYear = document.getElementById('select-year');
         const anioActual = new Date().getFullYear();
-        for (let y = anioActual; y >= 1920; y--) {
+        for (let y = anioActual; y >= 1920; y--) {{
             let opt = document.createElement('option');
             opt.value = y;
             opt.text = y;
             selectYear.appendChild(opt);
-        }
-    }
+        }}
+    }}
 
-    function renderCalendario() {
+    function renderCalendario() {{
         const year = fechaActual.getFullYear();
         const month = fechaActual.getMonth();
 
@@ -866,14 +861,14 @@ componente_calendario_html = """
         const ultimoDiaMes = new Date(year, month + 1, 0).getDate();
         const ultimoDiaMesAnterior = new Date(year, month, 0).getDate();
 
-        for (let i = diaSemana - 1; i >= 0; i--) {
+        for (let i = diaSemana - 1; i >= 0; i--) {{
             let div = document.createElement('div');
             div.className = 'calendar-day other-month';
             div.innerText = ultimoDiaMesAnterior - i;
             body.appendChild(div);
-        }
+        }}
 
-        for (let d = 1; d <= ultimoDiaMes; d++) {
+        for (let d = 1; d <= ultimoDiaMes; d++) {{
             let div = document.createElement('div');
             div.className = 'calendar-day';
             div.innerText = d;
@@ -881,32 +876,48 @@ componente_calendario_html = """
             if (fechaSeleccionada && 
                 fechaSeleccionada.getFullYear() === year && 
                 fechaSeleccionada.getMonth() === month && 
-                fechaSeleccionada.getDate() === d) {
+                fechaSeleccionada.getDate() === d) {{
                 div.classList.add('selected');
-            }
+            }}
 
-            div.onclick = function() {
+            div.onclick = function() {{
                 fechaSeleccionada = new Date(year, month, d);
                 renderCalendario();
-            };
-            body.appendChild(div);
-        }
-    }
+                
+                // Formatear a YYYY-MM-DD y actualizar Streamlit
+                let yyyy = fechaSeleccionada.getFullYear();
+                let mm = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
+                let dd = String(fechaSeleccionada.getDate()).padStart(2, '0');
+                let fechaFormateada = yyyy + '-' + mm + '-' + dd;
 
-    function cambiarMes(delta) {
+                // Enviar al input oculto en Streamlit
+                const docInput = window.parent.document.querySelector('input[aria-label="Fecha Seleccionada"]');
+                if (docInput) {{
+                    docInput.value = fechaFormateada;
+                    docInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }};
+            body.appendChild(div);
+        }}
+    }}
+
+    function cambiarMes(delta) {{
         fechaActual.setMonth(fechaActual.getMonth() + delta);
         renderCalendario();
-    }
+    }}
 
-    function actualizarCalendarioDesdeSelect() {
+    function actualizarCalendarioDesdeSelect() {{
         const m = parseInt(document.getElementById('select-month').value);
         const y = parseInt(document.getElementById('select-year').value);
         fechaActual.setFullYear(y);
         fechaActual.setMonth(m);
         renderCalendario();
-    }
+    }}
 
     inicializarAnios();
+    if (fechaSeleccionada) {{
+        fechaActual = new Date(fechaSeleccionada);
+    }}
     renderCalendario();
 </script>
 
@@ -916,26 +927,13 @@ componente_calendario_html = """
 
 components.html(componente_calendario_html, height=290)
 
-# Como el componente HTML maneja la selección de forma visual, simulamos la fecha de nacimiento por ahora con el selector en cascada limpio por seguridad o para capturar el valor exacto:
-col_f1, col_f2, col_f3 = st.columns(3)
-anos_disp = ["AÑO"] + list(range(2026, 1919, -1))
-meses_dict_map = {"Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12}
-meses_disp = ["MES"] + list(meses_dict_map.keys())
-dias_disp = ["DÍA"] + list(range(1, 32))
-
-with col_f1:
-    anio_sel = st.selectbox("Año", options=anos_disp, key="sel_anio", label_visibility="collapsed")
-with col_f2:
-    mes_sel = st.selectbox("Mes", options=meses_disp, key="sel_mes", label_visibility="collapsed")
-with col_f3:
-    dia_sel = st.selectbox("Día", options=dias_disp, key="sel_dia", label_visibility="collapsed")
-
+# Convertir la fecha ingresada por el calendario a objeto date
 fecha_nacimiento = None
-if anio_sel != "AÑO" and mes_sel != "MES" and dia_sel != "DÍA":
+if st.session_state.get("fecha_nac_str"):
     try:
-        fecha_nacimiento = datetime.date(int(anio_sel), meses_dict_map[mes_sel], int(dia_sel))
-    except ValueError:
-        st.error("⚠️ La fecha seleccionada no es válida.")
+        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
+    except:
+        pass
 
 col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
@@ -1198,7 +1196,7 @@ st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
     calle_limpia = calle.strip() if calle else ""
     if not fecha_nacimiento:
-        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento completa (Año, Mes y Día).")
+        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento tocando el calendario.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
         st.error("⚠️ Complete Apellido Paterno, Apellido Materno y Nombre(s).")
     elif sexo == "SELECCIONE UNA OPCIÓN":
