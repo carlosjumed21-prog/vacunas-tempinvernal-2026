@@ -6,9 +6,6 @@ import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
 
-# Opcional: Importar gspread/client de tu módulo de sheets si ya lo usas para leer celdas
-# from utils.sheets import obtener_cliente_sheets # (Ajusta según tu implementación de utilidades)
-
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
@@ -214,45 +211,33 @@ estados_mexico = [
 # --- FUNCIÓN PARA CONSULTAR RECOMENDACIONES DESDE EL GOOGLE SHEETS ---
 @st.cache_data(ttl=600)
 def obtener_recomendaciones_sheets(biologico):
-    """Lee dinámicamente la hoja correspondiente ('Influenza' o 'COVID')
-
-    del Google Sheets para extraer los grupos blancos y categorías.
-    """
     try:
         import gspread
         from google.oauth2.service_account import Credentials
 
-        # Usar credenciales configuradas en st.secrets o entorno
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets.readonly",
             "https://www.googleapis.com/auth/drive.readonly",
         ]
 
-        # Si manejas credenciales mediante st.secrets:
         if "gcp_service_account" in st.secrets:
             credentials = Credentials.from_service_account_info(
                 dict(st.secrets["gcp_service_account"]), scopes=scopes
             )
             gc = gspread.authorize(credentials)
         else:
-            # Fallback o autenticación local por defecto
             gc = gspread.oauth()
 
-        # Abrir el spreadsheet por ID
         sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
 
-        # Seleccionar la pestaña según el biológico (por defecto Influenza o COVID)
         nombre_hoja = (
             "COVID" if biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
         )
         worksheet = sh.worksheet(nombre_hoja)
 
-        # Obtener todos los registros desde la fila 2 (asumiendo cabeceras en fila 1)
-        # Columnas: A: Vacuna, B: Categoria, C: Grupos blancos, D: Esquema, E: Dosis, F: Intervalo, G: Aplicación Simultanea
         registros = worksheet.get_all_records()
         return registros
-    except Exception as e:
-        # En modo simulación o si falla la credencial directa, retornamos lista vacía para usar fallback lógico
+    except Exception:
         return []
 
 
@@ -264,15 +249,12 @@ def determinar_grupo_desde_sheets(
     ocupacion,
     comorbilidades_activas,
 ):
-    """Compara los datos del paciente contra los criterios leídos del Google Sheets."""
-    # Si la vacuna seleccionada es AMBAS, priorizamos evaluar Influenza o COVID de forma combinada
     biologico_a_consultar = (
         "Influenza" if biologico in ["INFLUENZA", "AMBAS"] else "COVID"
     )
     filas_sheets = obtener_recomendaciones_sheets(biologico_a_consultar)
 
     if not filas_sheets:
-        # Fallback de seguridad lógico si no hay conexión activa a gspread
         return determinar_grupo_sugerido_fallback(
             biologico,
             edad_meses,
@@ -282,19 +264,16 @@ def determinar_grupo_desde_sheets(
             comorbilidades_activas,
         )
 
-    # Recorrer filas del Sheets para buscar coincidencia por grupo etario / riesgo
     for fila in filas_sheets:
         grupo_blanco = str(fila.get("Grupos blancos de la intervención", ""))
         categoria = str(fila.get("Categoria", ""))
         gb_lower = grupo_blanco.lower()
 
-        # Evaluación de Gestantes
         if gestante == "SÍ" and (
             "gestante" in gb_lower or "embarazo" in gb_lower
         ):
             return f"{grupo_blanco} ({categoria})"
 
-        # Evaluación por Rango de Edad
         if "meses" in gb_lower:
             if "6 a 18 meses" in gb_lower and 6 <= edad_meses <= 18:
                 return f"{grupo_blanco} ({categoria})"
@@ -311,13 +290,11 @@ def determinar_grupo_desde_sheets(
             ):
                 return f"{grupo_blanco} ({categoria})"
 
-        # Evaluación por Personal de Salud / Ocupación
         if "personal de salud" in gb_lower and (
             "PERSONAL DE SALUD" in ocupacion.upper()
         ):
             return f"{grupo_blanco} ({categoria})"
 
-        # Evaluación por Comorbilidades
         if comorbilidades_activas and "comorbilidades" in gb_lower:
             if (
                 "5 a 8 años" in gb_lower
@@ -338,7 +315,6 @@ def determinar_grupo_desde_sheets(
             ):
                 return f"{grupo_blanco} ({categoria})"
 
-    # Si no hubo coincidencia exacta en las filas leídas, usar fallback inteligente
     return determinar_grupo_sugerido_fallback(
         biologico,
         edad_meses,
@@ -357,7 +333,6 @@ def determinar_grupo_sugerido_fallback(
     ocupacion,
     tiene_comorbilidades,
 ):
-    """Lógica de respaldo si el Sheets no está accesible en tiempo de ejecución."""
     is_personal_salud = "PERSONAL DE SALUD" in ocupacion.upper()
     is_colectivo_riesgo = is_personal_salud or ocupacion in [
         "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
@@ -365,6 +340,15 @@ def determinar_grupo_sugerido_fallback(
         "PERSONAL MILITAR",
         "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
     ]
+
+    if 6 <= edad_total_meses <= 18:
+        rango_edad_str = "6 a 18 meses"
+    elif 19 <= edad_total_meses <= 59:
+        rango_edad_str = "19 a 59 meses"
+    elif calc_anos >= 60:
+        rango_edad_str = "60 años y mas"
+    else:
+        rango_edad_str = "Población General"
 
     if vacuna_interes in ["COVID-19", "AMBAS"]:
         if 6 <= edad_total_meses <= 59:
@@ -374,13 +358,13 @@ def determinar_grupo_sugerido_fallback(
         elif personas_gestantes == "SÍ":
             return "PERSONAS GESTANTES [Población de Riesgo]"
         elif calc_anos >= 60:
-            return "60 Y MÁS [Población Objetivo]"
+            return f"{rango_edad_str} [Población Objetivo]"
         elif is_personal_salud:
             return "PERSONAL DE SALUD [Población de Riesgo]"
         elif tiene_comorbilidades:
             return "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS) [Población de Riesgo]"
         else:
-            return "POBLACIÓN GENERAL [Población Objetivo]"
+            return f"{rango_edad_str} [Población Objetivo]"
     else:
         if 6 <= edad_total_meses <= 59:
             return (
@@ -393,11 +377,11 @@ def determinar_grupo_sugerido_fallback(
         elif is_colectivo_riesgo:
             return f"{ocupacion} [Población de Riesgo]"
         elif calc_anos >= 60:
-            return "POBLACIÓN ADULTA (60 Y MÁS) [Población Objetivo]"
+            return f"{rango_edad_str} [Población Objetivo]"
         elif tiene_comorbilidades:
             return "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS) [Población de Riesgo]"
         else:
-            return "POBLACIÓN GENERAL [Población Objetivo]"
+            return f"{rango_edad_str} [Población Objetivo]"
 
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
@@ -603,15 +587,20 @@ def mostrar_modal_comprobante():
                 "input_vacuna",
                 "ant_cov",
                 "ant_inf",
-                "chk_discapacidad",
-                "chk_fibrosis",
-                "chk_hipertension",
+                "chk_personas_embarazadas",
+                "chk_personal_salud_riesgo",
                 "chk_vih",
                 "chk_diabetes",
                 "chk_obesidad",
                 "chk_cardiopatias",
+                "chk_enfermedad_pulmonar",
                 "chk_cancer",
+                "chk_cardiacas_congenitas",
                 "chk_insufren",
+                "chk_inmunosupresion",
+                "chk_discapacidad",
+                "chk_fibrosis",
+                "chk_hipertension",
                 "chk_gestante",
             ]
             for k in keys_a_limpiar:
@@ -757,7 +746,7 @@ st.markdown(
 )
 
 edad_total_meses = (calc_anos * 12) + calc_meses
-es_pediatrico_59m = 6 <= edad_total_meses <= 59
+es_rango_infantil = 6 <= edad_total_meses <= 59
 
 st.markdown("<br>", unsafe_allow_html=True)
 col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
@@ -834,35 +823,46 @@ cuenta_derechohabiencia = st.selectbox(
 st.markdown(
     '<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True
 )
-if es_pediatrico_59m:
-    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'No aplica (Población Pediátrica)'.")
-    ocupacion = "NO APLICA (POBLACIÓN PEDIÁTRICA)"
+
+lista_ocupaciones = [
+    "SELECCIONE UNA OPCIÓN",
+    "NO APLICA",
+    (
+        "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
+        " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
+    ),
+    "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
+    "JUBILADO/A",
+    "MAESTRO/A",
+    "ADMINISTRATIVO/A",
+    "TRABAJO EN GUARDERÍA",
+    (
+        "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
+        " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
+    ),
+    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
+    "PERSONAL MILITAR",
+    (
+        "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
+        " (PEMEX)"
+    ),
+    "OTRAS PROFESIONES",
+]
+
+if es_rango_infantil:
+    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'NO APLICA'.")
+    st.session_state.input_ocupacion = "NO APLICA"
+    ocupacion = st.selectbox(
+        "Seleccione su Ocupación *",
+        options=lista_ocupaciones,
+        index=lista_ocupaciones.index("NO APLICA"),
+        key="input_ocupacion",
+        disabled=True,
+    )
 else:
     ocupacion = st.selectbox(
         "Seleccione su Ocupación *",
-        options=[
-            "SELECCIONE UNA OPCIÓN",
-            (
-                "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y"
-                " ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)"
-            ),
-            "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
-            "JUBILADO/A",
-            "MAESTRO/A",
-            "ADMINISTRATIVO/A",
-            "TRABAJO EN GUARDERÍA",
-            (
-                "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE"
-                " RECLUSIÓN Y/O READAPTACIÓN SOCIAL)"
-            ),
-            "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-            "PERSONAL MILITAR",
-            (
-                "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS"
-                " (PEMEX)"
-            ),
-            "OTRAS PROFESIONES",
-        ],
+        options=lista_ocupaciones,
         key="input_ocupacion",
     )
 
@@ -870,22 +870,39 @@ st.markdown(
     '<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>',
     unsafe_allow_html=True,
 )
+
+# --- VALIDACIONES AUTOMÁTICAS PARA GRUPOS DE RIESGO ---
+es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
+es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
+
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-    vih = st.checkbox("VIH / SIDA", key="chk_vih")
+    personas_embarazadas = st.checkbox(
+        "PERSONAS EMBARAZADAS", 
+        value=es_embarazada_activa, 
+        disabled=es_embarazada_activa,
+        key="chk_personas_embarazadas"
+    )
+    personal_salud_riesgo = st.checkbox(
+        "PERSONAL DE SALUD", 
+        value=es_personal_salud_ocupacion, 
+        disabled=es_personal_salud_ocupacion,
+        key="chk_personal_salud_riesgo"
+    )
+    vih = st.checkbox("VIH/sida", key="chk_vih")
     diabetes = st.checkbox("DIABETES MELLITUS", key="chk_diabetes")
     obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="chk_obesidad")
-    cardiopatias = st.checkbox(
-        "CARDIOPATÍAS AGUDAS O CRÓNICAS", key="chk_cardiopatias"
-    )
-    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
+    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="chk_cardiopatias")
+    enfermedad_pulmonar = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA, INCLUYE EPOC Y ASMA", key="chk_enfermedad_pulmonar")
+
 with col_r2:
     cancer = st.checkbox("CÁNCER", key="chk_cancer")
-    insuficiencia_renal = st.checkbox(
-        "INSUFICIENCIA RENAL", key="chk_insufren"
-    )
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
+    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS CRÓNICOS QUE REQUIERAN CONSUMO PROLONGADO DE SALICILATOS*", key="chk_cardiacas_congenitas")
+    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="chk_insufren")
+    inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA POR ENFERMEDAD O TRATAMIENTO, EXCEPTO VIH/sida", key="chk_inmunosupresion")
+    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
     fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
 
 st.markdown(
     '<div class="section-title">6. Antecedente Vacunal</div>',
@@ -919,17 +936,18 @@ vacuna_interes = st.radio(
     key="input_vacuna",
 )
 
-# --- LÓGICA DE GRUPO OBJETIVO DINÁMICA DESDE GOOGLE SHEETS ---
+# --- LÓGICA DE GRUPO OBJETIVO DINÁMICA ---
 tiene_comorbilidades = (
-    vih or diabetes or obesidad or cardiopatias or cancer or 
-    insuficiencia_renal or discapacidades or fibrosis_quistica or hipertension
+    vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or 
+    cancer or cardiacas_congenitas or insuficiencia_renal or inmunosupresion or 
+    discapacidades or fibrosis_quistica or hipertension or personas_embarazadas or personal_salud_riesgo
 )
 
 grupo_sugerido = determinar_grupo_desde_sheets(
     biologico=vacuna_interes,
     edad_meses=edad_total_meses,
     edad_anos=calc_anos,
-    gestante=personas_gestantes,
+    gestante="SÍ" if personas_embarazadas else personas_gestantes,
     ocupacion=ocupacion,
     comorbilidades_activas=tiene_comorbilidades
 )
@@ -939,7 +957,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f'<div class="card-grupo">🎯 Grupo Objetivo y Categoría (Google Sheets): {grupo_sugerido}</div>',
+    f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>',
     unsafe_allow_html=True,
 )
 
@@ -953,17 +971,22 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("Seleccione una opción en Sexo.")
     elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
         st.error("Indique su derechohabiencia.")
-    elif not es_pediatrico_59m and ocupacion == "SELECCIONE UNA OPCIÓN":
+    elif not es_rango_infantil and ocupacion == "SELECCIONE UNA OPCIÓN":
         st.error("Seleccione una opción en Ocupación.")
     else:
         try:
             comorbilidades_dict = {
+                "personas_embarazadas": personas_embarazadas,
+                "personal_salud_riesgo": personal_salud_riesgo,
                 "vih": vih,
                 "diabetes": diabetes,
                 "obesidad": obesidad,
                 "cardiopatias": cardiopatias,
+                "enfermedad_pulmonar": enfermedad_pulmonar,
                 "cancer": cancer,
+                "cardiacas_congenitas": cardiacas_congenitas,
                 "insuficiencia_renal": insuficiencia_renal,
+                "inmunosupresion": inmunosupresion,
                 "discapacidades": discapacidades,
                 "fibrosis_quistica": fibrosis_quistica,
                 "hipertension": hipertension,
@@ -984,8 +1007,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": personas_gestantes,
-                "personas_gestantes": personas_gestantes,
+                "planes_o_embarazo": "SÍ" if personas_embarazadas else personas_gestantes,
+                "personas_gestantes": "SÍ" if personas_embarazadas else personas_gestantes,
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
             }
