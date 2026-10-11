@@ -341,7 +341,6 @@ def determinar_grupo_sugerido_fallback(
         "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
     ]
 
-    # Mapeo exacto de los rangos de la columna C (Grupos blancos de la intervención)
     if 6 <= edad_total_meses <= 18:
         rango_grupo_blanco = "6 a 18 meses"
     elif 19 <= edad_total_meses <= 59:
@@ -757,7 +756,7 @@ with col_img2:
             "assets/INE.png",
             width=350,
             caption=(
-                "📌 Ubicación de la Homoclave y Dígito Verificador en su Credencial"
+                "📌 Ubicación del Dígito Verificador en su Credencial"
                 " para Votar (INE)"
             ),
         )
@@ -767,7 +766,7 @@ with col_img2:
                 "INE.png",
                 width=350,
                 caption=(
-                    "📌 Ubicación de la Homoclave y Dígito Verificador en su"
+                    "📌 Ubicación del Dígito Verificador en su"
                     " Credencial para Votar (INE)"
                 ),
             )
@@ -776,7 +775,7 @@ with col_img2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 digitos_faltantes = st.text_input(
-    "Homoclave y Dígito Verificador (Opcional - 2 últimos caracteres)",
+    "Dígito Verificador (Opcional - Últimos caracteres)",
     max_chars=2,
     key="input_digitos",
 )
