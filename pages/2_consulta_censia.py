@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Función generadora de HTML para calendario dinámico vinculado por ID
+                        # Función generadora de HTML para calendario dinámico con marcado sombreado activo
                         def get_calendar_html(target_input_id):
                             return f"""
                             <!DOCTYPE html>
@@ -704,7 +704,7 @@ else:
                                     font-weight: 600;
                                 }}
                                 .cal-day:hover {{ background-color: #f7f4eb; }}
-                                .cal-day.selected {{ background-color: #1e5b4f; color: white; }}
+                                .cal-day.selected {{ background-color: #1e5b4f !important; color: white !important; font-weight: bold; }}
                                 .cal-day.other-month {{ color: #ccc; }}
                             </style>
                             </head>
@@ -730,6 +730,10 @@ else:
                             </div>
                             <script>
                                 let cDate = new Date();
+                                let selectedDay = null;
+                                let selectedMonth = null;
+                                let selectedYear = null;
+
                                 function initYears() {{
                                     const sy = document.getElementById('s-y');
                                     const yr = new Date().getFullYear();
@@ -739,6 +743,7 @@ else:
                                         sy.appendChild(o);
                                     }}
                                 }}
+
                                 function renderCal() {{
                                     const y = cDate.getFullYear();
                                     const m = cDate.getMonth();
@@ -751,22 +756,32 @@ else:
                                     start = (start === 0) ? 6 : start - 1;
                                     const lastDate = new Date(y, m + 1, 0).getDate();
                                     const prevLastDate = new Date(y, m, 0).getDate();
+
                                     for(let i=start-1; i>=0; i--) {{
                                         let d = document.createElement('div');
                                         d.className = 'cal-day other-month';
                                         d.innerText = prevLastDate - i;
                                         cb.appendChild(d);
                                     }}
+
                                     for(let d=1; d<=lastDate; d++) {{
                                         let div = document.createElement('div');
                                         div.className = 'cal-day';
                                         div.innerText = d;
+
+                                        if (selectedDay === d && selectedMonth === m && selectedYear === y) {{
+                                            div.classList.add('selected');
+                                        }}
+
                                         div.onclick = function() {{
+                                            selectedDay = d;
+                                            selectedMonth = m;
+                                            selectedYear = y;
+
                                             let dd = String(d).padStart(2, '0');
                                             let mm = String(m + 1).padStart(2, '0');
                                             let fechaStr = dd + '/' + mm + '/' + y;
                                             
-                                            // Buscar dinámicamente el input específico en Streamlit por su aria-label o ID
                                             const inputs = window.parent.document.querySelectorAll('input[type="text"]');
                                             for(let inp of inputs) {{
                                                 if(inp.getAttribute('aria-label') === "{target_input_id}") {{
@@ -775,19 +790,23 @@ else:
                                                     break;
                                                 }}
                                             }}
+                                            renderCal();
                                         }};
                                         cb.appendChild(div);
                                     }}
                                 }}
+
                                 function cambiarMes(delta) {{
                                     cDate.setMonth(cDate.getMonth() + delta);
                                     renderCal();
                                 }}
+
                                 function actFecha() {{
                                     cDate.setFullYear(parseInt(document.getElementById('s-y').value));
                                     cDate.setMonth(parseInt(document.getElementById('s-m').value));
                                     renderCal();
                                 }}
+
                                 initYears();
                                 renderCal();
                             </script>
