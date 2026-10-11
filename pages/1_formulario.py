@@ -1034,16 +1034,6 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 datos_paciente=datos_paciente,
             )
 
-            # --- LIMPIEZA AUTOMÁTICA DE FORMATO DE CELDA AL CREAR / INSERTAR NUEVA FILA EN GOOGLE SHEETS ---
-            # Esto evita que nuevas filas hereden colores de fondo previos de la plantilla
-            try:
-                import gspread
-                from google.oauth2.service_account import Credentials
-                # Nota: Dependiendo de tu helper de guardado en utils/sheets.py, puedes invocar 
-                # la limpieza directamente sobre la hoja activa recién actualizada.
-            except Exception:
-                pass
-
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                 "curp_con_nacimiento": curp_con_nacimiento,
