@@ -171,7 +171,7 @@ def obtener_recomendaciones_paciente(
         if not matches_inf and guia_inf:
             matches_inf.append(guia_inf[0])
 
-    # --- Filtrar COVID (Moderna, Pfizer, etc.) asegurando Personal de Salud y Comorbilidades ---
+    # --- Filtrar COVID (Moderna, Pfizer, etc.) ---
     if mostrar_covid:
         for item in guia_cov:
             cat_b = item["categoria"].strip().upper()
