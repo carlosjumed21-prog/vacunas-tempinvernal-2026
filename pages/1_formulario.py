@@ -332,11 +332,16 @@ st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</di
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-# Sincronización limpia sin pasar 'value' con 'key'
+# Sincronización bidireccional y limpieza de estado
 if es_embarazada_activa:
     st.session_state.chk_personas_embarazadas = True
+elif sexo != "MUJER" or personas_gestantes != "SÍ":
+    st.session_state.chk_personas_embarazadas = False
+
 if es_personal_salud_ocupacion:
     st.session_state.chk_personal_salud_riesgo = True
+elif not es_personal_salud_ocupacion:
+    st.session_state.chk_personal_salud_riesgo = False
 
 col_r1, col_r2 = st.columns(2)
 with col_r1:
