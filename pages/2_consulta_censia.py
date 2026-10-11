@@ -649,21 +649,39 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente de calendario interactivo HTML/JS con selectores reales de Mes y Año
-                        componente_calendario_flotante_html = """
+                        # Código HTML/JS con botón desplegable de calendario flotante independiente para cada vacuna
+                        componente_popup_calendar_html = """
                         <!DOCTYPE html>
                         <html>
                         <head>
                         <meta charset="utf-8">
                         <style>
                             body { font-family: sans-serif; background: transparent; margin: 0; padding: 0; }
+                            .cal-btn {
+                                background: #ffffff;
+                                border: 1px solid #a57f2c;
+                                border-radius: 6px;
+                                padding: 6px 10px;
+                                font-size: 0.9rem;
+                                font-weight: bold;
+                                color: #1e5b4f;
+                                cursor: pointer;
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 6px;
+                            }
+                            .cal-btn:hover { background: #f7f4eb; }
                             .cal-popup {
+                                display: none;
+                                position: absolute;
+                                z-index: 9999;
                                 background: #ffffff;
                                 border: 2px solid #1e5b4f;
                                 border-radius: 8px;
                                 padding: 12px;
                                 width: 280px;
-                                box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+                                box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+                                margin-top: 5px;
                             }
                             .cal-header {
                                 display: flex;
@@ -708,24 +726,27 @@ else:
                         </style>
                         </head>
                         <body>
-                        <div class="cal-popup">
-                            <div class="cal-header">
-                                <button onclick="cambiarMes(-1)">&#10094;</button>
-                                <select id="sel-m" onchange="actualizarFecha()">
-                                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-                                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-                                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-                                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                                </select>
-                                <select id="sel-y" onchange="actualizarFecha()"></select>
-                                <button onclick="cambiarMes(1)">&#10095;</button>
+                        <div style="position: relative; display: inline-block;">
+                            <button type="button" class="cal-btn" onclick="toggleCal()">📅 Elegir Fecha</button>
+                            <div class="cal-popup" id="popup-box">
+                                <div class="cal-header">
+                                    <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
+                                    <select id="sel-m" onchange="actualizarFecha()">
+                                        <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                                        <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                                        <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                                        <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                                    </select>
+                                    <select id="sel-y" onchange="actualizarFecha()"></select>
+                                    <button type="button" onclick="cambiarMes(1)">&#10095;</button>
+                                </div>
+                                <div class="cal-grid">
+                                    <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
+                                    <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
+                                    <div class="cal-day-name">D</div>
+                                </div>
+                                <div class="cal-grid" id="cal-body"></div>
                             </div>
-                            <div class="cal-grid">
-                                <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
-                                <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
-                                <div class="cal-day-name">D</div>
-                            </div>
-                            <div class="cal-grid" id="cal-body"></div>
                         </div>
                         <script>
                             let curDate = new Date();
@@ -737,6 +758,10 @@ else:
                                     o.value = y; o.text = y;
                                     sy.appendChild(o);
                                 }
+                            }
+                            function toggleCal() {
+                                const pop = document.getElementById('popup-box');
+                                pop.style.display = (pop.style.display === 'block') ? 'none' : 'block';
                             }
                             function render() {
                                 const y = curDate.getFullYear();
@@ -765,16 +790,17 @@ else:
                                         let mm = String(m + 1).padStart(2, '0');
                                         let fechaStr = dd + '/' + mm + '/' + y;
                                         
-                                        // Enviar de forma automática al campo activo en Streamlit
+                                        // Enviar al input de texto correspondiente en Streamlit
                                         const inputs = window.parent.document.querySelectorAll('input');
                                         inputs.forEach(inp => {
-                                            if(inp.value !== undefined && (inp.placeholder === "DD/MM/AAAA" || inp.getAttribute("aria-label")?.includes("Caducidad"))) {
-                                                if(inp === window.parent.document.activeElement) {
+                                            if(inp.placeholder === "DD/MM/AAAA") {
+                                                if(!inp.value) {
                                                     inp.value = fechaStr;
                                                     inp.dispatchEvent(new Event('input', { bubbles: true }));
                                                 }
                                             }
                                         });
+                                        toggleCal();
                                     };
                                     cb.appendChild(div);
                                 }
@@ -817,6 +843,7 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_inf_txt"
                                 )
+                                components.html(componente_popup_calendar_html, height=45)
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
@@ -839,9 +866,9 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_cov_txt"
                                 )
+                                components.html(componente_popup_calendar_html, height=45)
 
-                            st.markdown("<p style='font-size: 0.85rem; color: #1e5b4f; font-weight: bold; margin-bottom: 2px;'>📅 Haga clic en el campo de caducidad deseado y seleccione el mes/año en el calendario interactivo:</p>", unsafe_allow_html=True)
-                            components.html(componente_calendario_flotante_html, height=250)
+                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
@@ -873,7 +900,7 @@ else:
                                         st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta ingresar el número de lote.")
                                         error_validacion = True
                                     if not cad_cov_input.strip():
-                                        st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta indicar la fecha de caducidad.")
+                                        st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, but falta indicar la fecha de caducidad.")
                                         error_validacion = True
                                     else:
                                         try:
