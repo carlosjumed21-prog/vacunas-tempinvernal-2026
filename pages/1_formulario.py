@@ -1,5 +1,10 @@
 import datetime
+import random
 import streamlit as st
+import streamlit.components.v1 as components
+from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
+from utils.sheets import guardar_registro_censal
+from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 from utils.logica_registro import (
     calcular_edad_detallada, generar_curp_algoritmica,
     determinar_grupo_desde_sheets, generar_folio_personalizado,
@@ -22,7 +27,7 @@ st.markdown(
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; white-space: normal !important; word-wrap: break-word !important; }
         .stCheckbox { margin-bottom: 8px !important; }
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
-        .card-curp { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
+        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
         .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
@@ -355,7 +360,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
         try:
-            # Generación del nuevo folio personalizado
+            # Generación del folio personalizado con la nueva regla
             folio_asignado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
 
             comorbilidades_dict = {
