@@ -24,8 +24,8 @@ st.markdown(
         .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } /* Rojo para Sin Aplicar */
-        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } /* Amarillo para Influenza */
-        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } /* Celeste para COVID */
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } /* Amarillo para Influenza Exclusiva */
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } /* Celeste para COVID Exclusiva */
         .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } /* Morado para Simultáneas */
 
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
@@ -172,22 +172,26 @@ else:
                 else:
                     total_sin_aplicar += 1
 
-                # 3. Dosis de Influenza (Columnas AG a AI -> índices 32, 33, 34)
-                tiene_influenza_fila = False
+                # 3. Detectar si tiene Influenza (AG a AI -> índices 32, 33, 34)
+                tiene_influenza = False
                 for i in range(32, min(35, len(row))):
                     if str(row[i]).strip().upper() == "X":
-                        total_dosis_influenza += 1
-                        tiene_influenza_fila = True
+                        tiene_influenza = True
+                        break
 
-                # 4. Dosis de COVID (Columnas AL a AN -> índices 37, 38, 39)
-                tiene_covid_fila = False
+                # 4. Detectar si tiene COVID (AL a AN -> índices 37, 38, 39)
+                tiene_covid = False
                 for i in range(37, min(40, len(row))):
                     if str(row[i]).strip().upper() == "X":
-                        total_dosis_covid += 1
-                        tiene_covid_fila = True
+                        tiene_covid = True
+                        break
 
-                # 5. Simultáneas (Pacientes que tienen al menos una "X" en AG-AI Y también en AL-AN)
-                if tiene_influenza_fila and tiene_covid_fila:
+                # 5. Aplicar lógica estricta de exclusividad y simultaneidad
+                if tiene_influenza and not tiene_covid:
+                    total_dosis_influenza += 1
+                elif tiene_covid and not tiene_influenza:
+                    total_dosis_covid += 1
+                elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
 
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
