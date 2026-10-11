@@ -3,7 +3,6 @@ import unicodedata
 import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit_vue_component import st_vue_component
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
@@ -65,8 +64,6 @@ if "ant_inf" not in st.session_state:
     st.session_state.ant_inf = None
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
-if "fecha_nac_str" not in st.session_state:
-    st.session_state.fecha_nac_str = "15/10/1993"
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -475,39 +472,45 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SECCIÓN DE FECHA DE NACIMIENTO CON VUE COMPONENT AISLADO ---
+# --- SECCIÓN DE FECHA DE NACIMIENTO POR SELECTORES DESPLEGABLES (100% ESTABLE) ---
 st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
 
-componente_vue_fecha = st_vue_component(
-    component="vue_date_picker",
-    props={
-        "initialDate": st.session_state.fecha_nac_str,
-        "format": "DD/MM/YYYY"
-    },
-    key="vue_calendar_input"
-)
+col_d, col_m, col_a = st.columns(3)
 
-if componente_vue_fecha and componente_vue_fecha.get("date"):
-    st.session_state.fecha_nac_str = componente_vue_fecha.get("date")
+with col_d:
+    dias_opciones = ["Día"] + [str(d).zfill(2) for d in range(1, 32)]
+    dia_sel = st.selectbox("Día", options=dias_opciones, key="sel_dia", label_visibility="collapsed")
 
-st.markdown(
-    f"""
-    <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
-        <span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {st.session_state.fecha_nac_str}</span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+with col_m:
+    meses_dict = {
+        "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
+        "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
+        "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+    }
+    meses_opciones = ["Mes"] + list(meses_dict.keys())
+    mes_sel = st.selectbox("Mes", options=meses_opciones, key="sel_mes", label_visibility="collapsed")
+
+with col_a:
+    anio_actual = datetime.date.today().year
+    anios_opciones = ["Año"] + [str(a) for a in range(anio_actual, 1919, -1)]
+    anio_sel = st.selectbox("Año", options=anios_opciones, key="sel_anio", label_visibility="collapsed")
 
 fecha_nacimiento = None
-if st.session_state.get("fecha_nac_str"):
+if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
     try:
-        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%d/%m/%Y").date()
-    except:
-        try:
-            fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
-        except:
-            pass
+        fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
+    except ValueError:
+        st.error("⚠️ La combinación de fecha seleccionada no es válida.")
+
+if fecha_nacimiento:
+    st.markdown(
+        f"""
+        <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+            <span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {fecha_nacimiento.strftime('%d/%m/%Y')}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
@@ -607,7 +610,7 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
     if not fecha_nacimiento:
-        st.error("⚠️ Seleccione la Fecha de Nacimiento.")
+        st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
         st.error("⚠️ Complete Apellido Paterno, Materno y Nombre(s).")
     elif sexo == "SELECCIONE UNA OPCIÓN":
