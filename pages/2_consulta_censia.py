@@ -474,6 +474,7 @@ else:
                         dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                         mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                         yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
+                        fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
 
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
 
@@ -523,12 +524,11 @@ else:
                         grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
                         grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
-                        # --- CASILLA DE EDICIÓN FUERA DEL FORMULARIO PRINCIPAL PARA REACTIVACIÓN INMEDIATA ---
+                        # --- DATOS GENERALES Y EDICIÓN OPCIONAL ---
                         st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
                         
                         habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición en vivo", key=f"chk_edit_{fila_idx}")
 
-                        # Campos editables en tiempo real
                         c_ed1, c_ed2, c_ed3 = st.columns(3)
                         with c_ed1:
                             ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, disabled=not habilitar_edicion, key=f"ed_pat_{fila_idx}")
@@ -548,29 +548,6 @@ else:
                             ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, disabled=not habilitar_edicion, key=f"ed_sex_{fila_idx}")
 
                         ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=not habilitar_edicion, key=f"ed_curp_{fila_idx}")
-
-                        if habilitar_edicion:
-                            if st.button("💾 Guardar Correcciones del Paciente en Google Sheets", use_container_width=True):
-                                try:
-                                    f_actual = fila_idx
-                                    f_siguiente = fila_idx + 1
-                                    
-                                    actualizaciones_datos = [
-                                        {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
-                                        {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
-                                        {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
-                                        {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
-                                        {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
-                                        {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
-                                        {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                                        {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
-                                    ]
-                                    
-                                    worksheet_activa.batch_update(actualizaciones_datos)
-                                    st.success("✅ ¡Datos del paciente actualizados correctamente en Google Sheets!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error al actualizar los datos en Sheets: {e}")
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>',
@@ -712,91 +689,110 @@ else:
                             )
 
                             if btn_actualizar_dosis:
-                                try:
-                                    if lote_inf_input:
-                                        st.session_state.lote_influenza_memoria = lote_inf_input.upper()
-                                    if lote_cov_input:
-                                        st.session_state.lote_covid_memoria = lote_cov_input.upper()
+                                # --- VALIDACIÓN ESTRICTA DE LOTES ---
+                                influenza_seleccionada = inf_1ra or inf_2da or inf_anual
+                                covid_seleccionada = cov_1ra or cov_2da or cov_anual
 
-                                    f_actual = fila_idx
-                                    f_siguiente = fila_idx + 1
+                                error_validacion = False
 
-                                    dosis_aplicadas_lista = []
-                                    datos_a_actualizar = []
+                                if influenza_seleccionada and not lote_inf_input.strip():
+                                    st.error("⚠️ **Error:** Seleccionó al menos una dosis de **Influenza**, pero falta ingresar el número de lote.")
+                                    error_validacion = True
 
-                                    # --- Si el usuario modificó los datos generales antes de guardar, los guardamos también ---
-                                    if habilitar_edicion:
-                                        datos_a_actualizar.extend([
-                                            {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
-                                            {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
-                                            {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
-                                            {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
-                                            {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
-                                            {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
-                                            {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                                            {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
-                                        ])
-                                        nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
+                                if covid_seleccionada and not lote_cov_input.strip():
+                                    st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta ingresar el número de lote.")
+                                    error_validacion = True
 
-                                    # --- Mapeo exacto de columnas para INFLUENZA ---
-                                    if inf_1ra:
-                                        datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
-                                    if inf_2da:
-                                        datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (2da Dosis)")
-                                    if inf_anual:
-                                        datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
+                                if not influenza_seleccionada and not covid_seleccionada:
+                                    st.warning("⚠️ Debe seleccionar al menos una dosis a aplicar antes de guardar.")
+                                    error_validacion = True
 
-                                    if lote_inf_input:
-                                        lote_i = lote_inf_input.upper()
-                                        datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
-                                    if cad_inf_input:
-                                        cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
-                                        datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+                                if not error_validacion:
+                                    try:
+                                        if lote_inf_input:
+                                            st.session_state.lote_influenza_memoria = lote_inf_input.upper()
+                                        if lote_cov_input:
+                                            st.session_state.lote_covid_memoria = lote_cov_input.upper()
 
-                                    # --- Mapeo exacto de columnas para COVID ---
-                                    if cov_1ra:
-                                        datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
-                                    if cov_2da:
-                                        datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
-                                    if cov_anual:
-                                        datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
+                                        f_actual = fila_idx
+                                        f_siguiente = fila_idx + 1
 
-                                    if lote_cov_input:
-                                        lote_c = lote_cov_input.upper()
-                                        datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
-                                    if cad_cov_input:
-                                        cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
-                                        datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+                                        dosis_aplicadas_lista = []
+                                        datos_a_actualizar = []
 
-                                    if datos_a_actualizar:
-                                        worksheet_activa.batch_update(datos_a_actualizar)
+                                        # Si se modificaron los datos generales con la casilla de edición activa
+                                        if habilitar_edicion:
+                                            datos_a_actualizar.extend([
+                                                {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                                                {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                                                {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                                                {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                                                {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                                                {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                                                {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                                                {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+                                            ])
+                                            nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
 
-                                    lote_final_partes = []
-                                    if lote_inf_input:
-                                        lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
-                                    if lote_cov_input:
-                                        lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
-                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
+                                        # --- Mapeo exacto de columnas para INFLUENZA ---
+                                        if inf_1ra:
+                                            datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
+                                        if inf_2da:
+                                            datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append("Influenza (2da Dosis)")
+                                        if inf_anual:
+                                            datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
-                                    dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+                                        if lote_inf_input:
+                                            lote_i = lote_inf_input.upper()
+                                            datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+                                        if cad_inf_input:
+                                            cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
+                                            datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
-                                    st.session_state.ultimo_comprobante_vacunacion = {
-                                        "nombre": nombre_completo,
-                                        "folio": folio_p,
-                                        "dosis_str": dosis_str,
-                                        "lotes_str": lote_final_str,
-                                        "fecha_aplicacion": fecha_aplicacion_hoja
-                                    }
-                                    st.rerun()
+                                        # --- Mapeo exacto de columnas para COVID ---
+                                        if cov_1ra:
+                                            datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
+                                        if cov_2da:
+                                            datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
+                                        if cov_anual:
+                                            datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
+                                            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
 
-                                except Exception as e:
-                                    st.error(
-                                        "Error al actualizar la base de datos en Google"
-                                        f" Sheets: {e}"
-                                    )
+                                        if lote_cov_input:
+                                            lote_c = lote_cov_input.upper()
+                                            datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+                                        if cad_cov_input:
+                                            cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
+                                            datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+
+                                        if datos_a_actualizar:
+                                            worksheet_activa.batch_update(datos_a_actualizar)
+
+                                        lote_final_partes = []
+                                        if lote_inf_input:
+                                            lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
+                                        if lote_cov_input:
+                                            lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
+                                        lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
+
+                                        dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+
+                                        st.session_state.ultimo_comprobante_vacunacion = {
+                                            "nombre": nombre_completo,
+                                            "folio": folio_p,
+                                            "dosis_str": dosis_str,
+                                            "lotes_str": lote_final_str,
+                                            "fecha_aplicacion": fecha_aplicacion_hoja
+                                        }
+                                        st.rerun()
+
+                                    except Exception as e:
+                                        st.error(
+                                            "Error al actualizar la base de datos en Google"
+                                            f" Sheets: {e}"
+                                        )
