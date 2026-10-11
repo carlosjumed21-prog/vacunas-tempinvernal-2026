@@ -539,30 +539,30 @@ else:
                             st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
-                        # --- EXPANSOR DISCRETO PARA HABILITAR EDICIÓN DE DATOS GENERALES ---
+                        # --- EXPANSOR DISCRETO CON CAMPOS INHABILITADOS HASTA SOLICITARSE ---
                         with st.expander("✏️ ¿Hay algún error en los datos del paciente? Habilitar corrección"):
                             with st.form(f"form_editar_paciente_{fila_idx}"):
                                 st.markdown("##### ✏️ Corrección de Datos Generales y CURP del Paciente")
                                 
                                 c_ed1, c_ed2, c_ed3 = st.columns(3)
                                 with c_ed1:
-                                    ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, key=f"ed_pat_{fila_idx}")
+                                    ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, disabled=False, key=f"ed_pat_{fila_idx}")
                                 with c_ed2:
-                                    ed_materno = st.text_input("Apellido Materno:", value=materno_p, key=f"ed_mat_{fila_idx}")
+                                    ed_materno = st.text_input("Apellido Materno:", value=materno_p, disabled=False, key=f"ed_mat_{fila_idx}")
                                 with c_ed3:
-                                    ed_nombres = st.text_input("Nombres:", value=nombres_p, key=f"ed_nom_{fila_idx}")
+                                    ed_nombres = st.text_input("Nombres:", value=nombres_p, disabled=False, key=f"ed_nom_{fila_idx}")
 
                                 c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
                                 with c_ed4:
-                                    ed_d = st.text_input("Día (Nac):", value=dd_n, key=f"ed_d_{fila_idx}")
+                                    ed_d = st.text_input("Día (Nac):", value=dd_n, disabled=False, key=f"ed_d_{fila_idx}")
                                 with c_ed5:
-                                    ed_m = st.text_input("Mes (Nac):", value=mm_n, key=f"ed_m_{fila_idx}")
+                                    ed_m = st.text_input("Mes (Nac):", value=mm_n, disabled=False, key=f"ed_m_{fila_idx}")
                                 with c_ed6:
-                                    ed_y = st.text_input("Año (Nac):", value=yy_n, key=f"ed_y_{fila_idx}")
+                                    ed_y = st.text_input("Año (Nac):", value=yy_n, disabled=False, key=f"ed_y_{fila_idx}")
                                 with c_ed7:
-                                    ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, key=f"ed_sex_{fila_idx}")
+                                    ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, disabled=False, key=f"ed_sex_{fila_idx}")
 
-                                ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, key=f"ed_curp_{fila_idx}")
+                                ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=False, key=f"ed_curp_{fila_idx}")
 
                                 btn_guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", use_container_width=True)
 
