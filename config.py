@@ -1,4 +1,5 @@
 import streamlit as st
+import datetime
 
 
 # --- CONFIGURACIÓN UNIVERSAL DE ESTILOS Y OCULTACIÓN DE BARRA LATERAL ---
@@ -37,6 +38,42 @@ def aplicar_configuracion_global(
         """,
             unsafe_allow_html=True,
         )
+
+
+# --- FUNCIÓN REUTILIZABLE EN CONFIG PARA SELECTOR DE FECHA COMPACTO (MES/AÑO/DÍA) ---
+def render_selector_fecha_compacto(label_texto, key_sufijo):
+    st.markdown(f"<label style='font-size: 0.95rem; font-weight: 600; color: #161a1d;'>{label_texto}</label>", unsafe_allow_html=True)
+    
+    col_d, col_m, col_a = st.columns([1, 1.4, 1.2])
+    
+    dias_op = ["Día"] + list(range(1, 32))
+    meses_dict = {
+        "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
+        "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
+        "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+    }
+    meses_op = ["Mes"] + list(meses_dict.keys())
+    
+    # Rango de años de caducidad (desde el año actual hasta 10 años adelante)
+    anio_actual = datetime.date.today().year
+    anios_op = ["Año"] + list(range(anio_actual, anio_actual + 11))
+    
+    with col_d:
+        d_sel = st.selectbox("Día", options=dias_op, key=f"d_{key_sufijo}", label_visibility="collapsed")
+    with col_m:
+        m_sel = st.selectbox("Mes", options=meses_op, key=f"m_{key_sufijo}", label_visibility="collapsed")
+    with col_a:
+        a_sel = st.selectbox("Año", options=anios_op, key=f"a_{key_sufijo}", label_visibility="collapsed")
+        
+    fecha_resultado = None
+    if d_sel != "Día" and m_sel != "Mes" and a_sel != "Año":
+        try:
+            mes_num = meses_dict[m_sel]
+            fecha_resultado = datetime.date(int(a_sel), mes_num, int(d_sel))
+        except ValueError:
+            st.error("⚠️ Fecha inválida.")
+            
+    return fecha_resultado
 
 
 # --- DICCIONARIO UNIVERSAL DE UNIDADES ISSSTE ---
