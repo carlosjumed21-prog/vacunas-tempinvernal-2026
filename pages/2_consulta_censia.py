@@ -26,12 +26,11 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EN GOOGLE SHEETS ---
+# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EN GOOGLE SHEETS (RANGO EXACTO A:AQ) ---
 def aplicar_formato_condicional_sheets(worksheet):
     """Aplica formato condicional mediante petición cruda a la API de Google Sheets 
-    para pintar dinámicamente de verde las filas de A a AQ a partir de la fila 14 cuando AG-AQ tenga 'X'."""
+    para pintar de verde toda la fila desde la columna A hasta la AQ a partir de la fila 14."""
     try:
-        # Petición nativa JSON para añadir formato condicional en Google Sheets
         body = {
             "requests": [
                 {
@@ -42,15 +41,15 @@ def aplicar_formato_condicional_sheets(worksheet):
                                     "sheetId": worksheet.id,
                                     "startRowIndex": 13,      # Fila 14 (base 0)
                                     "endRowIndex": 1000,      # Rango dinámico hacia abajo
-                                    "startColumnIndex": 0,    # Columna A
-                                    "endColumnIndex": 43      # Columna AQ
+                                    "startColumnIndex": 0,    # Columna A (índice 0)
+                                    "endColumnIndex": 43      # Columna AQ (índice 43, exclusivo)
                                 }
                             ],
                             "booleanRule": {
                                 "condition": {
                                     "type": "CUSTOM_FORMULA",
                                     "values": [
-                                        {"userEnteredValue": '=COUNTIF(AG14:AQ14, "X") > 0'}
+                                        {"userEnteredValue": '=COUNTA($AG14:$AQ14) > 0'}
                                     ]
                                 },
                                 "format": {
@@ -67,10 +66,8 @@ def aplicar_formato_condicional_sheets(worksheet):
             ]
         }
         
-        # Ejecutamos la petición directamente contra el spreadsheet
         worksheet.spreadsheet.batch_update(body)
     except Exception as e:
-        # Si la regla ya existe o hay un conflicto menor, evitamos que detenga la aplicación
         pass
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
