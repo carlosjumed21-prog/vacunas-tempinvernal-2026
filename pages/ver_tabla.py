@@ -2,12 +2,20 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
-import io
 import datetime
 import urllib.request
 import urllib.parse
 from google.oauth2 import service_account
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+
+# --- INTENTO DE IMPORTACIÓN SEGURA DE CONFIG ---
+try:
+    from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+except ImportError:
+    GOOGLE_SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    GOOGLE_SHEET_ID = st.secrets.get("GOOGLE_SHEET_ID", "")
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA PARA OCUPAR TODO EL NAVEGADOR ---
 st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
@@ -35,6 +43,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- VALIDACIÓN DE SECRETOS Y CREDENCIALES ---
+if not GOOGLE_SHEET_ID:
+    st.error("❌ Falta configurar `GOOGLE_SHEET_ID` en los secretos de Streamlit o en tu archivo de configuración.")
+    st.stop()
+
 # --- CAPTURA DE LA HOJA AUTORIZADA DESDE LA URL ---
 params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
@@ -44,14 +57,20 @@ if not hoja_activa_tabla:
 else:
     try:
         scope = GOOGLE_SCOPES
+        creds_dict = None
+        
         if "GOOGLE_CREDENTIALS" in st.secrets:
             raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
         elif "gpex" in st.secrets:
             creds_dict = dict(st.secrets["gpex"])
-        else:
+        elif len(st.secrets.keys()) > 0:
             primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
+            if primera_llave != "GOOGLE_SHEET_ID":
+                creds_dict = dict(st.secrets[primera_llave])
+
+        if not creds_dict:
+            raise KeyError("No se encontraron credenciales de servicio válidas en `st.secrets`.")
 
         creds = service_account.Credentials.from_service_account_info(
             creds_dict, scopes=scope
