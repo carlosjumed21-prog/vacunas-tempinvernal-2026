@@ -38,8 +38,7 @@ def mostrar_dialogo_cerrar_sesion():
             st.session_state.autenticado_consulta = False
             st.session_state.correo_operativo_asignado = ""
             st.session_state.ultimo_comprobante_vacunacion = None
-            if "input_busqueda_lupa" in st.session_state:
-                st.session_state.input_busqueda_lupa = ""
+            st.session_state.reiniciar_busqueda = True
             st.switch_page("app.py")
     with col_dlg2:
         if st.button("Cancelar", use_container_width=True):
@@ -66,6 +65,13 @@ if "correo_operativo_asignado" not in st.session_state:
 
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
+
+if "reiniciar_busqueda" not in st.session_state:
+    st.session_state.reiniciar_busqueda = False
+
+if st.session_state.reiniciar_busqueda:
+    st.session_state.input_busqueda_lupa = ""
+    st.session_state.reiniciar_busqueda = False
 
 
 @st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
@@ -179,8 +185,7 @@ def mostrar_modal_comprobante_vacunacion():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
             st.session_state.ultimo_comprobante_vacunacion = None
-            if "input_busqueda_lupa" in st.session_state:
-                st.session_state.input_busqueda_lupa = ""
+            st.session_state.reiniciar_busqueda = True
             st.rerun()
 
 
@@ -507,7 +512,10 @@ else:
                             with c_ci1:
                                 cad_i_d = st.selectbox("Día Inf", options=[str(d).zfill(2) for d in range(1, 32)], key=f"cal_inf_d_{fila_idx}", label_visibility="collapsed")
                             with c_ci2:
-                                cad_i_m = st.selectbox("Mes Inf", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
+                                meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                                cad_i_m_nombre = st.selectbox("Mes Inf", options=meses_nombres, key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
+                                meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
+                                cad_i_m = meses_dict_num[cad_i_m_nombre]
                             with c_ci3:
                                 anio_actual = datetime.date.today().year
                                 cad_i_y = st.selectbox("Año Inf", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key=f"cal_inf_y_{fila_idx}", label_visibility="collapsed")
@@ -541,7 +549,8 @@ else:
                             with c_cc1:
                                 cad_c_d = st.selectbox("Día Cov", options=[str(d).zfill(2) for d in range(1, 32)], key=f"cal_cov_d_{fila_idx}", label_visibility="collapsed")
                             with c_cc2:
-                                cad_c_m = st.selectbox("Mes Cov", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key=f"cal_cov_m_{fila_idx}", label_visibility="collapsed")
+                                cad_c_m_nombre = st.selectbox("Mes Cov", options=["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"], key=f"cal_cov_m_{fila_idx}", label_visibility="collapsed")
+                                cad_c_m = meses_dict_num[cad_c_m_nombre]
                             with c_cc3:
                                 anio_actual = datetime.date.today().year
                                 cad_c_y = st.selectbox("Año Cov", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key=f"cal_cov_y_{fila_idx}", label_visibility="collapsed")
@@ -678,7 +687,7 @@ else:
                                 dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
 
                                 # --- REINICIAR EL BUSCADOR AL GUARDAR ---
-                                st.session_state.input_busqueda_lupa = ""
+                                st.session_state.reiniciar_busqueda = True
 
                                 st.session_state.ultimo_comprobante_vacunacion = {
                                     "nombre": nombre_completo,
