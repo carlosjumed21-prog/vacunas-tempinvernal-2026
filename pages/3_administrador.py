@@ -378,13 +378,18 @@ else:
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
                                     
-                                    # --- PROTECCIÓN NATIVA DE LA PESTAÑA PARA EL CORRESPONDIENTE USUARIO ---
+                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
                                     if j_conf["correo"]:
-                                        hoja_activa.add_protected_range(
-                                            name="A1:AZ1000",
-                                            editor_users_emails=[j_conf["correo"]],
-                                            description=f"Protección exclusiva para {j_conf['responsable']}"
-                                        )
+                                        try:
+                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
+                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
+                                            prot.editors = {'users': [j_conf["correo"]]}
+                                        except Exception:
+                                            hoja_activa.add_protected_range(
+                                                name=hoja_activa.title,
+                                                editor_users_emails=[j_conf["correo"]],
+                                                description=f"Protección exclusiva para {j_conf['responsable']}"
+                                            )
                                 except Exception as prot_err:
                                     print(f"Aviso de protección: {prot_err}")
 
@@ -435,13 +440,18 @@ else:
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
                                     
-                                    # --- PROTECCIÓN NATIVA DE LA PESTAÑA PARA EL CORRESPONDIENTE USUARIO ---
+                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
                                     if j_conf["correo"]:
-                                        hoja_activa.add_protected_range(
-                                            name="A1:AZ1000",
-                                            editor_users_emails=[j_conf["correo"]],
-                                            description=f"Protección exclusiva para {j_conf['responsable']}"
-                                        )
+                                        try:
+                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
+                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
+                                            prot.editors = {'users': [j_conf["correo"]]}
+                                        except Exception:
+                                            hoja_activa.add_protected_range(
+                                                name=hoja_activa.title,
+                                                editor_users_emails=[j_conf["correo"]],
+                                                description=f"Protección exclusiva para {j_conf['responsable']}"
+                                            )
                                 except Exception as prot_err:
                                     print(f"Aviso de protección: {prot_err}")
 
@@ -464,7 +474,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, correo en AU4, enlaces, códigos QR y protección nativa aplicados con éxito!"
+                            "¡Jornadas autorizadas, correo en AU4, enlaces, códigos QR y protección avanzada aplicados con éxito!"
                         )
 
                 except Exception as e:
