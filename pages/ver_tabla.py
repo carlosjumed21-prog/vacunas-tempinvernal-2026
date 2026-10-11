@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 import json
 import io
+import datetime
 import urllib.request
 import urllib.parse
 from google.oauth2 import service_account
@@ -151,7 +152,7 @@ else:
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_covid += 1
 
-                # 4. Registros nuevos del día (columna Fecha de Aplicación -> índice 11 aprox o validando si se aplicó hoy)
+                # 4. Registros nuevos del día
                 if len(row) > 11 and row[11].strip() == fecha_hoy_str:
                     registros_nuevos_hoy += 1
 
