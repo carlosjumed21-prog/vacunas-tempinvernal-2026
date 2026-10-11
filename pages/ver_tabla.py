@@ -123,19 +123,15 @@ else:
         # --- BOTÓN DE DESCARGA EXCEL COMPATIBLE CON IMÁGENES QR ---
         with col_tit3:
             try:
-                # Generamos un archivo Excel estructurado con openpyxl e incrustamos los QR si existen fórmulas =IMAGE
                 wb = openpyxl.Workbook()
                 ws_excel = wb.active
                 ws_excel.title = hoja_activa_tabla[:31]
 
                 for row_idx, row_data in enumerate(todos_los_datos, start=1):
                     for col_idx, cell_value in enumerate(row_data, start=1):
-                        # Verificamos si la celda contiene una fórmula de imagen tipo =IMAGE("url")
                         if str(cell_value).startswith("=IMAGE("):
                             try:
-                                # Extraer la URL de la fórmula de Google Sheets
                                 url_qr = cell_value.split('"')[1]
-                                # Descargar la imagen del QR temporalmente
                                 req_img = urllib.request.Request(url_qr, headers={'User-Agent': 'Mozilla/5.0'})
                                 with urllib.request.urlopen(req_img) as img_resp:
                                     img_bytes = img_resp.read()
@@ -145,10 +141,9 @@ else:
                                 xl_img.width = 90
                                 xl_img.height = 90
                                 
-                                # Convertir número de columna a letra de Excel (ej: 1 -> A, etc.)
                                 col_letter = openpyxl.utils.get_column_letter(col_idx)
                                 ws_excel.add_image(xl_img, f"{col_letter}{row_idx}")
-                                ws_excel.cell(row=row_idx, column=col_idx, value="") # Limpiar texto de la fórmula
+                                ws_excel.cell(row=row_idx, column=col_idx, value="")
                             except Exception:
                                 ws_excel.cell(row=row_idx, column=col_idx, value=cell_value)
                         else:
@@ -292,3 +287,23 @@ else:
                         if val == "X":
                             completado = True
                             break
+                except:
+                    pass
+                
+                return ['background-color: #d4edda; color: #155724; font-weight: 600;' if completado else '' for _ in row]
+
+            df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
+
+            # --- TABLA NATIVA CON SCROLL INTERNO Y ENCABEZADOS FIJOS ---
+            st.dataframe(
+                df_estilizado,
+                use_container_width=True,
+                height=650,
+                hide_index=True
+            )
+
+        else:
+            st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
+
+    except Exception as ex:
+        st.error(f"Error al conectar con la base de datos: {ex}")
