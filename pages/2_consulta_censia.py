@@ -1,3 +1,4 @@
+
 import datetime
 import json
 import urllib.parse
@@ -433,6 +434,9 @@ else:
                         if es_riesgo:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
+                        grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
+                        grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
+
                         st.markdown(
                             '<div class="section-title">Vista Previa y Datos Generales'
                             " del Paciente</div>",
@@ -446,7 +450,7 @@ else:
                             st.markdown(f"**Nacimiento:** {fecha_nac_str}")
                             st.markdown(f"**Sexo:** {sexo_texto}")
                         with col3:
-                            st.markdown(f"**Categoría:** {categoria_paciente}")
+                            st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
                         st.markdown(
@@ -455,13 +459,13 @@ else:
                             unsafe_allow_html=True,
                         )
 
+                        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
+                        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
+
                         # --- OBTENER RECOMENDACIONES DESDE EL MÓDULO AUXILIAR ---
                         matches_inf, matches_covid = obtener_recomendaciones_paciente(
                             categoria_paciente, lista_riesgos_detectados, vacuna_registrada
                         )
-
-                        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
-                        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
                         # --- RENDERIZADO DE CARDS DE INFLUENZA ---
                         if mostrar_influenza:
@@ -483,7 +487,7 @@ else:
                                     unsafe_allow_html=True,
                                 )
 
-                        # --- RENDERIZADO DE CARDS DE COVID (Moderna, Pfizer, etc.) ---
+                        # --- RENDERIZADO DE CARDS DE COVID ---
                         if mostrar_covid:
                             for idx_cov, match_cov in enumerate(matches_covid):
                                 tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
@@ -576,7 +580,7 @@ else:
                                         worksheet_activa.update(f"AI{f_siguiente}", [["X"]])
                                         dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
-                                    # --- COVID ---
+                    # --- COVID ---
                                     if cov_1ra:
                                         worksheet_activa.update(f"AJ{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
