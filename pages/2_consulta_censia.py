@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML para el calendario compacto estático a la derecha
+                        # Componente HTML para el calendario compacto a la derecha
                         inline_calendar_html = """
                         <!DOCTYPE html>
                         <html>
@@ -795,7 +795,7 @@ else:
 
                         with st.form("form_aplicacion_lotes"):
                             st.markdown("##### 💉 INFLUENZA")
-                            # Fila 1: Dosis en horizontal
+                            # Fila 1: Dosis horizontales
                             c_inf_d1, c_inf_d2, c_inf_d3, _ = st.columns([1, 1, 1, 1.5])
                             with c_inf_d1:
                                 inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
@@ -804,8 +804,8 @@ else:
                             with c_inf_d3:
                                 inf_anual = st.checkbox("Anual", key="chk_inf_anual")
 
-                            # Fila 2: Lote, Caducidad y Calendario a ladito en horizontal
-                            c_inf_l, c_inf_c, c_inf_cal = st.columns([1.5, 1.5, 1.8])
+                            # Fila 2: Lote compacto, Caducidad compacta y Calendario a ladito
+                            c_inf_l, c_inf_c, c_inf_cal = st.columns([1.1, 1.1, 1.6])
                             with c_inf_l:
                                 lote_inf_input = st.text_input(
                                     "Lote Influenza",
@@ -821,13 +821,13 @@ else:
                                     key="cad_inf_txt"
                                 )
                             with c_inf_cal:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=170)
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=165)
 
                             st.markdown("---")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                            # Fila 1: Dosis COVID en horizontal
+                            # Fila 1: Dosis COVID horizontales
                             c_cov_d1, c_cov_d2, c_cov_d3, _ = st.columns([1, 1, 1, 1.5])
                             with c_cov_d1:
                                 cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
@@ -836,8 +836,8 @@ else:
                             with c_cov_d3:
                                 cov_anual = st.checkbox("Anual", key="chk_cov_anual")
 
-                            # Fila 2: Lote, Caducidad y Calendario a ladito en horizontal
-                            c_cov_l, c_cov_c, c_cov_cal = st.columns([1.5, 1.5, 1.8])
+                            # Fila 2: Lote compacto, Caducidad compacta y Calendario a ladito
+                            c_cov_l, c_cov_c, c_cov_cal = st.columns([1.1, 1.1, 1.6])
                             with c_cov_l:
                                 lote_cov_input = st.text_input(
                                     "Lote COVID-19",
@@ -853,8 +853,8 @@ else:
                                     key="cad_cov_txt"
                                 )
                             with c_cov_cal:
-                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=170)
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=165)
 
                             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
