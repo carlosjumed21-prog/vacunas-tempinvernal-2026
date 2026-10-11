@@ -10,10 +10,31 @@ try:
     from aviso_privacidad import mostrar_aviso_privacidad
 except ImportError:
     def mostrar_aviso_privacidad():
-        with st.expander("📄 Aviso de Privacidad"):
-            st.info("Aviso de privacidad institucional VIGILE - ISSSTE.")
+        st.write("Aviso de privacidad institucional VIGILE - ISSSTE.")
+        st.text("Tratamiento de datos personales recabados conforme a la normatividad aplicable.")
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
+
+# --- VENTANA EMERGENTE (MODAL) PARA EL AVISO DE PRIVACIDAD ---
+@st.dialog("🔒 Aviso de Privacidad Obligatorio", width="large")
+def modal_aviso_privacidad():
+    st.markdown("Por favor lea detenidamente el aviso de privacidad antes de continuar con el registro:")
+    
+    # Contenedor con scroll para leer el aviso
+    with st.container(height=300):
+        mostrar_aviso_privacidad()
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("✅ He leído y acepto el Aviso de Privacidad", use_container_width=True):
+        st.session_state.aviso_privacidad_visto = True
+        st.rerun()
+
+# Control de estado para mostrar el modal al abrir la página o reiniciar
+if "aviso_privacidad_visto" not in st.session_state:
+    st.session_state.aviso_privacidad_visto = False
+
+if not st.session_state.aviso_privacidad_visto:
+    modal_aviso_privacidad()
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
@@ -22,18 +43,6 @@ with col_nav1:
         st.switch_page("app.py")
 
 st.markdown("---")
-
-# --- MOSTRAR AVISO DE PRIVACIDAD AL ABRIR EL FORMULARIO (SI NO SE HA ACEPTADO) ---
-if "aviso_privacidad_visto" not in st.session_state:
-    st.session_state.aviso_privacidad_visto = False
-
-if not st.session_state.aviso_privacidad_visto:
-    st.markdown("### 🔒 Aviso de Privacidad Obligatorio")
-    mostrar_aviso_privacidad()
-    if st.button("✅ He leído y acepto el Aviso de Privacidad", use_container_width=True):
-        st.session_state.aviso_privacidad_visto = True
-        st.rerun()
-    st.stop()
 
 # --- RECUPERACIÓN CORRECTA DE PARÁMETROS DE URL ---
 params = st.query_params
@@ -629,6 +638,8 @@ def mostrar_modal_comprobante():
                         if "chk_" in k
                         else ("" if "input_" in k and "fnac" not in k else None)
                     )
+            # Opcional: si deseas que al reiniciar también aparezca la ventana emergente de privacidad, descomenta la línea de abajo:
+            # st.session_state.aviso_privacidad_visto = False
             st.rerun()
 
 
