@@ -250,6 +250,7 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
+                # Validación universal para tu correo de administrador
                 if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
@@ -296,13 +297,13 @@ else:
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-        # --- LLAVE UNIVERSAL: Si es tu correo, cargamos TODAS las hojas sin buscar en AU4 ---
+        # --- LLAVE UNIVERSAL: Tu correo de admin carga TODAS las hojas operativas directamente ---
         if correo_sesion == "carlosju.med21@gmail.com":
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     h_autorizadas.append(h.title)
         else:
-            # Para operativos, filtramos estrictamente buscando su correo en la celda AU4
+            # Para operativos, se busca estrictamente su correo en la celda AU4
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     try:
@@ -326,6 +327,7 @@ else:
             hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
         else:
             hoja_seleccionada = None
+            st.warning("⚠️ No se encontraron hojas operativas en el documento.")
     else:
         st.markdown(
             f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
@@ -352,7 +354,6 @@ else:
                 try:
                     ws_temp = spreadsheet.worksheet(hoja_seleccionada)
                     
-                    # Si es operativo normal, ocultamos las plantillas y pestañas ajenas
                     if correo_sesion != "carlosju.med21@gmail.com":
                         for hoja_item in spreadsheet.worksheets():
                             if hoja_item.title in hojas_plantillas_excluir or hoja_item.title != hoja_seleccionada:
@@ -366,7 +367,6 @@ else:
                                 except:
                                     pass
                     else:
-                        # Si eres tú (Admin), dejamos todas las hojas operativas visibles
                         for hoja_item in spreadsheet.worksheets():
                             if hoja_item.title not in hojas_plantillas_excluir:
                                 try:
