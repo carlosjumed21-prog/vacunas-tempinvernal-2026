@@ -10,7 +10,7 @@ from utils.sheets_esquemas import obtener_recomendaciones_paciente
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
-# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT ---
+# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS DE CAMPOS DESHABILITADOS ---
 st.markdown(
     """
     <style>
@@ -19,6 +19,8 @@ st.markdown(
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
+        /* Evitar que los inputs deshabilitados se vean excesivamente opacos */
+        input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -474,7 +476,6 @@ else:
                         dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                         mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                         yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
-                        fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
 
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
 
@@ -524,26 +525,10 @@ else:
                         grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
                         grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
-                        st.markdown(
-                            '<div class="section-title">Vista Previa y Datos Generales del Paciente</div>',
-                            unsafe_allow_html=True,
-                        )
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.markdown(f"**Folio:** {folio_p}")
-                            st.markdown(f"**Nombre:** {nombre_completo}")
-                        with col2:
-                            st.markdown(f"**Nacimiento:** {fecha_nac_str}")
-                            st.markdown(f"**Sexo:** {'HOMBRE' if sexo_p == 'H' else 'MUJER'}")
-                        with col3:
-                            st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
-                            st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
-
-                        # --- RECUADRO FIJO CON CASILLA DE ACTIVACIÓN DE EDICIÓN ---
+                        # --- RECUADRO ÚNICO: DATOS GENERALES Y EDICIÓN OPCIONAL ---
                         with st.form(f"form_editar_paciente_{fila_idx}"):
-                            st.markdown("##### ✏️ Corrección de Datos Generales y CURP del Paciente")
+                            st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
                             
-                            # Checkbox para habilitar o deshabilitar la edición en el mismo cuadro
                             habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición", key=f"chk_edit_{fila_idx}")
                             
                             c_ed1, c_ed2, c_ed3 = st.columns(3)
