@@ -346,7 +346,6 @@ else:
                             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
                             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
-                            # 1. Duplicación interna de la pestaña en el Google Sheets maestro (Cero consumo de cuota de Drive)
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                                 plantilla_1 = spreadsheet_maestro.worksheet("CENSO NOMINAL")
@@ -368,7 +367,6 @@ else:
                                 nombre_copia_1 = nombre_nueva_hoja
                                 copia_1 = nueva_hoja
 
-                            # Llenamos datos en la pestaña
                             hoja_activa_maestro.update_acell("D7", "CDMX")
                             hoja_activa_maestro.update_acell("M7", "ISSSTE")
                             hoja_activa_maestro.update_acell("T7", "Delegación Sur")
@@ -392,7 +390,9 @@ else:
                                 "responsable": j_conf["responsable"],
                                 "correo": j_conf["correo"],
                                 "fecha": j_conf["fecha"],
-                                "sheet_id": sheet_id_destino
+                                "sheet_id": sheet_id_destino,
+                                "link_formulario": link_paciente,
+                                "link_operativo": link_operativo
                             }
                             hojas_creadas_exito.append(hoja_info)
                             if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
@@ -539,6 +539,8 @@ else:
                     ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
                     hojas_encontradas = []
 
+                    base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
                     for sheet_id_item in ids_a_revisar:
                         try:
                             sp_item = client.open_by_key(sheet_id_item)
@@ -547,14 +549,31 @@ else:
                                 if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
                                     try:
                                         val_au4 = ""
+                                        link_form_leido = ""
+                                        link_op_leido = ""
                                         try:
                                             val_au4 = ws.acell("AU4").value
+                                        except:
+                                            pass
+                                        try:
+                                            link_form_leido = ws.acell("AU6").value
+                                        except:
+                                            pass
+                                        try:
+                                            link_op_leido = ws.acell("AU7").value
                                         except:
                                             pass
 
                                         siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
                                         tipo_letra_h = "I" if "INTRA" in titulo_w else "E"
                                         
+                                        if not link_form_leido or not link_form_leido.startswith("http"):
+                                            ruta_form = "registro_20_noviembre" if siglas_h == "20N" else "formulario"
+                                            link_form_leido = f"{base_url}/{ruta_form}?unidad={siglas_h}&jornada={tipo_letra_h}"
+
+                                        if not link_op_leido or not link_op_leido.startswith("http"):
+                                            link_op_leido = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
+
                                         hojas_encontradas.append({
                                             "nombre": titulo_w,
                                             "gid": str(ws.id),
@@ -566,7 +585,8 @@ else:
                                             "correo": val_au4.strip().lower() if val_au4 else "No asignado",
                                             "fecha": datetime.date.today(),
                                             "sheet_id": sheet_id_item,
-                                            "link_formulario": f"https://medprev-vacunas-invernal.streamlit.app/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
+                                            "link_formulario": link_form_leido,
+                                            "link_operativo": link_op_leido
                                         })
                                     except:
                                         pass
@@ -582,12 +602,12 @@ else:
                 except Exception as e:
                     st.error(f"Error al sincronizar con Google Sheets: {e}")
 
-        # --- VISTA UNIVERSAL PARA EL ADMINISTRADOR ---
+        # --- VISTA UNIVERSAL Y DETALLADA PARA EL ADMINISTRADOR ---
         st.markdown("<br>", unsafe_allow_html=True)
         if not st.session_state.historial_jornadas:
-            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial Universal'** para escanear y visualizar todas las pestañas existentes en Google Sheets.")
+            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial Universal'** para escanear y visualizar todas las pestañas existentes en Google Sheets con sus respectivos enlaces y QR.")
         else:
-            st.success(f"👑 Panel de Administración Universal: Mostrando todas las pestañas creadas ({len(st.session_state.historial_jornadas)} in total).")
+            st.success(f"👑 Panel de Administración Universal: Mostrando todas las pestañas creadas ({len(st.session_state.historial_jornadas)} en total).")
             base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
             for i, h_item in enumerate(st.session_state.historial_jornadas):
@@ -598,19 +618,23 @@ else:
                             <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
                             <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
                             <p style="margin: 4px 0;"><b>Correo Responsable (AU4):</b> <code>{h_item['correo']}</code></p>
-                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Visible en Vista Universal de Administrador</b></p>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
 
-                col_h1, col_h2 = st.columns([1, 1])
+                col_h1, col_h2 = st.columns([1.2, 0.8])
                 with col_h1:
                     url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
-                    st.markdown(f"[🔗 Abrir Libro Maestro Completo en Google Sheets]({url_sheet_universal})", unsafe_allow_html=True)
+                    st.markdown(f"📊 **Libro Maestro:** [Abrir Google Sheets]({url_sheet_universal})")
                     
-                    if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
-                        st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
+                    link_form_val = h_item.get("link_formulario", base_url)
+                    st.markdown("🔹 **Enlace Formulario Público:**")
+                    st.code(link_form_val, language="text")
+
+                    link_op_val = h_item.get("link_operativo", f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(h_item['nombre'])}")
+                    st.markdown("🔹 **Enlace Operativo Personalizado:**")
+                    st.code(link_op_val, language="text")
                 
                 with col_h2:
                     link_qr_generar = h_item.get("link_formulario", base_url)
@@ -623,12 +647,13 @@ else:
                     img_h.save(buf_h, format="PNG")
                     byte_im_h = buf_h.getvalue()
 
-                    st.image(byte_im_h, caption=f"QR ({h_item['nombre']})", width=140)
+                    st.image(byte_im_h, caption=f"QR de Registro ({h_item['nombre']})", width=160)
                     st.download_button(
                         label=f"📥 Descargar QR ({h_item['nombre']})",
                         data=byte_im_h,
                         file_name=f"QR_{h_item['nombre']}.png",
                         mime="image/png",
-                        key=f"hist_qr_{i}"
+                        key=f"hist_qr_{i}",
+                        use_container_width=True
                     )
                 st.markdown("---")
