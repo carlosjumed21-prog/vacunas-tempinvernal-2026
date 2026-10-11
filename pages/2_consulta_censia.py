@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
+from utils.sheets_esquemas import obtener_recomendaciones_paciente
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
@@ -260,72 +261,6 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE LAS HOJAS 'Influenza' y 'COVID' ---
-    guia_influenza_registros = []
-    guia_covid_registros = []
-    try:
-        sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
-        doc_censia = client.open_by_key(sheet_censia_id)
-        
-        # Hoja 1: Influenza
-        try:
-            ws_inf = doc_censia.worksheet("Influenza")
-            filas_inf = ws_inf.get_all_values()
-            v_vac, v_cat, v_esq, v_dos, v_int, v_rec, v_sim = "", "", "", "", "", "", ""
-            for row in filas_inf[1:]:
-                if len(row) >= 7:
-                    if row[0].strip(): v_vac = row[0].strip()
-                    if row[1].strip(): v_cat = row[1].strip()
-                    if row[3].strip(): v_esq = row[3].strip()
-                    if row[4].strip(): v_dos = row[4].strip()
-                    if row[5].strip(): v_int = row[5].strip()
-                    if row[6].strip(): v_rec = row[6].strip()
-                    if len(row) >= 8 and row[7].strip(): v_sim = row[7].strip()
-                    
-                    guia_influenza_registros.append({
-                        "vacuna": v_vac,
-                        "categoria": v_cat,
-                        "grupos_blancos": row[2].strip(),
-                        "esquema": v_esq,
-                        "dosis": v_dos,
-                        "intervalo": v_int,
-                        "recomendacion": v_rec,
-                        "aplicacion_simultanea": v_sim
-                    })
-        except Exception:
-            pass
-
-        # Hoja 2: COVID
-        try:
-            ws_cov = doc_censia.worksheet("COVID")
-            filas_cov = ws_cov.get_all_values()
-            c_vac, c_cat, c_esq, c_dos, c_int, c_rec, c_sim = "", "", "", "", "", "", ""
-            for row in filas_cov[1:]:
-                if len(row) >= 7:
-                    if row[0].strip(): c_vac = row[0].strip()
-                    if row[1].strip(): c_cat = row[1].strip()
-                    if row[3].strip(): c_esq = row[3].strip()
-                    if row[4].strip(): c_dos = row[4].strip()
-                    if row[5].strip(): c_int = row[5].strip()
-                    if row[6].strip(): c_rec = row[6].strip()
-                    if len(row) >= 8 and row[7].strip(): c_sim = row[7].strip()
-                    
-                    guia_covid_registros.append({
-                        "tipo_vacuna": c_vac,
-                        "categoria": c_cat,
-                        "grupos_blancos": row[2].strip(),
-                        "esquema": c_esq,
-                        "dosis": c_dos,
-                        "intervalo": c_int,
-                        "recomendacion": c_rec,
-                        "aplicacion_simultanea": c_sim
-                    })
-        except Exception:
-            pass
-
-    except Exception as e:
-        pass
-
     st.markdown(
         '<div class="section-title">1. Jornada Operativa Activa</div>',
         unsafe_allow_html=True,
@@ -464,19 +399,19 @@ else:
                             elif au_val == "X":
                                 vacuna_registrada = "COVID-19"
 
-                        # --- DETECCIÓN EXACTA DE RIESGOS Y CATEGORÍA (P hasta AF) ---
+                        # --- DETECCIÓN DE RIESGOS Y CATEGORÍA DESDE LOS DATOS PUROS ---
                         lista_riesgos_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
 
                         es_riesgo = False
                         if tiene_equis(15) or tiene_equis(16):
-                            lista_riesgos_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 Y MÁS")
+                            lista_riesgos_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 AÑOS Y MAS")
                             categoria_paciente = "POBLACIÓN OBJETIVO"
                         else:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
-                        if tiene_equis(17): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
+                        if tiene_equis(17): lista_riesgos_detectados.append("EMBARAZADAS"); es_riesgo = True
                         if tiene_equis(18): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(19): lista_riesgos_detectados.append("VIH"); es_riesgo = True
                         if tiene_equis(20): lista_riesgos_detectados.append("DIABETES"); es_riesgo = True
@@ -520,36 +455,13 @@ else:
                             unsafe_allow_html=True,
                         )
 
+                        # --- OBTENER RECOMENDACIONES DESDE EL MÓDULO AUXILIAR ---
+                        matches_inf, matches_covid = obtener_recomendaciones_paciente(
+                            categoria_paciente, lista_riesgos_detectados, vacuna_registrada
+                        )
+
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
-
-                        # --- BÚSQUEDA MULTI-MATCH (Recoge TODAS las tarjetas aplicables: Personal de Salud, Comorbilidades, etc.) ---
-                        matches_inf = []
-                        matches_cov = []
-
-                        for item in guia_influenza_registros:
-                            cat_b = item["categoria"].strip().upper()
-                            gb_c = item["grupos_blancos"].strip().upper()
-                            if "RIESGO" in cat_b:
-                                if any("SALUD" in gb_c and "SALUD" in r.upper() for r in lista_riesgos_detectados) or \
-                                   any(("COMORBILIDADES" in gb_c or "VIH" in gb_c or "DIABETES" in gb_c or "OBESIDAD" in gb_c) and r.upper() in ["VIH", "DIABETES", "OBESIDAD", "CARDIOPATÍAS", "ENFERMEDAD PULMONAR", "CÁNCER", "RENAL", "INMUNOSUPRESIÓN", "HIPERTENSIÓN"] for r in lista_riesgos_detectados):
-                                    if item not in matches_inf:
-                                        matches_inf.append(item)
-
-                        if not matches_inf and guia_influenza_registros:
-                            matches_inf.append(guia_influenza_registros[0])
-
-                        for item in guia_covid_registros:
-                            cat_b = item["categoria"].strip().upper()
-                            gb_c = item["grupos_blancos"].strip().upper()
-                            if "RIESGO" in cat_b:
-                                if any("SALUD" in gb_c and "SALUD" in r.upper() for r in lista_riesgos_detectados) or \
-                                   any(("COMORBILIDADES" in gb_c or "VIH" in gb_c or "DIABETES" in gb_c or "OBESIDAD" in gb_c) and r.upper() in ["VIH", "DIABETES", "OBESIDAD", "CARDIOPATÍAS", "ENFERMEDAD PULMONAR", "CÁNCER", "RENAL", "INMUNOSUPRESIÓN", "HIPERTENSIÓN"] for r in lista_riesgos_detectados):
-                                    if item not in matches_covid:
-                                        matches_covid.append(item)
-
-                        if not matches_covid and guia_covid_registros:
-                            matches_covid.append(guia_covid_registros[0])
 
                         # --- RENDERIZADO DE CARDS DE INFLUENZA ---
                         if mostrar_influenza:
