@@ -295,7 +295,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID (Mantiene la propagación para leer todos los biológicos de la Columna A)
+        # Hoja 2: COVID
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -476,7 +476,7 @@ else:
                         else:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
-                        if tiene_equis(17): lista_riesgos_detectados.append("EMBARAZADAS"); es_riesgo = True
+                        if tiene_equis(17): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(18): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(19): lista_riesgos_detectados.append("VIH"); es_riesgo = True
                         if tiene_equis(20): lista_riesgos_detectados.append("DIABETES"); es_riesgo = True
@@ -523,50 +523,55 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- CRUCE Y RECOLECCIÓN DE TODAS LAS OPCIONES DE BIOLÓGICOS (Moderna y Pfizer) ---
-                        match_inf = None
-                        matches_covid = []
+                        # --- BÚSQUEDA MULTI-MATCH (Recoge TODAS las tarjetas aplicables: Personal de Salud, Comorbilidades, etc.) ---
+                        matches_inf = []
+                        matches_cov = []
 
                         for item in guia_influenza_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if categoria_paciente in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
-                                match_inf = item
-                                break
-                        if not match_inf and guia_influenza_registros:
-                            match_inf = guia_influenza_registros[0]
+                            if "RIESGO" in cat_b:
+                                if any("SALUD" in gb_c and "SALUD" in r.upper() for r in lista_riesgos_detectados) or \
+                                   any(("COMORBILIDADES" in gb_c or "VIH" in gb_c or "DIABETES" in gb_c or "OBESIDAD" in gb_c) and r.upper() in ["VIH", "DIABETES", "OBESIDAD", "CARDIOPATÍAS", "ENFERMEDAD PULMONAR", "CÁNCER", "RENAL", "INMUNOSUPRESIÓN", "HIPERTENSIÓN"] for r in lista_riesgos_detectados):
+                                    if item not in matches_inf:
+                                        matches_inf.append(item)
 
-                        # Recorremos todas las filas de COVID para extraer CUALQUIER biológico que aplique al grupo
+                        if not matches_inf and guia_influenza_registros:
+                            matches_inf.append(guia_influenza_registros[0])
+
                         for item in guia_covid_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if categoria_paciente in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
-                                if item not in matches_covid:
-                                    matches_covid.append(item)
-                        
+                            if "RIESGO" in cat_b:
+                                if any("SALUD" in gb_c and "SALUD" in r.upper() for r in lista_riesgos_detectados) or \
+                                   any(("COMORBILIDADES" in gb_c or "VIH" in gb_c or "DIABETES" in gb_c or "OBESIDAD" in gb_c) and r.upper() in ["VIH", "DIABETES", "OBESIDAD", "CARDIOPATÍAS", "ENFERMEDAD PULMONAR", "CÁNCER", "RENAL", "INMUNOSUPRESIÓN", "HIPERTENSIÓN"] for r in lista_riesgos_detectados):
+                                    if item not in matches_covid:
+                                        matches_covid.append(item)
+
                         if not matches_covid and guia_covid_registros:
                             matches_covid.append(guia_covid_registros[0])
 
                         # --- RENDERIZADO DE CARDS DE INFLUENZA ---
-                        if mostrar_influenza and match_inf:
-                            simultanea_inf = match_inf.get("aplicacion_simultanea", "")
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                    <p><b>Categoría (Col. B):</b> {match_inf.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos (Col. C):</b> {match_inf.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema (Col. D):</b> {match_inf.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis (Col. E):</b> {match_inf.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo (Col. F):</b> {match_inf.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación (Col. G):</b> {match_inf.get('recomendacion', 'N/A')}</p>
-                                    {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
+                        if mostrar_influenza:
+                            for idx_inf, match_inf in enumerate(matches_inf):
+                                simultanea_inf = match_inf.get("aplicacion_simultanea", "")
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                        <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
+                                        <p><b>Categoría (Col. B):</b> {match_inf.get('categoria', 'N/A')}</p>
+                                        <p><b>Grupos blancos (Col. C):</b> {match_inf.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema (Col. D):</b> {match_inf.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis (Col. E):</b> {match_inf.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo (Col. F):</b> {match_inf.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación (Col. G):</b> {match_inf.get('recomendacion', 'N/A')}</p>
+                                        {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
 
-                        # --- RENDERIZADO DE CARDS DE COVID (TODOS LOS BIOLÓGICOS APLICABLES: Moderna, Pfizer, etc.) ---
+                        # --- RENDERIZADO DE CARDS DE COVID (Moderna, Pfizer, etc.) ---
                         if mostrar_covid:
                             for idx_cov, match_cov in enumerate(matches_covid):
                                 tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
