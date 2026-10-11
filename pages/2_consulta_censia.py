@@ -26,45 +26,52 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS (DINÁMICO A:AQ) ---
+# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EN GOOGLE SHEETS ---
 def aplicar_formato_condicional_sheets(worksheet):
-    """Inyecta automáticamente la regla de formato condicional en Google Sheets 
-    para pintar de verde toda la fila (A a AQ) a partir de la fila 14 cuando AG-AQ tenga 'X'."""
+    """Aplica formato condicional mediante petición cruda a la API de Google Sheets 
+    para pintar dinámicamente de verde las filas de A a AQ a partir de la fila 14 cuando AG-AQ tenga 'X'."""
     try:
-        rules = worksheet.get_conditional_format_rules()
-        # Fórmula estándar de Google Sheets API para formato condicional
-        formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
+        # Petición nativa JSON para añadir formato condicional en Google Sheets
+        body = {
+            "requests": [
+                {
+                    "addConditionalFormatRule": {
+                        "rule": {
+                            "ranges": [
+                                {
+                                    "sheetId": worksheet.id,
+                                    "startRowIndex": 13,      # Fila 14 (base 0)
+                                    "endRowIndex": 1000,      # Rango dinámico hacia abajo
+                                    "startColumnIndex": 0,    # Columna A
+                                    "endColumnIndex": 43      # Columna AQ
+                                }
+                            ],
+                            "booleanRule": {
+                                "condition": {
+                                    "type": "CUSTOM_FORMULA",
+                                    "values": [
+                                        {"userEnteredValue": '=COUNTIF(AG14:AQ14, "X") > 0'}
+                                    ]
+                                },
+                                "format": {
+                                    "backgroundColor": {
+                                        "red": 0.831,
+                                        "green": 0.929,
+                                        "blue": 0.855
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
         
-        regla_existente = False
-        for rule in rules:
-            if rule.booleanProperty and ('COUNTIF' in str(rule.booleanProperty) or 'CONTAR.SI' in str(rule.booleanProperty)):
-                regla_existente = True
-                break
-                
-        if not regla_existente:
-            from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
-            
-            # Rango dinámico desde la fila 14 (índice 13) hasta la 1000, abarcando de la columna A (0) a la AQ (43)
-            rango_grid = {
-                "sheetId": worksheet.id,
-                "startRowIndex": 13,      # Fila 14
-                "endRowIndex": 1000,      # Filas dinámicas
-                "startColumnIndex": 0,    # Columna A
-                "endColumnIndex": 43      # Columna AQ
-            }
-            
-            rule = ConditionalFormatRule(
-                ranges=[rango_grid],
-                boolean=BooleanRule(
-                    condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
-                    format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855)) # Verde claro elegante
-                )
-            )
-            rules.append(rule)
-            worksheet.set_conditional_format_rules(rules)
+        # Ejecutamos la petición directamente contra el spreadsheet
+        worksheet.spreadsheet.batch_update(body)
     except Exception as e:
+        # Si la regla ya existe o hay un conflicto menor, evitamos que detenga la aplicación
         pass
-
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
