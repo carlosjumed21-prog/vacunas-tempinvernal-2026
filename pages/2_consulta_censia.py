@@ -453,9 +453,32 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- PRIORIZAR UN SOLO GRUPO (Tomamos únicamente el primer match relevante) ---
+                        # --- SELECTOR DE BIOLÓGICO COVID-19 (Moderna vs Pfizer/BioNTech Comirnaty) ---
+                        biologico_covid_elegido = "Moderna"
+                        if mostrar_covid:
+                            # Filtramos los matches disponibles por tipo de vacuna COVID
+                            matches_moderna = [m for m in matches_covid if "moderna" in m.get('tipo_vacuna', '').lower() or "spikevax" in m.get('tipo_vacuna', '').lower()]
+                            matches_pfizer = [m for m in matches_covid if "pfizer" in m.get('tipo_vacuna', '').lower() or "comirnaty" in m.get('tipo_vacuna', '').lower()]
+
+                            col_bio1, col_bio2 = st.columns(2)
+                            with col_bio1:
+                                biologico_covid_elegido = st.radio(
+                                    "💉 Seleccione Biológico COVID-19:",
+                                    options=["Moderna", "Pfizer/BioNTech (Comirnaty)"],
+                                    horizontal=True,
+                                    key="radio_biologico_covid"
+                                )
+                            
+                            if biologico_covid_elegido == "Moderna":
+                                matches_covid_filtrados = matches_moderna if matches_moderna else matches_covid
+                            else:
+                                matches_covid_filtrados = matches_pfizer if matches_pfizer else matches_covid
+                        else:
+                            matches_covid_filtrados = matches_covid
+
+                        # --- PRIORIZAR UN SOLO GRUPO ---
                         match_inf_prioritario = matches_inf[0] if matches_inf else None
-                        match_cov_prioritario = matches_covid[0] if matches_covid else None
+                        match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
 
                         # --- RENDERIZADO DE LA CARD DE INFLUENZA (SOLO 1) ---
                         if mostrar_influenza and match_inf_prioritario:
@@ -476,14 +499,14 @@ else:
                                 unsafe_allow_html=True,
                             )
 
-                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1) ---
+                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1 - MODERNA O PFIZER) ---
                         if mostrar_covid and match_cov_prioritario:
-                            tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', 'COVID-19')
+                            tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
                             simultanea_cov = match_cov_prioritario.get("aplicacion_simultanea", "")
                             st.markdown(
                                 f"""
                                 <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico - Col. A: {tipo_biologico_covid})</h4>
+                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 ({tipo_biologico_covid})</h4>
                                     <p><b>Categoría (Col. B):</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
                                     <p><b>Grupos blancos (Col. C):</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
                                     <p><b>Esquema (Col. D):</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
@@ -518,7 +541,7 @@ else:
                                     placeholder="Ej. A1234",
                                 )
 
-                            st.markdown("##### 🦠 COVID-19")
+                            st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4 = st.columns(4)
                             with c_cov1:
                                 cov_1ra = st.checkbox("COVID 1ra dosis")
@@ -572,15 +595,15 @@ else:
                                     if cov_1ra:
                                         worksheet_activa.update(f"AJ{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
-                                        dosis_aplicadas_lista.append("COVID-19 (1ra Dosis)")
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
                                     if cov_2da:
                                         worksheet_activa.update(f"AK{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AK{f_siguiente}", [["X"]])
-                                        dosis_aplicadas_lista.append("COVID-19 (2da Dosis)")
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
                                     if cov_anual:
                                         worksheet_activa.update(f"AL{f_actual}", [["X"]])
                                         worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
-                                        dosis_aplicadas_lista.append("COVID-19 (Dosis Anual)")
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
 
                                     # --- LOTES ---
                                     lote_final_str = ""
