@@ -313,7 +313,7 @@ else:
                     if duplicadas_detectadas:
                         st.error(
                             "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
-                            f" {', '.join(duplicadas_detectadas)}"
+                            f" {', '.join(duplicadas_detectadas)}. Por favor cambie la fecha o el tipo de jornada."
                         )
                     else:
                         hojas_creadas_exito = []
@@ -372,13 +372,21 @@ else:
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
                                     
-                                    # --- ASIGNACIÓN EXACTA EN AU4, AU6, AU7 Y AU8 ---
+                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
                                     hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
                                     hoja_activa.update(values=[[link_paciente]], range_name="AU6")
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
-                                except:
-                                    pass
+                                    
+                                    # --- PROTECCIÓN NATIVA DE LA PESTAÑA PARA EL CORRESPONDIENTE USUARIO ---
+                                    if j_conf["correo"]:
+                                        hoja_activa.add_protected_range(
+                                            name="A1:AZ1000",
+                                            editor_users_emails=[j_conf["correo"]],
+                                            description=f"Protección exclusiva para {j_conf['responsable']}"
+                                        )
+                                except Exception as prot_err:
+                                    print(f"Aviso de protección: {prot_err}")
 
                                 hoja_info = {
                                     "nombre": nombre_copia_1,
@@ -421,13 +429,21 @@ else:
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
                                     
-                                    # --- ASIGNACIÓN EXACTA EN AU4, AU6, AU7 Y AU8 ---
+                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
                                     hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
                                     hoja_activa.update(values=[[link_paciente]], range_name="AU6")
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
-                                except:
-                                    pass
+                                    
+                                    # --- PROTECCIÓN NATIVA DE LA PESTAÑA PARA EL CORRESPONDIENTE USUARIO ---
+                                    if j_conf["correo"]:
+                                        hoja_activa.add_protected_range(
+                                            name="A1:AZ1000",
+                                            editor_users_emails=[j_conf["correo"]],
+                                            description=f"Protección exclusiva para {j_conf['responsable']}"
+                                        )
+                                except Exception as prot_err:
+                                    print(f"Aviso de protección: {prot_err}")
 
                                 hoja_info = {
                                     "nombre": nombre_nueva_hoja,
@@ -448,7 +464,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, correo en AU4, enlaces en AU6/AU7 y código QR como imagen en AU8 migrados con éxito a Google Sheets!"
+                            "¡Jornadas autorizadas, correo en AU4, enlaces, códigos QR y protección nativa aplicados con éxito!"
                         )
 
                 except Exception as e:
