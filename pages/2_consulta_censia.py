@@ -84,40 +84,36 @@ def mostrar_modal_comprobante_vacunacion():
             }}
             .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
             .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
-            .info-container {{ flex: 1; }}
-            .qr-container {{ text-align: center; }}
+            .info-container {{ flex: 1; z-index: 2; position: relative; }}
+            .qr-container {{ text-align: center; z-index: 2; position: relative; }}
             .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
             .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
-            .info-text {{ margin: 3px 0; font-size: 0.78rem; z-index: 2; position: relative; }}
+            .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             
             .watermark-overlay {{
                 position: absolute;
-                top: -50%;
-                left: -50%;
-                width: 200%;
-                height: 200%;
-                transform: rotate(-25deg);
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-around;
                 align-items: center;
                 pointer-events: none;
-                z-index: 0;
+                z-index: 1;
                 overflow: hidden;
             }}
             .watermark-row {{
                 display: flex;
-                gap: 40px;
+                gap: 20px;
                 white-space: nowrap;
-                font-size: 1.05rem;
+                font-size: 0.95rem;
                 font-weight: 900;
-                color: transparent;
-                -webkit-text-stroke: 1px rgba(30, 91, 79, 0.12);
+                color: rgba(30, 91, 79, 0.08);
                 text-transform: uppercase;
                 letter-spacing: 2px;
-            }}
-            .watermark-row:nth-child(even) {{
-                transform: translateX(-40px);
+                transform: rotate(-25deg);
             }}
             
             .btn-container {{ display: flex; gap: 8px; }}
@@ -298,6 +294,13 @@ else:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
             todos_los_datos = worksheet_activa.get_all_values()
+
+            # --- EXTRACCIÓN DE LA FECHA DE APLICACIÓN DESDE LA FILA 9, COLUMNA AB (Índice 27) ---
+            fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
+            if len(todos_los_datos) >= 9 and len(todos_los_datos[8]) > 27:
+                val_ab9 = todos_los_datos[8][27].strip()
+                if val_ab9:
+                    fecha_aplicacion_hoja = val_ab9
 
             pacientes_cargados = []
             if len(todos_los_datos) >= 13:
@@ -624,14 +627,6 @@ else:
                                     lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
                                     dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-                                    
-                                    # Extracción de la fecha de aplicación exacta desde la celda AB9 de la hoja activa
-                                    try:
-                                        fecha_aplicacion_hoja = worksheet_activa.acell('AB9').value
-                                        if not fecha_aplicacion_hoja:
-                                            fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
-                                    except:
-                                        fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
 
                                     st.session_state.ultimo_comprobante_vacunacion = {
                                         "nombre": nombre_completo,
