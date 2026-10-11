@@ -76,7 +76,7 @@ def guardar_registro_censal(
         grupo_sugerido = datos_paciente["grupo_sugerido"]
         planes_o_embarazo = datos_paciente["planes_o_embarazo"]
         ocupacion = datos_paciente["ocupacion"]
-        comorbilidades = datos_paciente["comorbilidades"]
+        comorbilidades = datos_paciente.get("comorbilidades", {})
         
         responsable_brigada = datos_paciente.get("responsable", "")
 
@@ -162,6 +162,47 @@ def guardar_registro_censal(
                 ],
             },
         ]
+
+        # --- MAPEO AUTOMÁTICO DE GRUPO OBJETIVO Y COMORBILIDADES (COLUMNAS P a AF) ---
+        edad_total_meses = (calc_anos * 12) + calc_meses
+        
+        # Columna P: 6 a 59 meses | Columna Q: 60 y más
+        if 6 <= edad_total_meses <= 59:
+            datos_a_actualizar.append({"range": f"P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
+        elif calc_anos >= 60:
+            datos_a_actualizar.append({"range": f"Q{f_actual}:Q{f_siguiente}", "values": [["X"], ["X"]]})
+
+        # Columna R: Embarazadas | Columna S: Personal de Salud
+        if comorbilidades.get("personas_embarazadas") or planes_o_embarazo == "SÍ":
+            datos_a_actualizar.append({"range": f"R{f_actual}:R{f_siguiente}", "values": [["X"], ["X"]]})
+        if comorbilidades.get("personal_salud_riesgo"):
+            datos_a_actualizar.append({"range": f"S{f_actual}:S{f_siguiente}", "values": [["X"], ["X"]]})
+
+        # Mapa de comorbilidades a sus respectivas columnas en Sheets
+        mapa_comorb_cols = {
+            "vih": "T",                      # VIH / Sida
+            "diabetes": "U",                 # Diabetes Mellitus
+            "obesidad": "V",                 # Obesidad Mórbida
+            "cardiopatias": "W",             # Cardiopatías
+            "enfermedad_pulmonar": "X",      # Enfermedad pulmonar crónica (EPOC / Asma)
+            "cancer": "Y",                   # Cáncer
+            "cardiacas_congenitas": "Z",     # Cardiopatías o pulmonares congénitas / salicilatos
+            "insuficiencia_renal": "AA",     # Insuficiencia renal
+            "inmunosupresion": "AB",         # Inmunosupresión
+            "discapacidades": "AC",          # Discapacidades
+            "fibrosis_quistica": "AD",       # Fibrosis quística
+            "hipertension": "AE"             # Hipertensión arterial
+        }
+
+        for clave_c, col_c in mapa_comorb_cols.items():
+            if comorbilidades.get(clave_c, False):
+                datos_a_actualizar.append({"range": f"{col_c}{f_actual}:{col_c}{f_siguiente}", "values": [["X"], ["X"]]})
+
+        # Columna AF: Otro (Campo de texto libre)
+        if comorbilidades.get("otro", False):
+            texto_o = comorbilidades.get("texto_otro", "").upper()
+            if texto_o:
+                datos_a_actualizar.append({"range": f"AF{f_actual}:AF{f_siguiente}", "values": [[texto_o], [texto_o]]})
 
         worksheet.batch_update(datos_a_actualizar)
         return folio_asignado
@@ -271,16 +312,22 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         map_comorb_h1 = {
             "vih": "T", "diabetes": "U", "obesidad": "V", "cardiopatias": "W",
-            "cancer": "Y", "insuficiencia_renal": "AA", "discapacidades": "AC",
+            "enfermedad_pulmonar": "X", "cancer": "Y", "cardiacas_congenitas": "Z",
+            "insuficiencia_renal": "AA", "inmunosupresion": "AB", "discapacidades": "AC",
             "fibrosis_quistica": "AD", "hipertension": "AE"
         }
         for k_c, col_c in map_comorb_h1.items():
             if comorb.get(k_c, False):
                 updates_hoja1.append({"range": f"{col_c}{fila_nom}:{col_c}{fila_nom+1}", "values": [["X"], ["X"]]})
 
+        if comorb.get("otro", False):
+            texto_o = comorb.get("texto_otro", "").upper()
+            if texto_o:
+                updates_hoja1.append({"range": f"AF{fila_nom}:AF{fila_nom+1}", "values": [[texto_o], [texto_o]]})
+
         ws_nominal.batch_update(updates_hoja1)
 
-        # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR (CON NOMBRE PERSONALIZADO O 'CENSO') ---
+        # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR ---
         nombre_hoja_censo = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_CENSO"
         try:
             ws_censo = spreadsheet.worksheet(nombre_hoja_censo)
