@@ -575,21 +575,26 @@ else:
                             for ws in sp_item.worksheets():
                                 titulo_w = ws.title
                                 if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                                    # Validar si contiene mapeo activo verificando celdas AU6, AU7 o AU8
                                     try:
                                         val_au6 = ws.acell("AU6").value
                                         val_au7 = ws.acell("AU7").value
-                                        if val_au6 or val_au7: # Cuenta con el mapeo activo de recursos digitales
+                                        if val_au6 or val_au7:
+                                            # Determinamos las siglas y tipo de jornada a partir del título de la hoja
+                                            siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
+                                            tipo_letra_h = "I" if "INTRA" in titulo_w else "E"
+                                            
                                             hojas_encontradas.append({
                                                 "nombre": titulo_w,
                                                 "gid": str(ws.id),
-                                                "unidad": "CMN 20 DE NOVIEMBRE" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "Unidad Médica",
-                                                "siglas_unidad": "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN",
-                                                "tipo_jornada": "Intramuros I" if "INTRA" in titulo_w else "Extramuros E",
-                                                "tipo_jornada_letra": "I" if "INTRA" in titulo_w else "E",
+                                                "unidad": "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica",
+                                                "siglas_unidad": siglas_h,
+                                                "tipo_jornada": "Intramuros I" if tipo_letra_h == "I" else "Extramuros E",
+                                                "tipo_jornada_letra": tipo_letra_h,
                                                 "responsable": "PERSONAL OPERATIVO",
                                                 "fecha": datetime.date.today(),
-                                                "sheet_id": sheet_id_item
+                                                "sheet_id": sheet_id_item,
+                                                "link_formulario": val_au6 if val_au6 else "#",
+                                                "link_operativo": val_au7 if val_au7 else "#"
                                             })
                                     except:
                                         pass
@@ -598,7 +603,7 @@ else:
                     
                     if hojas_encontradas:
                         st.session_state.historial_jornadas = hojas_encontradas
-                        st.success(f"✅ ¡Historial sincronizado! Se detectaron {len(hojas_encontradas)} hojas con mapeo activo en AU6-AU8.")
+                        st.success(f"✅ ¡Historial sincronizado! Se detectaron {len(hojas_encontradas)} hojas con mapeo activo.")
                         st.rerun()
                     else:
                         st.warning("⚠️ No se encontraron hojas con el mapeo activo en AU6, AU7 y AU8.")
@@ -611,15 +616,13 @@ else:
             base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
             for i, h_item in enumerate(st.session_state.historial_jornadas):
-                fecha_jornada = h_item["fecha"]
-                
                 with st.container():
                     st.markdown(
                         f"""
                         <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
                             <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
                             <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
-                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja con Mapeo Activo en Nube (AU6-AU8)</b></p>
+                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja Operativa Disponible</b></p>
                         </div>
                         """,
                         unsafe_allow_html=True,
@@ -628,16 +631,20 @@ else:
                     col_h1, col_h2 = st.columns([1, 1])
                     with col_h1:
                         url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
-                        st.markdown(f"[🔗 Abrir Hoja en Google Sheets]({url_sheet})", unsafe_allow_html=True)
+                        st.markdown(f"[🔗 Abrir Google Sheet]({url_sheet})", unsafe_allow_html=True)
+                        
+                        if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
+                            st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
+                        if h_item.get("link_operativo") and h_item["link_operativo"] != "#":
+                            st.markdown(f"🔹 **Panel Operativo:** [Abrir enlace]({h_item['link_operativo']})")
                     
                     with col_h2:
-                        fecha_url_str = fecha_jornada.strftime("%Y-%m-%d")
-                        resp_encoded = urllib.parse.quote(h_item["responsable"])
-                        ruta_formulario = "registro_20_noviembre" if h_item["siglas_unidad"] == "20N" else "formulario"
-                        link_paciente_hist = f"{base_url}/{ruta_formulario}?unidad={h_item['siglas_unidad']}&jornada={h_item['tipo_jornada_letra']}&fecha={fecha_url_str}&resp={resp_encoded}"
+                        link_qr_generar = h_item.get("link_formulario", base_url)
+                        if not link_qr_generar or link_qr_generar == "#":
+                            link_qr_generar = base_url
 
                         qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
-                        qr_h.add_data(link_paciente_hist)
+                        qr_h.add_data(link_qr_generar)
                         qr_h.make(fit=True)
                         img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
 
@@ -645,6 +652,7 @@ else:
                         img_h.save(buf_h, format="PNG")
                         byte_im_h = buf_h.getvalue()
 
+                        st.image(byte_im_h, caption=f"QR de Registro ({h_item['nombre']})", width=140)
                         st.download_button(
                             label=f"📥 Descargar QR ({h_item['nombre']})",
                             data=byte_im_h,
