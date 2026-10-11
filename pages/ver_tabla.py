@@ -131,21 +131,27 @@ else:
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
 
             # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
-            # Las filas principales de pacientes están en los índices pares (0, 2, 4...) de filas_tabla
-            # Las filas impares (1, 3, 5...) corresponden a la información del CURP.
             filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
 
-            total_preregistros = len(filas_principales)
+            total_preregistros = 0
+            registros_nuevos_hoy = 0
             total_aplicaciones = 0
             total_sin_aplicar = 0
             total_dosis_influenza = 0
             total_dosis_covid = 0
-            registros_nuevos_hoy = 0
 
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
             for row in filas_principales:
-                # 1. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
+                # 1. Validar fecha de registro/aplicación (índice 11 aprox, o evaluando si corresponde a hoy o histórico)
+                fecha_fila = row[11].strip() if len(row) > 11 else ""
+
+                if fecha_fila == fecha_hoy_str:
+                    registros_nuevos_hoy += 1
+                else:
+                    total_preregistros += 1  # Históricos / anteriores a hoy
+
+                # 2. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
                 tiene_aplicacion = False
                 for i in range(32, min(43, len(row))):
                     if str(row[i]).strip().upper() == "X":
@@ -157,19 +163,15 @@ else:
                 else:
                     total_sin_aplicar += 1
 
-                # 2. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
+                # 3. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
                 for i in range(32, min(35, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_influenza += 1
 
-                # 3. Dosis de COVID (AL, AM, AN -> índices 37, 38, 39)
+                # 4. Dosis de COVID (AL, AM, AN -> índices 37, 38, 39)
                 for i in range(37, min(40, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_covid += 1
-
-                # 4. Registros nuevos del día
-                if len(row) > 11 and row[11].strip() == fecha_hoy_str:
-                    registros_nuevos_hoy += 1
 
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS CON COLORES ---
             m1, m2, m3, m4, m5, m6 = st.columns(6)
