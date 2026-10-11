@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML para el calendario incrustado directamente en el espacio libre a la derecha
+                        # Componente HTML para el calendario completo y visible en el espacio derecho
                         inline_calendar_html = """
                         <!DOCTYPE html>
                         <html>
@@ -661,20 +661,20 @@ else:
                                 background: #ffffff;
                                 border: 2px solid #1e5b4f;
                                 border-radius: 8px;
-                                padding: 10px;
-                                width: 270px;
-                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                padding: 8px;
+                                width: 260px;
+                                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
                             }
                             .cal-header {
                                 display: flex;
                                 justify-content: space-between;
                                 align-items: center;
-                                margin-bottom: 8px;
+                                margin-bottom: 6px;
                                 gap: 4px;
                             }
                             .cal-header select, .cal-header button {
-                                padding: 4px;
-                                font-size: 0.85rem;
+                                padding: 3px 6px;
+                                font-size: 0.8rem;
                                 border: 1px solid #a57f2c;
                                 border-radius: 4px;
                                 background: #fff;
@@ -692,11 +692,11 @@ else:
                                 font-size: 0.7rem;
                                 font-weight: bold;
                                 color: #611232;
-                                padding-bottom: 4px;
+                                padding-bottom: 3px;
                             }
                             .cal-day {
-                                padding: 5px 0;
-                                font-size: 0.8rem;
+                                padding: 4px 0;
+                                font-size: 0.78rem;
                                 border-radius: 4px;
                                 cursor: pointer;
                                 color: #161a1d;
@@ -814,8 +814,8 @@ else:
                                     key="cad_inf_txt"
                                 )
                             with c_inf_cal:
-                                st.markdown("<p style='font-size:0.8rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=210)
+                                st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=190)
 
                             st.markdown("---")
 
@@ -839,8 +839,8 @@ else:
                                     key="cad_cov_txt"
                                 )
                             with c_cov_cal:
-                                st.markdown("<p style='font-size:0.8rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
-                                components.html(inline_calendar_html, height=210)
+                                st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=190)
 
                             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
