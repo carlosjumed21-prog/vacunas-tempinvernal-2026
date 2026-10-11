@@ -143,7 +143,7 @@ else:
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
             for row in filas_principales:
-                # 1. Validar fecha de registro/aplicación basada en la columna AW (índice 48)
+                # 1. Validar fecha de registro basada estrictamente en la columna AW (índice 48)
                 fecha_fila = row[48].strip() if len(row) > 48 else ""
 
                 if fecha_fila == fecha_hoy_str:
