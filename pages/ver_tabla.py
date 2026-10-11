@@ -43,7 +43,8 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        col_tit1, col_tit2 = st.columns([4, 1])
+        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA ---
+        col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
         with col_tit2:
@@ -87,14 +88,25 @@ else:
 
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
             
+            # --- BOTÓN DE DESCARGA CSV (MANTENIENDO ESTRUCTURA Y FORMATO) ---
+            with col_tit3:
+                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                csv_data = df_tabla_segura.to_csv(index=False).encode('utf-8-sig') # utf-8-sig asegura compatibilidad de acentos con Excel
+                st.download_button(
+                    label="📥 Descargar CSV",
+                    data=csv_data,
+                    file_name=f"Censo_{hoja_activa_tabla}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Descargar base de datos actual en formato CSV para Excel"
+                )
+            
             st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros en verde indican aplicación registrada (rango AG-AQ).*")
             
-            # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ -> Índices de columna 32 a 42 aprox) ---
+            # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ) ---
             def colorear_completados(row):
                 completado = False
                 try:
-                    # Rango AG (índice 32) hasta AQ (índice 42) en base 0
-                    # Recorremos el diccionario de la fila por su índice numérico exacto
                     for i in range(32, min(43, len(row))):
                         val = str(row.iloc[i]).strip().upper()
                         if val == "X":
