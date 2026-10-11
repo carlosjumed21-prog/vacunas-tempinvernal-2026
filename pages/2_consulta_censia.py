@@ -26,10 +26,10 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EN GOOGLE SHEETS (RANGO EXACTO A:AQ) ---
+# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EN GOOGLE SHEETS (SOLO CON "X") ---
 def aplicar_formato_condicional_sheets(worksheet):
     """Aplica formato condicional mediante petición cruda a la API de Google Sheets 
-    para pintar de verde toda la fila desde la columna A hasta la AQ a partir de la fila 14."""
+    para pintar de verde toda la fila de A a AQ a partir de la fila 14 SOLAMENTE cuando el rango AG-AQ tenga una 'X'."""
     try:
         body = {
             "requests": [
@@ -49,7 +49,7 @@ def aplicar_formato_condicional_sheets(worksheet):
                                 "condition": {
                                     "type": "CUSTOM_FORMULA",
                                     "values": [
-                                        {"userEnteredValue": '=COUNTA($AG14:$AQ14) > 0'}
+                                        {"userEnteredValue": '=COUNTIF($AG14:$AQ14, "X") > 0'}
                                     ]
                                 },
                                 "format": {
