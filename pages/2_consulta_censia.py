@@ -381,11 +381,14 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- BOTÓN PARA ABRIR LA TABLA DE CENSO EN UNA PESTAÑA EXTERNA NUEVA ---
+# --- BOTÓN PARA ABRIR LA TABLA DE CENSO EN UNA PESTAÑA EXTERNA PASANDO LA SESIÓN ---
+        correo_actual = st.session_state.get("correo_operativo_asignado", "")
+        url_externa = f"ver_tabla?sesion=activa&correo={urllib.parse.quote(correo_actual)}"
+        
         st.markdown(
-            """
+            f"""
             <div style="margin-top: 15px; margin-bottom: 20px; text-align: right;">
-                <a href="ver_tabla" target="_blank" 
+                <a href="{url_externa}" target="_blank" 
                    style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
                     🪟 Abrir Censo en Ventana Externa (Nueva Pestaña)
                 </a>
