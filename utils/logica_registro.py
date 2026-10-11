@@ -62,7 +62,7 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
 def limpiar_texto(texto):
     if not texto:
         return ""
-    nfkd = unicodedata.normalize("NFKD", texto)
+    nfkd = unicodedata.normalize("NFKD", str(texto))
     return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
 
 
@@ -231,15 +231,23 @@ def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_an
 
 
 def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
+    """
+    Formato solicitado: Fecha YYYYMMDD + INT/EXT + 3 letras de unidad + 4 dígitos consecutivos (iniciando en 0001)
+    Ejemplo: 20261011INT20N0001
+    """
     fecha_str = val_fecha_app.strftime("%Y%m%d")
-    mod_letra = "I" if modalidad.upper() == "INTRAMUROS" else "E"
+    mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
     siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
     
-    consecutivo_num = st.session_state.get("contador_folio_consecutivo", 1)
-    st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
-    
+    try:
+        registros = obtener_registros_existentes_sheets(sigla_url, "", "I", val_fecha_app)
+        consecutivo_num = len(registros) + 1
+    except:
+        consecutivo_num = st.session_state.get("contador_folio_consecutivo", 1)
+        st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
+        
     secuencial_str = str(consecutivo_num).zfill(4)
-    return f"{fecha_str}{mod_letra}{siglas_3}{secuencial_str}"
+    return f"{fecha_str}{mod_str}{siglas_3}{secuencial_str}"
 
 
 @st.cache_data(ttl=30)
