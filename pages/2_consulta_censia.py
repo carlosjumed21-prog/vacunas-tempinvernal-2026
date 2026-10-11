@@ -38,7 +38,8 @@ def mostrar_dialogo_cerrar_sesion():
             st.session_state.autenticado_consulta = False
             st.session_state.correo_operativo_asignado = ""
             st.session_state.ultimo_comprobante_vacunacion = None
-            st.session_state.reiniciar_busqueda = True
+            if "input_busqueda_lupa" in st.session_state:
+                st.session_state.input_busqueda_lupa = ""
             st.switch_page("app.py")
     with col_dlg2:
         if st.button("Cancelar", use_container_width=True):
@@ -491,6 +492,8 @@ else:
 
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
+                    meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
+
                     st.markdown("##### 💉 INFLUENZA")
                     c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
                     with c_inf_d1:
@@ -512,9 +515,8 @@ else:
                             with c_ci1:
                                 cad_i_d = st.selectbox("Día Inf", options=[str(d).zfill(2) for d in range(1, 32)], key=f"cal_inf_d_{fila_idx}", label_visibility="collapsed")
                             with c_ci2:
-                                meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-                                cad_i_m_nombre = st.selectbox("Mes Inf", options=meses_nombres, key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
-                                meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
+                                mes_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                                cad_i_m_nombre = st.selectbox("Mes Inf", options=mes_nombres, key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
                                 cad_i_m = meses_dict_num[cad_i_m_nombre]
                             with c_ci3:
                                 anio_actual = datetime.date.today().year
@@ -686,7 +688,6 @@ else:
 
                                 dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
 
-                                # --- REINICIAR EL BUSCADOR AL GUARDAR ---
                                 st.session_state.reiniciar_busqueda = True
 
                                 st.session_state.ultimo_comprobante_vacunacion = {
