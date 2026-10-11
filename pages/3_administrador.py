@@ -385,13 +385,10 @@ else:
                             hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
                             hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
 
-                            # 2. CREAR UN ARCHIVO AISLADO EN LA CARPETA DE DRIVE USANDO GSPREAD / DRIVE API INTERNA
-                            # gspread nos permite copiar y mover archivos directamente mediante client.copy() o client.create()
-                             spreadsheet_aislado = client.copy(sheet_id_destino, title=f"JORNADA_{nombre_copia_1}")
+                            # 2. CREAR UN ARCHIVO AISLADO EN LA CARPETA DE DRIVE
+                            spreadsheet_aislado = client.copy(sheet_id_destino, title=f"JORNADA_{nombre_copia_1}")
                             id_archivo_aislado = spreadsheet_aislado.id
 
-                            # Movemos el archivo recién creado a la carpeta destino usando gspread o compartiendo permisos
-                            # Compartimos con el correo del operativo dándole permisos de editor
                             if j_conf["correo"]:
                                 try:
                                     spreadsheet_aislado.share(j_conf["correo"], perm_type='user', role='editor')
@@ -621,7 +618,6 @@ else:
 
                 col_h1, col_h2 = st.columns([1, 1])
                 with col_h1:
-                    # Enlace universal limpio sin #gid= para abrir el libro maestro completo
                     url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
                     st.markdown(f"[🔗 Abrir Libro Maestro Completo en Google Sheets]({url_sheet_universal})", unsafe_allow_html=True)
                     
