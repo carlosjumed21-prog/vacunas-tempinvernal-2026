@@ -260,7 +260,7 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE LAS HOJAS 'Influenza' y 'COVID' ---
+    # --- CARGA Y PROPAGACIÓN DE DATOS DE CENSIA (Rellenando celdas vacías por diseño de celdas combinadas) ---
     guia_influenza_registros = []
     guia_covid_registros = []
     try:
@@ -271,21 +271,26 @@ else:
         try:
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
-            ultimo_vacuna_inf = ""
-            ultimo_categoria_inf = ""
+            v_vac, v_cat, v_esq, v_dos, v_int, v_rec, v_sim = "", "", "", "", "", "", ""
             for row in filas_inf[1:]:
                 if len(row) >= 7:
-                    if row[0].strip(): ultimo_vacuna_inf = row[0].strip()
-                    if row[1].strip(): ultimo_categoria_inf = row[1].strip()
+                    if row[0].strip(): v_vac = row[0].strip()
+                    if row[1].strip(): v_cat = row[1].strip()
+                    if row[3].strip(): v_esq = row[3].strip()
+                    if row[4].strip(): v_dos = row[4].strip()
+                    if row[5].strip(): v_int = row[5].strip()
+                    if row[6].strip(): v_rec = row[6].strip()
+                    if len(row) >= 8 and row[7].strip(): v_sim = row[7].strip()
+                    
                     guia_influenza_registros.append({
-                        "vacuna": ultimo_vacuna_inf,
-                        "categoria": ultimo_categoria_inf,
+                        "vacuna": v_vac,
+                        "categoria": v_cat,
                         "grupos_blancos": row[2].strip(),
-                        "esquema": row[3].strip(),
-                        "dosis": row[4].strip(),
-                        "intervalo": row[5].strip(),
-                        "recomendacion": row[6].strip(),
-                        "aplicacion_simultanea": row[7].strip() if len(row) >= 8 else ""
+                        "esquema": v_esq,
+                        "dosis": v_dos,
+                        "intervalo": v_int,
+                        "recomendacion": v_rec,
+                        "aplicacion_simultanea": v_sim
                     })
         except Exception:
             pass
@@ -294,21 +299,26 @@ else:
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
-            ultimo_vacuna_cov = ""
-            ultimo_categoria_cov = ""
+            c_vac, c_cat, c_esq, c_dos, c_int, c_rec, c_sim = "", "", "", "", "", "", ""
             for row in filas_cov[1:]:
                 if len(row) >= 7:
-                    if row[0].strip(): ultimo_vacuna_cov = row[0].strip()
-                    if row[1].strip(): ultimo_categoria_cov = row[1].strip()
+                    if row[0].strip(): c_vac = row[0].strip()
+                    if row[1].strip(): c_cat = row[1].strip()
+                    if row[3].strip(): c_esq = row[3].strip()
+                    if row[4].strip(): c_dos = row[4].strip()
+                    if row[5].strip(): c_int = row[5].strip()
+                    if row[6].strip(): c_rec = row[6].strip()
+                    if len(row) >= 8 and row[7].strip(): c_sim = row[7].strip()
+                    
                     guia_covid_registros.append({
-                        "tipo_vacuna": ultimo_vacuna_cov,
-                        "categoria": ultimo_categoria_cov,
+                        "tipo_vacuna": c_vac,
+                        "categoria": c_cat,
                         "grupos_blancos": row[2].strip(),
-                        "esquema": row[3].strip(),
-                        "dosis": row[4].strip(),
-                        "intervalo": row[5].strip(),
-                        "recomendacion": row[6].strip(),
-                        "aplicacion_simultanea": row[7].strip() if len(row) >= 8 else ""
+                        "esquema": c_esq,
+                        "dosis": c_dos,
+                        "intervalo": c_int,
+                        "recomendacion": c_rec,
+                        "aplicacion_simultanea": c_sim
                     })
         except Exception:
             pass
@@ -520,7 +530,7 @@ else:
                         for item in guia_influenza_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if categoria_paciente in cat_b and any(r.upper() in gb_c or "COMORBILIDADES" in gb_c or "PERSONAL DE SALUD" in gb_c for r in lista_riesgos_detectados):
+                            if "RIESGO" in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
                                 match_inf = item
                                 break
                         if not match_inf and guia_influenza_registros:
@@ -529,7 +539,7 @@ else:
                         for item in guia_covid_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if categoria_paciente in cat_b and any(r.upper() in gb_c for r in lista_riesgos_detectados):
+                            if "RIESGO" in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
                                 match_cov = item
                                 break
                         if not match_cov and guia_covid_registros:
