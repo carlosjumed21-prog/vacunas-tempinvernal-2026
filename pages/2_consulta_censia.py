@@ -98,7 +98,7 @@ def mostrar_modal_comprobante_vacunacion():
                 height: 100%;
                 display: flex;
                 flex-direction: column;
-                justify-content: space-around;
+                justify-content: space-evenly;
                 align-items: center;
                 pointer-events: none;
                 z-index: 1;
@@ -106,13 +106,13 @@ def mostrar_modal_comprobante_vacunacion():
             }}
             .watermark-row {{
                 display: flex;
-                gap: 20px;
+                gap: 15px;
                 white-space: nowrap;
-                font-size: 0.95rem;
+                font-size: 0.85rem;
                 font-weight: 900;
-                color: rgba(30, 91, 79, 0.08);
+                color: rgba(30, 91, 79, 0.10);
                 text-transform: uppercase;
-                letter-spacing: 2px;
+                letter-spacing: 1px;
                 transform: rotate(-25deg);
             }}
             
@@ -126,10 +126,16 @@ def mostrar_modal_comprobante_vacunacion():
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
                     <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span><span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
                     </div>
                     <div class="watermark-row">
-                        <span>COMPROBANTE DE VACUNACION OFICIAL</span><span>COMPROBANTE DE VACUNACION OFICIAL</span>
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
                     </div>
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
