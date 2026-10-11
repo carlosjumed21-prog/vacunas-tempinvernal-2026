@@ -59,6 +59,11 @@ if "lote_influenza_memoria" not in st.session_state:
 if "lote_covid_memoria" not in st.session_state:
     st.session_state.lote_covid_memoria = ""
 
+if "cad_inf_val" not in st.session_state:
+    st.session_state.cad_inf_val = datetime.date.today().strftime("%d/%m/%Y")
+if "cad_cov_val" not in st.session_state:
+    st.session_state.cad_cov_val = datetime.date.today().strftime("%d/%m/%Y")
+
 if "autenticado_consulta" not in st.session_state:
     st.session_state.autenticado_consulta = False
 if "correo_operativo_asignado" not in st.session_state:
@@ -98,9 +103,15 @@ def mostrar_modal_comprobante_vacunacion():
         <style>
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
             .card-comprobante {{ 
-                position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; 
-                padding: 12px; border-radius: 10px; color: #161a1d; 
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
+                position: relative; 
+                background-color: #ffffff; 
+                border: 3px solid #1e5b4f; 
+                padding: 12px; 
+                border-radius: 10px; 
+                color: #161a1d; 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+                margin-bottom: 10px; 
+                overflow: hidden; 
             }}
             .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
             .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
@@ -111,14 +122,31 @@ def mostrar_modal_comprobante_vacunacion():
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             
             .watermark-overlay {{
-                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
-                pointer-events: none; z-index: 1; overflow: hidden;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-evenly;
+                align-items: center;
+                pointer-events: none;
+                z-index: 1;
+                overflow: hidden;
             }}
             .watermark-row {{
-                display: flex; gap: 15px; white-space: nowrap; font-size: 0.85rem; font-weight: 900;
-                color: rgba(30, 91, 79, 0.10); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
+                display: flex;
+                gap: 15px;
+                white-space: nowrap;
+                font-size: 0.85rem;
+                font-weight: 900;
+                color: rgba(30, 91, 79, 0.10);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                transform: rotate(-25deg);
             }}
+            
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -128,8 +156,18 @@ def mostrar_modal_comprobante_vacunacion():
         <body>
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
-                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
-                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
+                    <div class="watermark-row">
+                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
+                    </div>
                 </div>
                 <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
                 <div class="cuerpo-ticket">
@@ -139,7 +177,9 @@ def mostrar_modal_comprobante_vacunacion():
                         <p class="info-text"><b>Lotes:</b> {lotes_val}</p>
                         <p class="info-text"><b>Fecha de Aplicación:</b> {fecha_val}</p>
                     </div>
-                    <div class="qr-container"><img src="{url_qr_api}" alt="QR Verificación"></div>
+                    <div class="qr-container">
+                        <img src="{url_qr_api}" alt="QR Verificación">
+                    </div>
                 </div>
                 <div class="folio-grande">Folio: {folio_val}</div>
             </div>
@@ -154,10 +194,12 @@ def mostrar_modal_comprobante_vacunacion():
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
                         const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha Aplicación: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
+                        
                         const enlace = document.createElement('a');
                         enlace.download = fileName;
                         enlace.href = URL.createObjectURL(blob);
                         enlace.click();
+                        
                         window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
                     }}, 'image/png');
                 }});
@@ -175,6 +217,7 @@ def mostrar_modal_comprobante_vacunacion():
         </body>
         </html>
         """
+
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
@@ -188,12 +231,22 @@ if st.session_state.ultimo_comprobante_vacunacion is not None:
     mostrar_modal_comprobante_vacunacion()
 
 if not st.session_state.autenticado_consulta:
-    st.markdown('<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>',
+        unsafe_allow_html=True,
+    )
 
     with st.form("form_login_consulta"):
-        correo_operador_input = st.text_input("📧 Correo Electrónico Institucional:", placeholder="ejemplo@issste.gob.mx")
+        correo_operador_input = st.text_input(
+            "📧 Correo Electrónico Institucional:",
+            placeholder="ejemplo@issste.gob.mx"
+        )
         password = st.text_input("Contraseña:", type="password")
+        
         btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
 
         if btn_login:
@@ -203,32 +256,48 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                if (correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26") or (password == "OperativoInv26"):
+                if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
+                    st.session_state.autenticado_consulta = True
+                    st.session_state.correo_operativo_asignado = correo_limpio
+                    st.rerun()
+                elif password == "OperativoInv26":
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
                     st.rerun()
                 else:
                     st.error("❌ Credenciales incorrectas. Verifique su correo y contraseña.")
 else:
-    st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="sub-header">Selección de jornada autorizada, evaluación'
+        " clínica y registro de biológicos</p>",
+        unsafe_allow_html=True,
+    )
 
     try:
         scope = GOOGLE_SCOPES
         if "GOOGLE_CREDENTIALS" in st.secrets:
             raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+            creds_dict = (
+                json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+            )
         elif "gpex" in st.secrets:
             creds_dict = dict(st.secrets["gpex"])
         else:
             primera_llave = list(st.secrets.keys())[0]
             creds_dict = dict(st.secrets[primera_llave])
 
-        creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=scope
+        )
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         todas_las_hojas = spreadsheet.worksheets()
+        
         correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
@@ -246,17 +315,32 @@ else:
                             h_autorizadas.append(h.title)
                     except:
                         pass
+
     except Exception as e:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
+    # --- SELECTOR SEGÚN ROL ---
     if correo_sesion == "carlosju.med21@gmail.com":
-        st.markdown(f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
-        hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas) if h_autorizadas else None
+        st.markdown(
+            f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>',
+            unsafe_allow_html=True,
+        )
+        if h_autorizadas:
+            hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
+        else:
+            hoja_seleccionada = None
+            st.warning("⚠️ No se encontraron hojas operativas en el libro.")
     else:
-        st.markdown(f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
+            unsafe_allow_html=True,
+        )
         if not h_autorizadas:
-            st.warning(f"⚠️ No se encontró ninguna hoja autorizada asociada al correo: **{correo_sesion}**.")
+            st.warning(
+                f"⚠️ No se encontró ninguna hoja autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
+                "Verifique que su correo coincida exactamente con el registrado en la celda AU4."
+            )
             hoja_seleccionada = None
         else:
             hoja_seleccionada = h_autorizadas[0]
@@ -301,16 +385,20 @@ else:
                             "nombres": row[4].strip() if len(row) > 4 else "",
                             "ya_vacunado": ya_vacunado
                         })
+
         except Exception as e:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
+        # --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA ---
         hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
         url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
+        
         st.markdown(
             f"""
             <div style="margin-top: 5px; margin-bottom: 20px;">
-                <a href="{url_externa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
+                <a href="{url_externa}" target="_blank" 
+                   style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
                     🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
                 </a>
             </div>
@@ -318,22 +406,40 @@ else:
             unsafe_allow_html=True,
         )
 
-        st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
+            unsafe_allow_html=True,
+        )
         if not pacientes_cargados:
-            st.info("La jornada seleccionada aún no cuenta con pacientes registrados en el censo.")
+            st.info(
+                "La jornada seleccionada aún no cuenta con pacientes registrados en el censo."
+            )
         else:
             col_busq1, col_busq2 = st.columns([4, 1])
             with col_busq1:
-                query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...", key="input_busqueda_lupa")
+                query_busqueda = st.text_input(
+                    "🔍 Buscar por Folio, Apellido o Nombre:",
+                    placeholder="Escriba parte del folio, apellido o nombre...",
+                    key="input_busqueda_lupa",
+                    help="Presione Enter para procesar la búsqueda"
+                )
             with col_busq2:
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("🔄 Actualizar Lupa", use_container_width=True):
+                if st.button("🔄 Actualizar Lupa", use_container_width=True, help="Actualizar listado de pacientes en vivo"):
                     st.rerun()
+            st.caption("💡 Tip: Presione **Enter** después de escribir en el buscador.")
 
             q_clean = query_busqueda.strip().upper()
-            pacientes_filtrados = pacientes_cargados if not q_clean else [
-                p for p in pacientes_cargados if q_clean in p["folio"].upper() or q_clean in p["paterno"].upper() or q_clean in p["materno"].upper() or q_clean in p["nombres"].upper()
-            ]
+            if not q_clean:
+                pacientes_filtrados = pacientes_cargados
+            else:
+                pacientes_filtrados = [
+                    p for p in pacientes_cargados
+                    if q_clean in p["folio"].upper()
+                    or q_clean in p["paterno"].upper()
+                    or q_clean in p["materno"].upper()
+                    or q_clean in p["nombres"].upper()
+                ]
 
             if not pacientes_filtrados:
                 st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
@@ -343,13 +449,22 @@ else:
                     for p in pacientes_filtrados
                 ]
 
-                seleccion_paciente = st.selectbox("Seleccione del listado de coincidencias:", options=opciones_busqueda, format_func=lambda x: x.split("||")[0])
+                seleccion_paciente = st.selectbox(
+                    "Seleccione del listado de coincidencias:",
+                    options=opciones_busqueda,
+                    format_func=lambda x: x.split("||")[0],
+                )
 
                 if seleccion_paciente:
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
+                    
+                    esta_vacunado_actual = False
+                    for i in range(32, min(43, len(fila_datos))):
+                        if str(fila_datos[i]).strip().upper() == "X":
+                            esta_vacunado_actual = True
+                            break
 
-                    esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
                         st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
 
@@ -357,19 +472,26 @@ else:
                     paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+                    nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                     yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
+                    fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
 
                     sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-                    curp_actual = todos_los_datos[fila_idx][2].strip() if len(todos_los_datos) > fila_idx and len(todos_los_datos[fila_idx]) > 2 else ""
+
+                    curp_actual = ""
+                    fila_curp_idx = fila_idx
+                    if len(todos_los_datos) > fila_curp_idx and len(todos_los_datos[fila_curp_idx]) > 2:
+                        curp_actual = todos_los_datos[fila_curp_idx][2].strip()
 
                     vacuna_registrada = "AMBAS"
                     if len(fila_datos) > 47:
                         at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
                         au_val = fila_datos[46].strip().upper() if len(fila_datos) > 46 else ""
                         av_val = fila_datos[47].strip().upper() if len(fila_datos) > 47 else ""
+                        
                         if av_val == "X" or (at_val == "X" and au_val == "X"):
                             vacuna_registrada = "AMBAS"
                         elif at_val == "X":
@@ -404,6 +526,7 @@ else:
                     grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
                     grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
+                    # --- DATOS GENERALES Y EDICIÓN OPCIONAL ---
                     st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
                     
                     habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición en vivo", key=f"chk_edit_{fila_idx}")
@@ -428,9 +551,14 @@ else:
 
                     ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=not habilitar_edicion, key=f"ed_curp_{fila_idx}")
 
-                    st.markdown('<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>',
+                        unsafe_allow_html=True,
+                    )
 
-                    matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada)
+                    matches_inf, matches_covid = obtener_recomendaciones_paciente(
+                        categoria_paciente, lista_riesgos_detectados, vacuna_registrada
+                    )
 
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
@@ -442,9 +570,17 @@ else:
 
                         col_bio1, col_bio2 = st.columns(2)
                         with col_bio1:
-                            biologico_covid_elegido = st.radio("💉 Seleccione Biológico COVID-19:", options=["Moderna", "Pfizer/BioNTech (Comirnaty)"], horizontal=True, key="radio_biologico_covid")
+                            biologico_covid_elegido = st.radio(
+                                "💉 Seleccione Biológico COVID-19:",
+                                options=["Moderna", "Pfizer/BioNTech (Comirnaty)"],
+                                horizontal=True,
+                                key="radio_biologico_covid"
+                            )
                         
-                        matches_covid_filtrados = matches_moderna if biologico_covid_elegido == "Moderna" else (matches_pfizer if matches_pfizer else matches_covid)
+                        if biologico_covid_elegido == "Moderna":
+                            matches_covid_filtrados = matches_moderna if matches_moderna else matches_covid
+                        else:
+                            matches_covid_filtrados = matches_pfizer if matches_pfizer else matches_covid
                     else:
                         matches_covid_filtrados = matches_covid
 
@@ -452,6 +588,7 @@ else:
                     match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
 
                     col_card1, col_card2 = st.columns(2)
+
                     with col_card1:
                         if mostrar_influenza and match_inf_prioritario:
                             st.markdown(
@@ -488,7 +625,14 @@ else:
                             )
 
                     if vacuna_registrada == "AMBAS":
-                        texto_simultanea = match_inf_prioritario.get("aplicacion_simultanea") if match_inf_prioritario and match_inf_prioritario.get("aplicacion_simultanea") else ("Ambas vacunas podrán aplicarse de forma simultánea en extremidades distintas, o respetando de 2.5 a 5 cm de distancia si se aplican en el mismo sitio de punción.")
+                        texto_simultanea = ""
+                        if match_inf_prioritario and match_inf_prioritario.get("aplicacion_simultanea"):
+                            texto_simultanea = match_inf_prioritario.get("aplicacion_simultanea")
+                        elif match_cov_prioritario and match_cov_prioritario.get("aplicacion_simultanea"):
+                            texto_simultanea = match_cov_prioritario.get("aplicacion_simultanea")
+                        else:
+                            texto_simultanea = "Ambas vacunas podrán aplicarse de forma simultánea en extremidades distintas, o respetando de 2.5 a 5 cm de distancia si se aplican en el mismo sitio de punción."
+
                         st.markdown(
                             f"""
                             <div style="background-color: #eaf2f0; border-left: 5px solid #1e5b4f; border: 1px solid #cce3de; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -499,74 +643,419 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                    st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>',
+                        unsafe_allow_html=True,
+                    )
 
                     with st.form("form_aplicacion_lotes"):
                         st.markdown("##### 💉 INFLUENZA")
-                        c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
-                        with c_inf_d1:
-                            inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
-                        with c_inf_d2:
-                            inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
-                        with c_inf_d3:
-                            inf_anual = st.checkbox("Anual", key="chk_inf_anual")
+                        c_inf_izq, c_inf_der = st.columns([2.2, 1.5])
+                        with c_inf_izq:
+                            c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
+                            with c_inf_d1:
+                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
+                            with c_inf_d2:
+                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
+                            with c_inf_d3:
+                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
 
-                        tiene_dosis_influenza = inf_1ra or inf_2da or inf_anual
+                            # Detectar si hay al menos una dosis de influenza seleccionada
+                            tiene_dosis_influenza = inf_1ra or inf_2da or inf_anual
 
-                        c_inf_l, c_inf_c = st.columns(2)
-                        with c_inf_l:
-                            lote_inf_input = st.text_input("Lote Influenza", value=st.session_state.lote_influenza_memoria, placeholder="Ej. A1234", key="lote_inf", disabled=not tiene_dosis_influenza)
-                        with c_inf_c:
-                            cad_inf_input = st.text_input("Caducidad Influenza (DD/MM/AAAA)", value="01/10/2027", placeholder="DD/MM/AAAA", key="cad_inf", disabled=not tiene_dosis_influenza)
+                            c_inf_l, c_inf_c = st.columns(2)
+                            with c_inf_l:
+                                lote_inf_input = st.text_input(
+                                    "Lote Influenza",
+                                    value=st.session_state.lote_influenza_memoria,
+                                    placeholder="Ej. A1234",
+                                    key="lote_inf",
+                                    disabled=not tiene_dosis_influenza
+                                )
+                            with c_inf_c:
+                                cad_inf_input = st.text_input(
+                                    "Caducidad Influenza",
+                                    value=st.session_state.cad_inf_val,
+                                    placeholder="DD/MM/AAAA",
+                                    key="cad_inf_val",
+                                    disabled=not tiene_dosis_influenza
+                                )
+                        with c_inf_der:
+                            if tiene_dosis_influenza:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Seleccione fecha en el calendario:</p>", unsafe_allow_html=True)
+                                calendar_html_inf = f"""
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                <meta charset="utf-8">
+                                <style>
+                                    body {{ font-family: sans-serif; background: transparent; margin: 0; padding: 0; }}
+                                    .cal-box {{
+                                        background: #ffffff;
+                                        border: 2px solid #1e5b4f;
+                                        border-radius: 8px;
+                                        padding: 5px;
+                                        width: 240px;
+                                        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+                                    }}
+                                    .cal-header {{
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        margin-bottom: 3px;
+                                        gap: 2px;
+                                    }}
+                                    .cal-header select, .cal-header button {{
+                                        padding: 2px 4px;
+                                        font-size: 0.72rem;
+                                        border: 1px solid #a57f2c;
+                                        border-radius: 4px;
+                                        background: #fff;
+                                        font-weight: bold;
+                                        color: #1e5b4f;
+                                    }}
+                                    .cal-header button {{ background: #f7f4eb; color: #611232; cursor: pointer; }}
+                                    .cal-grid {{
+                                        display: grid;
+                                        grid-template-columns: repeat(7, 1fr);
+                                        text-align: center;
+                                        gap: 1px;
+                                    }}
+                                    .cal-day-name {{
+                                        font-size: 0.6rem;
+                                        font-weight: bold;
+                                        color: #611232;
+                                        padding-bottom: 2px;
+                                    }}
+                                    .cal-day {{
+                                        padding: 3px 0;
+                                        font-size: 0.72rem;
+                                        border-radius: 3px;
+                                        cursor: pointer;
+                                        color: #161a1d;
+                                        font-weight: 600;
+                                    }}
+                                    .cal-day:hover {{ background-color: #f7f4eb; }}
+                                    .cal-day.selected {{ background-color: #1e5b4f !important; color: white !important; font-weight: bold; }}
+                                    .cal-day.other-month {{ color: #ccc; }}
+                                </style>
+                                </head>
+                                <body>
+                                <div class="cal-box">
+                                    <div class="cal-header">
+                                        <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
+                                        <select id="s-m" onchange="actFecha()">
+                                            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                                            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                                            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                                            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                                        </select>
+                                        <select id="s-y" onchange="actFecha()"></select>
+                                        <button type="button" onclick="cambiarMes(1)">&#10095;</button>
+                                    </div>
+                                    <div class="cal-grid">
+                                        <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
+                                        <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
+                                        <div class="cal-day-name">D</div>
+                                    </div>
+                                    <div class="cal-grid" id="c-body"></div>
+                                </div>
+                                <script>
+                                    let cDate = new Date();
+                                    let currentVal = "{st.session_state.cad_inf_val}";
+                                    let parts = currentVal.split('/');
+                                    let selectedDay = parts.length === 3 ? parseInt(parts[0]) : null;
+                                    let selectedMonth = parts.length === 3 ? parseInt(parts[1]) - 1 : null;
+                                    let selectedYear = parts.length === 3 ? parseInt(parts[2]) : null;
+                                    if (selectedYear) {{ cDate.setFullYear(selectedYear); cDate.setMonth(selectedMonth); }}
 
-                        if tiene_dosis_influenza:
-                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1e5b4f; margin-top:8px;'>📅 Seleccionar Fecha de Caducidad (Influenza):</p>", unsafe_allow_html=True)
-                            c_cal_i1, c_cal_i2, c_cal_i3 = st.columns(3)
-                            with c_cal_i1:
-                                cad_i_d = st.selectbox("Día", options=[str(d).zfill(2) for d in range(1, 32)], key="cal_inf_d")
-                            with c_cal_i2:
-                                cad_i_m = st.selectbox("Mes", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key="cal_inf_m")
-                            with c_cal_i3:
-                                anio_actual = datetime.date.today().year
-                                cad_i_y = st.selectbox("Año", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key="cal_inf_y")
-                            cad_inf_input = f"{cad_i_d}/{cad_i_m}/{cad_i_y}"
-                            st.markdown(f"<b>Fecha seleccionada:</b> <code style='color:#1e5b4f;'>{cad_inf_input}</code>", unsafe_allow_html=True)
-                        else:
-                            st.info("🔒 Seleccione una dosis de Influenza para habilitar el lote y la fecha de caducidad.")
+                                    function initYears() {{
+                                        const sy = document.getElementById('s-y');
+                                        const yr = new Date().getFullYear();
+                                        for(let y=yr+6; y>=2020; y--) {{
+                                            let o = document.createElement('option');
+                                            o.value = y; o.text = y;
+                                            sy.appendChild(o);
+                                        }}
+                                    }}
+
+                                    function renderCal() {{
+                                        const y = cDate.getFullYear();
+                                        const m = cDate.getMonth();
+                                        document.getElementById('s-m').value = m;
+                                        document.getElementById('s-y').value = y;
+                                        const cb = document.getElementById('c-body');
+                                        cb.innerHTML = '';
+                                        const firstDay = new Date(y, m, 1);
+                                        let start = firstDay.getDay();
+                                        start = (start === 0) ? 6 : start - 1;
+                                        const lastDate = new Date(y, m + 1, 0).getDate();
+                                        const prevLastDate = new Date(y, m, 0).getDate();
+
+                                        for(let i=start-1; i>=0; i--) {{
+                                            let d = document.createElement('div');
+                                            d.className = 'cal-day other-month';
+                                            d.innerText = prevLastDate - i;
+                                            cb.appendChild(d);
+                                        }}
+
+                                        for(let d=1; d<=lastDate; d++) {{
+                                            let div = document.createElement('div');
+                                            div.className = 'cal-day';
+                                            div.innerText = d;
+
+                                            if (selectedDay === d && selectedMonth === m && selectedYear === y) {{
+                                                div.classList.add('selected');
+                                            }}
+
+                                            div.onclick = function() {{
+                                                selectedDay = d;
+                                                selectedMonth = m;
+                                                selectedYear = y;
+
+                                                let dd = String(d).padStart(2, '0');
+                                                let mm = String(m + 1).padStart(2, '0');
+                                                let fechaStr = dd + '/' + mm + '/' + y;
+                                                
+                                                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                                                for(let inp of inputs) {{
+                                                    if(inp.value !== undefined && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes("Caducidad Influenza")) {{
+                                                        inp.value = fechaStr;
+                                                        inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                        break;
+                                                    }}
+                                                }}
+                                                renderCal();
+                                            }};
+                                            cb.appendChild(div);
+                                        }}
+                                    }}
+
+                                    function cambiarMes(delta) {{
+                                        cDate.setMonth(cDate.getMonth() + delta);
+                                        renderCal();
+                                    }}
+
+                                    function actFecha() {{
+                                        cDate.setFullYear(parseInt(document.getElementById('s-y').value));
+                                        cDate.setMonth(parseInt(document.getElementById('s-m').value));
+                                        renderCal();
+                                    }}
+
+                                    initYears();
+                                    renderCal();
+                                </script>
+                                </body>
+                                </html>
+                                """
+                                components.html(calendar_html_inf, height=155)
+                            else:
+                                st.info("🔒 Seleccione una dosis de Influenza para habilitar el lote, caducidad y calendario.")
 
                         st.markdown("---")
 
                         st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                        c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
-                        with c_cov_d1:
-                            cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
-                        with c_cov_d2:
-                            cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
-                        with c_cov_d3:
-                            cov_anual = st.checkbox("Anual", key="chk_cov_anual")
+                        c_cov_izq, c_cov_der = st.columns([2.2, 1.5])
+                        with c_cov_izq:
+                            c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
+                            with c_cov_d1:
+                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
+                            with c_cov_d2:
+                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
+                            with c_cov_d3:
+                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
 
-                        tiene_dosis_covid = cov_1ra or cov_2da or cov_anual
+                            # Detectar si hay al menos una dosis de COVID seleccionada
+                            tiene_dosis_covid = cov_1ra or cov_2da or cov_anual
 
-                        c_cov_l, c_cov_c = st.columns(2)
-                        with c_cov_l:
-                            lote_cov_input = st.text_input("Lote COVID-19", value=st.session_state.lote_covid_memoria, placeholder="Ej. C5678", key="lote_cov", disabled=not tiene_dosis_covid)
-                        with c_cov_c:
-                            cad_cov_input = st.text_input("Caducidad COVID (DD/MM/AAAA)", value="01/10/2027", placeholder="DD/MM/AAAA", key="cad_cov", disabled=not tiene_dosis_covid)
+                            c_cov_l, c_cov_c = st.columns(2)
+                            with c_cov_l:
+                                lote_cov_input = st.text_input(
+                                    "Lote COVID-19",
+                                    value=st.session_state.lote_covid_memoria,
+                                    placeholder="Ej. C5678",
+                                    key="lote_cov",
+                                    disabled=not tiene_dosis_covid
+                                )
+                            with c_cov_c:
+                                cad_cov_input = st.text_input(
+                                    "Caducidad COVID",
+                                    value=st.session_state.cad_cov_val,
+                                    placeholder="DD/MM/AAAA",
+                                    key="cad_cov_val",
+                                    disabled=not tiene_dosis_covid
+                                )
+                        with c_cov_der:
+                            if tiene_dosis_covid:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Seleccione fecha en el calendario:</p>", unsafe_allow_html=True)
+                                calendar_html_cov = f"""
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                <meta charset="utf-8">
+                                <style>
+                                    body {{ font-family: sans-serif; background: transparent; margin: 0; padding: 0; }}
+                                    .cal-box {{
+                                        background: #ffffff;
+                                        border: 2px solid #611232;
+                                        border-radius: 8px;
+                                        padding: 5px;
+                                        width: 240px;
+                                        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+                                    }}
+                                    .cal-header {{
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        margin-bottom: 3px;
+                                        gap: 2px;
+                                    }}
+                                    .cal-header select, .cal-header button {{
+                                        padding: 2px 4px;
+                                        font-size: 0.72rem;
+                                        border: 1px solid #a57f2c;
+                                        border-radius: 4px;
+                                        background: #fff;
+                                        font-weight: bold;
+                                        color: #611232;
+                                    }}
+                                    .cal-header button {{ background: #f7f4eb; color: #611232; cursor: pointer; }}
+                                    .cal-grid {{
+                                        display: grid;
+                                        grid-template-columns: repeat(7, 1fr);
+                                        text-align: center;
+                                        gap: 1px;
+                                    }}
+                                    .cal-day-name {{
+                                        font-size: 0.6rem;
+                                        font-weight: bold;
+                                        color: #611232;
+                                        padding-bottom: 2px;
+                                    }}
+                                    .cal-day {{
+                                        padding: 3px 0;
+                                        font-size: 0.72rem;
+                                        border-radius: 3px;
+                                        cursor: pointer;
+                                        color: #161a1d;
+                                        font-weight: 600;
+                                    }}
+                                    .cal-day:hover {{ background-color: #f7f4eb; }}
+                                    .cal-day.selected {{ background-color: #611232 !important; color: white !important; font-weight: bold; }}
+                                    .cal-day.other-month {{ color: #ccc; }}
+                                </style>
+                                </head>
+                                <body>
+                                <div class="cal-box">
+                                    <div class="cal-header">
+                                        <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
+                                        <select id="s-m" onchange="actFecha()">
+                                            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                                            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                                            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                                            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                                        </select>
+                                        <select id="s-y" onchange="actFecha()"></select>
+                                        <button type="button" onclick="cambiarMes(1)">&#10095;</button>
+                                    </div>
+                                    <div class="cal-grid">
+                                        <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
+                                        <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
+                                        <div class="cal-day-name">D</div>
+                                    </div>
+                                    <div class="cal-grid" id="c-body"></div>
+                                </div>
+                                <script>
+                                    let cDate = new Date();
+                                    let currentVal = "{st.session_state.cad_cov_val}";
+                                    let parts = currentVal.split('/');
+                                    let selectedDay = parts.length === 3 ? parseInt(parts[0]) : null;
+                                    let selectedMonth = parts.length === 3 ? parseInt(parts[1]) - 1 : null;
+                                    let selectedYear = parts.length === 3 ? parseInt(parts[2]) : null;
+                                    if (selectedYear) {{ cDate.setFullYear(selectedYear); cDate.setMonth(selectedMonth); }}
 
-                        if tiene_dosis_covid:
-                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#611232; margin-top:8px;'>📅 Seleccionar Fecha de Caducidad (COVID-19):</p>", unsafe_allow_html=True)
-                            c_cal_c1, c_cal_c2, c_cal_c3 = st.columns(3)
-                            with c_cal_c1:
-                                cad_c_d = st.selectbox("Día", options=[str(d).zfill(2) for d in range(1, 32)], key="cal_cov_d")
-                            with c_cal_c2:
-                                cad_c_m = st.selectbox("Mes", options=["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"], key="cal_cov_m")
-                            with c_cal_c3:
-                                anio_actual = datetime.date.today().year
-                                cad_c_y = st.selectbox("Año", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key="cal_cov_y")
-                            cad_cov_input = f"{cad_c_d}/{cad_c_m}/{cad_c_y}"
-                            st.markdown(f"<b>Fecha seleccionada:</b> <code style='color:#611232;'>{cad_cov_input}</code>", unsafe_allow_html=True)
-                        else:
-                            st.info("🔒 Seleccione una dosis de COVID-19 para habilitar el lote y la fecha de caducidad.")
+                                    function initYears() {{
+                                        const sy = document.getElementById('s-y');
+                                        const yr = new Date().getFullYear();
+                                        for(let y=yr+6; y>=2020; y--) {{
+                                            let o = document.createElement('option');
+                                            o.value = y; o.text = y;
+                                            sy.appendChild(o);
+                                        }}
+                                    }}
+
+                                    function renderCal() {{
+                                        const y = cDate.getFullYear();
+                                        const m = cDate.getMonth();
+                                        document.getElementById('s-m').value = m;
+                                        document.getElementById('s-y').value = y;
+                                        const cb = document.getElementById('c-body');
+                                        cb.innerHTML = '';
+                                        const firstDay = new Date(y, m, 1);
+                                        let start = firstDay.getDay();
+                                        start = (start === 0) ? 6 : start - 1;
+                                        const lastDate = new Date(y, m + 1, 0).getDate();
+                                        const prevLastDate = new Date(y, m, 0).getDate();
+
+                                        for(let i=start-1; i>=0; i--) {{
+                                            let d = document.createElement('div');
+                                            d.className = 'cal-day other-month';
+                                            d.innerText = prevLastDate - i;
+                                            cb.appendChild(d);
+                                        }}
+
+                                        for(let d=1; d<=lastDate; d++) {{
+                                            let div = document.createElement('div');
+                                            div.className = 'cal-day';
+                                            div.innerText = d;
+
+                                            if (selectedDay === d && selectedMonth === m && selectedYear === y) {{
+                                                div.classList.add('selected');
+                                            }}
+
+                                            div.onclick = function() {{
+                                                selectedDay = d;
+                                                selectedMonth = m;
+                                                selectedYear = y;
+
+                                                let dd = String(d).padStart(2, '0');
+                                                let mm = String(m + 1).padStart(2, '0');
+                                                let fechaStr = dd + '/' + mm + '/' + y;
+                                                
+                                                const inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                                                for(let inp of inputs) {{
+                                                    if(inp.value !== undefined && inp.getAttribute('aria-label') && inp.getAttribute('aria-label').includes("Caducidad COVID")) {{
+                                                        inp.value = fechaStr;
+                                                        inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                        break;
+                                                    }}
+                                                }}
+                                                renderCal();
+                                            }};
+                                            cb.appendChild(div);
+                                        }}
+                                    }}
+
+                                    function cambiarMes(delta) {{
+                                        cDate.setMonth(cDate.getMonth() + delta);
+                                        renderCal();
+                                    }}
+
+                                    function actFecha() {{
+                                        cDate.setFullYear(parseInt(document.getElementById('s-y').value));
+                                        cDate.setMonth(parseInt(document.getElementById('s-m').value));
+                                        renderCal();
+                                    }}
+
+                                    initYears();
+                                    renderCal();
+                                </script>
+                                </body>
+                                </html>
+                                """
+                                components.html(calendar_html_cov, height=155)
+                            else:
+                                st.info("🔒 Seleccione una dosis de COVID-19 para habilitar el lote, caducidad y calendario.")
 
                         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
@@ -588,6 +1077,12 @@ else:
                                 if not cad_inf_input.strip():
                                     st.error("⚠️ **Error:** Seleccionó al menos una dosis de **Influenza**, pero falta indicar la fecha de caducidad.")
                                     error_validacion = True
+                                else:
+                                    try:
+                                        datetime.datetime.strptime(cad_inf_input.strip(), "%d/%m/%Y")
+                                    except ValueError:
+                                        st.error("⚠️ **Error:** Formato de caducidad de Influenza inválido. Use DD/MM/AAAA.")
+                                        error_validacion = True
 
                             if covid_seleccionada:
                                 if not lote_cov_input.strip():
@@ -596,6 +1091,12 @@ else:
                                 if not cad_cov_input.strip():
                                     st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta indicar la fecha de caducidad.")
                                     error_validacion = True
+                                else:
+                                    try:
+                                        datetime.datetime.strptime(cad_cov_input.strip(), "%d/%m/%Y")
+                                    except ValueError:
+                                        st.error(f"⚠️ **Error:** Formato de caducidad de COVID-19 inválido. Use DD/MM/AAAA.")
+                                        error_validacion = True
 
                             if not influenza_seleccionada and not covid_seleccionada:
                                 st.warning("⚠️ Debe seleccionar al menos una dosis a aplicar antes de guardar.")
@@ -626,11 +1127,9 @@ else:
                                             {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
                                             {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
                                             {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                                            {"range": f"C{fila_idx}", "values": [[ed_curp.upper()]]}
+                                            {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
                                         ])
                                         nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
-                                    else:
-                                        nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
                                     if inf_1ra:
                                         datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
@@ -708,4 +1207,7 @@ else:
                                     st.rerun()
 
                                 except Exception as e:
-                                    st.error(f"Error al actualizar la base de datos en Google Sheets: {e}")
+                                    st.error(
+                                        "Error al actualizar la base de datos en Google"
+                                        f" Sheets: {e}"
+                                    )
