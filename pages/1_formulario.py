@@ -727,52 +727,215 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SELECTOR DE FECHA EN CASCADA (AÑO, MES, DÍA) OPTIMIZADO PARA MÓVIL ---
+# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SELECTORES DE MES Y AÑO ---
 st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
 )
 
-col_f1, col_f2, col_f3 = st.columns(3)
+# Renderizamos el calendario interactivo con selectores superiores de mes y año
+componente_calendario_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body { font-family: sans-serif; background-color: transparent; margin: 0; padding: 2px; }
+    .calendar-card {
+        background: #ffffff;
+        border: 2px solid #1e5b4f;
+        border-radius: 8px;
+        padding: 12px;
+        max-width: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        gap: 6px;
+    }
+    .calendar-header select, .calendar-header button {
+        padding: 6px 8px;
+        font-size: 0.95rem;
+        border: 1px solid #a57f2c;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+    }
+    .calendar-header select { font-weight: bold; color: #1e5b4f; flex: 1; }
+    .calendar-header button { font-weight: bold; color: #611232; background: #f7f4eb; }
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        gap: 4px;
+    }
+    .calendar-day-name {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #611232;
+        padding-bottom: 6px;
+    }
+    .calendar-day {
+        padding: 8px 0;
+        font-size: 0.95rem;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #161a1d;
+        font-weight: 600;
+    }
+    .calendar-day:hover {
+        background-color: #f7f4eb;
+    }
+    .calendar-day.selected {
+        background-color: #1e5b4f;
+        color: white;
+        font-weight: bold;
+    }
+    .calendar-day.other-month {
+        color: #ccc;
+    }
+</style>
+</head>
+<body>
 
-anos_disponibles = ["AÑO"] + list(range(2026, 1919, -1))
-meses_dict = {
-    "Enero": 1,
-    "Febrero": 2,
-    "Marzo": 3,
-    "Abril": 4,
-    "Mayo": 5,
-    "Junio": 6,
-    "Julio": 7,
-    "Agosto": 8,
-    "Septiembre": 9,
-    "Octubre": 10,
-    "Noviembre": 11,
-    "Diciembre": 12,
-}
-meses_disponibles = ["MES"] + list(meses_dict.keys())
-dias_disponibles = ["DÍA"] + list(range(1, 32))
+<div class="calendar-card">
+    <div class="calendar-header">
+        <button onclick="cambiarMes(-1)">&#10094;</button>
+        <select id="select-month" onchange="actualizarCalendarioDesdeSelect()">
+            <option value="0">Enero</option>
+            <option value="1">Febrero</option>
+            <option value="2">Marzo</option>
+            <option value="3">Abril</option>
+            <option value="4">Mayo</option>
+            <option value="5">Junio</option>
+            <option value="6">Julio</option>
+            <option value="7">Agosto</option>
+            <option value="8">Septiembre</option>
+            <option value="9">Octubre</option>
+            <option value="10">Noviembre</option>
+            <option value="11">Diciembre</option>
+        </select>
+        <select id="select-year" onchange="actualizarCalendarioDesdeSelect()"></select>
+        <button onclick="cambiarMes(1)">&#10095;</button>
+    </div>
+    <div class="calendar-grid">
+        <div class="calendar-day-name">L</div>
+        <div class="calendar-day-name">M</div>
+        <div class="calendar-day-name">X</div>
+        <div class="calendar-day-name">J</div>
+        <div class="calendar-day-name">V</div>
+        <div class="calendar-day-name">S</div>
+        <div class="calendar-day-name">D</div>
+    </div>
+    <div class="calendar-grid" id="calendar-days-body"></div>
+</div>
+
+<script>
+    let fechaActual = new Date(1993, 9, 15);
+    let fechaSeleccionada = null;
+
+    function inicializarAnios() {
+        const selectYear = document.getElementById('select-year');
+        const anioActual = new Date().getFullYear();
+        for (let y = anioActual; y >= 1920; y--) {
+            let opt = document.createElement('option');
+            opt.value = y;
+            opt.text = y;
+            selectYear.appendChild(opt);
+        }
+    }
+
+    function renderCalendario() {
+        const year = fechaActual.getFullYear();
+        const month = fechaActual.getMonth();
+
+        document.getElementById('select-month').value = month;
+        document.getElementById('select-year').value = year;
+
+        const body = document.getElementById('calendar-days-body');
+        body.innerHTML = '';
+
+        const primerDiaMes = new Date(year, month, 1);
+        let diaSemana = primerDiaMes.getDay();
+        diaSemana = (diaSemana === 0) ? 6 : diaSemana - 1;
+
+        const ultimoDiaMes = new Date(year, month + 1, 0).getDate();
+        const ultimoDiaMesAnterior = new Date(year, month, 0).getDate();
+
+        for (let i = diaSemana - 1; i >= 0; i--) {
+            let div = document.createElement('div');
+            div.className = 'calendar-day other-month';
+            div.innerText = ultimoDiaMesAnterior - i;
+            body.appendChild(div);
+        }
+
+        for (let d = 1; d <= ultimoDiaMes; d++) {
+            let div = document.createElement('div');
+            div.className = 'calendar-day';
+            div.innerText = d;
+            
+            if (fechaSeleccionada && 
+                fechaSeleccionada.getFullYear() === year && 
+                fechaSeleccionada.getMonth() === month && 
+                fechaSeleccionada.getDate() === d) {
+                div.classList.add('selected');
+            }
+
+            div.onclick = function() {
+                fechaSeleccionada = new Date(year, month, d);
+                renderCalendario();
+            };
+            body.appendChild(div);
+        }
+    }
+
+    function cambiarMes(delta) {
+        fechaActual.setMonth(fechaActual.getMonth() + delta);
+        renderCalendario();
+    }
+
+    function actualizarCalendarioDesdeSelect() {
+        const m = parseInt(document.getElementById('select-month').value);
+        const y = parseInt(document.getElementById('select-year').value);
+        fechaActual.setFullYear(y);
+        fechaActual.setMonth(m);
+        renderCalendario();
+    }
+
+    inicializarAnios();
+    renderCalendario();
+</script>
+
+</body>
+</html>
+"""
+
+components.html(componente_calendario_html, height=290)
+
+# Como el componente HTML maneja la selección de forma visual, simulamos la fecha de nacimiento por ahora con el selector en cascada limpio por seguridad o para capturar el valor exacto:
+col_f1, col_f2, col_f3 = st.columns(3)
+anos_disp = ["AÑO"] + list(range(2026, 1919, -1))
+meses_dict_map = {"Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12}
+meses_disp = ["MES"] + list(meses_dict_map.keys())
+dias_disp = ["DÍA"] + list(range(1, 32))
 
 with col_f1:
-    anio_sel = st.selectbox("Año", options=anos_disponibles, key="sel_anio", label_visibility="collapsed")
+    anio_sel = st.selectbox("Año", options=anos_disp, key="sel_anio", label_visibility="collapsed")
 with col_f2:
-    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes", label_visibility="collapsed")
+    mes_sel = st.selectbox("Mes", options=meses_disp, key="sel_mes", label_visibility="collapsed")
 with col_f3:
-    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia", label_visibility="collapsed")
+    dia_sel = st.selectbox("Día", options=dias_disp, key="sel_dia", label_visibility="collapsed")
 
 fecha_nacimiento = None
-if (
-    anio_sel != "AÑO"
-    and mes_sel != "MES"
-    and dia_sel != "DÍA"
-):
+if anio_sel != "AÑO" and mes_sel != "MES" and dia_sel != "DÍA":
     try:
-        mes_num = meses_dict[mes_sel]
-        fecha_nacimiento = datetime.date(int(anio_sel), mes_num, int(dia_sel))
+        fecha_nacimiento = datetime.date(int(anio_sel), meses_dict_map[mes_sel], int(dia_sel))
     except ValueError:
-        st.error(
-            "⚠️ La fecha seleccionada no es válida (por ejemplo, 31 de febrero)."
-        )
+        st.error("⚠️ La fecha seleccionada no es válida.")
 
 col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
