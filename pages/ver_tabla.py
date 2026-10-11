@@ -18,9 +18,16 @@ st.markdown(
         header {visibility: hidden;}
         .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
         [data-testid="stSidebar"] {display: none;}
-        .metric-card { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 10px; border-radius: 8px; text-align: center; color: #161a1d; }
-        .metric-value { font-size: 1.3rem; font-weight: 800; color: #1e5b4f; }
-        .metric-label { font-size: 0.8rem; font-weight: 700; color: #611232; text-transform: uppercase; }
+        
+        .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-4 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-5 { background-color: #fce8e6; border: 2px solid #611232; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; }
+
+        .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
+        .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -126,6 +133,7 @@ else:
             # --- CÁLCULO DE MÉTRICAS DINÁMICAS ---
             total_preregistros = len(filas_tabla)
             total_aplicaciones = 0
+            total_sin_aplicar = 0
             total_dosis_influenza = 0
             total_dosis_covid = 0
             registros_nuevos_hoy = 0
@@ -139,8 +147,11 @@ else:
                     if str(row[i]).strip().upper() == "X":
                         tiene_aplicacion = True
                         break
+                
                 if tiene_aplicacion:
                     total_aplicaciones += 1
+                else:
+                    total_sin_aplicar += 1
 
                 # 2. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
                 for i in range(32, min(35, len(row))):
@@ -156,18 +167,20 @@ else:
                 if len(row) > 11 and row[11].strip() == fecha_hoy_str:
                     registros_nuevos_hoy += 1
 
-            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS ---
-            m1, m2, m3, m4, m5 = st.columns(5)
+            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS CON COLORES ---
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
             with m1:
-                st.markdown(f'<div class="metric-card"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
             with m2:
-                st.markdown(f'<div class="metric-card"><div class="metric-label">Registros Nuevos (Hoy)</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
             with m3:
-                st.markdown(f'<div class="metric-card"><div class="metric-label">Aplicaciones Totales</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
             with m4:
-                st.markdown(f'<div class="metric-card"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
             with m5:
-                st.markdown(f'<div class="metric-card"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+            with m6:
+                st.markdown(f'<div class="metric-card-6"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
