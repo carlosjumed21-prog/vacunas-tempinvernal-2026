@@ -1,4 +1,3 @@
-
 import datetime
 import random
 import unicodedata
@@ -85,28 +84,39 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     p = limpiar_texto(paterno)
     m = limpiar_texto(materno) if materno else ""
     n = limpiar_texto(nombres)
-    if not p or not n or not fecha_nac:
-        return "COMPLETA DATOS Y FECHA"
+    
+    # Validar que los campos indispensables estén llenos
+    if not p or not n or not fecha_nac or sexo == "SELECCIONE UNA OPCIÓN" or est_nac == "SELECCIONE UN ESTADO":
+        return "COMPLETA DATOS, SEXO Y ESTADO"
+        
     nombres_lista = n.split()
     primer_nombre = nombres_lista[0] if nombres_lista else "X"
     if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
         primer_nombre = nombres_lista[1]
+        
     c1 = p[0] if p else "X"
     c2 = obtener_primera_vocal_interna(p)
     c3 = m[0] if m else "X"
     c4 = primer_nombre[0] if primer_nombre else "X"
+    
     yy = str(fecha_nac.year)[-2:]
     mm = str(fecha_nac.month).zfill(2)
     dd = str(fecha_nac.day).zfill(2)
     fec_part = f"{yy}{mm}{dd}"
+    
     sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
     est_part = estados_curp.get(est_nac, "NE")
+    
     c14 = obtener_primera_consonante_interna(p)
     c15 = obtener_primera_consonante_interna(m) if m else "X"
     c16 = obtener_primera_consonante_interna(primer_nombre)
+    
     curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
+    
+    # Si hay dígitos verificadores opcionales los usa, de lo contrario completa con homoclave temporal '00'
     extra_limpio = limpiar_texto(digitos_extra)
     sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
+    
     return f"{curp_16}{sufijo}"
 
 
@@ -223,16 +233,10 @@ def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_an
 
 
 def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
-    """
-    Formato: YYYYMMDD + Modalidad (I o E) + 3 dígitos de clínica + 4 dígitos consecutivos (iniciando en 0001)
-    Ejemplo: 20261011I20N0001
-    """
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     mod_letra = "I" if modalidad.upper() == "INTRAMUROS" else "E"
     siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
     
-    # Aquí puedes consultar la cantidad actual en tu base de datos o Google Sheets para obtener el siguiente número consecutivo.
-    # Como ejemplo base, simulamos el contador con una función o sesión:
     consecutivo_num = st.session_state.get("contador_folio_consecutivo", 1)
     st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
     
