@@ -494,11 +494,11 @@ else:
 
                 enlaces_html = ""
                 for h_info in st.session_state.hojas_creadas_recientes:
-                    url_sheet_directa = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing#gid={h_info['gid']}"
+                    url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing"
                     enlaces_html += f"""
                     <div style="margin-bottom: 8px;">
-                        <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
-                            🔗 Ver Hoja: {h_info['nombre']}
+                        <a href="{url_sheet_universal}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                            🔗 Ver Libro Completo: {h_info['nombre']}
                         </a>
                     </div>
                     """
@@ -621,10 +621,8 @@ else:
                             sp_item = client.open_by_key(sheet_id_item)
                             for ws in sp_item.worksheets():
                                 titulo_w = ws.title
-                                # Excluimos únicamente las plantillas base maestras
                                 if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
                                     try:
-                                        # Intentamos leer el correo en AU4 (opcional para el admin)
                                         val_au4 = ""
                                         try:
                                             val_au4 = ws.acell("AU4").value
@@ -685,8 +683,12 @@ else:
 
                 col_h1, col_h2 = st.columns([1, 1])
                 with col_h1:
-                    url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
-                    st.markdown(f"[🔗 Abrir Pestaña Directa en Google Sheets]({url_sheet})", unsafe_allow_html=True)
+                    # Enlace universal sin #gid= para abrir el libro completo con todas las pestañas visibles
+                    url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
+                    st.markdown(f"[🔗 Abrir Libro Completo en Google Sheets (Todas las Pestañas)]({url_sheet_universal})", unsafe_allow_html=True)
+                    
+                    if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
+                        st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
                 
                 with col_h2:
                     link_qr_generar = h_item.get("link_formulario", base_url)
