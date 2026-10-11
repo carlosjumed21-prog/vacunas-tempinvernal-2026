@@ -175,13 +175,18 @@ else:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
             todos_los_datos = worksheet_activa.get_all_values()
+            
+            # --- ESCANEO DINÁMICO ROBUSTO DE PACIENTES ---
             pacientes_cargados = []
-            if len(todos_los_datos) >= 13:
-                for idx, row in enumerate(todos_los_datos[12:], start=13):
-                    if len(row) > 3 and row[1].strip() and row[2].strip():
+            for idx, row in enumerate(todos_los_datos, start=1):
+                # Verificamos si la fila tiene un folio válido en columna B (índice 1) y apellido en columna C (índice 2)
+                if len(row) > 2 and row[1].strip() and row[2].strip():
+                    folio_val = row[1].strip()
+                    # Evitamos tomar encabezados institucionales
+                    if "FOLIO" not in folio_val.upper():
                         pacientes_cargados.append({
                             "fila": idx,
-                            "folio": row[1].strip(),
+                            "folio": folio_val,
                             "paterno": row[2].strip(),
                             "materno": row[3].strip() if len(row) > 3 else "",
                             "nombres": row[4].strip() if len(row) > 4 else "",
@@ -192,7 +197,7 @@ else:
 
         st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida</div>', unsafe_allow_html=True)
         if not pacientes_cargados:
-            st.info("La jornada no cuenta con pacientes registrados.")
+            st.info("La jornada no cuenta con pacientes registrados o el formato de censo requiere revisión.")
         else:
             query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba aquí...")
             if query_busqueda.strip():
