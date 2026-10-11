@@ -377,7 +377,7 @@ else:
                     ]
 
                     seleccion_paciente = st.selectbox(
-                        "Seleccione del listado de coindidencias:" if False else "Seleccione del listado de coincidencias:",
+                        "Seleccione del listado de coincidencias:",
                         options=opciones_busqueda,
                         format_func=lambda x: x.split("||")[0],
                     )
@@ -544,7 +544,7 @@ else:
                             st.markdown(
                                 f"""
                                 <div style="background-color: #eaf2f0; border-left: 5px solid #1e5b4f; border: 1px solid #cce3de; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px;">
-                                    <p style="color: #1e5b4f; font-weight: 700; margin: 0 0 4px 0;">🔄 Lineamiento de Aplicación Simultánea (Columna H):</p>
+                                    <p style="color: #1e5b4f; font-weight: 700; margin: 0 0 4px 0;">🔄 Lineamiento de Aplicación Simultánea:</p>
                                     <p style="color: #161a1d; margin: 0; font-size: 0.95rem;">{texto_simultanea}</p>
                                 </div>
                                 """,
