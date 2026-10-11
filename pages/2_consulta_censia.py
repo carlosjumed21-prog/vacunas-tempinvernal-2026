@@ -230,31 +230,37 @@ if not st.session_state.autenticado_consulta:
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">Ingrese sus credenciales operativas</p>',
+        '<p class="sub-header">Ingrese su correo institucional y contraseña</p>',
         unsafe_allow_html=True,
     )
 
     with st.form("form_login_consulta"):
-        usuario = st.selectbox(
-            "Seleccione Usuario:", options=["Seleccione...", "Operativo"]
-        )
-        password = st.text_input("Contraseña:", type="password")
         correo_operador_input = st.text_input(
-            "📧 Correo Electrónico Institucional (para visualización y ocultamiento de pestañas ajenas):",
+            "📧 Correo Electrónico Institucional:",
             placeholder="ejemplo@issste.gob.mx"
         )
-        btn_login = st.form_submit_button("Iniciar Sesión", use_container_width=True)
+        password = st.text_input("Contraseña Operativa:", type="password")
+        
+        btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
 
         if btn_login:
-            if usuario == "Operativo" and password == "OperativoInv26":
-                if not correo_operador_input.strip():
-                    st.error("⚠️ Debe ingresar su correo electrónico institucional para acceder a su hoja asignada.")
-                else:
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_operador_input.strip().lower()
-                    st.rerun()
+            correo_limpio = correo_operador_input.strip().lower()
+            if not correo_limpio:
+                st.error("⚠️ Debe ingresar su correo electrónico institucional.")
+            elif not password:
+                st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                st.error("Credenciales incorrectas. Verifique usuario y contraseña.")
+                # Verificamos si es el Admin Carlos o un operativo común
+                if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
+                    st.session_state.autenticado_consulta = True
+                    st.session_state.correo_operativo_asignado = correo_limpio
+                    st.rerun()
+                elif password == "OperativoInv26":
+                    st.session_state.autenticado_consulta = True
+                    st.session_state.correo_operativo_asignado = correo_limpio
+                    st.rerun()
+                else:
+                    st.error("❌ Credenciales incorrectas. Verifique correo y contraseña.")
 else:
     st.markdown(
         '<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>',
@@ -287,54 +293,80 @@ else:
 
         todas_las_hojas = spreadsheet.worksheets()
         
-        # --- FILTRADO AUTOMÁTICO DE HOJAS POR CORREO (Celda AU4) ---
         correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
         h_autorizadas = []
 
-        for h in todas_las_hojas:
-            if h.title not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                try:
-                    val_au4 = h.acell("AU4").value
-                    if val_au4 and val_au4.strip().lower() == correo_sesion:
-                        h_autorizadas.append(h.title)
-                except:
-                    pass
+        # Listado de nombres de plantillas/hojas maestras a excluir completamente de la vista operativa
+        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
+
+        # Si el correo es el administrador carlosju.med21@gmail.com, puede ver todas las hojas operativas
+        if correo_sesion == "carlosju.med21@gmail.com":
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    h_autorizadas.append(h.title)
+        else:
+            # Para usuarios operativos normales, filtramos estrictamente por su correo en la celda AU4
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    try:
+                        val_au4 = h.acell("AU4").value
+                        if val_au4 and val_au4.strip().lower() == correo_sesion:
+                            h_autorizadas.append(h.title)
+                    except:
+                        pass
 
     except Exception as e:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y OCULTAMIENTO AUTOMÁTICO DE PESTAÑAS ---
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y OCULTAMIENTO AUTOMÁTICO DE PLANTILLAS Y PESTAÑAS AJENAS ---
     col_v1, col_v2 = st.columns([3, 1])
     with col_v1:
-        st.markdown(
-            f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
-            unsafe_allow_html=True,
-        )
+        if correo_sesion == "carlosju.med21@gmail.com":
+            st.markdown(
+                f'<div class="section-title">👑 Vista Administrador General: <code>{correo_sesion}</code></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
+                unsafe_allow_html=True,
+            )
     with col_v2:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Ocultar pestañas ajenas en Sheets y abrir la hoja autorizada"):
+        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Ocultar plantillas y pestañas ajenas en Sheets y abrir la hoja autorizada"):
             if h_autorizadas:
                 try:
                     hoja_a_mostrar = h_autorizadas[0]
-                    # --- BUCLE PARA OCULTAR TODAS LAS DEMÁS PESTAÑAS EN GOOGLE SHEETS ---
+                    # --- BUCLE PARA OCULTAR LA PLANTILLA Y TODAS LAS DEMÁS PESTAÑAS EN GOOGLE SHEETS ---
                     for hoja_item in spreadsheet.worksheets():
-                        if hoja_item.title not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                            if hoja_item.title == hoja_a_mostrar:
-                                try:
-                                    hoja_item.show()
-                                except:
-                                    pass
-                            else:
-                                try:
-                                    hoja_item.hide()
-                                except:
-                                    pass
+                        # Ocultamos la plantilla base maestra
+                        if hoja_item.title in hojas_plantillas_excluir:
+                            try:
+                                hoja_item.hide()
+                            except:
+                                pass
+                        elif correo_sesion == "carlosju.med21@gmail.com":
+                            # Si es Admin, dejamos visibles todas las operativas
+                            try:
+                                hoja_item.show()
+                            except:
+                                pass
+                        elif hoja_item.title == hoja_a_mostrar:
+                            try:
+                                hoja_item.show()
+                            except:
+                                pass
+                        else:
+                            try:
+                                hoja_item.hide()
+                            except:
+                                pass
 
                     ws_temp = spreadsheet.worksheet(hoja_a_mostrar)
                     url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
                     st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
-                    st.success(f"🔒 Pestañas ajenas ocultadas. Abriendo tu hoja: {hoja_a_mostrar}")
+                    st.success(f"🔒 Plantilla y pestañas ajenas ocultadas con éxito.")
                 except Exception as ex:
                     st.warning(f"No se pudo sincronizar la visibilidad de las pestañas: {ex}")
             else:
@@ -344,15 +376,14 @@ else:
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace:
-        if hoja_enlace in h_autorizadas:
+        if correo_sesion == "carlosju.med21@gmail.com" or hoja_enlace in h_autorizadas:
             hoja_seleccionada = hoja_enlace
             st.success(
-                f"🔒 Jornada asignada y bloqueada por enlace institucional: "
-                f"<b>{hoja_seleccionada}</b>",
+                f"🔒 Jornada activa: <b>{hoja_seleccionada}</b>",
                 icon="🔒",
             )
         else:
-            st.error("❌ El enlace de la jornada no corresponde a las autorizadas para tu correo electrónico.")
+            st.error("❌ El enlace de la jornada no corresponde a las autorizadas para tu cuenta.")
             hoja_seleccionada = None
     else:
         if not h_autorizadas:
@@ -362,8 +393,13 @@ else:
             )
             hoja_seleccionada = None
         else:
-            hoja_seleccionada = h_autorizadas[0]
-            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
+            if correo_sesion == "carlosju.med21@gmail.com":
+                # Para el admin, permitimos elegir de un selector si lo desea o toma la primera
+                hoja_sel_admin = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
+                hoja_seleccionada = hoja_sel_admin
+            else:
+                hoja_seleccionada = h_autorizadas[0]
+                st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
     if hoja_seleccionada:
         try:
