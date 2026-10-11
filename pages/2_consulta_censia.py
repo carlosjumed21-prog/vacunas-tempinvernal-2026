@@ -267,7 +267,7 @@ else:
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
         
-        # Hoja 1: Influenza (A: Vacuna, B: Categoría, C: Grupos blancos, D: Esquema, E: Dosis, F: Intervalo, G: Recomendación, H: Aplicación Simultánea)
+        # Hoja 1: Influenza
         try:
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
@@ -290,7 +290,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID (A: Tipo de Vacuna, B: Categoría, C: Grupos blancos, D: Esquema, E: Dosis, F: Intervalo, G: Recomendación, H: Aplicación Simultánea)
+        # Hoja 2: COVID
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -454,7 +454,7 @@ else:
                             elif au_val == "X":
                                 vacuna_registrada = "COVID-19"
 
-                        # --- DETECCIÓN EXACTA DE RIESGOS Y CATEGORÍA (Col. B: Población Objetivo / Población de Riesgo) ---
+                        # --- DETECCIÓN DE RIESGOS Y CATEGORÍA DESDE LOS DATOS PUROS ---
                         lista_riesgos_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
@@ -466,7 +466,7 @@ else:
                         else:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
-                        if tiene_equis(17): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
+                        if tiene_equis(17): lista_riesgos_detectados.append("EMBARAZADAS"); es_riesgo = True
                         if tiene_equis(18): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(19): lista_riesgos_detectados.append("VIH"); es_riesgo = True
                         if tiene_equis(20): lista_riesgos_detectados.append("DIABETES"); es_riesgo = True
@@ -487,8 +487,6 @@ else:
 
                         if es_riesgo:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                        grupo_detectado_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "POBLACIÓN GENERAL"
 
                         st.markdown(
                             '<div class="section-title">Vista Previa y Datos Generales'
@@ -515,7 +513,7 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- CRUCE EXACTO POR CATEGORÍA (Col. B) Y GRUPO BLANCO (Col. C) ---
+                        # --- CRUCE EXACTO CON LAS HOJAS CENSIA (Buscando coincidencia en Categoría B y Grupos C) ---
                         match_inf = None
                         match_cov = None
 
@@ -537,7 +535,7 @@ else:
                         if not match_cov and guia_covid_registros:
                             match_cov = guia_covid_registros[0]
 
-                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN (Columnas D, E, F, G y H si es Ambas) ---
+                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN ---
                         if mostrar_influenza and match_inf:
                             simultanea_inf = match_inf.get("aplicacion_simultanea", "")
                             st.markdown(
