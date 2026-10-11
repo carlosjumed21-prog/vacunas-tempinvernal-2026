@@ -1,4 +1,3 @@
-
 import json
 from google.oauth2 import service_account
 import gspread
@@ -132,8 +131,7 @@ def obtener_recomendaciones_paciente(
 ):
     """Cruza los datos puros del paciente con las guías CENSIA para retornar
 
-    las tarjetas correspondientes a Influenza y COVID (incluyendo todos los
-    biológicos aplicables).
+    las tarjetas de Influenza y COVID, priorizando Personal de Salud y Comorbilidades.
     """
     guia_inf, guia_cov = cargar_guias_censia()
 
@@ -149,18 +147,14 @@ def obtener_recomendaciones_paciente(
             cat_b = item["categoria"].strip().upper()
             gb_c = item["grupos_blancos"].strip().upper()
             if "RIESGO" in cat_b:
-                if any(
-                    "SALUD" in gb_c and "SALUD" in r.upper()
-                    for r in lista_riesgos_detectados
-                ) or any(
-                    (
-                        "COMORBILIDADES" in gb_c
-                        or "VIH" in gb_c
-                        or "DIABETES" in gb_c
-                        or "OBESIDAD" in gb_c
-                    )
-                    and r.upper()
-                    in [
+                es_match = False
+                for r in lista_riesgos_detectados:
+                    r_up = r.upper()
+                    if "SALUD" in r_up and "SALUD" in gb_c:
+                        es_match = True
+                    elif (
+                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                    ) and r_up in [
                         "VIH",
                         "DIABETES",
                         "OBESIDAD",
@@ -170,11 +164,10 @@ def obtener_recomendaciones_paciente(
                         "RENAL",
                         "INMUNOSUPRESIÓN",
                         "HIPERTENSIÓN",
-                    ]
-                    for r in lista_riesgos_detectados
-                ):
-                    if item not in matches_inf:
-                        matches_inf.append(item)
+                    ]:
+                        es_match = True
+                if es_match and item not in matches_inf:
+                    matches_inf.append(item)
         if not matches_inf and guia_inf:
             matches_inf.append(guia_inf[0])
 
@@ -184,18 +177,14 @@ def obtener_recomendaciones_paciente(
             cat_b = item["categoria"].strip().upper()
             gb_c = item["grupos_blancos"].strip().upper()
             if "RIESGO" in cat_b:
-                if any(
-                    "SALUD" in gb_c and "SALUD" in r.upper()
-                    for r in lista_riesgos_detectados
-                ) or any(
-                    (
-                        "COMORBILIDADES" in gb_c
-                        or "VIH" in gb_c
-                        or "DIABETES" in gb_c
-                        or "OBESIDAD" in gb_c
-                    )
-                    and r.upper()
-                    in [
+                es_match = False
+                for r in lista_riesgos_detectados:
+                    r_up = r.upper()
+                    if "SALUD" in r_up and "SALUD" in gb_c:
+                        es_match = True
+                    elif (
+                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                    ) and r_up in [
                         "VIH",
                         "DIABETES",
                         "OBESIDAD",
@@ -205,11 +194,10 @@ def obtener_recomendaciones_paciente(
                         "RENAL",
                         "INMUNOSUPRESIÓN",
                         "HIPERTENSIÓN",
-                    ]
-                    for r in lista_riesgos_detectados
-                ):
-                    if item not in matches_cov:
-                        matches_cov.append(item)
+                    ]:
+                        es_match = True
+                if es_match and item not in matches_cov:
+                    matches_cov.append(item)
         if not matches_cov and guia_cov:
             matches_cov.append(guia_cov[0])
 
