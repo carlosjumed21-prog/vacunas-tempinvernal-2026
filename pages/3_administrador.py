@@ -378,7 +378,6 @@ else:
                                     "sheet_id": sheet_id_destino
                                 }
                                 hojas_creadas_exito.append(hoja_info)
-                                # Evitar duplicados en el historial local
                                 if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
                                     st.session_state.historial_jornadas.append(hoja_info)
 
@@ -547,12 +546,12 @@ else:
         col_hist_tit, col_hist_btn = st.columns([3, 1])
         with col_hist_tit:
             st.markdown(
-                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial de Hojas Existentes en Google Sheets</div>',
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial de Hojas con Mapeo Activo en Google Sheets</div>',
                 unsafe_allow_html=True,
             )
         with col_hist_btn:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-            if st.button("🔄 Actualizar Historial", use_container_width=True, help="Conectar con Google Sheets y sincronizar hojas operativas"):
+            if st.button("🔄 Actualizar Historial", use_container_width=True, help="Escanear hojas en Google Sheets con mapeo activo en AU6, AU7 y AU8"):
                 try:
                     scope = GOOGLE_SCOPES
                     if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -567,7 +566,6 @@ else:
                     creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
                     client = gspread.authorize(creds)
                     
-                    # Conectamos a ambas fuentes posibles de hojas (ISSSTE 20N y General)
                     ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
                     hojas_encontradas = []
 
@@ -577,34 +575,39 @@ else:
                             for ws in sp_item.worksheets():
                                 titulo_w = ws.title
                                 if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                                    # Intentar extraer fecha del título de la hoja (formato DDMMYY al final o en el nombre)
-                                    hojas_encontradas.append({
-                                        "nombre": titulo_w,
-                                        "gid": str(ws.id),
-                                        "unidad": "CMN 20 DE NOVIEMBRE" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "Unidad Médica",
-                                        "siglas_unidad": "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN",
-                                        "tipo_jornada": "Intramuros I" if "INTRA" in titulo_w else "Extramuros E",
-                                        "tipo_jornada_letra": "I" if "INTRA" in titulo_w else "E",
-                                        "responsable": "PERSONAL OPERATIVO",
-                                        "fecha": datetime.date.today(), # Referencia por defecto
-                                        "sheet_id": sheet_id_item
-                                    })
+                                    # Validar si contiene mapeo activo verificando celdas AU6, AU7 o AU8
+                                    try:
+                                        val_au6 = ws.acell("AU6").value
+                                        val_au7 = ws.acell("AU7").value
+                                        if val_au6 or val_au7: # Cuenta con el mapeo activo de recursos digitales
+                                            hojas_encontradas.append({
+                                                "nombre": titulo_w,
+                                                "gid": str(ws.id),
+                                                "unidad": "CMN 20 DE NOVIEMBRE" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "Unidad Médica",
+                                                "siglas_unidad": "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN",
+                                                "tipo_jornada": "Intramuros I" if "INTRA" in titulo_w else "Extramuros E",
+                                                "tipo_jornada_letra": "I" if "INTRA" in titulo_w else "E",
+                                                "responsable": "PERSONAL OPERATIVO",
+                                                "fecha": datetime.date.today(),
+                                                "sheet_id": sheet_id_item
+                                            })
+                                    except:
+                                        pass
                         except:
                             pass
                     
                     if hojas_encontradas:
                         st.session_state.historial_jornadas = hojas_encontradas
-                        st.success(f"✅ ¡Historial sincronizado! Se encontraron {len(hojas_encontradas)} hojas activas en Google Sheets.")
+                        st.success(f"✅ ¡Historial sincronizado! Se detectaron {len(hojas_encontradas)} hojas con mapeo activo en AU6-AU8.")
                         st.rerun()
                     else:
-                        st.warning("⚠️ No se encontraron hojas operativas adicionales en los documentos.")
+                        st.warning("⚠️ No se encontraron hojas con el mapeo activo en AU6, AU7 y AU8.")
                 except Exception as e:
                     st.error(f"Error al sincronizar con Google Sheets: {e}")
 
         if not st.session_state.historial_jornadas:
-            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial'** para cargar las hojas existentes y operativas directamente desde Google Sheets.")
+            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial'** para escanear y verificar únicamente las hojas operativas que tienen el mapeo activo en Google Sheets.")
         else:
-            hoy = datetime.date.today()
             base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
             for i, h_item in enumerate(st.session_state.historial_jornadas):
@@ -616,7 +619,7 @@ else:
                         <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
                             <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
                             <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
-                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja Operativa Activa en Nube</b></p>
+                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja con Mapeo Activo en Nube (AU6-AU8)</b></p>
                         </div>
                         """,
                         unsafe_allow_html=True,
