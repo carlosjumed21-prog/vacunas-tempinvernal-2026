@@ -579,7 +579,7 @@ def mostrar_modal_comprobante():
                 "input_paterno",
                 "input_materno",
                 "input_nombres",
-                "input_fecha_nac",
+                "fecha_nac_str",
                 "input_sexo",
                 "input_estnac",
                 "input_estres",
@@ -622,7 +622,7 @@ def mostrar_modal_comprobante():
                             or "input_estnac" in k
                             or "input_estres" in k
                             or "input_ocupacion" in k
-                            else (None if "ant_" in k or "input_vacuna" in k or "input_fecha_nac" in k else "")
+                            else (None if "ant_" in k or "input_vacuna" in k else "")
                         )
                     )
             st.rerun()
@@ -661,7 +661,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_paterno = "BADILLO"
             st.session_state.input_materno = "XICOHTENCATL"
             st.session_state.input_nombres = "CARLOS"
-            st.session_state.input_fecha_nac = datetime.date(1993, 10, 15)
+            st.session_state.fecha_nac_str = "15/10/1993"
             st.session_state.input_sexo = "HOMBRE"
             st.session_state.input_estnac = "CIUDAD DE MÉXICO"
             st.session_state.input_estres = "CIUDAD DE MÉXICO"
@@ -719,18 +719,233 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SELECTOR DE FECHA DE NACIMIENTO SÍNCRONO (SOLUCIONA EL ALMACENAMIENTO) ---
-st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
-
-fecha_nacimiento = st.date_input(
-    "Fecha de Nacimiento",
-    value=datetime.date(1993, 10, 15),
-    min_value=datetime.date(1920, 1, 1),
-    max_value=datetime.date.today(),
-    format="DD/MM/YYYY",
-    key="input_fecha_nac",
-    label_visibility="collapsed"
+# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SELECTORES DE MES Y AÑO ---
+st.markdown(
+    "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
+    unsafe_allow_html=True,
 )
+
+fecha_inicial_iso = ""
+if st.session_state.get('fecha_nac_str'):
+    try:
+        val_str = st.session_state.fecha_nac_str
+        if "/" in val_str:
+            partes = val_str.split("/")
+            if len(partes) == 3:
+                fecha_inicial_iso = f"{partes[2]}-{partes[1]}-{partes[0]}"
+        else:
+            fecha_inicial_iso = val_str
+    except:
+        pass
+
+componente_calendario_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {{ font-family: sans-serif; background-color: transparent; margin: 0; padding: 2px; }}
+    .calendar-card {{
+        background: #ffffff;
+        border: 2px solid #1e5b4f;
+        border-radius: 8px;
+        padding: 12px;
+        max-width: 100%;
+        box-sizing: border-box;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }}
+    .calendar-header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        gap: 6px;
+    }}
+    .calendar-header select, .calendar-header button {{
+        padding: 6px 8px;
+        font-size: 0.95rem;
+        border: 1px solid #a57f2c;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+    }}
+    .calendar-header select {{ font-weight: bold; color: #1e5b4f; flex: 1; }}
+    .calendar-header button {{ font-weight: bold; color: #611232; background: #f7f4eb; }}
+    .calendar-grid {{
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        gap: 4px;
+    }}
+    .calendar-day-name {{
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #611232;
+        padding-bottom: 6px;
+    }}
+    .calendar-day {{
+        padding: 8px 0;
+        font-size: 0.95rem;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #161a1d;
+        font-weight: 600;
+    }}
+    .calendar-day:hover {{
+        background-color: #f7f4eb;
+    }}
+    .calendar-day.selected {{
+        background-color: #1e5b4f;
+        color: white;
+        font-weight: bold;
+    }}
+    .calendar-day.other-month {{
+        color: #ccc;
+    }}
+</style>
+</head>
+<body>
+
+<div class="calendar-card">
+    <div class="calendar-header">
+        <button onclick="cambiarMes(-1)">&#10094;</button>
+        <select id="select-month" onchange="actualizarCalendarioDesdeSelect()">
+            <option value="0">Enero</option>
+            <option value="1">Febrero</option>
+            <option value="2">Marzo</option>
+            <option value="3">Abril</option>
+            <option value="4">Mayo</option>
+            <option value="5">Junio</option>
+            <option value="6">Julio</option>
+            <option value="7">Agosto</option>
+            <option value="8">Septiembre</option>
+            <option value="9">Octubre</option>
+            <option value="10">Noviembre</option>
+            <option value="11">Diciembre</option>
+        </select>
+        <select id="select-year" onchange="actualizarCalendarioDesdeSelect()"></select>
+        <button onclick="cambiarMes(1)">&#10095;</button>
+    </div>
+    <div class="calendar-grid">
+        <div class="calendar-day-name">L</div>
+        <div class="calendar-day-name">M</div>
+        <div class="calendar-day-name">X</div>
+        <div class="calendar-day-name">J</div>
+        <div class="calendar-day-name">V</div>
+        <div class="calendar-day-name">S</div>
+        <div class="calendar-day-name">D</div>
+    </div>
+    <div class="calendar-grid" id="calendar-days-body"></div>
+</div>
+
+<script>
+    let fechaActual = new Date(1993, 9, 15);
+    let fechaSeleccionada = {f"new Date('{fecha_inicial_iso}')" if fecha_inicial_iso else 'null'};
+
+    function inicializarAnios() {{
+        const selectYear = document.getElementById('select-year');
+        const anioActual = new Date().getFullYear();
+        for (let y = anioActual; y >= 1920; y--) {{
+            let opt = document.createElement('option');
+            opt.value = y;
+            opt.text = y;
+            selectYear.appendChild(opt);
+        }}
+    }}
+
+    function renderCalendario() {{
+        const year = fechaActual.getFullYear();
+        const month = fechaActual.getMonth();
+
+        document.getElementById('select-month').value = month;
+        document.getElementById('select-year').value = year;
+
+        const body = document.getElementById('calendar-days-body');
+        body.innerHTML = '';
+
+        const primerDiaMes = new Date(year, month, 1);
+        let diaSemana = primerDiaMes.getDay();
+        diaSemana = (diaSemana === 0) ? 6 : diaSemana - 1;
+
+        const ultimoDiaMes = new Date(year, month + 1, 0).getDate();
+        const ultimoDiaMesAnterior = new Date(year, month, 0).getDate();
+
+        for (let i = diaSemana - 1; i >= 0; i--) {{
+            let div = document.createElement('div');
+            div.className = 'calendar-day other-month';
+            div.innerText = ultimoDiaMesAnterior - i;
+            body.appendChild(div);
+        }}
+
+        for (let d = 1; d <= ultimoDiaMes; d++) {{
+            let div = document.createElement('div');
+            div.className = 'calendar-day';
+            div.innerText = d;
+            
+            if (fechaSeleccionada && 
+                fechaSeleccionada.getFullYear() === year && 
+                fechaSeleccionada.getMonth() === month && 
+                fechaSeleccionada.getDate() === d) {{
+                div.classList.add('selected');
+            }}
+
+            div.onclick = function() {{
+                fechaSeleccionada = new Date(year, month, d);
+                renderCalendario();
+                
+                let yyyy = fechaSeleccionada.getFullYear();
+                let mm = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
+                let dd = String(fechaSeleccionada.getDate()).padStart(2, '0');
+                let fechaFormateada = dd + '/' + mm + '/' + yyyy;
+
+                const docInput = window.parent.document.querySelector('input[aria-label="Fecha Seleccionada"]');
+                if (docInput) {{
+                    docInput.value = fechaFormateada;
+                    docInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }};
+            body.appendChild(div);
+        }}
+    }}
+
+    function cambiarMes(delta) {{
+        fechaActual.setMonth(fechaActual.getMonth() + delta);
+        renderCalendario();
+    }}
+
+    function actualizarCalendarioDesdeSelect() {{
+        const m = parseInt(document.getElementById('select-month').value);
+        const y = parseInt(document.getElementById('select-year').value);
+        fechaActual.setFullYear(y);
+        fechaActual.setMonth(m);
+        renderCalendario();
+    }}
+
+    inicializarAnios();
+    if (fechaSeleccionada) {{
+        fechaActual = new Date(fechaSeleccionada);
+    }}
+    renderCalendario();
+</script>
+
+</body>
+</html>
+"""
+
+components.html(componente_calendario_html, height=290)
+
+# Campo de texto invisible/sincronizado que recibe el valor del componente HTML y activa los cálculos automáticos
+fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="DD/MM/YYYY")
+
+fecha_nacimiento = None
+if st.session_state.get("fecha_nac_str"):
+    try:
+        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%d/%m/%Y").date()
+    except:
+        try:
+            fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
+        except:
+            pass
 
 col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
@@ -993,7 +1208,7 @@ st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
     calle_limpia = calle.strip() if calle else ""
     if not fecha_nacimiento:
-        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento.")
+        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento en el calendario.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
         st.error("⚠️ Complete Apellido Paterno, Apellido Materno y Nombre(s).")
     elif sexo == "SELECCIONE UNA OPCIÓN":
