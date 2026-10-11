@@ -57,6 +57,14 @@ if "registros_censales" not in st.session_state:
 if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
 
+# Inicializar estados de los radios en None para que no tengan selección por defecto
+if "ant_cov" not in st.session_state:
+    st.session_state.ant_cov = None
+if "ant_inf" not in st.session_state:
+    st.session_state.ant_inf = None
+if "input_vacuna" not in st.session_state:
+    st.session_state.input_vacuna = None
+
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
     if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
@@ -228,7 +236,7 @@ def obtener_recomendaciones_sheets(biologico):
         sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
 
         nombre_hoja = (
-            "COVID" if biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
+            "COVID" if biologico and biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
         )
         worksheet = sh.worksheet(nombre_hoja)
 
@@ -247,7 +255,7 @@ def determinar_grupo_desde_sheets(
     comorbilidades_activas,
 ):
     biologico_a_consultar = (
-        "Influenza" if biologico in ["INFLUENZA", "AMBAS"] else "COVID"
+        "Influenza" if biologico and biologico in ["INFLUENZA", "AMBAS"] else "COVID"
     )
     filas_sheets = obtener_recomendaciones_sheets(biologico_a_consultar)
 
@@ -619,10 +627,7 @@ def mostrar_modal_comprobante():
                                 or "input_estnac" in k
                                 or "input_estres" in k
                                 or "input_ocupacion" in k
-                                or "ant_cov" in k
-                                or "ant_inf" in k
-                                or "input_vacuna" in k
-                                else ""
+                                else None
                             )
                         )
                     )
@@ -981,16 +986,16 @@ col_av1, col_av2 = st.columns(2)
 with col_av1:
     antecedente_covid = st.radio(
         "¿Cuenta con alguna dosis previa de COVID-19? *",
-        options=["SELECCIONE", "SÍ", "NO", "LO DESCONOCE"],
-        index=0,
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        index=None,
         horizontal=True,
         key="ant_cov",
     )
 with col_av2:
     antecedente_influenza = st.radio(
         "¿Cuenta con alguna dosis previa de Influenza? *",
-        options=["SELECCIONE", "SÍ", "NO", "LO DESCONOCE"],
-        index=0,
+        options=["SÍ", "NO", "LO DESCONOCE"],
+        index=None,
         horizontal=True,
         key="ant_inf",
     )
@@ -1001,13 +1006,13 @@ st.markdown(
 )
 vacuna_interes = st.radio(
     "Seleccione la vacuna de su interés para esta jornada: *",
-    options=["SELECCIONE", "AMBAS", "COVID-19", "INFLUENZA"],
-    index=0,
+    options=["AMBAS", "COVID-19", "INFLUENZA"],
+    index=None,
     horizontal=True,
     key="input_vacuna",
 )
 
-if fecha_nacimiento is None or vacuna_interes == "SELECCIONE":
+if fecha_nacimiento is None or not vacuna_interes:
     grupo_sugerido = "POR ASIGNAR"
 else:
     tiene_comorbilidades = (
@@ -1057,11 +1062,11 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("⚠️ Indique si cuenta con derechohabiencia.")
     elif not es_rango_infantil and ocupacion == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Ocupación.")
-    elif antecedente_covid == "SELECCIONE":
+    elif not antecedente_covid:
         st.error("⚠️ Indique su antecedente vacunal de COVID-19.")
-    elif antecedente_influenza == "SELECCIONE":
+    elif not antecedente_influenza:
         st.error("⚠️ Indique su antecedente vacunal de Influenza.")
-    elif vacuna_interes == "SELECCIONE":
+    elif not vacuna_interes:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
         try:
