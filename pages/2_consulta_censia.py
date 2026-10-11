@@ -250,7 +250,6 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                # Validación universal para tu correo de administrador
                 if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
@@ -327,7 +326,6 @@ else:
             hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
         else:
             hoja_seleccionada = None
-            st.warning("⚠️ No se encontraron hojas operativas en el documento.")
     else:
         st.markdown(
             f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
@@ -343,7 +341,7 @@ else:
             hoja_seleccionada = h_autorizadas[0]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE ---
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE (LIMPIO, SIN OCULTAR HOJAS) ---
     col_v1, col_v2 = st.columns([3, 1])
     with col_v1:
         st.markdown(f"<b>Hoja Activa en Pantalla:</b> {hoja_seleccionada if hoja_seleccionada else 'Ninguna'}", unsafe_allow_html=True)
@@ -353,27 +351,6 @@ else:
             if hoja_seleccionada:
                 try:
                     ws_temp = spreadsheet.worksheet(hoja_seleccionada)
-                    
-                    if correo_sesion != "carlosju.med21@gmail.com":
-                        for hoja_item in spreadsheet.worksheets():
-                            if hoja_item.title in hojas_plantillas_excluir or hoja_item.title != hoja_seleccionada:
-                                try:
-                                    hoja_item.hide()
-                                except:
-                                    pass
-                            else:
-                                try:
-                                    hoja_item.show()
-                                except:
-                                    pass
-                    else:
-                        for hoja_item in spreadsheet.worksheets():
-                            if hoja_item.title not in hojas_plantillas_excluir:
-                                try:
-                                    hoja_item.show()
-                                except:
-                                    pass
-
                     url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
                     st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
                     st.success(f"🔗 Abriendo Google Sheets: {hoja_seleccionada}")
