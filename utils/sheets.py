@@ -33,9 +33,9 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
-    """Registra los datos del paciente en la hoja de Google Sheets correspondiente
+    """Registra los datos del paciente mapeando exactamente las columnas
 
-    respetando el orden exacto de columnas para el Censo Nominal y la Hoja CENSO.
+    especificadas para el Censo Nominal (Fila inicial 14 en adelante).
     """
     try:
         client = obtener_cliente_gspread()
@@ -51,7 +51,7 @@ def guardar_registro_censal(
         except Exception:
             ws = spreadsheet.get_worksheet(0)
 
-        # Generar un folio consecutivo a partir de la fila 14 en adelante
+        # Determinar consecutivo a partir de la fila 14
         todos_los_valores = ws.get_all_values()
         consecutivo = max(14, len(todos_los_valores) + 1)
         
@@ -63,69 +63,92 @@ def guardar_registro_censal(
         com = p.get("comorbilidades", {})
         fn = p.get("fecha_nacimiento")
 
-        # Separar fecha de nacimiento en columnas individuales
         fn_dia = str(fn.day).zfill(2) if fn else ""
         fn_mes = str(fn.month).zfill(2) if fn else ""
         fn_anio = str(fn.year) if fn else ""
 
-        # Mapeo exacto estructurado por columnas (A en adelante)
+        edad_anos = str(p.get("calc_anos", 0))
+        edad_meses = str(p.get("calc_meses", 0))
+
+        # Determinación de Grupos Objetivo marcados con "X"
+        # 6 a 59 meses (Col P) / 60 y más (Col Q)
+        es_menor_59m = (p.get("calc_anos", 0) * 12) + p.get("calc_meses", 0) <= 59
+        es_mayor_60 = p.get("calc_anos", 0) >= 60
+
+        marca_6_59m = "X" if es_menor_59m else ""
+        marca_60_mas = "X" if es_mayor_60 else ""
+
+        vacuna_interes = p.get("vacuna_interes", "")
+
+        # --- MAPEO EXACTO COLUMNA POR COLUMNA (HOJA 1: CENSO NOMINAL) ---
+        # A: Columna de número consecutivo
+        # B: Folio Generado
+        # C: Apellido Paterno
+        # D: Apellido Materno
+        # E: Nombre(s)
+        # F, G, H: Fecha Nacimiento (dd, mm, yyyy)
+        # I, J: Edad (Años A, Meses M)
+        # K: Sexo
+        # L: Fecha de Aplicación (Autorizada)
+        # M, N, O: Domicilio (Calle, No. Ext/Int, Colonia)
+        # P, Q: Grupo Objetivo (6 a 59 meses, 60 y más)
+        # R a AE: Grupos de riesgo (Embarazadas, Personal de salud, VIH, etc.)
+        # AF: Otros grupos de riesgo (texto)
+        # AG a AK: Influenza (1ra dosis, 2da dosis, Dosis anual, Lote, Caducidad)
+        # AL a AP: COVID (1ra dosis, 2da dosis, Dosis anual, Lote, Caducidad)
+        # AQ: Derechohabiencia
+        # AR, AS: Antecedente Vacunal (Influenza Si/No, COVID Si/No)
+        # AT, AU, AV: Vacuna de Interés (Influenza X, COVID X, Ambas X)
+
         fila_registro = [
-            str(consecutivo),                                   # Col A (# / ID)
-            folio_asignado,                                     # Col B (Folio consecutivo)
-            p.get("curp_con_nacimiento", ""),                   # Col C (CURP / RFC calculado automáticamente)
-            p.get("cuenta_derechohabiencia", "NO"),             # Col D (¿Cuenta con derechohabiencia?)
-            p.get("tipo_dh", "ISSSTE"),                         # Col E (Tipo de DH)
-            "SÍ" if p.get("trabaja_cmn") else "NO",             # Col F (Trabaja CMN)
-            p.get("num_trabajador", ""),                        # Col G (# Trabajador)
-            "SÍ" if com.get("personal_salud_riesgo") else "NO", # Col H (Personal de Salud)
-            p.get("categoria", "NO APLICA"),                    # Col I (Categoría)
-            p.get("servicio", "NO APLICA"),                     # Col J (Servicio)
-            p.get("coordinacion", "NO APLICA"),                 # Col K (Coordinación)
-            p.get("turno", "MATUTINO"),                         # Col L (Turno)
-            p.get("nombres", "").upper(),                       # Col M (Nombre)
-            p.get("paterno", "").upper(),                       # Col N (Paterno)
-            p.get("materno", "").upper(),                       # Col O (Materno)
-            p.get("estado_nacimiento", ""),                     # Col P (Edo Nac)
-            p.get("municipio_nacimiento", "CDMX"),              # Col Q (Muni Nac)
-            fn_dia,                                             # Col R (FN Día)
-            fn_mes,                                             # Col S (FN Mes)
-            fn_anio,                                            # Col T (FN Año)
-            str(p.get("calc_anos", 0)),                         # Col U (Años)
-            str(p.get("calc_meses", 0)),                        # Col V (Meses)
-            p.get("sexo", ""),                                  # Col W (Sexo)
-            "SÍ" if com.get("personas_embarazadas") else "NO",  # Col X (Embarazo condicionado)
-            p.get("estado_residencia", "CDMX"),                 # Col Y (Entidad Federativa)
-            "ISSSTE",                                           # Col Z (Institución)
-            "Delegación Sur",                                   # Col AA (Jurisdicción)
-            "CDMX",                                             # Col AB (Municipio)
-            "CDMX",                                             # Col AC (Localidad)
-            p.get("unidad_salud", "CMN 20 de Noviembre"),       # Col AD (Unidad de Salud)
-            "",                                                 # Col AE (AGEB)
-            "",                                                 # Col AF (Sector)
-            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app), # Col AG (Fecha de aplicación)
-            p.get("responsable_vacunacion", ""),                # Col AH (Nombre del responsable)
-            # Comorbilidades / Grupos de riesgo marcados con X
-            "X" if com.get("personas_embarazadas") else "",     # EMBARAZADAS
-            "X" if com.get("personal_salud_riesgo") else "",    # PERSONAL DE SALUD
-            "X" if com.get("vih") else "",                      # VIH/sida
-            "X" if com.get("diabetes") else "",                 # DIABETES MELLITUS
-            "X" if com.get("obesidad") else "",                 # OBESIDAD MÓRBIDA
-            "X" if com.get("cardiopatias") else "",             # CARDIOPATÍAS
-            "X" if com.get("enfermedad_pulmonar") else "",      # EPOC / ASMA
-            "X" if com.get("cancer") else "",                   # CÁNCER
-            "X" if com.get("cardiacas_congenitas") else "",     # CARDIACAS O PULMONARES CONGÉNITAS
-            "X" if com.get("insuficiencia_renal") else "",      # INSUFICIENCIA RENAL
-            "X" if com.get("inmunosupresion") else "",          # INMUNOSUPRESIÓN
-            "X" if com.get("discapacidades") else "",           # DISCAPACIDADES
-            "X" if com.get("fibrosis_quistica") else "",        # FIBROSIS QUÍSTICA
-            "X" if com.get("hipertension") else "",             # HIPERTENSIÓN ARTERIAL
-            com.get("texto_otro", ""),                          # Otros grupos de riesgo (texto)
-            p.get("cuenta_derechohabiencia", ""),               # Derechohabiencia (AQ)
-            p.get("antecedente_influenza", ""),                 # AR: Antecedente Influenza (Si/No)
-            p.get("antecedente_covid", ""),                     # AS: Antecedente COVID (Si/No)
-            "X" if p.get("vacuna_interes") in ["INFLUENZA", "AMBAS"] else "", # AT: INFLUENZA
-            "X" if p.get("vacuna_interes") in ["COVID-19", "AMBAS"] else "",  # AU: COVID
-            "X" if p.get("vacuna_interes") == "AMBAS" else "",              # AV: AMBAS
+            str(consecutivo),                                   # Col A: Número consecutivo
+            folio_asignado,                                     # Col B: Fila 14-15B (Folio)
+            p.get("paterno", "").upper(),                       # Col C: Fila 14-15C (Paterno)
+            p.get("materno", "").upper(),                       # Col D: Fila 14-15D (Materno)
+            p.get("nombres", "").upper(),                       # Col E: Fila 14-15E (Nombres)
+            fn_dia,                                             # Col F: dd
+            fn_mes,                                             # Col G: mm
+            fn_anio,                                            # Col H: yyyy
+            edad_anos,                                          # Col I: Años (A)
+            edad_meses,                                         # Col J: Meses (M)
+            p.get("sexo", ""),                                  # Col K: Sexo*
+            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app), # Col L: Fecha Aplicación
+            p.get("calle", "").upper(),                         # Col M: Calle*
+            p.get("numero", "").upper(),                        # Col N: No. (Ext / Int)*
+            p.get("colonia", "").upper(),                       # Col O: Colonia*
+            marca_6_59m,                                        # Col P: 6 a 59 MESES*
+            marca_60_mas,                                       # Col Q: 60 Y MÁS
+            "X" if com.get("personas_embarazadas") else "",     # Col R: EMBARAZADAS
+            "X" if com.get("personal_salud_riesgo") else "",    # Col S: PERSONAL DE SALUD
+            "X" if com.get("vih") else "",                      # Col T: VIH/sida
+            "X" if com.get("diabetes") else "",                 # Col U: DIABETES MELLITUS
+            "X" if com.get("obesidad") else "",                 # Col V: OBESIDAD MORBIDA
+            "X" if com.get("cardiopatias") else "",             # Col W: CARDIOPATÍAS
+            "X" if com.get("enfermedad_pulmonar") else "",      # Col X: EPOC Y ASMA
+            "X" if com.get("cancer") else "",                   # Col Y: CÁNCER
+            "X" if com.get("cardiacas_congenitas") else "",     # Col Z: CONGÉNITAS / SALICILATOS
+            "X" if com.get("insuficiencia_renal") else "",      # Col AA: INSUFICIENCIA RENAL
+            "X" if com.get("inmunosupresion") else "",          # Col AB: INMUNOSUPRESIÓN
+            "X" if com.get("discapacidades") else "",           # Col AC: DISCAPACIDADES
+            "X" if com.get("fibrosis_quistica") else "",        # Col AD: FIBROSIS QUÍSTICA
+            "X" if com.get("hipertension") else "",             # Col AE: HIPERTENSIÓN ARTERIAL
+            com.get("texto_otro", ""),                          # Col AF: Otros grupos de riesgo (texto)
+            "",                                                 # Col AG: Influenza 1ra dosis
+            "",                                                 # Col AH: Influenza 2da dosis
+            "",                                                 # Col AI: Influenza Dosis anual
+            "",                                                 # Col AJ: Influenza No. de lote
+            "",                                                 # Col AK: Influenza Caducidad
+            "",                                                 # Col AL: COVID 1ra dosis
+            "",                                                 # Col AM: COVID 2da dosis
+            "",                                                 # Col AN: COVID Dosis anual
+            "",                                                 # Col AO: COVID No. de lote
+            "",                                                 # Col AP: COVID Caducidad
+            p.get("cuenta_derechohabiencia", "NO"),             # Col AQ: Derechohabiencia
+            p.get("antecedente_influenza", "NO"),               # Col AR: AR INFLUENZA Si/No
+            p.get("antecedente_covid", "NO"),                   # Col AS: AS COVID Si/No
+            "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else "", # Col AT: INFLUENZA marcar X
+            "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",  # Col AU: COVID marcar X
+            "X" if vacuna_interes == "AMBAS" else "",              # Col AV: AMBAS marcar X
         ]
 
         ws.append_row(fila_registro)
