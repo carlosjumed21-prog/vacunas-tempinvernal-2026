@@ -341,14 +341,15 @@ def determinar_grupo_sugerido_fallback(
         "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
     ]
 
+    # Mapeo exacto de los rangos de la columna C (Grupos blancos de la intervención)
     if 6 <= edad_total_meses <= 18:
-        rango_edad_str = "6 a 18 meses"
+        rango_grupo_blanco = "6 a 18 meses"
     elif 19 <= edad_total_meses <= 59:
-        rango_edad_str = "19 a 59 meses"
+        rango_grupo_blanco = "19 a 59 meses"
     elif calc_anos >= 60:
-        rango_edad_str = "60 años y mas"
+        rango_grupo_blanco = "60 años y mas"
     else:
-        rango_edad_str = "Población General"
+        rango_grupo_blanco = "Población General"
 
     if vacuna_interes in ["COVID-19", "AMBAS"]:
         if 6 <= edad_total_meses <= 59:
@@ -358,13 +359,13 @@ def determinar_grupo_sugerido_fallback(
         elif personas_gestantes == "SÍ":
             return "PERSONAS GESTANTES [Población de Riesgo]"
         elif calc_anos >= 60:
-            return f"{rango_edad_str} Población General [Población Objetivo]"
+            return f"{rango_grupo_blanco} (Población Objetivo)"
         elif is_personal_salud:
             return "PERSONAL DE SALUD [Población de Riesgo]"
         elif tiene_comorbilidades:
             return "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS) [Población de Riesgo]"
         else:
-            return f"{rango_edad_str} Población General [Población Objetivo]"
+            return f"{rango_grupo_blanco} (Población Objetivo)"
     else:
         if 6 <= edad_total_meses <= 59:
             return (
@@ -377,11 +378,11 @@ def determinar_grupo_sugerido_fallback(
         elif is_colectivo_riesgo:
             return f"{ocupacion} [Población de Riesgo]"
         elif calc_anos >= 60:
-            return f"{rango_edad_str} Población General [Población Objetivo]"
+            return f"{rango_grupo_blanco} (Población Objetivo)"
         elif tiene_comorbilidades:
             return "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS) [Población de Riesgo]"
         else:
-            return f"{rango_edad_str} Población General [Población Objetivo]"
+            return f"{rango_grupo_blanco} (Población Objetivo)"
 
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
