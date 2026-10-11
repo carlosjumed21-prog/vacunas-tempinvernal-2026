@@ -37,7 +37,9 @@ else:
             primera_llave = list(st.secrets.keys())[0]
             creds_dict = dict(st.secrets[primera_llave])
 
-        creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=scope
+        )
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
@@ -85,20 +87,19 @@ else:
 
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
             
-            st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros sombreados en verde indican aplicaciones de biológicos registradas.*")
+            st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros en verde indican aplicación registrada (rango AG-AQ).*")
             
-            # --- FUNCIÓN DE ESTILIZACIÓN CONDICIONAL (FILA EN VERDE SI HAY 'X' EN APLICACIÓN) ---
+            # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ -> Índices de columna 32 a 42 aprox) ---
             def colorear_completados(row):
                 completado = False
                 try:
-                    for col_name, val in row.items():
-                        v_str = str(val).strip().upper()
-                        # Si encuentra una X y la columna pertenece a las de aplicación o esquema posterior
-                        if v_str == "X":
-                            c_upper = str(col_name).upper()
-                            if any(k in c_upper for k in ["INFLUENZA", "COVID", "DOSIS", "ESQUEMA", "AG", "AH", "AI", "AL", "AM", "AN"]):
-                                completado = True
-                                break
+                    # Rango AG (índice 32) hasta AQ (índice 42) en base 0
+                    # Recorremos el diccionario de la fila por su índice numérico exacto
+                    for i in range(32, min(43, len(row))):
+                        val = str(row.iloc[i]).strip().upper()
+                        if val == "X":
+                            completado = True
+                            break
                 except:
                     pass
                 
