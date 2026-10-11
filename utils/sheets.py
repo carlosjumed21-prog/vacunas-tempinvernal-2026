@@ -161,19 +161,40 @@ def guardar_registro_censal(
             },
         ]
 
-        # --- ANTECEDENTE VACUNAL (Columnas AR y AS) ---
-        ant_inf = st.session_state.get("ant_inf", "NO")
-        ant_cov = st.session_state.get("ant_cov", "NO")
-        datos_a_actualizar.append({"range": f"AR{f_actual}:AR{f_siguiente}", "values": [[ant_inf], [ant_inf]]})
-        datos_a_actualizar.append({"range": f"AS{f_actual}:AS{f_siguiente}", "values": [[ant_cov], [ant_cov]]})
+        # --- DATOS DE DOSIS Y LOTES RECIBIDOS EN datos_paciente ---
+        # Se espera que datos_paciente incluya:
+        # 'inf_1ra', 'inf_2da', 'inf_anual', 'lote_inf', 'cad_inf'
+        # 'cov_1ra', 'cov_2da', 'cov_anual', 'lote_cov', 'cad_cov'
+        
+        if datos_paciente.get("inf_1ra"):
+            datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
+        if datos_paciente.get("inf_2da"):
+            datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
+        if datos_paciente.get("inf_anual"):
+            datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
+        
+        if datos_paciente.get("lote_inf"):
+            lote_i = datos_paciente.get("lote_inf").upper()
+            datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+        if datos_paciente.get("cad_inf"):
+            cad_i = datos_paciente.get("cad_inf")
+            cad_i_str = cad_i.strftime("%d/%m/%Y") if hasattr(cad_i, "strftime") else str(cad_i)
+            datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
-        # --- VACUNA DE INTERÉS (Columnas AT, AU, AV) ---
-        if vacuna_interes == "INFLUENZA":
-            datos_a_actualizar.append({"range": f"AT{f_actual}:AT{f_siguiente}", "values": [["X"], ["X"]]})
-        elif vacuna_interes == "COVID-19":
-            datos_a_actualizar.append({"range": f"AU{f_actual}:AU{f_siguiente}", "values": [["X"], ["X"]]})
-        elif vacuna_interes == "AMBAS":
-            datos_a_actualizar.append({"range": f"AV{f_actual}:AV{f_siguiente}", "values": [["X"], ["X"]]})
+        if datos_paciente.get("cov_1ra"):
+            datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
+        if datos_paciente.get("cov_2da"):
+            datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
+        if datos_paciente.get("cov_anual"):
+            datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
+        
+        if datos_paciente.get("lote_cov"):
+            lote_c = datos_paciente.get("lote_cov").upper()
+            datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+        if datos_paciente.get("cad_cov"):
+            cad_c = datos_paciente.get("cad_cov")
+            cad_c_str = cad_c.strftime("%d/%m/%Y") if hasattr(cad_c, "strftime") else str(cad_c)
+            datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
         # --- MAPEO AUTOMÁTICO DE GRUPO OBJETIVO Y COMORBILIDADES (COLUMNAS P a AF) ---
         edad_total_meses = (calc_anos * 12) + calc_meses
@@ -277,7 +298,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         siglas_unidad = st.session_state.get("siglas_unidad", "20N")
         folio_asignado = f"{aammmdd}-{tipo_jornada}{siglas_unidad}-{str(num_nom).zfill(3)}"
 
-        comorb = datos_paciente.get("comorbilidades", {})
         updates_hoja1 = [
             {"range": "D7", "values": [["CDMX"]]},
             {"range": "M7", "values": [["ISSSTE"]]},
