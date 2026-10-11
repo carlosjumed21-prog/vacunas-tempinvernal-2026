@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente de calendario interactivo HTML/JS flotante / con selectores superiores de mes y año
+                        # Componente de calendario interactivo HTML/JS con selectores reales de Mes y Año
                         componente_calendario_flotante_html = """
                         <!DOCTYPE html>
                         <html>
@@ -729,16 +729,16 @@ else:
                         </div>
                         <script>
                             let curDate = new Date();
-                            function initY() {{
+                            function initY() {
                                 const sy = document.getElementById('sel-y');
                                 const yr = new Date().getFullYear();
-                                for(let y=yr+6; y>=2020; y--) {{
+                                for(let y=yr+6; y>=2020; y--) {
                                     let o = document.createElement('option');
                                     o.value = y; o.text = y;
                                     sy.appendChild(o);
-                                }}
-                            }}
-                            function render() {{
+                                }
+                            }
+                            function render() {
                                 const y = curDate.getFullYear();
                                 const m = curDate.getMonth();
                                 document.getElementById('sel-m').value = m;
@@ -750,41 +750,44 @@ else:
                                 start = (start === 0) ? 6 : start - 1;
                                 const lastDate = new Date(y, m + 1, 0).getDate();
                                 const prevLastDate = new Date(y, m, 0).getDate();
-                                for(let i=start-1; i>=0; i--) {{
+                                for(let i=start-1; i>=0; i--) {
                                     let d = document.createElement('div');
                                     d.className = 'cal-day other-month';
                                     d.innerText = prevLastDate - i;
                                     cb.appendChild(d);
-                                }}
-                                for(let d=1; d<=lastDate; d++) {{
+                                }
+                                for(let d=1; d<=lastDate; d++) {
                                     let div = document.createElement('div');
                                     div.className = 'cal-day';
                                     div.innerText = d;
-                                    div.onclick = function() {{
+                                    div.onclick = function() {
                                         let dd = String(d).padStart(2, '0');
                                         let mm = String(m + 1).padStart(2, '0');
                                         let fechaStr = dd + '/' + mm + '/' + y;
-                                        // Comunicar a Streamlit via evento de input
-                                        const inputs = window.parent.document.querySelectorAll('input[aria-label="Caducidad Influenza"], input[aria-label="Caducidad COVID"]');
-                                        inputs.forEach(inp => {{
-                                            if(inp === window.parent.document.activeElement || inputs.length === 1) {{
-                                                inp.value = fechaStr;
-                                                inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                            }}
-                                        }});
-                                    }};
+                                        
+                                        // Enviar de forma automática al campo activo en Streamlit
+                                        const inputs = window.parent.document.querySelectorAll('input');
+                                        inputs.forEach(inp => {
+                                            if(inp.value !== undefined && (inp.placeholder === "DD/MM/AAAA" || inp.getAttribute("aria-label")?.includes("Caducidad"))) {
+                                                if(inp === window.parent.document.activeElement) {
+                                                    inp.value = fechaStr;
+                                                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                                                }
+                                            }
+                                        });
+                                    };
                                     cb.appendChild(div);
-                                }}
-                            }}
-                            function cambiarMes(delta) {{
+                                }
+                            }
+                            function cambiarMes(delta) {
                                 curDate.setMonth(curDate.getMonth() + delta);
                                 render();
-                            }}
-                            function actualizarFecha() {{
+                            }
+                            function actualizarFecha() {
                                 curDate.setFullYear(parseInt(document.getElementById('sel-y').value));
                                 curDate.setMonth(parseInt(document.getElementById('sel-m').value));
                                 render();
-                            }}
+                            }
                             initY();
                             render();
                         </script>
@@ -837,9 +840,8 @@ else:
                                     key="cad_cov_txt"
                                 )
 
-                            # Desplegar el calendario interactivo flotante con selectores de mes y año
-                            st.markdown("<p style='font-size: 0.85rem; color: #1e5b4f; font-weight: bold; margin-bottom: 2px;'>📅 Selector Interactivo de Mes y Año para Caducidad:</p>", unsafe_allow_html=True)
-                            components.html(componente_calendario_flotante_html, height=260)
+                            st.markdown("<p style='font-size: 0.85rem; color: #1e5b4f; font-weight: bold; margin-bottom: 2px;'>📅 Haga clic en el campo de caducidad deseado y seleccione el mes/año en el calendario interactivo:</p>", unsafe_allow_html=True)
+                            components.html(componente_calendario_flotante_html, height=250)
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
