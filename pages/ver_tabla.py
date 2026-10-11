@@ -5,7 +5,10 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
+import io
 from google.oauth2 import service_account
+import openpyxl
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # --- INTENTO DE IMPORTACIÓN SEGURA DE CONFIG ---
 try:
@@ -107,6 +110,67 @@ else:
         gid_hoja = ws.id
         todos_los_datos = ws.get_all_values()
 
+        # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
+        st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+
+        col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+        with col_tit1:
+            st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+        with col_tit2:
+            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                st.rerun()
+
+        # --- BOTÓN DE DESCARGA EXCEL CON CONVERSIÓN DE QR A IMAGEN FÍSICA ---
+        with col_tit3:
+            try:
+                wb = openpyxl.Workbook()
+                ws_excel = wb.active
+                ws_excel.title = hoja_activa_tabla[:31]
+
+                for row_idx, row_data in enumerate(todos_los_datos, start=1):
+                    for col_idx, cell_value in enumerate(row_data, start=1):
+                        val_str = str(cell_value).strip()
+                        # Detectar fórmula =IMAGE(...) proveniente de Google Sheets
+                        if val_str.upper().startswith("=IMAGE("):
+                            try:
+                                # Extraer la URL de entre las comillas de la fórmula
+                                url_qr = val_str.split('"')[1]
+                                
+                                # Descargar la imagen del QR vía URL
+                                req_img = urllib.request.Request(url_qr, headers={'User-Agent': 'Mozilla/5.0'})
+                                with urllib.request.urlopen(req_img) as img_resp:
+                                    img_bytes = img_resp.read()
+                                
+                                img_io = io.BytesIO(img_bytes)
+                                xl_img = OpenpyxlImage(img_io)
+                                xl_img.width = 110
+                                xl_img.height = 110
+                                
+                                col_letter = openpyxl.utils.get_column_letter(col_idx)
+                                ws_excel.add_image(xl_img, f"{col_letter}{row_idx}")
+                                ws_excel.cell(row=row_idx, column=col_idx, value="") # Limpiar texto de la fórmula
+                            except Exception:
+                                ws_excel.cell(row=row_idx, column=col_idx, value="")
+                        else:
+                            ws_excel.cell(row=row_idx, column=col_idx, value=cell_value)
+
+                excel_buffer = io.BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+
+                st.download_button(
+                    label="📥 Descargar Hoja Excel",
+                    data=excel_buffer,
+                    file_name=f"{hoja_activa_tabla}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' con los códigos QR incrustados como imágenes"
+                )
+            except Exception as err:
+                st.error(f"No se pudo preparar la descarga: {err}")
+
+        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
             fila_cabecera_2 = todos_los_datos[12]
@@ -194,44 +258,6 @@ else:
                     total_dosis_covid += 1
                 elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
-
-            # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
-            st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
-
-            col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-            with col_tit1:
-                st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-            with col_tit2:
-                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
-                    st.rerun()
-
-            with col_tit3:
-                try:
-                    if not creds.valid:
-                        from google.auth.transport.requests import Request
-                        creds.refresh(Request())
-
-                    url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                    req = urllib.request.Request(
-                        url_export,
-                        headers={'Authorization': f'Bearer {creds.token}'}
-                    )
-
-                    with urllib.request.urlopen(req) as response:
-                        excel_original_bytes = response.read()
-
-                    st.download_button(
-                        label="📥 Descargar Hoja Excel",
-                        data=excel_original_bytes,
-                        file_name=f"{hoja_activa_tabla}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
-                    )
-                except Exception as err:
-                    st.error(f"No se pudo descargar el archivo: {err}")
-
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
             m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
