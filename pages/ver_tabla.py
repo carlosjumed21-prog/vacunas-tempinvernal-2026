@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import gspread
@@ -20,11 +19,11 @@ st.markdown(
 
 st.markdown('<p class="main-header">📊 Censo General de Pacientes (Vista Exclusiva)</p>', unsafe_allow_html=True)
 
-# Validamos sesión activa
+# --- VALIDACIÓN DE SESIÓN COMPARTIDA DESDE EL MÓDULO OPERATIVO ---
 if "autenticado_consulta" not in st.session_state or not st.session_state.autenticado_consulta:
-    st.warning("⚠️ No ha iniciado sesión en el módulo operativo. Por favor regrese al módulo principal e inicie sesión.")
+    st.warning("⚠️ No se detectó una sesión activa en el módulo operativo. Por favor inicie sesión en la pestaña principal de Consulta CENSIA.")
 else:
-    correo_sesion = st.session_state.get("correo_operativo_asignado", "")
+    correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
     
     try:
         scope = GOOGLE_SCOPES
@@ -54,13 +53,13 @@ else:
                 if h.title not in hojas_plantillas_excluir:
                     try:
                         val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion.strip().lower():
+                        if val_au4 and val_au4.strip().lower() == correo_sesion:
                             h_autorizadas.append(h.title)
                     except:
                         pass
 
         if not h_autorizadas:
-            st.error("❌ No se encontró ninguna jornada asignada a su cuenta.")
+            st.error(f"❌ No se encontró ninguna hoja autorizada en Google Sheets asociada al correo: **{correo_sesion}**.")
         else:
             col_sel1, col_sel2 = st.columns([3, 1])
             with col_sel1:
@@ -74,6 +73,7 @@ else:
             todos_los_datos = ws.get_all_values()
 
             if len(todos_los_datos) >= 14:
+                # Combinación inteligente de fila 12 y 13 como cabeceras
                 fila_cabecera_1 = todos_los_datos[11]
                 fila_cabecera_2 = todos_los_datos[12]
                 filas_tabla = todos_los_datos[13:]
@@ -106,7 +106,7 @@ else:
 
                 df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
                 
-                st.markdown(f"**Total de pacientes en censo:** `{len(filas_tabla)}`")
+                st.markdown(f"**Total de registros en censo:** `{len(filas_tabla)}`")
                 
                 st.dataframe(
                     df_tabla_segura,
