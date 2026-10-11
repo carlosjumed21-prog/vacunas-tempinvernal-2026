@@ -871,21 +871,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- FORZAR ESTADOS EN SESSION_STATE PARA REACTIVIDAD INMEDIATA ---
+# --- ACTUALIZACIÓN DINÁMICA ESTRICTA EN CADA CICLO ---
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-if es_embarazada_activa:
-    st.session_state.chk_personas_embarazadas = True
-else:
-    if "chk_personas_embarazadas" not in st.session_state:
-        st.session_state.chk_personas_embarazadas = False
-
-if es_personal_salud_ocupacion:
-    st.session_state.chk_personal_salud_riesgo = True
-else:
-    if "chk_personal_salud_riesgo" not in st.session_state:
-        st.session_state.chk_personal_salud_riesgo = False
+# Forzar dinámicamente el estado en st.session_state para corregir al cambiar a Hombre u otras opciones
+st.session_state.chk_personas_embarazadas = es_embarazada_activa
+st.session_state.chk_personal_salud_riesgo = es_personal_salud_ocupacion
 
 col_r1, col_r2 = st.columns(2)
 with col_r1:
