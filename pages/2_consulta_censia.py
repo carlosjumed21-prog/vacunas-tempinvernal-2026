@@ -26,43 +26,44 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS (RANGO A:AQ) ---
+# --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS (DINÁMICO A:AQ) ---
 def aplicar_formato_condicional_sheets(worksheet):
-    """Aplica formato condicional en Google Sheets para pintar de verde claro 
-    toda la fila de la A a la AQ a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
+    """Inyecta automáticamente la regla de formato condicional en Google Sheets 
+    para pintar de verde toda la fila (A a AQ) a partir de la fila 14 cuando AG-AQ tenga 'X'."""
     try:
         rules = worksheet.get_conditional_format_rules()
-        # Fórmula en español para Google Sheets en español
-        formula_regla = '=CONTAR.SI($AG14:$AQ14; "X") > 0'
+        # Fórmula estándar de Google Sheets API para formato condicional
+        formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
         
         regla_existente = False
         for rule in rules:
-            if rule.booleanProperty and ('CONTAR.SI' in str(rule.booleanProperty) or 'COUNTIF' in str(rule.booleanProperty)):
+            if rule.booleanProperty and ('COUNTIF' in str(rule.booleanProperty) or 'CONTAR.SI' in str(rule.booleanProperty)):
                 regla_existente = True
                 break
                 
         if not regla_existente:
             from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
             
+            # Rango dinámico desde la fila 14 (índice 13) hasta la 1000, abarcando de la columna A (0) a la AQ (43)
             rango_grid = {
                 "sheetId": worksheet.id,
-                "startRowIndex": 13,      # Fila 14 en base 0
-                "endRowIndex": 1000,      # Hasta la fila 1000
-                "startColumnIndex": 0,    # Columna A (índice 0)
-                "endColumnIndex": 43      # Columna AQ (índice 43, exclusivo)
+                "startRowIndex": 13,      # Fila 14
+                "endRowIndex": 1000,      # Filas dinámicas
+                "startColumnIndex": 0,    # Columna A
+                "endColumnIndex": 43      # Columna AQ
             }
             
             rule = ConditionalFormatRule(
                 ranges=[rango_grid],
                 boolean=BooleanRule(
                     condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
-                    format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855))
+                    format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855)) # Verde claro elegante
                 )
             )
             rules.append(rule)
             worksheet.set_conditional_format_rules(rules)
     except Exception as e:
-        print(f"Error aplicando formato condicional: {e}")
+        pass
 
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
