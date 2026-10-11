@@ -34,22 +34,27 @@ def aplicar_formato_condicional_sheets(worksheet):
         rules = worksheet.get_conditional_format_rules()
         formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
         
+        # Verificamos si ya existe una regla con la misma fórmula
         regla_existente = False
         for rule in rules:
-            if formula_regla in str(rule.booleanProperty):
+            if rule.booleanProperty and 'COUNTIF(AG14:AQ14' in str(rule.booleanProperty):
                 regla_existente = True
                 break
                 
         if not regla_existente:
             from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
-            from gspread.utils import range_to_addr_dict
             
-            # Rango exacto de columnas A hasta AQ desde la fila 14 hasta la 1000
-            rango_dict = range_to_addr_dict("A14:AQ1000")
-            rango_dict['sheetId'] = worksheet.id
+            # Definimos el rango por coordenadas de cuadrícula (GridRange) de A a AQ desde la fila 14 (índice 13)
+            rango_grid = {
+                "sheetId": worksheet.id,
+                "startRowIndex": 13,      # Fila 14 en base 0
+                "endRowIndex": 1000,      # Hasta la fila 1000
+                "startColumnIndex": 0,    # Columna A (índice 0)
+                "endColumnIndex": 43      # Columna AQ (índice 43, exclusivo)
+            }
             
             rule = ConditionalFormatRule(
-                ranges=[rango_dict],
+                ranges=[rango_grid],
                 boolean=BooleanRule(
                     condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
                     format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855))
@@ -58,7 +63,7 @@ def aplicar_formato_condicional_sheets(worksheet):
             rules.append(rule)
             worksheet.set_conditional_format_rules(rules)
     except Exception as e:
-        pass
+        print(f"Error aplicando formato condicional: {e}")
 
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
