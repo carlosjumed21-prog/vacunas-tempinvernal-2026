@@ -409,7 +409,7 @@ else:
                     ]
 
                     seleccion_paciente = st.selectbox(
-                        "Seleccione del listado de coindidencias:",
+                        "Seleccione del listado de coincidencias:",
                         options=opciones_busqueda,
                         format_func=lambda x: x.split("||")[0],
                     )
@@ -446,7 +446,7 @@ else:
                             elif au_val == "X":
                                 vacuna_registrada = "COVID-19"
 
-                        # --- DETECCIÓN EXACTA DE RIESGOS Y GRUPOS (P hasta AF) ---
+                        # --- DETECCIÓN EXACTA DE RIESGOS Y CATEGORÍA ---
                         lista_riesgos_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
@@ -458,7 +458,7 @@ else:
                         else:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
-                        if tiene_equis(17): lista_riesgos_detectados.append("EMBARAZADAS"); es_riesgo = True
+                        if tiene_equis(17): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(18): lista_riesgos_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
                         if tiene_equis(19): lista_riesgos_detectados.append("VIH"); es_riesgo = True
                         if tiene_equis(20): lista_riesgos_detectados.append("DIABETES MELLITUS"); es_riesgo = True
@@ -481,6 +481,7 @@ else:
                             categoria_paciente = "POBLACIÓN DE RIESGO"
 
                         grupo_detectado_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "POBLACIÓN GENERAL"
+                        grupo_formato_card = f"{grupo_detectado_str} [{categoria_paciente}]"
 
                         st.markdown(
                             '<div class="section-title">Vista Previa y Datos Generales'
@@ -495,7 +496,7 @@ else:
                             st.markdown(f"**Nacimiento:** {fecha_nac_str}")
                             st.markdown(f"**Sexo:** {sexo_texto}")
                         with col3:
-                            st.markdown(f"**Categoría:** {categoria_paciente}")
+                            st.markdown(f"**Grupo:** {grupo_formato_card}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
                         st.markdown(
@@ -507,42 +508,32 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- SELECCIÓN ÚNICA Y PRECISA DE LA TARJETA PRINCIPAL (Priorizando Riesgo/Comorbilidad) ---
+                        # --- CRUCE EXACTO POR CATEGORÍA (Col. B) Y GRUPO BLANCO (Col. C) ---
                         match_inf = None
                         match_cov = None
 
-                        # Priorizar un registro que coincida con la categoría y el riesgo específico
+                        # Búsqueda rigurosa para Influenza
                         for item in guia_influenza_registros:
-                            cat_b = item["categoria"].upper()
-                            gb_c = item["grupos_blancos"].upper()
-                            if categoria_paciente in cat_b and any(r.upper() in gb_c for r in lista_riesgos_detectados):
+                            cat_b = item["categoria"].strip().upper()
+                            gb_c = item["grupos_blancos"].strip().upper()
+                            # Verificamos si la categoría coincide ("POBLACIÓN DE RIESGO") y el grupo coincide con alguno de los riesgos marcados
+                            if "RIESGO" in cat_b and any(r.upper() in gb_c for r in lista_riesgos_detectados):
                                 match_inf = item
                                 break
-                        # Si no hay match específico por comorbilidad, buscamos por categoría general
-                        if not match_inf:
-                            for item in guia_influenza_registros:
-                                if categoria_paciente in item["categoria"].upper():
-                                    match_inf = item
-                                    break
                         if not match_inf and guia_influenza_registros:
                             match_inf = guia_influenza_registros[0]
 
-                        # Lo mismo para COVID
+                        # Búsqueda rigurosa para COVID
                         for item in guia_covid_registros:
-                            cat_b = item["categoria"].upper()
-                            gb_c = item["grupos_blancos"].upper()
-                            if categoria_paciente in cat_b and any(r.upper() in gb_c for r in lista_riesgos_detectados):
+                            cat_b = item["categoria"].strip().upper()
+                            gb_c = item["grupos_blancos"].strip().upper()
+                            if "RIESGO" in cat_b and any(r.upper() in gb_c for r in lista_riesgos_detectados):
                                 match_cov = item
                                 break
-                        if not match_cov:
-                            for item in guia_covid_registros:
-                                if categoria_paciente in item["categoria"].upper():
-                                    match_cov = item
-                                    break
                         if not match_cov and guia_covid_registros:
                             match_cov = guia_covid_registros[0]
 
-                        # --- RENDERIZADO DE UNA ÚNICA CARD DE INFLUENZA ---
+                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN ---
                         if mostrar_influenza and match_inf:
                             simultanea_inf = match_inf.get("aplicacion_simultanea", "")
                             st.markdown(
@@ -561,7 +552,6 @@ else:
                                 unsafe_allow_html=True,
                             )
 
-                        # --- RENDERIZADO DE UNA ÚNICA CARD DE COVID ---
                         if mostrar_covid and match_cov:
                             tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
                             simultanea_cov = match_cov.get("aplicacion_simultanea", "")
