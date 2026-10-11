@@ -719,13 +719,13 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SELECTOR DE FECHA MÓVIL (AÑO, MES, DÍA) ---
+# --- SELECTOR DE FECHA MÓVIL (HORIZONTAL / UNA SOLA LÍNEA) ---
 st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
 )
 
-col_f1, col_f2, col_f3 = st.columns(3)
+col_f1, col_f2, col_f3 = st.columns([1.2, 1.5, 1])
 
 anos_disponibles = ["SELECCIONE"] + list(range(2026, 1919, -1))
 meses_dict = {
@@ -746,11 +746,19 @@ meses_disponibles = ["SELECCIONE"] + list(meses_dict.keys())
 dias_disponibles = ["SELECCIONE"] + list(range(1, 32))
 
 with col_f1:
-    anio_sel = st.selectbox("Año", options=anos_disponibles, key="sel_anio")
+    anio_sel = st.selectbox("Año", options=anos_disponibles, key="sel_anio", label_visibility="collapsed")
 with col_f2:
-    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes")
+    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes", label_visibility="collapsed")
 with col_f3:
-    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia")
+    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia", label_visibility="collapsed")
+
+col_l1, col_l2, col_l3 = st.columns([1.2, 1.5, 1])
+with col_l1:
+    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Año</p>", unsafe_allow_html=True)
+with col_l2:
+    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Mes</p>", unsafe_allow_html=True)
+with col_l3:
+    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Día</p>", unsafe_allow_html=True)
 
 fecha_nacimiento = None
 if (
@@ -1098,7 +1106,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 datos_paciente=datos_paciente,
             )
 
-            # Forzar la limpieza de caché para actualizar instantáneamente la consulta de registros
+            # Forzar actualización en automático de la vista de consulta
             st.cache_data.clear()
 
             st.session_state.ultimo_paciente_registrado = {
