@@ -35,6 +35,7 @@ def mostrar_dialogo_cerrar_sesion():
     with col_dlg1:
         if st.button("Sí, Cerrar Sesión", use_container_width=True):
             st.session_state.autenticado_consulta = False
+            st.session_state.correo_operativo_asignado = ""
             st.session_state.ultimo_comprobante_vacunacion = None
             if "input_busqueda_lupa" in st.session_state:
                 st.session_state.input_busqueda_lupa = ""
@@ -59,6 +60,8 @@ if "lote_covid_memoria" not in st.session_state:
 
 if "autenticado_consulta" not in st.session_state:
     st.session_state.autenticado_consulta = False
+if "correo_operativo_asignado" not in st.session_state:
+    st.session_state.correo_operativo_asignado = ""
 
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
@@ -236,12 +239,20 @@ if not st.session_state.autenticado_consulta:
             "Seleccione Usuario:", options=["Seleccione...", "Operativo"]
         )
         password = st.text_input("Contraseña:", type="password")
+        correo_operador_input = st.text_input(
+            "📧 Correo Electrónico Institucional (para visualización exclusiva de su hoja):",
+            placeholder="ejemplo@issste.gob.mx"
+        )
         btn_login = st.form_submit_button("Iniciar Sesión", use_container_width=True)
 
         if btn_login:
             if usuario == "Operativo" and password == "OperativoInv26":
-                st.session_state.autenticado_consulta = True
-                st.rerun()
+                if not correo_operador_input.strip():
+                    st.error("⚠️ Debe ingresar su correo electrónico institucional para acceder a su hoja asignada.")
+                else:
+                    st.session_state.autenticado_consulta = True
+                    st.session_state.correo_operativo_asignado = correo_operador_input.strip().lower()
+                    st.rerun()
             else:
                 st.error("Credenciales incorrectas. Verifique usuario y contraseña.")
 else:
@@ -275,46 +286,73 @@ else:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         todas_las_hojas = spreadsheet.worksheets()
-        h_autorizadas = [
-            h.title for h in todas_las_hojas if h.title != "CENSO NOMINAL"
-        ]
+        
+        # --- FILTRADO AUTOMÁTICO DE HOJAS POR CORREO (Celda AU4) ---
+        correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
+        h_autorizadas = []
+
+        for h in todas_las_hojas:
+            if h.title not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
+                try:
+                    # Leemos el correo asignado en la celda AU4 de cada hoja
+                    val_au4 = h.acell("AU4").value
+                    if val_au4 and val_au4.strip().lower() == correo_sesion:
+                        h_autorizadas.append(h.title)
+                except:
+                    pass
 
     except Exception as e:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    st.markdown(
-        '<div class="section-title">1. Jornada Operativa Activa</div>',
-        unsafe_allow_html=True,
-    )
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y HOJA ASIGNADA ---
+    col_v1, col_v2 = st.columns([3, 1])
+    with col_v1:
+        st.markdown(
+            f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
+            unsafe_allow_html=True,
+        )
+    with col_v2:
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Acceder directamente a la hoja de Google Sheets autorizada"):
+            # Buscamos el link directo a la hoja asignada si existe
+            if h_autorizadas:
+                try:
+                    ws_temp = spreadsheet.worksheet(h_autorizadas[0])
+                    url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
+                    st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
+                    st.success(f"🔗 Abriendo hoja protegida: {h_autorizadas[0]}")
+                except:
+                    st.warning("No se pudo generar el enlace directo.")
+            else:
+                st.warning("⚠️ No hay ninguna hoja asociada a este correo.")
 
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace:
-        hoja_seleccionada = hoja_enlace
-        st.success(
-            f"🔒 Jornada asignada y bloqueada por enlace institucional: "
-            f"<b>{hoja_seleccionada}</b>",
-            icon="🔒",
-        )
+        # Validamos que la hoja del enlace pertenezca al correo autenticado
+        if hoja_enlace in h_autorizadas:
+            hoja_seleccionada = hoja_enlace
+            st.success(
+                f"🔒 Jornada asignada y bloqueada por enlace institucional: "
+                f"<b>{hoja_seleccionada}</b>",
+                icon="🔒",
+            )
+        else:
+            st.error("❌ El enlace de la jornada no corresponde a las autorizadas para tu correo electrónico.")
+            hoja_seleccionada = None
     else:
         if not h_autorizadas:
             st.warning(
-                "⚠️ No hay jornadas autorizadas activas en Google Sheets. Solicite al"
-                " administrador que genere una hoja desde el Panel de Control."
+                f"⚠️ No se encontró ninguna hoja o jornada autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
+                "Verifique con el administrador que el correo ingresado coincida exactamente con el registrado en la celda AU4."
             )
             hoja_seleccionada = None
         else:
-            hoja_sel_manual = st.selectbox(
-                "Seleccione la Hoja / Jornada Autorizada:",
-                options=["Seleccione una jornada..."] + h_autorizadas,
-            )
-            hoja_seleccionada = (
-                hoja_sel_manual
-                if hoja_sel_manual != "Seleccione una jornada..."
-                else None
-            )
+            # Selecciona por default la única hoja asignada o permite elegir entre las del correo
+            hoja_seleccionada = h_autorizadas[0]
+            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
     if hoja_seleccionada:
         try:
