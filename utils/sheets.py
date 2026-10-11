@@ -77,6 +77,10 @@ def guardar_registro_censal(
         planes_o_embarazo = datos_paciente["planes_o_embarazo"]
         comorbilidades = datos_paciente.get("comorbilidades", {})
         
+        # Extracción de antecedentes vacunales enviados desde Streamlit
+        antecedente_influenza = datos_paciente.get("antecedente_influenza", "")
+        antecedente_covid = datos_paciente.get("antecedente_covid", "")
+
         responsable_brigada = datos_paciente.get("responsable", "")
 
         dia_n = str(fecha_nacimiento.day).zfill(2)
@@ -89,6 +93,11 @@ def guardar_registro_censal(
         calle_str = calle.upper()
         num_str = numero.upper()
         col_str = colonia.upper()
+
+        # Marcas "X" para vacuna de interés
+        marca_inf = "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else ""
+        marca_cov = "X" if vacuna_interes in ["COVID-19", "AMBAS"] else ""
+        marca_amb = "X" if vacuna_interes == "AMBAS" else ""
 
         datos_a_actualizar = [
             {"range": "D7", "values": [["CDMX"]]},
@@ -158,6 +167,32 @@ def guardar_registro_censal(
             {
                 "range": f"AQ{f_actual}:AQ{f_siguiente}",
                 "values": [[cuenta_derechohabiencia], [cuenta_derechohabiencia]],
+            },
+
+            # --- ANTECEDENTE VACUNAL Y VACUNA DE INTERÉS (AR a AW) ---
+            {
+                "range": f"AR{f_actual}:AR{f_siguiente}",
+                "values": [[antecedente_influenza], [antecedente_influenza]],
+            },
+            {
+                "range": f"AS{f_actual}:AS{f_siguiente}",
+                "values": [[antecedente_covid], [antecedente_covid]],
+            },
+            {
+                "range": f"AT{f_actual}:AT{f_siguiente}",
+                "values": [[marca_inf], [marca_inf]],
+            },
+            {
+                "range": f"AU{f_actual}:AU{f_siguiente}",
+                "values": [[marca_cov], [marca_cov]],
+            },
+            {
+                "range": f"AV{f_actual}:AV{f_siguiente}",
+                "values": [[marca_amb], [marca_amb]],
+            },
+            {
+                "range": f"AW{f_actual}:AW{f_siguiente}",
+                "values": [[fecha_app_str], [fecha_app_str]],
             },
         ]
 
@@ -254,7 +289,7 @@ def guardar_registro_censal(
                     "startRowIndex": f_actual - 1,      # Fila actual (base 0)
                     "endRowIndex": f_siguiente,       # Fila actual y siguiente
                     "startColumnIndex": 0,            # Columna A
-                    "endColumnIndex": 43              # Columna AQ
+                    "endColumnIndex": 49              # Hasta columna AW (aprox)
                 },
                 "cell": {
                     "userEnteredFormat": {
@@ -358,7 +393,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         
         ws_nominal.batch_update(updates_hoja1)
 
-        # Forzamos fondo blanco por defecto al insertar en 20_nov
         peticion_blanco = {
             "repeatCell": {
                 "range": {
@@ -366,7 +400,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
                     "startRowIndex": fila_nom - 1,
                     "endRowIndex": fila_nom + 1,
                     "startColumnIndex": 0,
-                    "endColumnIndex": 43
+                    "endColumnIndex": 49
                 },
                 "cell": {
                     "userEnteredFormat": {
