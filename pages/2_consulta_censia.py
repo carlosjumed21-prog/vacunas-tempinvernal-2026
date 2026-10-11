@@ -649,8 +649,8 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML de botón flotante con calendario desplegable integrado (con selectores reales de mes y año)
-                        popover_calendar_html = """
+                        # Componente HTML para el botón que despliega el calendario flotante con selectores de mes y año
+                        calendar_button_html = """
                         <!DOCTYPE html>
                         <html>
                         <head>
@@ -661,7 +661,7 @@ else:
                                 background: #ffffff;
                                 border: 1px solid #a57f2c;
                                 border-radius: 4px;
-                                padding: 6px 10px;
+                                padding: 6px 12px;
                                 font-size: 0.85rem;
                                 font-weight: bold;
                                 color: #1e5b4f;
@@ -792,7 +792,6 @@ else:
                                         let mm = String(m + 1).padStart(2, '0');
                                         let fechaStr = dd + '/' + mm + '/' + y;
                                         
-                                        // Buscar el input de texto correspondiente en la app principal
                                         const inputs = window.parent.document.querySelectorAll('input[type="text"]');
                                         for(let inp of inputs) {
                                             if(inp.placeholder === "DD/MM/AAAA" && !inp.value) {
@@ -844,7 +843,7 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_inf_txt"
                                 )
-                                components.html(popover_calendar_html, height=45)
+                                components.html(calendar_button_html, height=42)
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
@@ -867,7 +866,7 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_cov_txt"
                                 )
-                                components.html(popover_calendar_html, height=45)
+                                components.html(calendar_button_html, height=42)
 
                             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
