@@ -472,7 +472,7 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SECCIÓN DE FECHA DE NACIMIENTO POR SELECTORES DESPLEGABLES (100% ESTABLE) ---
+# --- SECCIÓN DE FECHA DE NACIMIENTO POR SELECTORES DESPLEGABLES ---
 st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
 
 col_d, col_m, col_a = st.columns(3)
@@ -528,7 +528,22 @@ st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {ca
 edad_total_meses = (calc_anos * 12) + calc_meses
 es_rango_infantil = 6 <= edad_total_meses <= 59
 
-curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento, st.session_state.get("input_digitos", ""))
+# --- IMAGEN INE Y DÍGITO VERIFICADOR ---
+st.markdown("<br>", unsafe_allow_html=True)
+col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
+with col_img2:
+    try:
+        st.image("assets/INE.png", width=350, caption="📌 Ubicación del Dígito Verificador en su Credencial para Votar (INE)")
+    except:
+        try:
+            st.image("INE.png", width=350, caption="📌 Ubicación del Dígito Verificador en su Credencial para Votar (INE)")
+        except:
+            pass
+st.markdown("<br>", unsafe_allow_html=True)
+
+digitos_faltantes = st.text_input("Dígito Verificador (Opcional - Últimos caracteres)", max_chars=2, key="input_digitos")
+
+curp_algoritmica = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento, digitos_faltantes)
 curp_con_nacimiento = f"{curp_algoritmica}/{estado_nacimiento.upper()}" if estado_nacimiento != "SELECCIONE UN ESTADO" and "COMPLETA" not in curp_algoritmica else curp_algoritmica
 
 st.markdown(f'<div class="card-curp">🆔 CURP / RFC Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
