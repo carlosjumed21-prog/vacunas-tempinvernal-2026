@@ -4,7 +4,6 @@ import urllib.parse
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
-import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
@@ -44,62 +43,6 @@ def mostrar_dialogo_cerrar_sesion():
     with col_dlg2:
         if st.button("Cancelar", use_container_width=True):
             st.rerun()
-
-
-# --- DIÁLOGO FLOTANTE PARA VER LA TABLA DE CENSO A PANTALLA COMPLETA ---
-@st.dialog("📊 Tabla de Censo General (Vista Operativa Completa)", width="large")
-def mostrar_modal_tabla_censo(todos_los_datos, hoja_nombre):
-    st.markdown(f"**Jornada Activa:** `{hoja_nombre}`")
-    st.markdown("Consulta en tiempo real de la base de datos estructurada.")
-    
-    try:
-        if len(todos_los_datos) >= 14:
-            fila_cabecera_1 = todos_los_datos[11]
-            fila_cabecera_2 = todos_los_datos[12]
-            filas_tabla = todos_los_datos[13:]
-            
-            encabezados_combinados = []
-            conteo_nombres = {}
-            
-            for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
-                val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
-                val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
-                
-                if val1 and val2 and val1 != val2:
-                    col_str = f"{val1} - {val2}"
-                elif val2:
-                    col_str = val2
-                elif val1:
-                    col_str = val1
-                else:
-                    col_str = f"Col_{idx+1}"
-                
-                if col_str in conteo_nombres:
-                    conteo_nombres[col_str] += 1
-                    col_str = f"{col_str}_{conteo_nombres[col_str]}"
-                else:
-                    conteo_nombres[col_str] = 0
-                
-                encabezados_combinados.append(col_str)
-
-            filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
-
-            df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
-            
-            st.dataframe(
-                df_tabla_segura,
-                use_container_width=True,
-                height=500,
-                hide_index=True
-            )
-        else:
-            st.info("La jornada no tiene suficientes filas para renderizar la cuadrícula.")
-    except Exception as tbl_err:
-        st.warning(f"No se pudo renderizar la tabla tabulada: {tbl_err}")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("✖ Cerrar Ventana de Censo", use_container_width=True):
-        st.rerun()
 
 
 # --- BOTÓN DE CIERRE DE SESIÓN EN LA CABECERA ---
@@ -438,11 +381,18 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- BOTÓN PARA ABRIR LA TABLA DE CENSO EN UN DIÁLOGO FLOTANTE A PANTALLA COMPLETA ---
-        col_btn_tabla1, col_btn_tabla2 = st.columns([3, 1])
-        with col_btn_tabla2:
-            if st.button("📊 Ver Tabla de Censo", use_container_width=True, help="Abrir la tabla completa en una ventana flotante"):
-                mostrar_modal_tabla_censo(todos_los_datos, hoja_seleccionada)
+        # --- BOTÓN PARA ABRIR LA VISTA DE TABLA EN UNA PESTAÑA EXTERNA NUEVA ---
+        st.markdown(
+            """
+            <div style="margin-top: 15px; margin-bottom: 20px; text-align: right;">
+                <a href="/ver-tabla" target="_blank" 
+                   style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
+                    🪟 Abrir Censo en Ventana Externa (Nueva Pestaña)
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown(
             '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
