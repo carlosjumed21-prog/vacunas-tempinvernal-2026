@@ -26,17 +26,17 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA PARA APLICAR FORMATO CONDICIONAL LIMPIO Y ESTRICTO EN GOOGLE SHEETS ---
+# --- FUNCIÓN NATIVA PARA APLICAR FORMATO CONDICIONAL ESTRICTO SOBRE COLUMNAS DE DOSIS ---
 def aplicar_formato_condicional_sheets(worksheet):
-    """Limpia reglas anteriores y aplica formato condicional estricto para pintar 
-    de verde de A a AQ a partir de la fila 14 SOLAMENTE si el rango AG-AQ contiene una 'X'."""
+    """Aplica formato condicional estricto para pintar de verde de A a AQ a partir de la fila 14 
+    SOLAMENTE cuando las columnas específicas de dosis (AG, AH, AI, AL, AM, AN) tengan una 'X'."""
     try:
         from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
         
-        # 1. Limpiamos todas las reglas condicionales previas para evitar conflictos de fórmulas viejas
+        # 1. Limpiamos reglas previas para asegurar un entorno limpio
         worksheet.clear_conditional_format_rules()
         
-        # 2. Definimos el rango horizontal exacto de A (0) a AQ (43) desde la fila 14 (índice 13)
+        # 2. Rango horizontal exacto de A (0) a AQ (43) desde la fila 14 (índice 13)
         rango_grid = {
             "sheetId": worksheet.id,
             "startRowIndex": 13,      # Fila 14 (base 0)
@@ -45,8 +45,8 @@ def aplicar_formato_condicional_sheets(worksheet):
             "endColumnIndex": 43      # Columna AQ
         }
         
-        # 3. Fórmula estricta: Solo si hay al menos una 'X' en el rango de dosis AG-AQ
-        formula_regla = '=COUNTIF($AG14:$AQ14, "X") > 0'
+        # 3. Fórmula estricta evaluando únicamente las celdas exactas de dosis de Influenza y COVID
+        formula_regla = '=OR($AG14="X", $AH14="X", $AI14="X", $AL14="X", $AM14="X", $AN14="X")'
         
         rule = ConditionalFormatRule(
             ranges=[rango_grid],
@@ -56,7 +56,6 @@ def aplicar_formato_condicional_sheets(worksheet):
             )
         )
         
-        # Aplicamos la regla limpia a la hoja
         worksheet.set_conditional_format_rules([rule])
     except Exception as e:
         pass
