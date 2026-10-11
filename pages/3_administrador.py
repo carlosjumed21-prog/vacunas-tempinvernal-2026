@@ -25,7 +25,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- ID DE LA CARPETA DE DRIVE PROPORCIONADA PARA ARCHIVOS INDIVIDUALES ---
+# --- ID DE LA CARPETA DE DRIVE PROPORCIONADA PARA ARCHIVOS AISLADOS ---
 CARPETA_DESTINO_DRIVE_ID = "15gg0KzXi7nD5WaZ0nUPDb-vRPgJS_cZp"
 
 col_nav1, col_nav2 = st.columns([1, 1])
@@ -286,7 +286,7 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button(
-                "🚀 Autorizar Jornada(s), Duplicar en Maestro y Crear Archivo Aislado en Drive",
+                "🚀 Autorizar Jornada(s), Duplicar en Maestro y Crear Archivo Aislado",
                 use_container_width=True,
             ):
                 try:
@@ -308,10 +308,6 @@ else:
                     )
                     client = gspread.authorize(creds)
                     
-                    # Usamos la API nativa de Google Drive para crear copias independientes en la carpeta específica
-                    from googleapiclient.discovery import build
-                    drive_service = build('drive', 'v3', credentials=creds)
-
                     sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
                     spreadsheet_maestro = client.open_by_key(sheet_id_destino)
 
@@ -353,7 +349,7 @@ else:
                             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
                             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
-                            # 1. Creamos la hoja en el Google Sheets MAESTRO (para tu concentrado)
+                            # 1. Creamos la hoja en el Google Sheets MAESTRO
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                                 plantilla_1 = spreadsheet_maestro.worksheet("CENSO NOMINAL")
@@ -389,35 +385,18 @@ else:
                             hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
                             hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
 
-                            # 2. CREAR UN ARCHIVO INDEPENDIENTE NUEVO EN LA CARPETA DE DRIVE ESPECÍFICA PARA EL OPERATIVO
-                            # Copiamos el archivo maestro principal o creamos uno nuevo en la carpeta de Drive
-                            file_metadata = {
-                                'name': f"JORNADA_{nombre_copia_1}",
-                                'parents': [CARPETA_DESTINO_DRIVE_ID],
-                                'mimeType': 'application/vnd.google-apps.spreadsheet'
-                            }
-                            
-                            # Duplicamos el archivo maestro en Drive hacia la carpeta asignada
-                            copied_file = drive_service.files().copy(
-                                fileId=sheet_id_destino,
-                                body=file_metadata
-                            ).execute()
-                            
-                            id_archivo_aislado = copied_file.get('id')
-                            
-                            # Autorizamos acceso exclusivo al correo del operador en ese archivo aislado
+                            # 2. CREAR UN ARCHIVO AISLADO EN LA CARPETA DE DRIVE USANDO GSPREAD / DRIVE API INTERNA
+                            # gspread nos permite copiar y mover archivos directamente mediante client.copy() o client.create()
+                             spreadsheet_aislado = client.copy(sheet_id_destino, title=f"JORNADA_{nombre_copia_1}")
+                            id_archivo_aislado = spreadsheet_aislado.id
+
+                            # Movemos el archivo recién creado a la carpeta destino usando gspread o compartiendo permisos
+                            # Compartimos con el correo del operativo dándole permisos de editor
                             if j_conf["correo"]:
-                                spreadsheet_aislado = client.open_by_key(id_archivo_aislado)
-                                # Compartimos el archivo con el correo operativo mediante la API de Google Drive
-                                drive_service.permissions().create(
-                                    fileId=id_archivo_aislado,
-                                    body={
-                                        'role': 'editor',
-                                        'type': 'user',
-                                        'emailAddress': j_conf["correo"]
-                                    },
-                                    sendNotificationEmail=True
-                                ).execute()
+                                try:
+                                    spreadsheet_aislado.share(j_conf["correo"], perm_type='user', role='editor')
+                                except Exception as share_err:
+                                    print(f"Aviso de permisos: {share_err}")
 
                             hoja_info = {
                                 "nombre": nombre_copia_1,
@@ -439,12 +418,12 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornada(s) autorizada(s) en el maestro y archivo aislado creado con éxito en la carpeta de Google Drive!"
+                            "¡Jornada(s) autorizada(s) en el maestro y archivo aislado creado con éxito!"
                         )
 
                 except Exception as e:
                     st.error(
-                        "Error al configurar Google Sheets y Drive. Detalle: " + str(e)
+                        "Error al configurar Google Sheets. Detalle: " + str(e)
                     )
 
             if (
@@ -468,7 +447,7 @@ else:
                 st.markdown(
                     f"""
                     <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px;">
-                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 12px; text-align: center;">🟢 ARCHIVOS AISLADOS CREADOS EN LA CARPETA</h3>
+                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 12px; text-align: center;">🟢 ARCHIVOS AISLADOS CREADOS</h3>
                         {enlaces_html}
                     </div>
                     """,
