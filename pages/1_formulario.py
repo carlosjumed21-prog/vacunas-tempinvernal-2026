@@ -725,9 +725,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Campo oculto para recibir la fecha seleccionada desde JavaScript
-fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="Toque una fecha en el calendario arriba...")
-
+# 1. Renderizamos PRIMERO el componente HTML del calendario interactivo
 componente_calendario_html = f"""
 <!DOCTYPE html>
 <html>
@@ -923,6 +921,9 @@ componente_calendario_html = f"""
 """
 
 components.html(componente_calendario_html, height=290)
+
+# 2. Colocamos el campo de texto sincronizado ABAJO del componente visual del calendario
+fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="Toque una fecha en el calendario arriba...")
 
 fecha_nacimiento = None
 if st.session_state.get("fecha_nac_str"):
@@ -1252,7 +1253,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "curp_con_nacimiento": curp_con_nacimiento,
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
-                "antecedente_covid": antecedente_covid,         # <--- Agregado para columna AS
+                "antecedente_covid": antecedente_covid,          # <--- Agregado para columna AS
                 "antecedente_influenza": antecedente_influenza, # <--- Agregado para columna AR
                 "grupo_sugerido": grupo_sugerido,
                 "planes_o_embarazo": (
