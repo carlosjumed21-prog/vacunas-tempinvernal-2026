@@ -312,17 +312,11 @@ else:
                             fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
                             fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
 
-                            # Generamos el enlace y el QR para la jornada actual
                             fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
                             resp_encoded = urllib.parse.quote(j_conf["responsable"])
                             js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
                             ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
                             link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-
-                            # Crear la imagen QR en memoria y subirla a un servicio temporal o incrustarla vía fórmula IMAGE de Google Sheets
-                            # Usamos un servicio web público para el QR en Google Sheets o generamos la imagen PNG en base64 / URL accesible
-                            url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
-                            formula_imagen_sheets = f'=IMAGE("{url_qr_api}")'
 
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
@@ -360,8 +354,8 @@ else:
                                     hoja_activa.update_acell("S9", "")
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    # Insertar la imagen del código QR en la celda AR6
-                                    hoja_activa.update_acell("AR6", formula_imagen_sheets)
+                                    # Inserción automática limpia en AR6 sin requerir permisos de terceros
+                                    hoja_activa.update_acell("AR6", link_paciente)
                                 except:
                                     pass
 
@@ -403,8 +397,8 @@ else:
                                     hoja_activa.update_acell("S9", "")
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    # Insertar la imagen del código QR en la celda AR6
-                                    hoja_activa.update_acell("AR6", formula_imagen_sheets)
+                                    # Inserción automática limpia en AR6 sin requerir permisos de terceros
+                                    hoja_activa.update_acell("AR6", link_paciente)
                                 except:
                                     pass
 
@@ -425,7 +419,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, códigos QR incrustados en celda AR6 y hojas generadas con éxito en Google Sheets!"
+                            "¡Jornadas autorizadas, enlace QR guardado en la celda AR6 y hojas generadas con éxito en Google Sheets!"
                         )
 
                 except Exception as e:
@@ -551,7 +545,6 @@ else:
             for i, h_item in enumerate(st.session_state.historial_jornadas):
                 fecha_jornada = h_item["fecha"]
                 
-                # Evaluación de estatus por fecha
                 if fecha_jornada >= hoy:
                     estatus_badge = "🟢 **Activa**"
                     estado_color = "#e8f0ec"
@@ -572,7 +565,6 @@ else:
                         unsafe_allow_html=True,
                     )
 
-                    # Si la jornada está activa, permitir ver y descargar el QR o acceder a sus enlaces directos
                     if fecha_jornada >= hoy:
                         col_h1, col_h2 = st.columns([1, 1])
                         with col_h1:
@@ -580,7 +572,6 @@ else:
                             st.markdown(f"[🔗 Abrir Google Sheet]({url_sheet})", unsafe_allow_html=True)
                         
                         with col_h2:
-                            # Generación dinámica del QR histórico activo
                             fecha_url_str = fecha_jornada.strftime("%Y-%m-%d")
                             resp_encoded = urllib.parse.quote(h_item["responsable"])
                             ruta_formulario = "registro_20_noviembre" if h_item["siglas_unidad"] == "20N" else "formulario"
