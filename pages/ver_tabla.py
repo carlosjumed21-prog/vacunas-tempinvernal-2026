@@ -23,8 +23,12 @@ st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layo
 st.markdown(
     """
     <style>
+        /* --- ELIMINAR ESPACIOS EN BLANCO SUPERIORES DE STREAMLIT --- */
         header {visibility: hidden;}
-        .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
+        }
         [data-testid="stSidebar"] {display: none;}
         
         /* --- ESTILOS DE TARJETAS DE MÉTRICAS --- */
@@ -40,14 +44,24 @@ st.markdown(
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
 
-        /* --- CONTENEDOR FIJO PARA LA CABECERA Y MÉTRICAS (SUPERIOR) --- */
+        .main-header { 
+            font-size: 1.6rem !important; 
+            font-weight: 800 !important; 
+            color: #1e5b4f !important; 
+            margin-bottom: 0rem; 
+            border-bottom: 3px solid #a57f2c; 
+            padding-bottom: 4px; 
+        }
+
+        /* --- CONTENEDOR FIJO Y PEGADO ARRIBA --- */
         .fixed-top-container {
             position: sticky;
-            top: 0;
+            top: -20px;
             z-index: 999;
             background-color: #ffffff;
+            padding-top: 5px;
             padding-bottom: 10px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 2px solid #e0e0e0;
         }
     </style>
 """,
@@ -181,19 +195,17 @@ else:
                 elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
 
-            # --- ZONA FIJA SUPERIOR (CONTENEDOR STICKY DE MÉTRICAS Y TÍTULO) ---
+            # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
             st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
             col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
             with col_tit1:
                 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
             with col_tit2:
-                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                 if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                     st.rerun()
 
             with col_tit3:
-                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                 try:
                     if not creds.valid:
                         from google.auth.transport.requests import Request
@@ -219,6 +231,8 @@ else:
                 except Exception as err:
                     st.error(f"No se pudo descargar el archivo: {err}")
 
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
             m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
             
@@ -239,7 +253,7 @@ else:
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
@@ -259,11 +273,11 @@ else:
 
             df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
 
-            # --- TABLA NATIVA CON ENCABEZADOS Y SCROLL INTERNO AUTOMÁTICO ---
+            # --- TABLA NATIVA CON SCROLL INTERNO Y ENCABEZADOS FIJOS ---
             st.dataframe(
                 df_estilizado,
                 use_container_width=True,
-                height=600,
+                height=650,
                 hide_index=True
             )
 
