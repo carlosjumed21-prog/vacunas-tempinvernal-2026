@@ -250,6 +250,7 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
+                # Llave maestra para el administrador
                 if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
@@ -296,13 +297,13 @@ else:
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-        # Si es el Administrador Carlos, cargamos TODAS las hojas operativas
+        # --- LLAVE UNIVERSAL: Si es tu correo de admin, cargamos TODAS las hojas operativas ---
         if correo_sesion == "carlosju.med21@gmail.com":
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     h_autorizadas.append(h.title)
         else:
-            # Para operativos, filtramos estrictamente por su correo en AU4
+            # Para operativos, filtramos buscando estrictamente su correo en la celda AU4 de cada hoja
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     try:
@@ -319,10 +320,9 @@ else:
     # --- SELECTOR O TÍTULO DE JORNADA SEGÚN EL ROL ---
     if correo_sesion == "carlosju.med21@gmail.com":
         st.markdown(
-            f'<div class="section-title">👑 Vista Administrador General: <code>{correo_sesion}</code></div>',
+            f'<div class="section-title">👑 Vista Administrador General (Acceso Universal): <code>{correo_sesion}</code></div>',
             unsafe_allow_html=True,
         )
-        # Selector para que el Admin elija cúal hoja operar o visualizar
         if h_autorizadas:
             hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
         else:
@@ -342,7 +342,7 @@ else:
             hoja_seleccionada = h_autorizadas[0]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE (RESPETANDO VISIBILIDAD DE ADMIN) ---
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y GESTIÓN DE VISIBILIDAD ---
     col_v1, col_v2 = st.columns([3, 1])
     with col_v1:
         st.markdown(f"<b>Hoja Activa en Pantalla:</b> {hoja_seleccionada if hoja_seleccionada else 'Ninguna'}", unsafe_allow_html=True)
@@ -353,7 +353,7 @@ else:
                 try:
                     ws_temp = spreadsheet.worksheet(hoja_seleccionada)
                     
-                    # Si es operativo normal, ocultamos las demás pestañas antes de abrir el enlace
+                    # Si es operativo normal, ocultamos las plantillas y pestañas ajenas antes de abrir el enlace
                     if correo_sesion != "carlosju.med21@gmail.com":
                         for hoja_item in spreadsheet.worksheets():
                             if hoja_item.title in hojas_plantillas_excluir or hoja_item.title != hoja_seleccionada:
@@ -367,7 +367,7 @@ else:
                                 except:
                                     pass
                     else:
-                        # Si es el Admin, nos aseguramos de que todas las hojas operativas estén visibles para él
+                        # Si eres tú (Admin), mantenemos todas las hojas operativas visibles para tu supervisión
                         for hoja_item in spreadsheet.worksheets():
                             if hoja_item.title not in hojas_plantillas_excluir:
                                 try:
