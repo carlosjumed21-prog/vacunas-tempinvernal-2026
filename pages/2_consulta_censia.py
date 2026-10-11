@@ -29,22 +29,21 @@ st.markdown(
 # --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS (RANGO A:AQ) ---
 def aplicar_formato_condicional_sheets(worksheet):
     """Aplica formato condicional en Google Sheets para pintar de verde claro 
-    las filas de los pacientes desde la columna A hasta AQ a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
+    toda la fila de la A a la AQ a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
     try:
         rules = worksheet.get_conditional_format_rules()
-        formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
+        # Fórmula en español para Google Sheets en español
+        formula_regla = '=CONTAR.SI($AG14:$AQ14; "X") > 0'
         
-        # Verificamos si ya existe una regla con la misma fórmula
         regla_existente = False
         for rule in rules:
-            if rule.booleanProperty and 'COUNTIF(AG14:AQ14' in str(rule.booleanProperty):
+            if rule.booleanProperty and ('CONTAR.SI' in str(rule.booleanProperty) or 'COUNTIF' in str(rule.booleanProperty)):
                 regla_existente = True
                 break
                 
         if not regla_existente:
             from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
             
-            # Definimos el rango por coordenadas de cuadrícula (GridRange) de A a AQ desde la fila 14 (índice 13)
             rango_grid = {
                 "sheetId": worksheet.id,
                 "startRowIndex": 13,      # Fila 14 en base 0
