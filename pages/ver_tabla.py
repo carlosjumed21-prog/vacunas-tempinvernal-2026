@@ -130,8 +130,12 @@ else:
             filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
 
-            # --- CÁLCULO DE MÉTRICAS DINÁMICAS ---
-            total_preregistros = len(filas_tabla)
+            # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
+            # Las filas principales de pacientes están en los índices pares (0, 2, 4...) de filas_tabla
+            # Las filas impares (1, 3, 5...) corresponden a la información del CURP.
+            filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
+
+            total_preregistros = len(filas_principales)
             total_aplicaciones = 0
             total_sin_aplicar = 0
             total_dosis_influenza = 0
@@ -140,7 +144,7 @@ else:
 
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
-            for row in filas_tabla:
+            for row in filas_principales:
                 # 1. Verificar aplicaciones generales (AG a AQ -> índices 32 a 42)
                 tiene_aplicacion = False
                 for i in range(32, min(43, len(row))):
