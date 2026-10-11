@@ -161,11 +161,16 @@ def guardar_registro_censal(
             },
         ]
 
-        # --- DATOS DE DOSIS Y LOTES RECIBIDOS EN datos_paciente ---
-        # Se espera que datos_paciente incluya:
-        # 'inf_1ra', 'inf_2da', 'inf_anual', 'lote_inf', 'cad_inf'
-        # 'cov_1ra', 'cov_2da', 'cov_anual', 'lote_cov', 'cad_cov'
-        
+        # --- VALIDACIÓN DE DOSIS PARA CONDICIONAR EL COLOR VERDE ---
+        tiene_dosis_aplicada = (
+            datos_paciente.get("inf_1ra") or 
+            datos_paciente.get("inf_2da") or 
+            datos_paciente.get("inf_anual") or 
+            datos_paciente.get("cov_1ra") or 
+            datos_paciente.get("cov_2da") or 
+            datos_paciente.get("cov_anual")
+        )
+
         if datos_paciente.get("inf_1ra"):
             datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
         if datos_paciente.get("inf_2da"):
@@ -233,7 +238,34 @@ def guardar_registro_censal(
             if texto_o:
                 datos_a_actualizar.append({"range": f"AF{f_actual}:AF{f_siguiente}", "values": [[texto_o], [texto_o]]})
 
+        # Ejecutamos actualización de datos en el censo
         worksheet.batch_update(datos_a_actualizar)
+
+        # --- CONTROL EXPLICITO DE COLOR (BLANCO POR DEFECTO, VERDE SOLO SI HAY DOSIS) ---
+        color_fondo = (
+            {"red": 0.831, "green": 0.929, "blue": 0.855} if tiene_dosis_aplicada 
+            else {"red": 1.0, "green": 1.0, "blue": 1.0}
+        )
+
+        peticion_color_fila = {
+            "repeatCell": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "startRowIndex": f_actual - 1,      # Fila actual (base 0)
+                    "endRowIndex": f_siguiente,       # Fila actual y siguiente
+                    "startColumnIndex": 0,            # Columna A
+                    "endColumnIndex": 43              # Columna AQ
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "backgroundColor": color_fondo
+                    }
+                },
+                "fields": "userEnteredFormat.backgroundColor"
+            }
+        }
+        worksheet.spreadsheet.batch_update({"requests": [peticion_color_fila]})
+
         return folio_asignado
 
     except Exception as e:
@@ -325,6 +357,27 @@ def guardar_registro_censal_20_nov(datos_paciente):
         ]
         
         ws_nominal.batch_update(updates_hoja1)
+
+        # Forzamos fondo blanco por defecto al insertar en 20_nov
+        peticion_blanco = {
+            "repeatCell": {
+                "range": {
+                    "sheetId": ws_nominal.id,
+                    "startRowIndex": fila_nom - 1,
+                    "endRowIndex": fila_nom + 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": 43
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "backgroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}
+                    }
+                },
+                "fields": "userEnteredFormat.backgroundColor"
+            }
+        }
+        ws_nominal.spreadsheet.batch_update({"requests": [peticion_blanco]})
+
         return folio_asignado
 
     except Exception as e:
