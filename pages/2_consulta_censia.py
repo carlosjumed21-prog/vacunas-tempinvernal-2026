@@ -446,42 +446,33 @@ else:
                             elif au_val == "X":
                                 vacuna_registrada = "COVID-19"
 
-                        # --- DETECCIÓN DE GRUPOS Y RIESGOS (P hasta AF) ---
-                        lista_detectados = []
+                        # --- DETECCIÓN EXACTA DE RIESGOS Y GRUPOS (P hasta AF) ---
+                        lista_riesgos_detectados = []
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
 
-                        # Determinamos si es Población Objetivo o Población de Riesgo
-                        es_riesgo = False
-                        if tiene_equis(15) or tiene_equis(16):
-                            lista_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 Y MÁS")
-                            categoria_paciente = "POBLACIÓN OBJETIVO"
-                        else:
-                            categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                        if tiene_equis(17): lista_detectados.append("EMBARAZADAS"); es_riesgo = True
-                        if tiene_equis(18): lista_detectados.append("PERSONAL DE SALUD"); es_riesgo = True
-                        if tiene_equis(19): lista_detectados.append("VIH"); es_riesgo = True
-                        if tiene_equis(20): lista_detectados.append("DIABETES MELLITUS"); es_riesgo = True
-                        if tiene_equis(21): lista_detectados.append("OBESIDAD MÓRBIDA"); es_riesgo = True
-                        if tiene_equis(22): lista_detectados.append("CARDIOPATÍAS"); es_riesgo = True
-                        if tiene_equis(23): lista_detectados.append("ENFERMEDAD PULMONAR"); es_riesgo = True
-                        if tiene_equis(24): lista_detectados.append("CÁNCER"); es_riesgo = True
-                        if tiene_equis(25): lista_detectados.append("CONGÉNITAS"); es_riesgo = True
-                        if tiene_equis(26): lista_detectados.append("INSUFICIENCIA RENAL"); es_riesgo = True
-                        if tiene_equis(27): lista_detectados.append("INMUNOSUPRESIÓN"); es_riesgo = True
-                        if tiene_equis(28): lista_detectados.append("DISCAPACIDADES"); es_riesgo = True
-                        if tiene_equis(29): lista_detectados.append("FIBROSIS QUÍSTICA"); es_riesgo = True
-                        if tiene_equis(30): lista_detectados.append("HIPERTENSIÓN"); es_riesgo = True
+                        # Recolectamos todos los grupos o riesgos marcados con X
+                        if tiene_equis(15): lista_riesgos_detectados.append("6 A 59 MESES")
+                        if tiene_equis(16): lista_riesgos_detectados.append("60 Y MÁS")
+                        if tiene_equis(17): lista_riesgos_detectados.append("EMBARAZADAS")
+                        if tiene_equis(18): lista_riesgos_detectados.append("PERSONAL DE SALUD")
+                        if tiene_equis(19): lista_riesgos_detectados.append("VIH")
+                        if tiene_equis(20): lista_riesgos_detectados.append("DIABETES MELLITUS")
+                        if tiene_equis(21): lista_riesgos_detectados.append("OBESIDAD MÓRBIDA")
+                        if tiene_equis(22): lista_riesgos_detectados.append("CARDIOPATÍAS")
+                        if tiene_equis(23): lista_riesgos_detectados.append("ENFERMEDAD PULMONAR")
+                        if tiene_equis(24): lista_riesgos_detectados.append("CÁNCER")
+                        if tiene_equis(25): lista_riesgos_detectados.append("CONGÉNITAS")
+                        if tiene_equis(26): lista_riesgos_detectados.append("INSUFICIENCIA RENAL")
+                        if tiene_equis(27): lista_riesgos_detectados.append("INMUNOSUPRESIÓN")
+                        if tiene_equis(28): lista_riesgos_detectados.append("DISCAPACIDADES")
+                        if tiene_equis(29): lista_riesgos_detectados.append("FIBROSIS QUÍSTICA")
+                        if tiene_equis(30): lista_riesgos_detectados.append("HIPERTENSIÓN")
                         
                         if len(fila_datos) > 31 and fila_datos[31].strip():
-                            lista_detectados.append(fila_datos[31].strip().upper())
-                            es_riesgo = True
+                            lista_riesgos_detectados.append(fila_datos[31].strip().upper())
 
-                        if es_riesgo:
-                            categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                        grupo_detectado = ", ".join(lista_detectados) if lista_detectados else "POBLACIÓN GENERAL"
+                        grupo_detectado_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "POBLACIÓN GENERAL"
 
                         st.markdown(
                             '<div class="section-title">Vista Previa y Datos Generales'
@@ -496,79 +487,85 @@ else:
                             st.markdown(f"**Nacimiento:** {fecha_nac_str}")
                             st.markdown(f"**Sexo:** {sexo_texto}")
                         with col3:
-                            st.markdown(f"**Categoría:** {categoria_paciente}")
+                            st.markdown(f"**Riesgos / Grupos Detectados:** {grupo_detectado_str}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos'
-                            " CENSIA (Tarjetas Informativas)</div>",
+                            " CENSIA (Tarjetas Informativas Múltiples)</div>",
                             unsafe_allow_html=True,
                         )
 
-                        # --- ALGORITMO DE BÚSQUEDA Y CRUCE EXACTO (Col. B Categoría + Col. C Grupos Blancos) ---
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        match_inf = guia_influenza_registros[0] if guia_influenza_registros else None
-                        match_cov = guia_covid_registros[0] if guia_covid_registros else None
+                        # --- BÚSQUEDA MULTI-COINCIDENCIA (Muestra una card por cada riesgo detectado) ---
+                        matches_inf = []
+                        matches_cov = []
 
-                        # Búsqueda rigurosa para Influenza
-                        for item in guia_influenza_registros:
-                            cat_b = item["categoria"].upper()
-                            gb_c = item["grupos_blancos"].upper()
-                            if categoria_paciente in cat_b and any(term in grupo_detectado.upper() for term in gb_c.split() if len(term) > 3):
-                                match_inf = item
-                                break
-                        if not match_inf and guia_influenza_registros:
-                            match_inf = guia_influenza_registros[0]
+                        for riesgo in lista_riesgos_detectados:
+                            r_upper = riesgo.upper()
+                            # Buscar en Influenza
+                            for item in guia_influenza_registros:
+                                gb = item["grupos_blancos"].upper()
+                                cat = item["categoria"].upper()
+                                if r_upper in gb or gb in r_upper or r_upper in cat or cat in r_upper:
+                                    if item not in matches_inf:
+                                        matches_inf.append(item)
+                            # Buscar en COVID
+                            for item in guia_covid_registros:
+                                gb = item["grupos_blancos"].upper()
+                                cat = item["categoria"].upper()
+                                if r_upper in gb or gb in r_upper or r_upper in cat or cat in r_upper:
+                                    if item not in matches_cov:
+                                        matches_cov.append(item)
 
-                        # Búsqueda rigurosa para COVID (leyendo Columna A para el tipo de biológico)
-                        for item in guia_covid_registros:
-                            cat_b = item["categoria"].upper()
-                            gb_c = item["grupos_blancos"].upper()
-                            if categoria_paciente in cat_b and any(term in grupo_detectado.upper() for term in gb_c.split() if len(term) > 3):
-                                match_cov = item
-                                break
-                        if not match_cov and guia_covid_registros:
-                            match_cov = guia_covid_registros[0]
+                        # Si no hubo match específico, tomamos al menos el primero por defecto
+                        if not matches_inf and guia_influenza_registros:
+                            matches_inf.append(guia_influenza_registros[0])
+                        if not matches_cov and guia_covid_registros:
+                            matches_cov.append(guia_covid_registros[0])
 
-                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN ---
-                        if mostrar_influenza and match_inf:
-                            simultanea_inf = match_inf.get("aplicacion_simultanea", "")
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                    <p><b>Categoría (Col. B):</b> {match_inf.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos (Col. C):</b> {match_inf.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema (Col. D):</b> {match_inf.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis (Col. E):</b> {match_inf.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo (Col. F):</b> {match_inf.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación (Col. G):</b> {match_inf.get('recomendacion', 'N/A')}</p>
-                                    {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
+                        # --- RENDERIZADO DE CARDS DE INFLUENZA ---
+                        if mostrar_influenza:
+                            for idx_inf, match_inf in enumerate(matches_inf):
+                                simultanea_inf = match_inf.get("aplicacion_simultanea", "")
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                        <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional (Tarjeta #{idx_inf + 1})</h4>
+                                        <p><b>Categoría (Col. B):</b> {match_inf.get('categoria', 'N/A')}</p>
+                                        <p><b>Grupos blancos (Col. C):</b> {match_inf.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema (Col. D):</b> {match_inf.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis (Col. E):</b> {match_inf.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo (Col. F):</b> {match_inf.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación (Col. G):</b> {match_inf.get('recomendacion', 'N/A')}</p>
+                                        {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
 
-                        if mostrar_covid and match_cov:
-                            tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
-                            simultanea_cov = match_cov.get("aplicacion_simultanea", "")
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico: {tipo_biologico_covid})</h4>
-                                    <p><b>Categoría (Col. B):</b> {match_cov.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos (Col. C):</b> {match_cov.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema (Col. D):</b> {match_cov.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis (Col. E):</b> {match_cov.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo (Col. F):</b> {match_cov.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación (Col. G):</b> {match_cov.get('recomendacion', 'N/A')}</p>
-                                    {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
+                        # --- RENDERIZADO DE CARDS DE COVID ---
+                        if mostrar_covid:
+                            for idx_cov, match_cov in enumerate(matches_cov):
+                                tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
+                                simultanea_cov = match_cov.get("aplicacion_simultanea", "")
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                        <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 - {tipo_biologico_covid} (Tarjeta #{idx_cov + 1})</h4>
+                                        <p><b>Categoría (Col. B):</b> {match_cov.get('categoria', 'N/A')}</p>
+                                        <p><b>Grupos blancos (Col. C):</b> {match_cov.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema (Col. D):</b> {match_cov.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis (Col. E):</b> {match_cov.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo (Col. F):</b> {match_cov.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación (Col. G):</b> {match_cov.get('recomendacion', 'N/A')}</p>
+                                        {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
 
                         st.markdown(
                             '<div class="section-title">4. Registro de Dosis Aplicadas y'
