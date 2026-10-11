@@ -453,6 +453,38 @@ def mostrar_modal_comprobante():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True):
             st.session_state.ultimo_paciente_registrado = None
+            
+            keys_a_limpiar = [
+                "input_paterno", "input_materno", "input_nombres",
+                "sel_dia", "sel_mes", "sel_anio",
+                "input_sexo", "input_estnac", "input_estres",
+                "input_calle", "input_num", "input_col",
+                "input_derecho", "input_ocupacion", "input_digitos",
+                "input_vacuna", "ant_cov", "ant_inf",
+                "chk_personas_embarazadas", "chk_personal_salud_riesgo",
+                "chk_vih", "chk_diabetes", "chk_obesidad",
+                "chk_cardiopatias", "chk_enfermedad_pulmonar",
+                "chk_cancer", "chk_cardiacas_congenitas",
+                "chk_insufren", "chk_inmunosupresion",
+                "chk_discapacidad", "chk_fibrosis", "chk_hipertension",
+                "chk_otro", "txt_otro_riesgo", "chk_gestante"
+            ]
+            
+            for k in keys_a_limpiar:
+                if k in st.session_state:
+                    if "chk_" in k:
+                        st.session_state[k] = False
+                    elif "sel_" in k:
+                        if k == "sel_dia": st.session_state[k] = "Día"
+                        elif k == "sel_mes": st.session_state[k] = "Mes"
+                        elif k == "sel_anio": st.session_state[k] = "Año"
+                    elif "input_sexo" in k or "input_derecho" in k or "input_estnac" in k or "input_estres" in k or "input_ocupacion" in k:
+                        st.session_state[k] = "SELECCIONE UNA OPCIÓN"
+                    elif "ant_" in k or "input_vacuna" in k:
+                        st.session_state[k] = None
+                    else:
+                        st.session_state[k] = ""
+                        
             st.rerun()
 
 
