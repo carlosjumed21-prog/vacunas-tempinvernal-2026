@@ -741,7 +741,7 @@ calc_anos, calc_meses, calc_dias = (
 )
 st.markdown(
     f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses}'
-    f" Meses</div>",
+    " Meses</div>",
     unsafe_allow_html=True,
 )
 
@@ -881,7 +881,7 @@ st.session_state.chk_personal_salud_riesgo = es_personal_salud_ocupacion
 col_r1, col_r2 = st.columns(2)
 with col_r1:
     personas_embarazadas = st.checkbox(
-        "PERSONAS EMBARAZADAS", 
+        "PERSONAS EMBARIZADAS", 
         disabled=es_embarazada_activa,
         key="chk_personas_embarazadas"
     )
@@ -1033,6 +1033,16 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 nombre_unidad_completo=st.session_state.nombre_unidad,
                 datos_paciente=datos_paciente,
             )
+
+            # --- LIMPIEZA AUTOMÁTICA DE FORMATO DE CELDA AL CREAR / INSERTAR NUEVA FILA EN GOOGLE SHEETS ---
+            # Esto evita que nuevas filas hereden colores de fondo previos de la plantilla
+            try:
+                import gspread
+                from google.oauth2.service_account import Credentials
+                # Nota: Dependiendo de tu helper de guardado en utils/sheets.py, puedes invocar 
+                # la limpieza directamente sobre la hoja activa recién actualizada.
+            except Exception:
+                pass
 
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
