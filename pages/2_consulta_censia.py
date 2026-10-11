@@ -191,6 +191,8 @@ def mostrar_modal_comprobante_vacunacion():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
             st.session_state.ultimo_comprobante_vacunacion = None
+            if "input_busqueda_lupa" in st.session_state:
+                st.session_state.input_busqueda_lupa = ""
             st.rerun()
 
 
