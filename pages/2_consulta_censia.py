@@ -385,7 +385,7 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA (SIN BOTÓN DUPLICADO) ---
+        # --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA ---
         hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
         url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
         
@@ -407,7 +407,7 @@ else:
         )
         if not pacientes_cargados:
             st.info(
-                "La jornada seleccionada aún no cuenta com pacientes registrados en el censo."
+                "La jornada seleccionada aún no cuenta con pacientes registrados en el censo."
             )
         else:
             col_busq1, col_busq2 = st.columns([4, 1])
@@ -539,53 +539,54 @@ else:
                             st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
-                        # --- FORMULARIO DE EDICIÓN INTEGRAL (NOMBRE, NACIMIENTO, SEXO, CURP) ---
-                        with st.form(f"form_editar_paciente_{fila_idx}"):
-                            st.markdown("##### ✏️ Corrección de Datos Generales y CURP del Paciente")
-                            
-                            c_ed1, c_ed2, c_ed3 = st.columns(3)
-                            with c_ed1:
-                                ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, key=f"ed_pat_{fila_idx}")
-                            with c_ed2:
-                                ed_materno = st.text_input("Apellido Materno:", value=materno_p, key=f"ed_mat_{fila_idx}")
-                            with c_ed3:
-                                ed_nombres = st.text_input("Nombres:", value=nombres_p, key=f"ed_nom_{fila_idx}")
+                        # --- EXPANSOR DISCRETO PARA HABILITAR EDICIÓN DE DATOS GENERALES ---
+                        with st.expander("✏️ ¿Hay algún error en los datos del paciente? Habilitar corrección"):
+                            with st.form(f"form_editar_paciente_{fila_idx}"):
+                                st.markdown("##### ✏️ Corrección de Datos Generales y CURP del Paciente")
+                                
+                                c_ed1, c_ed2, c_ed3 = st.columns(3)
+                                with c_ed1:
+                                    ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, key=f"ed_pat_{fila_idx}")
+                                with c_ed2:
+                                    ed_materno = st.text_input("Apellido Materno:", value=materno_p, key=f"ed_mat_{fila_idx}")
+                                with c_ed3:
+                                    ed_nombres = st.text_input("Nombres:", value=nombres_p, key=f"ed_nom_{fila_idx}")
 
-                            c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
-                            with c_ed4:
-                                ed_d = st.text_input("Día (Nac):", value=dd_n, key=f"ed_d_{fila_idx}")
-                            with c_ed5:
-                                ed_m = st.text_input("Mes (Nac):", value=mm_n, key=f"ed_m_{fila_idx}")
-                            with c_ed6:
-                                ed_y = st.text_input("Año (Nac):", value=yy_n, key=f"ed_y_{fila_idx}")
-                            with c_ed7:
-                                ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, key=f"ed_sex_{fila_idx}")
+                                c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
+                                with c_ed4:
+                                    ed_d = st.text_input("Día (Nac):", value=dd_n, key=f"ed_d_{fila_idx}")
+                                with c_ed5:
+                                    ed_m = st.text_input("Mes (Nac):", value=mm_n, key=f"ed_m_{fila_idx}")
+                                with c_ed6:
+                                    ed_y = st.text_input("Año (Nac):", value=yy_n, key=f"ed_y_{fila_idx}")
+                                with c_ed7:
+                                    ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, key=f"ed_sex_{fila_idx}")
 
-                            ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, key=f"ed_curp_{fila_idx}")
+                                ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, key=f"ed_curp_{fila_idx}")
 
-                            btn_guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", use_container_width=True)
+                                btn_guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", use_container_width=True)
 
-                            if btn_guardar_edicion:
-                                try:
-                                    f_actual = fila_idx
-                                    f_siguiente = fila_idx + 1
-                                    
-                                    actualizaciones_datos = [
-                                        {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
-                                        {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
-                                        {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
-                                        {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
-                                        {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
-                                        {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
-                                        {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                                        {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
-                                    ]
-                                    
-                                    worksheet_activa.batch_update(actualizaciones_datos)
-                                    st.success("✅ ¡Datos del paciente actualizados correctamente en Google Sheets!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error al actualizar los datos en Sheets: {e}")
+                                if btn_guardar_edicion:
+                                    try:
+                                        f_actual = fila_idx
+                                        f_siguiente = fila_idx + 1
+                                        
+                                        actualizaciones_datos = [
+                                            {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                                            {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                                            {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                                            {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                                            {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                                            {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                                            {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                                            {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+                                        ]
+                                        
+                                        worksheet_activa.batch_update(actualizaciones_datos)
+                                        st.success("✅ ¡Datos del paciente actualizados correctamente en Google Sheets!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error al actualizar los datos en Sheets: {e}")
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>',
