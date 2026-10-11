@@ -649,51 +649,32 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML para el botón que despliega el calendario flotante exactamente debajo
-                        calendar_button_html = """
+                        # Componente HTML para el calendario incrustado directamente en el espacio libre a la derecha
+                        inline_calendar_html = """
                         <!DOCTYPE html>
                         <html>
                         <head>
                         <meta charset="utf-8">
                         <style>
                             body { font-family: sans-serif; background: transparent; margin: 0; padding: 0; }
-                            .cal-btn {
-                                background: #ffffff;
-                                border: 1px solid #a57f2c;
-                                border-radius: 4px;
-                                padding: 5px 10px;
-                                font-size: 0.8rem;
-                                font-weight: bold;
-                                color: #1e5b4f;
-                                cursor: pointer;
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 4px;
-                                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-                                margin-top: 4px;
-                            }
-                            .cal-btn:hover { background: #f7f4eb; }
-                            .cal-popup {
-                                display: none;
-                                position: fixed;
-                                z-index: 999999;
+                            .cal-box {
                                 background: #ffffff;
                                 border: 2px solid #1e5b4f;
                                 border-radius: 8px;
-                                padding: 12px;
-                                width: 280px;
-                                box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+                                padding: 10px;
+                                width: 270px;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                             }
                             .cal-header {
                                 display: flex;
                                 justify-content: space-between;
                                 align-items: center;
-                                margin-bottom: 10px;
+                                margin-bottom: 8px;
                                 gap: 4px;
                             }
                             .cal-header select, .cal-header button {
-                                padding: 5px;
-                                font-size: 0.9rem;
+                                padding: 4px;
+                                font-size: 0.85rem;
                                 border: 1px solid #a57f2c;
                                 border-radius: 4px;
                                 background: #fff;
@@ -708,14 +689,14 @@ else:
                                 gap: 2px;
                             }
                             .cal-day-name {
-                                font-size: 0.75rem;
+                                font-size: 0.7rem;
                                 font-weight: bold;
                                 color: #611232;
                                 padding-bottom: 4px;
                             }
                             .cal-day {
-                                padding: 6px 0;
-                                font-size: 0.85rem;
+                                padding: 5px 0;
+                                font-size: 0.8rem;
                                 border-radius: 4px;
                                 cursor: pointer;
                                 color: #161a1d;
@@ -727,27 +708,24 @@ else:
                         </style>
                         </head>
                         <body>
-                        <div>
-                            <button type="button" class="cal-btn" onclick="toggleCal(event)">📅 Elegir Fecha</button>
-                            <div class="cal-popup" id="pop-box">
-                                <div class="cal-header">
-                                    <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
-                                    <select id="s-m" onchange="actFecha()">
-                                        <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-                                        <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-                                        <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-                                        <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-                                    </select>
-                                    <select id="s-y" onchange="actFecha()"></select>
-                                    <button type="button" onclick="cambiarMes(1)">&#10095;</button>
-                                </div>
-                                <div class="cal-grid">
-                                    <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
-                                    <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
-                                    <div class="cal-day-name">D</div>
-                                </div>
-                                <div class="cal-grid" id="c-body"></div>
+                        <div class="cal-box">
+                            <div class="cal-header">
+                                <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
+                                <select id="s-m" onchange="actFecha()">
+                                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                                </select>
+                                <select id="s-y" onchange="actFecha()"></select>
+                                <button type="button" onclick="cambiarMes(1)">&#10095;</button>
                             </div>
+                            <div class="cal-grid">
+                                <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
+                                <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
+                                <div class="cal-day-name">D</div>
+                            </div>
+                            <div class="cal-grid" id="c-body"></div>
                         </div>
                         <script>
                             let cDate = new Date();
@@ -758,17 +736,6 @@ else:
                                     let o = document.createElement('option');
                                     o.value = y; o.text = y;
                                     sy.appendChild(o);
-                                }
-                            }
-                            function toggleCal(e) {
-                                const p = document.getElementById('pop-box');
-                                if (p.style.display === 'block') {
-                                    p.style.display = 'none';
-                                } else {
-                                    const rect = e.target.getBoundingClientRect();
-                                    p.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-                                    p.style.left = (rect.left + window.scrollX) + 'px';
-                                    p.style.display = 'block';
                                 }
                             }
                             function renderCal() {
@@ -806,7 +773,6 @@ else:
                                                 break;
                                             }
                                         }
-                                        document.getElementById('pop-box').style.display = 'none';
                                     };
                                     cb.appendChild(div);
                                 }
@@ -829,50 +795,52 @@ else:
 
                         with st.form("form_aplicacion_lotes"):
                             st.markdown("##### 💉 INFLUENZA")
-                            c_inf1, c_inf2, c_inf3, c_inf4, c_inf5 = st.columns([1, 1, 1, 1.5, 1.5])
-                            with c_inf1:
+                            c_inf_dosis, c_inf_lote_cad, c_inf_cal = st.columns([1.2, 1.8, 1.5])
+                            with c_inf_dosis:
+                                st.markdown("<br>", unsafe_allow_html=True)
                                 inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
-                            with c_inf2:
                                 inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
-                            with c_inf3:
                                 inf_anual = st.checkbox("Anual", key="chk_inf_anual")
-                            with c_inf4:
+                            with c_inf_lote_cad:
                                 lote_inf_input = st.text_input(
                                     "Lote Influenza",
                                     value=st.session_state.lote_influenza_memoria,
                                     placeholder="Ej. A1234",
                                 )
-                            with c_inf5:
                                 cad_inf_input = st.text_input(
                                     "Caducidad Influenza",
                                     value=st.session_state.cad_inf_str,
                                     placeholder="DD/MM/AAAA",
                                     key="cad_inf_txt"
                                 )
-                                components.html(calendar_button_html, height=38)
+                            with c_inf_cal:
+                                st.markdown("<p style='font-size:0.8rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=210)
+
+                            st.markdown("---")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                            c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
-                            with c_cov1:
+                            c_cov_dosis, c_cov_lote_cad, c_cov_cal = st.columns([1.2, 1.8, 1.5])
+                            with c_cov_dosis:
+                                st.markdown("<br>", unsafe_allow_html=True)
                                 cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
-                            with c_cov2:
                                 cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
-                            with c_cov3:
                                 cov_anual = st.checkbox("Anual", key="chk_cov_anual")
-                            with c_cov4:
+                            with c_cov_lote_cad:
                                 lote_cov_input = st.text_input(
                                     "Lote COVID-19",
                                     value=st.session_state.lote_covid_memoria,
                                     placeholder="Ej. C5678",
                                 )
-                            with c_cov5:
                                 cad_cov_input = st.text_input(
                                     "Caducidad COVID",
                                     value=st.session_state.cad_cov_str,
                                     placeholder="DD/MM/AAAA",
                                     key="cad_cov_txt"
                                 )
-                                components.html(calendar_button_html, height=38)
+                            with c_cov_cal:
+                                st.markdown("<p style='font-size:0.8rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Calendario Rápido:</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=210)
 
                             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
