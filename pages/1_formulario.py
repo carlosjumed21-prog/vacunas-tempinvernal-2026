@@ -1113,7 +1113,7 @@ st.session_state.chk_personal_salud_riesgo = es_personal_salud_ocupacion
 col_r1, col_r2 = st.columns(2)
 with col_r1:
     personas_embarazadas = st.checkbox(
-        "PERSONAS EMBARIZADAS", 
+        "EMBARAZADAS", 
         disabled=es_embarazada_activa,
         key="chk_personas_embarazadas"
     )
