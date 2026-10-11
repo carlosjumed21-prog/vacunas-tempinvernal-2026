@@ -727,7 +727,7 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- SELECTOR DE FECHA MÓVIL (HORIZONTAL / UNA SOLA LÍNEA) ---
+# --- SELECTOR DE FECHA MÓVIL (COMPACTO EN UNA SOLA LÍNEA) ---
 st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
@@ -754,19 +754,16 @@ meses_disponibles = ["SELECCIONE"] + list(meses_dict.keys())
 dias_disponibles = ["SELECCIONE"] + list(range(1, 32))
 
 with col_f1:
+    st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #1e5b4f; margin-bottom: 2px;'>Año</p>", unsafe_allow_html=True)
     anio_sel = st.selectbox("Año", options=anos_disponibles, key="sel_anio", label_visibility="collapsed")
-with col_f2:
-    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes", label_visibility="collapsed")
-with col_f3:
-    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia", label_visibility="collapsed")
 
-col_l1, col_l2, col_l3 = st.columns([1.2, 1.5, 1])
-with col_l1:
-    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Año</p>", unsafe_allow_html=True)
-with col_l2:
-    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Mes</p>", unsafe_allow_html=True)
-with col_l3:
-    st.markdown("<p style='font-size: 0.8rem; color: #666; margin-top: -10px;'>Día</p>", unsafe_allow_html=True)
+with col_f2:
+    st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #1e5b4f; margin-bottom: 2px;'>Mes</p>", unsafe_allow_html=True)
+    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes", label_visibility="collapsed")
+
+with col_f3:
+    st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #1e5b4f; margin-bottom: 2px;'>Día</p>", unsafe_allow_html=True)
+    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia", label_visibility="collapsed")
 
 fecha_nacimiento = None
 if (
@@ -781,7 +778,6 @@ if (
         st.error(
             "⚠️ La fecha seleccionada no es válida (por ejemplo, 31 de febrero)."
         )
-
 col_fn2_s, col_fn3_s = st.columns(2)
 with col_fn2_s:
     sexo = st.selectbox(
