@@ -26,6 +26,7 @@ st.markdown(
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
         .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
+        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         div[data-baseweb="select"] > div { font-size: 1rem !important; white-space: normal !important; }
@@ -52,11 +53,15 @@ st.session_state.nombre_unidad = (
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
-fecha_url_str = params.get("fecha", datetime.date.today().strftime("%Y-%m-%d"))
+# --- MANEJO DE FECHAS Y FOLIO INICIAL ---
+fecha_sistema = datetime.date.today()
+fecha_url_str = params.get("fecha", fecha_sistema.strftime("%Y-%m-%d"))
 try:
     val_fecha_app = datetime.datetime.strptime(fecha_url_str, "%Y-%m-%d").date()
 except:
-    val_fecha_app = datetime.date.today()
+    val_fecha_app = fecha_sistema
+
+folio_inicial = "POR ASIGNAR"
 
 if "registros_censales" not in st.session_state:
     st.session_state.registros_censales = []
@@ -514,7 +519,7 @@ if st.session_state.ultimo_paciente_registrado is not None:
     mostrar_modal_comprobante()
 
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b> | Fecha de Aplicación: <b>{val_fecha_app.strftime("%d/%m/%Y")}</b></p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
 
 # --- PANEL DE DATOS SIMULADOS (SOLO ADMINISTRADOR) ---
 if es_admin:
@@ -540,6 +545,16 @@ if es_admin:
             if st.session_state.input_sexo == "MUJER":
                 st.session_state.chk_gestante = random.choice(["NO", "SÍ"])
             st.rerun()
+
+# --- APARTADO 1: FECHAS Y FOLIO ---
+st.markdown('<div class="section-title">1. Control de Fechas y Folio</div>', unsafe_allow_html=True)
+col_f1, col_f2, col_f3 = st.columns(3)
+with col_f1:
+    st.markdown(f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
+with col_f2:
+    st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
+with col_f3:
+    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_inicial}</b></div>', unsafe_allow_html=True)
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -600,7 +615,7 @@ calc_anos, calc_meses, calc_dias = calcular_edad_detallada(fecha_nacimiento, val
 st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses} Meses</div>', unsafe_allow_html=True)
 
 edad_total_meses = (calc_anos * 12) + calc_meses
-es_rango_infantil = 6 <= edad_total_meses <= 59
+es_rango_infantil = 6 <= edad_total_meses <= 59 or (fecha_nacimiento and edad_total_meses < 59)
 
 # --- IMAGEN INE Y DÍGITO VERIFICADOR ---
 st.markdown("<br>", unsafe_allow_html=True)
@@ -636,8 +651,8 @@ cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", optio
 
 # --- OCUPACIÓN ---
 st.markdown('<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True)
-if es_rango_infantil:
-    st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'NO APLICA'.")
+if fecha_nacimiento and edad_total_meses < 59:
+    st.info("ℹ️ Menor de 59 meses (< 5 años): Ocupación asignada automáticamente como 'NO APLICA'.")
     st.session_state.input_ocupacion = "NO APLICA"
     ocupacion = st.selectbox("Seleccione su Ocupación *", options=lista_ocupaciones, index=lista_ocupaciones.index("NO APLICA"), key="input_ocupacion", disabled=True)
 else:
@@ -648,15 +663,20 @@ st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</di
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-if "chk_personas_embarazadas" in st.session_state and es_embarazada_activa:
-    st.session_state.chk_personas_embarazadas = True
-if "chk_personal_salud_riesgo" in st.session_state and es_personal_salud_ocupacion:
-    st.session_state.chk_personal_salud_riesgo = True
-
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-    personas_embarazadas = st.checkbox("EMBARAZADAS", key="chk_personas_embarazadas")
-    personal_salud_riesgo = st.checkbox("PERSONAL DE SALUD", key="chk_personal_salud_riesgo")
+    if es_embarazada_activa:
+        st.session_state.chk_personas_embarazadas = True
+        personas_embarazadas = st.checkbox("EMBARAZADAS", key="chk_personas_embarazadas", disabled=True)
+    else:
+        personas_embarazadas = st.checkbox("EMBARAZADAS", key="chk_personas_embarazadas")
+
+    if es_personal_salud_ocupacion:
+        st.session_state.chk_personal_salud_riesgo = True
+        personal_salud_riesgo = st.checkbox("PERSONAL DE SALUD", key="chk_personal_salud_riesgo", disabled=True)
+    else:
+        personal_salud_riesgo = st.checkbox("PERSONAL DE SALUD", key="chk_personal_salud_riesgo")
+
     vih = st.checkbox("VIH/sida", key="chk_vih")
     diabetes = st.checkbox("DIABETES MELLITUS", key="chk_diabetes")
     obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="chk_obesidad")
