@@ -19,12 +19,27 @@ st.markdown(
 
 st.markdown('<p class="main-header">📊 Censo General de Pacientes (Vista Exclusiva)</p>', unsafe_allow_html=True)
 
-# --- VALIDACIÓN DE SESIÓN COMPARTIDA DESDE EL MÓDULO OPERATIVO ---
-if "autenticado_consulta" not in st.session_state or not st.session_state.autenticado_consulta:
-    st.warning("⚠️ No se detectó una sesión activa en el módulo operativo. Por favor inicie sesión en la pestaña principal de Consulta CENSIA.")
-else:
+# --- VALIDACIÓN DE SESIÓN VÍA PARÁMETROS URL O SESSION STATE ---
+params = st.query_params
+sesion_url = params.get("sesion", "")
+correo_url = params.get("correo", "").strip().lower()
+
+sesion_valida = False
+correo_sesion = ""
+
+if "autenticado_consulta" in st.session_state and st.session_state.autenticado_consulta:
+    sesion_valida = True
     correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
-    
+elif sesion_url == "activa" and correo_url:
+    sesion_valida = True
+    correo_sesion = correo_url
+    # Sincronizamos la sesión para esta página
+    st.session_state.autenticado_consulta = True
+    st.session_state.correo_operativo_asignado = correo_url
+
+if not sesion_valida:
+    st.warning("⚠️ No se detectó una sesión activa. Por favor inicie sesión en la pestaña principal de Consulta CENSIA.")
+else:
     try:
         scope = GOOGLE_SCOPES
         if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -73,7 +88,6 @@ else:
             todos_los_datos = ws.get_all_values()
 
             if len(todos_los_datos) >= 14:
-                # Combinación inteligente de fila 12 y 13 como cabeceras
                 fila_cabecera_1 = todos_los_datos[11]
                 fila_cabecera_2 = todos_los_datos[12]
                 filas_tabla = todos_los_datos[13:]
