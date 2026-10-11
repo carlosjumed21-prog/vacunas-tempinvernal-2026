@@ -176,17 +176,14 @@ else:
 
             todos_los_datos = worksheet_activa.get_all_values()
             
-            # --- ESCANEO DINÁMICO ROBUSTO DE PACIENTES ---
+            # --- CARGA EXACTA DESDE LA FILA 13 EN ADELANTE (Col. B: Folio, Col. C: Paterno, Col. D: Materno, Col. E: Nombres) ---
             pacientes_cargados = []
-            for idx, row in enumerate(todos_los_datos, start=1):
-                # Verificamos si la fila tiene un folio válido en columna B (índice 1) y apellido en columna C (índice 2)
-                if len(row) > 2 and row[1].strip() and row[2].strip():
-                    folio_val = row[1].strip()
-                    # Evitamos tomar encabezados institucionales
-                    if "FOLIO" not in folio_val.upper():
+            if len(todos_los_datos) >= 13:
+                for idx, row in enumerate(todos_los_datos[12:], start=13):
+                    if len(row) > 4 and row[1].strip() and row[2].strip():
                         pacientes_cargados.append({
                             "fila": idx,
-                            "folio": folio_val,
+                            "folio": row[1].strip(),
                             "paterno": row[2].strip(),
                             "materno": row[3].strip() if len(row) > 3 else "",
                             "nombres": row[4].strip() if len(row) > 4 else "",
@@ -197,18 +194,22 @@ else:
 
         st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida</div>', unsafe_allow_html=True)
         if not pacientes_cargados:
-            st.info("La jornada no cuenta con pacientes registrados o el formato de censo requiere revisión.")
+            st.info("La jornada seleccionada aún no cuenta con pacientes registrados a partir de la fila 13.")
         else:
-            query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba aquí...")
-            if query_busqueda.strip():
+            query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...")
+            if not query_busqueda.strip():
+                st.info("ℹ️ Escriba en la lupa de búsqueda para localizar rápidamente a un paciente.")
+            else:
                 q_clean = query_busqueda.strip().upper()
                 pacientes_filtrados = [
                     p for p in pacientes_cargados
                     if q_clean in p["folio"].upper() or q_clean in p["paterno"].upper() or q_clean in p["materno"].upper() or q_clean in p["nombres"].upper()
                 ]
-                if pacientes_filtrados:
+                if not pacientes_filtrados:
+                    st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
+                else:
                     opciones_busqueda = [f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']}||{p['fila']}" for p in pacientes_filtrados]
-                    seleccion_paciente = st.selectbox("Seleccione:", options=opciones_busqueda, format_func=lambda x: x.split("||")[0])
+                    seleccion_paciente = st.selectbox("Seleccione del listado de coincidencias:", options=opciones_busqueda, format_func=lambda x: x.split("||")[0])
                     
                     if seleccion_paciente:
                         fila_idx = int(seleccion_paciente.split("||")[1])
@@ -312,3 +313,82 @@ else:
                                     {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
                                 </div>
                                 """, unsafe_allow_html=True)
+
+                        st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas y Lotes (Actualización en Base de Datos)</div>', unsafe_allow_html=True)
+                        with st.form("form_aplicacion_lotes"):
+                            st.markdown("##### 💉 INFLUENZA")
+                            c_inf1, c_inf2, c_inf3, c_inf4 = st.columns(4)
+                            with c_inf1: inf_1ra = st.checkbox("1ra dosis")
+                            with c_inf2: inf_2da = st.checkbox("2da dosis")
+                            with c_inf3: inf_anual = st.checkbox("Dosis anual")
+                            with c_inf4: lote_inf_input = st.text_input("Lote Influenza", value=st.session_state.lote_influenza_memoria, placeholder="Ej. A1234")
+
+                            st.markdown("##### 🦠 COVID-19")
+                            c_cov1, c_cov2, c_cov3, c_cov4 = st.columns(4)
+                            with c_cov1: cov_1ra = st.checkbox("COVID 1ra dosis")
+                            with c_cov2: cov_2da = st.checkbox("COVID 2da dosis")
+                            with c_cov3: cov_anual = st.checkbox("COVID Dosis anual")
+                            with c_cov4: lote_cov_input = st.text_input("Lote COVID-19", value=st.session_state.lote_covid_memoria, placeholder="Ej. C5678")
+
+                            btn_actualizar_dosis = st.form_submit_button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True)
+
+                            if btn_actualizar_dosis:
+                                try:
+                                    if lote_inf_input: st.session_state.lote_influenza_memoria = lote_inf_input.upper()
+                                    if lote_cov_input: st.session_state.lote_covid_memoria = lote_cov_input.upper()
+
+                                    f_actual = fila_idx
+                                    f_siguiente = fila_idx + 1
+                                    dosis_aplicadas_lista = []
+
+                                    if inf_1ra:
+                                        worksheet_activa.update(f"AG{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AG{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
+                                    if inf_2da:
+                                        worksheet_activa.update(f"AH{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AH{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (2da Dosis)")
+                                    if inf_anual:
+                                        worksheet_activa.update(f"AI{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AI{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
+
+                                    if cov_1ra:
+                                        worksheet_activa.update(f"AJ{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AJ{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (1ra Dosis)")
+                                    if cov_2da:
+                                        worksheet_activa.update(f"AK{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AK{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (2da Dosis)")
+                                    if cov_anual:
+                                        worksheet_activa.update(f"AL{f_actual}", [["X"]])
+                                        worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
+                                        dosis_aplicadas_lista.append("COVID-19 (Dosis Anual)")
+
+                                    lote_final_str = ""
+                                    if lote_inf_input and lote_cov_input:
+                                        lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
+                                    elif lote_inf_input:
+                                        lote_final_str = lote_inf_input.upper()
+                                    elif lote_cov_input:
+                                        lote_final_str = lote_cov_input.upper()
+
+                                    if lote_final_str:
+                                        worksheet_activa.update(f"AM{f_actual}", [[lote_final_str]])
+                                        worksheet_activa.update(f"AM{f_siguiente}", [[lote_final_str]])
+
+                                    dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+                                    fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
+
+                                    st.session_state.ultimo_comprobante_vacunacion = {
+                                        "nombre": nombre_completo,
+                                        "folio": folio_p,
+                                        "dosis_str": dosis_str,
+                                        "lotes_str": lote_final_str if lote_final_str else "N/A",
+                                        "fecha_hora": fecha_actual
+                                    }
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al actualizar la base de datos en Google Sheets: {e}")
