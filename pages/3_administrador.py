@@ -51,7 +51,6 @@ if "jornada_autorizada" not in st.session_state:
 if "hojas_creadas_recientes" not in st.session_state:
     st.session_state.hojas_creadas_recientes = []
 
-# Inicializar el historial general de jornadas en session_state
 if "historial_jornadas" not in st.session_state:
     st.session_state.historial_jornadas = []
 
@@ -88,7 +87,6 @@ else:
         unsafe_allow_html=True,
     )
 
-    # Menú de pestañas para organizar la creación y el historial
     tab_creacion, tab_historial = st.tabs(["🚀 Creación de Jornadas", "📋 Historial y Estatus de Jornadas"])
 
     with tab_creacion:
@@ -318,6 +316,12 @@ else:
                             ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
                             link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
 
+                            nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL" if siglas_unidad == "20N" else f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                            link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+
+                            url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
+                            formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
+
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                                 nombre_copia_2 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
@@ -354,8 +358,11 @@ else:
                                     hoja_activa.update_acell("S9", "")
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    # Inserción automática limpia en AR6 sin requerir permisos de terceros
-                                    hoja_activa.update_acell("AR6", link_paciente)
+                                    
+                                    # --- ASIGNACIÓN EXACTA EN AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
+                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
+                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
                                 except:
                                     pass
 
@@ -397,8 +404,11 @@ else:
                                     hoja_activa.update_acell("S9", "")
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    # Inserción automática limpia en AR6 sin requerir permisos de terceros
-                                    hoja_activa.update_acell("AR6", link_paciente)
+                                    
+                                    # --- ASIGNACIÓN EXACTA EN AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
+                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
+                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
                                 except:
                                     pass
 
@@ -419,7 +429,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, enlace QR guardado en la celda AR6 y hojas generadas con éxito en Google Sheets!"
+                            "¡Jornadas autorizadas, enlaces en AU6/AU7 y código QR como imagen en AU8 migrados con éxito a Google Sheets!"
                         )
 
                 except Exception as e:
