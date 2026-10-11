@@ -176,25 +176,28 @@ else:
 
             todos_los_datos = worksheet_activa.get_all_values()
             
-            # --- CARGA EXACTA DESDE LA FILA 13 EN ADELANTE (Col. B: Folio, Col. C: Paterno, Col. D: Materno, Col. E: Nombres) ---
+            # --- ESCANEO EXACTO POR PARES DE FILAS (Iniciando en fila 14, índice 13, saltando de 2 en 2) ---
             pacientes_cargados = []
-            if len(todos_los_datos) >= 13:
-                for idx, row in enumerate(todos_los_datos[12:], start=13):
+            if len(todos_los_datos) >= 14:
+                for idx in range(13, len(todos_los_datos), 2):
+                    row = todos_los_datos[idx]
                     if len(row) > 4 and row[1].strip() and row[2].strip():
-                        pacientes_cargados.append({
-                            "fila": idx,
-                            "folio": row[1].strip(),
-                            "paterno": row[2].strip(),
-                            "materno": row[3].strip() if len(row) > 3 else "",
-                            "nombres": row[4].strip() if len(row) > 4 else "",
-                        })
+                        folio_val = row[1].strip()
+                        if "FOLIO" not in folio_val.upper():
+                            pacientes_cargados.append({
+                                "fila": idx + 1,  # Número de fila real en Sheets (ej. 14)
+                                "folio": folio_val,
+                                "paterno": row[2].strip(),
+                                "materno": row[3].strip() if len(row) > 3 else "",
+                                "nombres": row[4].strip() if len(row) > 4 else "",
+                            })
         except Exception as e:
             pacientes_cargados = []
             st.error(f"Error al leer datos de la hoja: {e}")
 
         st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida</div>', unsafe_allow_html=True)
         if not pacientes_cargados:
-            st.info("La jornada seleccionada aún no cuenta con pacientes registrados a partir de la fila 13.")
+            st.info("La jornada no cuenta con pacientes registrados a partir de las filas 14-15.")
         else:
             query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...")
             if not query_busqueda.strip():
