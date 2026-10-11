@@ -260,7 +260,7 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- CARGA Y PROPAGACIÓN DE DATOS DE CENSIA (Rellenando celdas vacías por diseño de celdas combinadas) ---
+    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE LAS HOJAS 'Influenza' y 'COVID' ---
     guia_influenza_registros = []
     guia_covid_registros = []
     try:
@@ -295,7 +295,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID
+        # Hoja 2: COVID (Mantiene la propagación para leer todos los biológicos de la Columna A)
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -523,29 +523,31 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- CRUCE EXACTO CON LAS HOJAS CENSIA ---
+                        # --- CRUCE Y RECOLECCIÓN DE TODAS LAS OPCIONES DE BIOLÓGICOS (Moderna y Pfizer) ---
                         match_inf = None
-                        match_cov = None
+                        matches_covid = []
 
                         for item in guia_influenza_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if "RIESGO" in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
+                            if categoria_paciente in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
                                 match_inf = item
                                 break
                         if not match_inf and guia_influenza_registros:
                             match_inf = guia_influenza_registros[0]
 
+                        # Recorremos todas las filas de COVID para extraer CUALQUIER biológico que aplique al grupo
                         for item in guia_covid_registros:
                             cat_b = item["categoria"].strip().upper()
                             gb_c = item["grupos_blancos"].strip().upper()
-                            if "RIESGO" in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
-                                match_cov = item
-                                break
-                        if not match_cov and guia_covid_registros:
-                            match_cov = guia_covid_registros[0]
+                            if categoria_paciente in cat_b and any("SALUD" in gb_c or "COMORBILIDADES" in gb_c or r.upper() in gb_c for r in lista_riesgos_detectados):
+                                if item not in matches_covid:
+                                    matches_covid.append(item)
+                        
+                        if not matches_covid and guia_covid_registros:
+                            matches_covid.append(guia_covid_registros[0])
 
-                        # --- RENDERIZADO DE CARDS DE RECOMENDACIÓN ---
+                        # --- RENDERIZADO DE CARDS DE INFLUENZA ---
                         if mostrar_influenza and match_inf:
                             simultanea_inf = match_inf.get("aplicacion_simultanea", "")
                             st.markdown(
@@ -564,24 +566,26 @@ else:
                                 unsafe_allow_html=True,
                             )
 
-                        if mostrar_covid and match_cov:
-                            tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
-                            simultanea_cov = match_cov.get("aplicacion_simultanea", "")
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico - Col. A: {tipo_biologico_covid})</h4>
-                                    <p><b>Categoría (Col. B):</b> {match_cov.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos (Col. C):</b> {match_cov.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema (Col. D):</b> {match_cov.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis (Col. E):</b> {match_cov.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo (Col. F):</b> {match_cov.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación (Col. G):</b> {match_cov.get('recomendacion', 'N/A')}</p>
-                                    {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
+                        # --- RENDERIZADO DE CARDS DE COVID (TODOS LOS BIOLÓGICOS APLICABLES: Moderna, Pfizer, etc.) ---
+                        if mostrar_covid:
+                            for idx_cov, match_cov in enumerate(matches_covid):
+                                tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
+                                simultanea_cov = match_cov.get("aplicacion_simultanea", "")
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                        <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico - Col. A: {tipo_biologico_covid})</h4>
+                                        <p><b>Categoría (Col. B):</b> {match_cov.get('categoria', 'N/A')}</p>
+                                        <p><b>Grupos blancos (Col. C):</b> {match_cov.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema (Col. D):</b> {match_cov.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis (Col. E):</b> {match_cov.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo (Col. F):</b> {match_cov.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación (Col. G):</b> {match_cov.get('recomendacion', 'N/A')}</p>
+                                        {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
 
                         st.markdown(
                             '<div class="section-title">4. Registro de Dosis Aplicadas y'
