@@ -719,28 +719,7 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SELECTORES DE MES Y AÑO ---
-st.markdown(
-    "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
-    unsafe_allow_html=True,
-)
-
-if "fecha_nac_str" not in st.session_state:
-    st.session_state.fecha_nac_str = "15/10/1993"
-
-fecha_inicial_iso = ""
-val_str = st.session_state.fecha_nac_str
-if val_str:
-    try:
-        if "/" in val_str:
-            partes = val_str.split("/")
-            if len(partes) == 3:
-                fecha_inicial_iso = f"{partes[2]}-{partes[1]}-{partes[0]}"
-        else:
-            fecha_inicial_iso = val_str
-    except:
-        pass
-
+# --- CALENDARIO INTERACTIVO Y CAMPO DE TEXTO BLOQUEADO (SOLO LECTURA) ---
 componente_calendario_html = f"""
 <!DOCTYPE html>
 <html>
@@ -843,7 +822,7 @@ componente_calendario_html = f"""
 
 <script>
     let fechaActual = new Date(1993, 9, 15);
-    let fechaSeleccionada = {f"new Date('{fecha_inicial_iso}')" if fecha_inicial_iso else 'null'};
+    let fechaSeleccionada = new Date(1993, 9, 15);
 
     function inicializarAnios() {{
         const selectYear = document.getElementById('select-year');
@@ -926,9 +905,6 @@ componente_calendario_html = f"""
     }}
 
     inicializarAnios();
-    if (fechaSeleccionada) {{
-        fechaActual = new Date(fechaSeleccionada);
-    }}
     renderCalendario();
 </script>
 
@@ -938,15 +914,16 @@ componente_calendario_html = f"""
 
 components.html(componente_calendario_html, height=290)
 
-def actualizar_fecha_callback():
-    pass
+if "fecha_nac_str" not in st.session_state:
+    st.session_state.fecha_nac_str = "15/10/1993"
 
+# Campo bloqueado (disabled=True) para evitar que el usuario escriba y genere bugs de formato
 fecha_nac_str = st.text_input(
     "Fecha Seleccionada", 
+    value=st.session_state.fecha_nac_str,
     key="fecha_nac_str", 
     label_visibility="collapsed", 
-    placeholder="DD/MM/YYYY",
-    on_change=actualizar_fecha_callback
+    disabled=True
 )
 
 fecha_nacimiento = None
