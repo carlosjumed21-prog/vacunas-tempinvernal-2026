@@ -256,30 +256,51 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE EL NUEVO GOOGLE SHEET DE REFERENCIA ---
-    guia_censia_registros = []
+    # --- CARGA DINÁMICA DE LA GUÍA CENSIA DESDE LAS HOJAS 'Influenza' y 'COVID' ---
+    guia_influenza_registros = []
+    guia_covid_registros = []
     try:
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
-        ws_guia = doc_censia.worksheet(doc_censia.worksheets()[0].title)
-        filas_guia = ws_guia.get_all_values()
         
-        # Mapeo: Columna A (Vacuna), B (Grupos blancos), D (Esquema), E (Dosis), F (Intervalo)
-        for row in filas_guia[1:]:
-            if len(row) >= 6:
-                vacuna_val = row[0].strip()
-                grupo_val = row[1].strip()
-                esquema_val = row[3].strip()
-                dosis_val = row[4].strip()
-                intervalo_val = row[5].strip()
-                if vacuna_val or grupo_val:
-                    guia_censia_registros.append({
-                        "vacuna": vacuna_val,
-                        "grupo": grupo_val,
-                        "esquema": esquema_val,
-                        "dosis": dosis_val,
-                        "intervalo": intervalo_val
+        # Hoja 1: Influenza (Columnas: A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
+        try:
+            ws_inf = doc_censia.worksheet("Influenza")
+            filas_inf = ws_inf.get_all_values()
+            for row in filas_inf[1:]:
+                if len(row) >= 7:
+                    guia_influenza_registros.append({
+                        "vacuna": row[0].strip(),
+                        "categoria": row[1].strip(),
+                        "grupos_blancos": row[2].strip(),
+                        "esquema": row[3].strip(),
+                        "dosis": row[4].strip(),
+                        "intervalo": row[5].strip(),
+                        "recomendacion": row[6].strip(),
+                        "aplicacion_simultanea": row[7].strip() if len(row) >= 8 else ""
                     })
+        except Exception:
+            pass
+
+        # Hoja 2: COVID (Columnas: A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
+        try:
+            ws_cov = doc_censia.worksheet("COVID")
+            filas_cov = ws_cov.get_all_values()
+            for row in filas_cov[1:]:
+                if len(row) >= 7:
+                    guia_covid_registros.append({
+                        "vacuna": row[0].strip(),
+                        "categoria": row[1].strip(),
+                        "grupos_blancos": row[2].strip(),
+                        "esquema": row[3].strip(),
+                        "dosis": row[4].strip(),
+                        "intervalo": row[5].strip(),
+                        "recomendacion": row[6].strip(),
+                        "aplicacion_simultanea": row[7].strip() if len(row) >= 8 else ""
+                    })
+        except Exception:
+            pass
+
     except Exception as e:
         pass
 
@@ -407,6 +428,9 @@ else:
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                         sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
+                        # Detección de la vacuna de interés registrada (Columna de interés en censo o lógica general)
+                        vacuna_registrada = fila_datos[25].strip().upper() if len(fila_datos) > 25 else "AMBAS"
+
                         grupos_letras = {
                             "P": "6 A 59 MESES",
                             "Q": "60 Y MÁS",
@@ -445,65 +469,79 @@ else:
                             st.markdown(f"**Sexo:** {sexo_texto}")
                         with col3:
                             st.markdown(f"**Grupo Objetivo:** {grupo_detectado}")
-                            st.markdown(f"**Registro Base:** Activo")
+                            st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos'
-                            " CENSIA</div>",
+                            " CENSIA (Tarjetas Informativas)</div>",
                             unsafe_allow_html=True,
                         )
 
-                        # --- FILTRADO DINÁMICO DESDE EL NUEVO GOOGLE SHEET DE GUÍA ---
-                        guia_inf_match = None
-                        guia_cov_match = None
+                        # --- BÚSQUEDA DINÁMICA EN LAS LISTAS DE INFLUENZA Y COVID ---
+                        inf_match = None
+                        cov_match = None
 
                         g_upper = grupo_detectado.upper()
-                        for item in guia_censia_registros:
-                            v_clean = item["vacuna"].upper()
-                            g_target = item["grupo"].upper()
-                            
-                            # Coincidencia flexible por texto de grupo o rangos
-                            if g_target in g_upper or g_upper in g_target or ("6 A 59" in g_upper and "59" in g_target) or ("60" in g_upper and "60" in g_target):
-                                if "INFLUENZA" in v_clean:
-                                    guia_inf_match = item
-                                elif "COVID" in v_clean:
-                                    guia_cov_match = item
+                        
+                        # Buscar coincidencia en Influenza
+                        for item in guia_influenza_registros:
+                            g_target = item["grupos_blancos"].upper()
+                            if g_target and (g_target in g_upper or g_upper in g_target or "6 A 59" in g_upper and "59" in g_target):
+                                inf_match = item
+                                break
+                        if not inf_match and guia_influenza_registros:
+                            inf_match = guia_influenza_registros[0]  # Respaldo
 
-                        # Si no hay match exacto, tomamos genéricos de respaldo
-                        if not guia_inf_match and guia_censia_registros:
-                            for item in guia_censia_registros:
-                                if "INFLUENZA" in item["vacuna"].upper():
-                                    guia_inf_match = item
-                                    break
-                        if not guia_cov_match and guia_censia_registros:
-                            for item in guia_censia_registros:
-                                if "COVID" in item["vacuna"].upper():
-                                    guia_cov_match = item
-                                    break
+                        # Buscar coincidencia en COVID
+                        for item in guia_covid_registros:
+                            g_target = item["grupos_blancos"].upper()
+                            if g_target and (g_target in g_upper or g_upper in g_target):
+                                cov_match = item
+                                break
+                        if not cov_match and guia_covid_registros:
+                            cov_match = guia_covid_registros[0]  # Respaldo
 
-                        txt_inf = f"<b>Esquema:</b> {guia_inf_match['esquema']} | <b>Dosis:</b> {guia_inf_match['dosis']} | <b>Intervalo:</b> {guia_inf_match['intervalo']}" if guia_inf_match else "Lineamiento no especificado."
-                        txt_cov = f"<b>Esquema:</b> {guia_cov_match['esquema']} | <b>Dosis:</b> {guia_cov_match['dosis']} | <b>Intervalo:</b> {guia_cov_match['intervalo']}" if guia_cov_match else "Lineamiento no especificado."
+                        # --- MOSTRAR CARDS SEGÚN LA VACUNA SELECCIONADA / REGISTRADA ---
+                        
+                        # Si se registró AMBAS, mostramos las recomendaciones/esquemas y además la columna H (Aplicación Simultánea)
+                        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
+                        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        st.markdown(
-                            f"""
-                            <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #1e5b4f; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
-                                <h4 style="color: #1e5b4f; margin-top: 0;">💉 Guía para Influenza Estacional</h4>
-                                <p><b>Grupo:</b> {grupo_detectado}</p>
-                                <p><b>Lineamiento CENSIA:</b> {txt_inf}</p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                        st.markdown(
-                            f"""
-                            <div class="card-recomendacion" style="background-color: #f7f4eb; border-left: 5px solid #611232; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                                <h4 style="color: #611232; margin-top: 0;">🦠 Guía para COVID-19</h4>
-                                <p><b>Grupo:</b> {grupo_detectado}</p>
-                                <p><b>Lineamiento CENSIA:</b> {txt_cov}</p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                        if mostrar_influenza and inf_match:
+                            simultanea_inf = inf_match.get("aplicacion_simultanea", "")
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <h4 style="color: #1e5b4f; margin-top: 0;">💉 Vacuna: {inf_match.get('vacuna', 'Influenza estacional')}</h4>
+                                    <p><b>Categoría:</b> {inf_match.get('categoria', 'N/A')}</p>
+                                    <p><b>Grupos blancos:</b> {inf_match.get('grupos_blancos', 'N/A')}</p>
+                                    <p><b>Esquema:</b> {inf_match.get('esquema', 'N/A')}</p>
+                                    <p><b>Dosis:</b> {inf_match.get('dosis', 'N/A')}</p>
+                                    <p><b>Intervalo:</b> {inf_match.get('intervalo', 'N/A')}</p>
+                                    <p><b>Recomendación:</b> {inf_match.get('recomendacion', 'N/A')}</p>
+                                    {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                        if mostrar_covid and cov_match:
+                            simultanea_cov = cov_match.get("aplicacion_simultanea", "")
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <h4 style="color: #611232; margin-top: 0;">🦠 Vacuna: {cov_match.get('vacuna', 'COVID-19')}</h4>
+                                    <p><b>Categoría:</b> {cov_match.get('categoria', 'N/A')}</p>
+                                    <p><b>Grupos blancos:</b> {cov_match.get('grupos_blancos', 'N/A')}</p>
+                                    <p><b>Esquema:</b> {cov_match.get('esquema', 'N/A')}</p>
+                                    <p><b>Dosis:</b> {cov_match.get('dosis', 'N/A')}</p>
+                                    <p><b>Intervalo:</b> {cov_match.get('intervalo', 'N/A')}</p>
+                                    <p><b>Recomendación:</b> {cov_match.get('recomendacion', 'N/A')}</p>
+                                    {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
                         st.markdown(
                             '<div class="section-title">4. Registro de Dosis Aplicadas y'
