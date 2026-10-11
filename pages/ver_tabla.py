@@ -53,7 +53,6 @@ else:
         todos_los_datos = ws.get_all_values()
 
         if len(todos_los_datos) >= 14:
-            # Combinación de cabeceras filas 12 y 13 del Sheets original
             fila_cabecera_1 = todos_los_datos[11]
             fila_cabecera_2 = todos_los_datos[12]
             filas_tabla = todos_los_datos[13:]
@@ -86,30 +85,27 @@ else:
 
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
             
-            st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros en verde indican esquemas de vacunación completados.*")
+            st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros sombreados en verde indican aplicaciones de biológicos registradas.*")
             
-            # --- FUNCIÓN DE ESTILIZACIÓN CONDICIONAL (FILAS EN VERDE) ---
+            # --- FUNCIÓN DE ESTILIZACIÓN CONDICIONAL (FILA EN VERDE SI HAY 'X' EN APLICACIÓN) ---
             def colorear_completados(row):
-                # Evaluamos de acuerdo a las columnas de aplicación (ej. índices de columnas AG a AN aprox. según tu mapeo)
-                # Verificamos si alguna celda de aplicación clave tiene una "X" registrada
                 completado = False
                 try:
-                    # Buscamos columnas que contengan 'INFLUENZA' o 'COVID' y tengan 'X'
-                    for col_name in row.index:
-                        val_celda = str(row[col_name]).strip().upper()
-                        if val_celda == "X" and ("INFLUENZA" in col_name.upper() or "COVID" in col_name.upper() or "ESQUEMA" in col_name.upper()):
-                            completado = True
-                            break
+                    for col_name, val in row.items():
+                        v_str = str(val).strip().upper()
+                        # Si encuentra una X y la columna pertenece a las de aplicación o esquema posterior
+                        if v_str == "X":
+                            c_upper = str(col_name).upper()
+                            if any(k in c_upper for k in ["INFLUENZA", "COVID", "DOSIS", "ESQUEMA", "AG", "AH", "AI", "AL", "AM", "AN"]):
+                                completado = True
+                                break
                 except:
                     pass
                 
-                # Si está completado, aplicamos verde claro elegante; de lo contrario, fondo normal
-                return ['background-color: #d4edda; color: #155724;' if completado else '' for _ in row]
+                return ['background-color: #d4edda; color: #155724; font-weight: 600;' if completado else '' for _ in row]
 
-            # Aplicamos el estilo al DataFrame
             df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
 
-            # --- TABLA EXPANDIDA A PANTALLA COMPLETA CON ESTILOS ---
             st.dataframe(
                 df_estilizado,
                 use_container_width=True,
