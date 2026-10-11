@@ -263,7 +263,7 @@ else:
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
         
-        # Hoja 1: Influenza (Columnas: A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
+        # Hoja 1: Influenza (Columnas A a H)
         try:
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
@@ -282,7 +282,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID (Columnas: A-Vacuna, B-Categoría, C-Grupos blancos, D-Esquema, E-Dosis, F-Intervalo, G-Recomendación, H-Aplicación Simultánea)
+        # Hoja 2: COVID (Columnas A a H)
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -428,7 +428,6 @@ else:
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                         sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
-                        # Detección de la vacuna de interés registrada (Columna de interés en censo o lógica general)
                         vacuna_registrada = fila_datos[25].strip().upper() if len(fila_datos) > 25 else "AMBAS"
 
                         grupos_letras = {
@@ -477,35 +476,38 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # --- BÚSQUEDA DINÁMICA EN LAS LISTAS DE INFLUENZA Y COVID ---
+                        # --- BÚSQUEDA DINÁMICA FLEXIBLE DE REGISTROS ---
                         inf_match = None
                         cov_match = None
 
                         g_upper = grupo_detectado.upper()
                         
-                        # Buscar coincidencia en Influenza
+                        # Búsqueda flexible en Influenza
                         for item in guia_influenza_registros:
                             g_target = item["grupos_blancos"].upper()
-                            if g_target and (g_target in g_upper or g_upper in g_target or "6 A 59" in g_upper and "59" in g_target):
+                            if g_target and (g_target in g_upper or g_upper in g_target or "6 A 59" in g_upper or "60" in g_upper):
                                 inf_match = item
                                 break
                         if not inf_match and guia_influenza_registros:
-                            inf_match = guia_influenza_registros[0]  # Respaldo
+                            inf_match = guia_influenza_registros[0]
 
-                        # Buscar coincidencia en COVID
+                        # Búsqueda flexible en COVID
                         for item in guia_covid_registros:
                             g_target = item["grupos_blancos"].upper()
-                            if g_target and (g_target in g_upper or g_upper in g_target):
+                            if g_target and (g_target in g_upper or g_upper in g_target or "6 A 59" in g_upper or "60" in g_upper):
                                 cov_match = item
                                 break
                         if not cov_match and guia_covid_registros:
-                            cov_match = guia_covid_registros[0]  # Respaldo
+                            cov_match = guia_covid_registros[0]
 
-                        # --- MOSTRAR CARDS SEGÚN LA VACUNA SELECCIONADA / REGISTRADA ---
-                        
-                        # Si se registró AMBAS, mostramos las recomendaciones/esquemas y además la columna H (Aplicación Simultánea)
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
+
+                        # Forzar visualización de respaldo si la lista trae elementos pero no hubo match estricto
+                        if mostrar_influenza and not inf_match and guia_influenza_registros:
+                            inf_match = guia_influenza_registros[0]
+                        if mostrar_covid and not cov_match and guia_covid_registros:
+                            cov_match = guia_covid_registros[0]
 
                         if mostrar_influenza and inf_match:
                             simultanea_inf = inf_match.get("aplicacion_simultanea", "")
