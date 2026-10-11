@@ -1,770 +1,720 @@
 import datetime
+import io
 import json
 import urllib.parse
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+from config import (
+    GOOGLE_SCOPES,
+    GOOGLE_SHEET_ID,
+    UNIDADES_ISSSTE,
+    aplicar_configuracion_global,
+)
 from google.oauth2 import service_account
 import gspread
+import qrcode
 import streamlit as st
-import streamlit.components.v1 as components
-from utils.sheets_esquemas import obtener_recomendaciones_paciente
 
-aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
+aplicar_configuracion_global("Panel de Administración - Censo Nominal", "⚙️")
 
 # --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT ---
 st.markdown(
     """
     <style>
         header {visibility: hidden;}
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-
-# --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
-@st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
-def mostrar_dialogo_cerrar_sesion():
-    st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
-    st.markdown("¿Deseas cerrar sesión y regresar al menú principal?")
-    
-    col_dlg1, col_dlg2 = st.columns(2)
-    with col_dlg1:
-        if st.button("Sí, Cerrar Sesión", use_container_width=True):
-            st.session_state.autenticado_consulta = False
-            st.session_state.correo_operativo_asignado = ""
-            st.session_state.ultimo_comprobante_vacunacion = None
-            if "input_busqueda_lupa" in st.session_state:
-                st.session_state.input_busqueda_lupa = ""
-            st.switch_page("app.py")
-    with col_dlg2:
-        if st.button("Cancelar", use_container_width=True):
-            st.rerun()
-
-
-# --- BOTÓN DE CIERRE DE SESIÓN EN LA CABECERA ---
-col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 1])
-with col_nav3:
-    if st.button("🚪 Cerrar Sesión", use_container_width=True):
-        mostrar_dialogo_cerrar_sesion()
+col_nav1, col_nav2 = st.columns([1, 1])
+with col_nav1:
+    if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
+        st.session_state.autenticado_admin = False
+        st.session_state.usuario_admin_actual = ""
+        st.session_state.jornada_autorizada = False
+        st.session_state.hojas_creadas_recientes = []
+        st.rerun()
+with col_nav2:
+    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+        st.switch_page("app.py")
 
 st.markdown("---")
 
-if "lote_influenza_memoria" not in st.session_state:
-    st.session_state.lote_influenza_memoria = ""
-if "lote_covid_memoria" not in st.session_state:
-    st.session_state.lote_covid_memoria = ""
+if "autenticado_admin" not in st.session_state:
+    st.session_state.autenticado_admin = False
+if "usuario_admin_actual" not in st.session_state:
+    st.session_state.usuario_admin_actual = ""
+if "unidad_anterior" not in st.session_state:
+    st.session_state.unidad_anterior = ""
+if "config_direccion_base" not in st.session_state:
+    st.session_state.config_direccion_base = (
+        "Avenida Félix Cuevas 540, Del Valle Sur, Benito Juárez, 03100 Ciudad de México, CDMX"
+    )
+if "jornada_autorizada" not in st.session_state:
+    st.session_state.jornada_autorizada = False
+if "hojas_creadas_recientes" not in st.session_state:
+    st.session_state.hojas_creadas_recientes = []
 
-if "autenticado_consulta" not in st.session_state:
-    st.session_state.autenticado_consulta = False
-if "correo_operativo_asignado" not in st.session_state:
-    st.session_state.correo_operativo_asignado = ""
+if "historial_jornadas" not in st.session_state:
+    st.session_state.historial_jornadas = []
 
-if "ultimo_comprobante_vacunacion" not in st.session_state:
-    st.session_state.ultimo_comprobante_vacunacion = None
-
-
-@st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
-def mostrar_modal_comprobante_vacunacion():
-    p = st.session_state.ultimo_comprobante_vacunacion
-    if p:
-        nombre_val = p.get("nombre", "PACIENTE")
-        folio_val = p.get("folio", "S/F")
-        dosis_val = p.get("dosis_str", "N/A")
-        lotes_val = p.get("lotes_str", "N/A")
-        fecha_val = p.get("fecha_aplicacion", datetime.datetime.now().strftime("%d/%m/%Y"))
-
-        texto_qr = (
-            f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
-            f"FOLIO: {folio_val}\n"
-            f"PACIENTE: {nombre_val}\n"
-            f"DOSIS: {dosis_val}\n"
-            f"LOTES: {lotes_val}\n"
-            f"FECHA APLICACIÓN: {fecha_val}\n"
-            f"ESTADO: VÁLIDO Y VERIFICADO"
-        )
-        url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
-
-        html_comprobante_component = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <style>
-            body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ 
-                position: relative; 
-                background-color: #ffffff; 
-                border: 3px solid #1e5b4f; 
-                padding: 12px; 
-                border-radius: 10px; 
-                color: #161a1d; 
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-                margin-bottom: 10px; 
-                overflow: hidden; 
-            }}
-            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
-            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
-            .info-container {{ flex: 1; z-index: 2; position: relative; }}
-            .qr-container {{ text-align: center; z-index: 2; position: relative; }}
-            .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
-            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
-            .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-            
-            .watermark-overlay {{
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-evenly;
-                align-items: center;
-                pointer-events: none;
-                z-index: 1;
-                overflow: hidden;
-            }}
-            .watermark-row {{
-                display: flex;
-                gap: 15px;
-                white-space: nowrap;
-                font-size: 0.85rem;
-                font-weight: 900;
-                color: rgba(30, 91, 79, 0.10);
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                transform: rotate(-25deg);
-            }}
-            
-            .btn-container {{ display: flex; gap: 8px; }}
-            .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #1e5b4f; color: white; }}
-        </style>
-        </head>
-        <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark-overlay">
-                    <div class="watermark-row">
-                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
-                    </div>
-                    <div class="watermark-row">
-                        <span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span>
-                    </div>
-                </div>
-                <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
-                <div class="cuerpo-ticket">
-                    <div class="info-container">
-                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
-                        <p class="info-text"><b>Dosis:</b> {dosis_val}</p>
-                        <p class="info-text"><b>Lotes:</b> {lotes_val}</p>
-                        <p class="info-text"><b>Fecha de Aplicación:</b> {fecha_val}</p>
-                    </div>
-                    <div class="qr-container">
-                        <img src="{url_qr_api}" alt="QR Verificación">
-                    </div>
-                </div>
-                <div class="folio-grande">Folio: {folio_val}</div>
-            </div>
-            <div class="btn-container">
-                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
-            </div>
-            <script>
-            function compartirImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha Aplicación: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
-                        
-                        const enlace = document.createElement('a');
-                        enlace.download = fileName;
-                        enlace.href = URL.createObjectURL(blob);
-                        enlace.click();
-                        
-                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                    }}, 'image/png');
-                }});
-            }}
-            function descargarCaptura() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
-                    const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }});
-            }}
-            </script>
-        </body>
-        </html>
-        """
-
-        components.html(html_comprobante_component, height=330)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("✖ Cerrar Comprobante", use_container_width=True):
-            st.session_state.ultimo_comprobante_vacunacion = None
-            if "input_busqueda_lupa" in st.session_state:
-                st.session_state.input_busqueda_lupa = ""
-            st.rerun()
-
-
-if st.session_state.ultimo_comprobante_vacunacion is not None:
-    mostrar_modal_comprobante_vacunacion()
-
-if not st.session_state.autenticado_consulta:
+if not st.session_state.autenticado_admin:
     st.markdown(
-        '<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>',
+        '<p class="main-header">Acceso Restringido - Panel de Administración</p>',
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>',
+        '<p class="sub-header">Ingrese su correo electrónico y contraseña de administrador</p>',
         unsafe_allow_html=True,
     )
 
-    with st.form("form_login_consulta"):
-        # --- LOGIN ÚNICAMENTE POR CORREO Y CONTRASEÑA ---
-        correo_operador_input = st.text_input(
-            "📧 Correo Electrónico Institucional:",
-            placeholder="ejemplo@issste.gob.mx"
+    with st.form("form_login_admin"):
+        # --- LOGIN DE ADMINISTRADOR POR CORREO Y CONTRASEÑA ---
+        correo_admin_input = st.text_input(
+            "📧 Correo Electrónico Administrador:",
+            placeholder="carlosju.med21@gmail.com"
         )
-        password = st.text_input("Contraseña:", type="password")
+        password_admin = st.text_input("Contraseña:", type="password")
         
-        btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
+        btn_login_admin = st.form_submit_button(
+            "Ingresar al Panel", use_container_width=True
+        )
 
-        if btn_login:
-            correo_limpio = correo_operador_input.strip().lower()
-            if not correo_limpio:
+        if btn_login_admin:
+            correo_admin_limpio = correo_admin_input.strip().lower()
+            if not correo_admin_limpio:
                 st.error("⚠️ Debe ingresar su correo electrónico.")
-            elif not password:
+            elif not password_admin:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                # Si entras con tu correo de administrador, validamos tu contraseña especial
-                if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_limpio
-                    st.rerun()
-                elif password == "OperativoInv26":
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_limpio
+                if (correo_admin_limpio == "carlosju.med21@gmail.com" and password_admin == "OtaniOrochi26") or \
+                   (correo_admin_limpio == "wendy@issste.gob.mx" and password_admin == "MedPrev26"):
+                    st.session_state.autenticado_admin = True
+                    st.session_state.usuario_admin_actual = correo_admin_limpio
                     st.rerun()
                 else:
-                    st.error("❌ Credenciales incorrectas. Verifique su correo y contraseña.")
+                    st.error("❌ Correo o contraseña de administrador incorrectos.")
 else:
     st.markdown(
-        '<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="sub-header">Selección de jornada autorizada, evaluación'
-        " clínica y registro de biológicos</p>",
+        '<p class="main-header">Panel de Control y Administración (Acceso Universal)</p>',
         unsafe_allow_html=True,
     )
 
-    try:
-        scope = GOOGLE_SCOPES
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = (
-                json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    tab_creacion, tab_historial = st.tabs(["🚀 Creación de Jornadas", "📋 Historial y Estatus de Jornadas"])
+
+    with tab_creacion:
+        st.markdown(
+            '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">1. Configuración de Operación y Unidad</div>',
+            unsafe_allow_html=True,
+        )
+
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            unidad_sel = st.selectbox(
+                "Unidad Médica ISSSTE:", options=list(UNIDADES_ISSSTE.keys())
             )
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
+            siglas_unidad = (
+                UNIDADES_ISSSTE[unidad_sel]["sigla"]
+                if unidad_sel in UNIDADES_ISSSTE
+                else ""
+            )
 
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        with col_c2:
+            jornada_sel = st.selectbox(
+                "Tipo de Jornada:",
+                options=["Seleccione tipo...", "Intramuros I", "Extramuros E"],
+            )
+            tipo_jornada_letra = (
+                "I"
+                if "Intramuros" in jornada_sel
+                else ("E" if "Extramuros" in jornada_sel else "")
+            )
+            tipo_jornada_texto = (
+                "INTRA"
+                if tipo_jornada_letra == "I"
+                else ("EXTRA" if tipo_jornada_letra == "E" else "")
+            )
 
-        todas_las_hojas = spreadsheet.worksheets()
-        
-        correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
-        h_autorizadas = []
-        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
+        if (
+            unidad_sel != "Seleccione una unidad médica..."
+            and st.session_state.unidad_anterior != unidad_sel
+        ):
+            st.session_state.unidad_anterior = unidad_sel
+            st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
+            st.session_state.jornada_autorizada = False
+            st.rerun()
 
-        # --- LLAVE UNIVERSAL: Si eres tú (carlosju.med21@gmail.com), ves TODAS las hojas del libro ---
-        if correo_sesion == "carlosju.med21@gmail.com":
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    h_autorizadas.append(h.title)
-        else:
-            # Para personal operativo, filtramos buscando estrictamente su correo en la celda AU4
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append(h.title)
-                    except:
-                        pass
-
-    except Exception as e:
-        h_autorizadas = []
-        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
-
-    # --- SELECTOR UNIVERSAL PARA EL ADMIN O ASIGNADO PARA OPERATIVOS ---
-    if correo_sesion == "carlosju.med21@gmail.com":
-        st.markdown(
-            f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>',
-            unsafe_allow_html=True,
-        )
-        if h_autorizadas:
-            # Como admin puedes seleccionar libremente cualquier hoja del libro
-            hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
-        else:
-            hoja_seleccionada = None
-            st.warning("⚠️ No se encontraron hojas operativas en el libro.")
-    else:
-        st.markdown(
-            f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
-            unsafe_allow_html=True,
-        )
-        if not h_autorizadas:
+        if (
+            unidad_sel == "Seleccione una unidad médica..."
+            or jornada_sel == "Seleccione tipo..."
+        ):
             st.warning(
-                f"⚠️ No se encontró ninguna hoja autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
-                "Verifique que su correo coincida exactamente con el registrado en la celda AU4."
-            )
-            hoja_seleccionada = None
-        else:
-            hoja_seleccionada = h_autorizadas[0]
-            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
-
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE (ABRE EL LIBRO COMPLETO SIN FILTROS DE URL) ---
-    col_v1, col_v2 = st.columns([3, 1])
-    with col_v1:
-        st.markdown(f"<b>Hoja Activa en Pantalla:</b> {hoja_seleccionada if hoja_seleccionada else 'Ninguna'}", unsafe_allow_html=True)
-    with col_v2:
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("📊 Visualizar Libro Completo", use_container_width=True, help="Abrir el Google Sheets completo con todas las pestañas visibles"):
-            try:
-                # Enlace universal limpio sin #gid= para que veas todo el libro de Google Sheets
-                url_libro_completo = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing"
-                st.markdown(f'<meta http-equiv="refresh" content="0;url={url_libro_completo}">', unsafe_allow_html=True)
-                st.success("🔗 Abriendo el libro completo de Google Sheets...")
-            except Exception as ex:
-                st.warning(f"No se pudo abrir el enlace: {ex}")
-
-    # Ignoramos cualquier parámetro de URL ajeno (como hoja_activa) si eres el administrador para darte total libertad
-    if correo_sesion != "carlosju.med21@gmail.com":
-        params_url = st.query_params
-        hoja_enlace = params_url.get("hoja_activa", "")
-        if hoja_enlace and hoja_enlace in h_autorizadas:
-            hoja_seleccionada = hoja_enlace
-
-    if hoja_seleccionada:
-        try:
-            try:
-                worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
-            except:
-                worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
-
-            todos_los_datos = worksheet_activa.get_all_values()
-
-            # --- EXTRACCIÓN DE LA FECHA DE APLICACIÓN DESDE LA FILA 9, COLUMNA AB (Índice 27) ---
-            fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
-            if len(todos_los_datos) >= 9 and len(todos_los_datos[8]) > 27:
-                val_ab9 = todos_los_datos[8][27].strip()
-                if val_ab9:
-                    fecha_aplicacion_hoja = val_ab9
-
-            pacientes_cargados = []
-            if len(todos_los_datos) >= 13:
-                for idx, row in enumerate(todos_los_datos[12:], start=13):
-                    if len(row) > 3 and row[1].strip() and row[2].strip():
-                        pacientes_cargados.append({
-                            "fila": idx,
-                            "folio": row[1].strip(),
-                            "paterno": row[2].strip(),
-                            "materno": row[3].strip() if len(row) > 3 else "",
-                            "nombres": row[4].strip() if len(row) > 4 else "",
-                        })
-
-        except Exception as e:
-            pacientes_cargados = []
-            st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
-
-        st.markdown(
-            '<div class="section-title">2. Lupa de Búsqueda Rápida</div>',
-            unsafe_allow_html=True,
-        )
-        if not pacientes_cargados:
-            st.info(
-                "La jornada seleccionada aún no cuenta con pacientes registrados en"
-                " el censo."
+                "⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos para habilitar la configuración."
             )
         else:
-            col_busq1, col_busq2 = st.columns([4, 1])
-            with col_busq1:
-                query_busqueda = st.text_input(
-                    "🔍 Buscar por Folio, Apellido o Nombre:",
-                    placeholder="Escriba parte del folio, apellido o nombre...",
-                    key="input_busqueda_lupa",
-                    help="Presione Enter para procesar la búsqueda"
-                )
-            with col_busq2:
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("🔄 Actualizar", use_container_width=True, help="Actualizar listado de pacientes en vivo"):
-                    st.rerun()
-            st.caption("💡 Tip: Presione **Enter** después de escribir en el buscador.")
+            st.markdown("---")
+            jornadas_simultaneas = st.toggle(
+                "⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en operación)",
+                value=False,
+            )
 
-            if not query_busqueda.strip():
-                st.info(
-                    "ℹ️ Escriba en la lupa de búsqueda para localizar rápidamente a un"
-                    " paciente."
+            num_jornadas = 1
+            if jornadas_simultaneas:
+                num_jornadas = st.number_input(
+                    "Número de jornadas simultáneas a habilitar:",
+                    min_value=2,
+                    max_value=5,
+                    value=2,
+                    step=1,
                 )
+
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2. Parámetros Independientes por Cédula / Brigada</div>',
+                unsafe_allow_html=True,
+            )
+
+            config_jornadas_activas = []
+
+            if not jornadas_simultaneas:
+                st.markdown('<div class="card-simultanea">', unsafe_allow_html=True)
+                resp_unico = st.text_input(
+                    "👤 Nombre del responsable de vacunación:",
+                    placeholder="Escriba el nombre completo...",
+                )
+                correo_resp_unico = st.text_input(
+                    "📧 Correo electrónico del responsable (para control de acceso en AU4):",
+                    placeholder="ejemplo@issste.gob.mx",
+                    key="correo_resp_unico"
+                )
+                
+                col_f1, col_f2, col_f3 = st.columns(3)
+                with col_f1:
+                    f_app = st.date_input(
+                        "Fecha de Aplicación:",
+                        value=datetime.date.today(),
+                        format="DD/MM/YYYY",
+                        key="f_app_unica",
+                    )
+                with col_f2:
+                    h_ini = st.time_input(
+                        "Hora Inicio:", value=datetime.time(8, 0), key="h_ini_unica"
+                    )
+                with col_f3:
+                    h_fin = st.time_input(
+                        "Hora Cierre:", value=datetime.time(14, 0), key="h_fin_unica"
+                    )
+
+                dir_oficial = st.text_area(
+                    "📍 Dirección Oficial de esta Jornada:",
+                    value=st.session_state.config_direccion_base,
+                    height=70,
+                    key="dir_unica",
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                config_jornadas_activas.append({
+                    "sufijo_hoja": "",
+                    "sufijo_qr": "",
+                    "responsable": resp_unico.upper() if resp_unico else "PERSONAL",
+                    "correo": correo_resp_unico.strip().lower(),
+                    "fecha": f_app,
+                    "hora_inicio": h_ini,
+                    "hora_fin": h_fin,
+                    "direccion": dir_oficial,
+                })
             else:
-                q_clean = query_busqueda.strip().upper()
-                pacientes_filtrados = [
-                    p
-                    for p in pacientes_cargados
-                    if q_clean in p["folio"].upper()
-                    or q_clean in p["paterno"].upper()
-                    or q_clean in p["materno"].upper()
-                    or q_clean in p["nombres"].upper()
-                ]
-
-                if not pacientes_filtrados:
-                    st.warning(
-                        "No se encontraron pacientes que coincidan con la búsqueda."
+                st.info(
+                    f"Configurando {num_jornadas} equipos simultáneos con fechas, horarios y ubicaciones personalizadas:"
+                )
+                for i in range(1, num_jornadas + 1):
+                    st.markdown(
+                        f'<div class="card-simultanea"><h4 style="color: #1e5b4f; margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
+                        unsafe_allow_html=True,
                     )
-                else:
-                    opciones_busqueda = [
-                        f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']}||{p['fila']}"
-                        for p in pacientes_filtrados
-                    ]
-
-                    seleccion_paciente = st.selectbox(
-                        "Seleccione del listado de coincidencias:",
-                        options=opciones_busqueda,
-                        format_func=lambda x: x.split("||")[0],
+                    resp_sim = st.text_input(
+                        f"👤 Responsable de Brigada #{i}:",
+                        placeholder=f"Nombre del responsable {i}...",
+                        key=f"resp_sim_{i}",
+                    )
+                    correo_sim = st.text_input(
+                        f"📧 Correo electrónico de Brigada #{i}:",
+                        placeholder=f"correo_brigada_{i}@issste.gob.mx",
+                        key=f"correo_sim_{i}"
                     )
 
-                    if seleccion_paciente:
-                        fila_idx = int(seleccion_paciente.split("||")[1])
-                        fila_datos = todos_los_datos[fila_idx - 1]
+                    col_f1, col_f2, col_f3 = st.columns(3)
+                    with col_f1:
+                        f_app_sim = st.date_input(
+                            f"Fecha de Aplicación #{i}:",
+                            value=datetime.date.today(),
+                            format="DD/MM/YYYY",
+                            key=f"f_app_sim_{i}",
+                        )
+                    with col_f2:
+                        h_ini_sim = st.time_input(
+                            f"Hora Inicio #{i}:",
+                            value=datetime.time(8, 0),
+                            key=f"h_ini_sim_{i}",
+                        )
+                    with col_f3:
+                        h_fin_sim = st.time_input(
+                            f"Hora Cierre #{i}:",
+                            value=datetime.time(14, 0),
+                            key=f"h_fin_sim_{i}",
+                        )
 
-                        folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
-                        paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
-                        materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
-                        nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
-                        nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
+                    dir_sim = st.text_area(
+                        f"📍 Dirección Oficial para Brigada #{i}:",
+                        value=st.session_state.config_direccion_base,
+                        height=70,
+                        key=f"dir_sim_{i}",
+                    )
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-                        dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
-                        mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
-                        yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
-                        fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
+                    config_jornadas_activas.append({
+                        "sufijo_hoja": f"_JS{i}",
+                        "sufijo_qr": f"_JS{i}",
+                        "responsable": resp_sim.upper() if resp_sim else f"RESPONSABLE JS{i}",
+                        "correo": correo_sim.strip().lower(),
+                        "fecha": f_app_sim,
+                        "hora_inicio": h_ini_sim,
+                        "hora_fin": h_fin_sim,
+                        "direccion": dir_sim,
+                    })
 
-                        sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-                        sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
+            st.markdown("<br>", unsafe_allow_html=True)
 
-                        # --- LECTURA DEL CURP (Fila siguiente, Columna C -> Índice 2) ---
-                        curp_actual = ""
-                        fila_curp_idx = fila_idx
-                        if len(todos_los_datos) > fila_curp_idx and len(todos_los_datos[fila_curp_idx]) > 2:
-                            curp_actual = todos_los_datos[fila_curp_idx][2].strip()
+            if st.button(
+                "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
+                use_container_width=True,
+            ):
+                try:
+                    scope = GOOGLE_SCOPES
 
-                        vacuna_registrada = "AMBAS"
-                        if len(fila_datos) > 47:
-                            at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
-                            au_val = fila_datos[46].strip().upper() if len(fila_datos) > 46 else ""
-                            av_val = fila_datos[47].strip().upper() if len(fila_datos) > 47 else ""
-                            
-                            if av_val == "X" or (at_val == "X" and au_val == "X"):
-                                vacuna_registrada = "AMBAS"
-                            elif at_val == "X":
-                                vacuna_registrada = "INFLUENZA"
-                            elif au_val == "X":
-                                vacuna_registrada = "COVID-19"
+                    if "GOOGLE_CREDENTIALS" in st.secrets:
+                        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                        creds_dict = (
+                            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+                        )
+                    elif "gpex" in st.secrets:
+                        creds_dict = dict(st.secrets["gpex"])
+                    else:
+                        primera_llave = list(st.secrets.keys())[0]
+                        creds_dict = dict(st.secrets[primera_llave])
 
-                        lista_riesgos_detectados = []
-                        def tiene_equis(col_idx):
-                            return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
+                    creds = service_account.Credentials.from_service_account_info(
+                        creds_dict, scopes=scope
+                    )
+                    client = gspread.authorize(creds)
+                    
+                    sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
+                    spreadsheet = client.open_by_key(sheet_id_destino)
 
-                        es_riesgo = False
-                        if tiene_equis(15) or tiene_equis(16):
-                            lista_riesgos_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 AÑOS Y MAS")
-                            categoria_paciente = "POBLACIÓN OBJETIVO"
+                    hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+                    duplicadas_detectadas = []
+
+                    for j_conf in config_jornadas_activas:
+                        fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+                        if siglas_unidad == "20N":
+                            nombre_prueba = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                         else:
-                            categoria_paciente = "POBLACIÓN DE RIESGO"
+                            nombre_prueba = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
 
-                        comorb_map = {17: "EMBARAZADAS", 18: "PERSONAL DE SALUD", 19: "VIH", 20: "DIABETES", 21: "OBESIDAD", 22: "CARDIOPATÍAS", 23: "ENFERMEDAD PULMONAR", 24: "CÁNCER", 25: "CONGÉNITAS", 26: "RENAL", 27: "INMUNOSUPRESIÓN", 28: "DISCAPACIDADES", 29: "FIBROSIS", 30: "HIPERTENSIÓN"}
-                        for idx_c, nom_c in comorb_map.items():
-                            if tiene_equis(idx_c):
-                                lista_riesgos_detectados.append(nom_c)
-                                es_riesgo = True
+                        if nombre_prueba in hojas_existentes:
+                            duplicadas_detectadas.append(nombre_prueba)
 
-                        if len(fila_datos) > 31 and fila_datos[31].strip():
-                            lista_riesgos_detectados.append(fila_datos[31].strip().upper())
-                            es_riesgo = True
-
-                        if es_riesgo:
-                            categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                        grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
-                        grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
-
-                        st.markdown(
-                            '<div class="section-title">Vista Previa y Datos Generales'
-                            " del Paciente</div>",
-                            unsafe_allow_html=True,
+                    if duplicadas_detectadas:
+                        st.error(
+                            "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
+                            f" {', '.join(duplicadas_detectadas)}. Por favor cambie la fecha o el tipo de jornada."
                         )
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.markdown(f"**Folio:** {folio_p}")
-                            st.markdown(f"**Nombre:** {nombre_completo}")
-                        with col2:
-                            st.markdown(f"**Nacimiento:** {fecha_nac_str}")
-                            st.markdown(f"**Sexo:** {sexo_texto}")
-                        with col3:
-                            st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
-                            st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
+                    else:
+                        hojas_creadas_exito = []
+                        base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
-                        # --- CAMPO EDITABLE DE CURP Y ACTUALIZACIÓN DIRECTA EN SHEETS ---
-                        with st.form(f"form_curp_{fila_idx}"):
-                            c_curp1, c_curp2 = st.columns([3, 1])
-                            with c_curp1:
-                                nuevo_curp = st.text_input("CURP (Editable):", value=curp_actual, max_chars=18, key=f"input_curp_{fila_idx}")
-                            with c_curp2:
-                                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                                btn_guardar_curp = st.form_submit_button("💾 Actualizar CURP", use_container_width=True)
+                        for j_conf in config_jornadas_activas:
+                            fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+                            fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
 
-                            if btn_guardar_curp:
+                            fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                            resp_encoded = urllib.parse.quote(j_conf["responsable"])
+                            js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                            ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
+                            link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+
+                            nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL" if siglas_unidad == "20N" else f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                            link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+
+                            url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
+                            formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
+
+                            if siglas_unidad == "20N":
+                                nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+                                nombre_copia_2 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
+
                                 try:
-                                    fila_curp_excel = fila_idx + 1
-                                    worksheet_activa.update(f"C{fila_curp_excel}", [[nuevo_curp.upper()]])
-                                    st.success("✅ CURP actualizado correctamente en la hoja de origen.")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error al actualizar el CURP en Sheets: {e}")
-
-                        st.markdown(
-                            '<div class="section-title">3. Guía y Lineamientos'
-                            " CENSIA (Tarjetas de Grupos Prioritarios)</div>",
-                            unsafe_allow_html=True,
-                        )
-
-                        matches_inf, matches_covid = obtener_recomendaciones_paciente(
-                            categoria_paciente, lista_riesgos_detectados, vacuna_registrada
-                        )
-
-                        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
-                        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
-
-                        biologico_covid_elegido = "Moderna"
-                        if mostrar_covid:
-                            matches_moderna = [m for m in matches_covid if "moderna" in m.get('tipo_vacuna', '').lower() or "spikevax" in m.get('tipo_vacuna', '').lower()]
-                            matches_pfizer = [m for m in matches_covid if "pfizer" in m.get('tipo_vacuna', '').lower() or "comirnaty" in m.get('tipo_vacuna', '').lower()]
-
-                            col_bio1, col_bio2 = st.columns(2)
-                            with col_bio1:
-                                biologico_covid_elegido = st.radio(
-                                    "💉 Seleccione Biológico COVID-19:",
-                                    options=["Moderna", "Pfizer/BioNTech (Comirnaty)"],
-                                    horizontal=True,
-                                    key="radio_biologico_covid"
-                                )
-                            
-                            if biologico_covid_elegido == "Moderna":
-                                matches_covid_filtrados = matches_moderna if matches_moderna else matches_covid
-                            else:
-                                matches_covid_filtrados = matches_pfizer if matches_pfizer else matches_covid
-                        else:
-                            matches_covid_filtrados = matches_covid
-
-                        match_inf_prioritario = matches_inf[0] if matches_inf else None
-                        match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
-
-                        # --- RENDERIZADO DE LAS TARJETAS CENSIA LADO A LADO (MISMA ALTURA) ---
-                        col_card1, col_card2 = st.columns(2)
-
-                        with col_card1:
-                            if mostrar_influenza and match_inf_prioritario:
-                                st.markdown(
-                                    f"""
-                                    <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
-                                        <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                        <p><b>Categoría:</b> {match_inf_prioritario.get('categoria', 'N/A')}</p>
-                                        <p><b>Grupos blancos:</b> {match_inf_prioritario.get('grupos_blancos', 'N/A')}</p>
-                                        <p><b>Esquema:</b> {match_inf_prioritario.get('esquema', 'N/A')}</p>
-                                        <p><b>Dosis:</b> {match_inf_prioritario.get('dosis', 'N/A')}</p>
-                                        <p><b>Intervalo:</b> {match_inf_prioritario.get('intervalo', 'N/A')}</p>
-                                        <p><b>Recomendación:</b> {match_inf_prioritario.get('recomendacion', 'N/A')}</p>
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
-
-                        with col_card2:
-                            if mostrar_covid and match_cov_prioritario:
-                                tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
-                                st.markdown(
-                                    f"""
-                                    <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
-                                        <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 ({tipo_biologico_covid})</h4>
-                                        <p><b>Categoría:</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
-                                        <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
-                                        <p><b>Esquema:</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
-                                        <p><b>Dosis:</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
-                                        <p><b>Intervalo:</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
-                                        <p><b>Recomendación:</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
-
-                        # --- AVISO INDEPENDIENTE DE APLICACIÓN SIMULTÁNEA (SOLO SI SE ELIGE AMBAS) ---
-                        if vacuna_registrada == "AMBAS":
-                            texto_simultanea = ""
-                            if match_inf_prioritario and match_inf_prioritario.get("aplicacion_simultanea"):
-                                texto_simultanea = match_inf_prioritario.get("aplicacion_simultanea")
-                            elif match_cov_prioritario and match_cov_prioritario.get("aplicacion_simultanea"):
-                                texto_simultanea = match_cov_prioritario.get("aplicacion_simultanea")
-                            else:
-                                texto_simultanea = "Ambas vacunas podrán aplicarse de forma simultánea en extremidades distintas, o respetando de 2.5 a 5 cm de distancia si se aplican en el mismo sitio de punción."
-
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #eaf2f0; border-left: 5px solid #1e5b4f; border: 1px solid #cce3de; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px;">
-                                    <p style="color: #1e5b4f; font-weight: 700; margin: 0 0 4px 0;">🔄 Lineamiento de Aplicación Simultánea:</p>
-                                    <p style="color: #161a1d; margin: 0; font-size: 0.95rem;">{texto_simultanea}</p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-
-                        st.markdown(
-                            '<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                        with st.form("form_aplicacion_lotes"):
-                            st.markdown("##### 💉 INFLUENZA")
-                            c_inf1, c_inf2, c_inf3, c_inf4, c_inf5 = st.columns([1, 1, 1, 1.5, 1.5])
-                            with c_inf1:
-                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
-                            with c_inf2:
-                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
-                            with c_inf3:
-                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
-                            with c_inf4:
-                                lote_inf_input = st.text_input(
-                                    "Lote Influenza",
-                                    value=st.session_state.lote_influenza_memoria,
-                                    placeholder="Ej. A1234",
-                                )
-                            with c_inf5:
-                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_inf")
-
-                            st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                            c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
-                            with c_cov1:
-                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
-                            with c_cov2:
-                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
-                            with c_cov3:
-                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
-                            with c_cov4:
-                                lote_cov_input = st.text_input(
-                                    "Lote COVID-19",
-                                    value=st.session_state.lote_covid_memoria,
-                                    placeholder="Ej. C5678",
-                                )
-                            with c_cov5:
-                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_cov")
-
-                            btn_actualizar_dosis = st.form_submit_button(
-                                "💾 Guardar Aplicación y Actualizar Hoja Sheets",
-                                use_container_width=True,
-                            )
-
-                            if btn_actualizar_dosis:
-                                try:
-                                    if lote_inf_input:
-                                        st.session_state.lote_influenza_memoria = lote_inf_input.upper()
-                                    if lote_cov_input:
-                                        st.session_state.lote_covid_memoria = lote_cov_input.upper()
-
-                                    f_actual = fila_idx
-                                    f_siguiente = fila_idx + 1
-
-                                    dosis_aplicadas_lista = []
-                                    datos_a_actualizar = []
-
-                                    # --- Mapeo exacto de columnas para INFLUENZA ---
-                                    if inf_1ra:
-                                        datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
-                                    if inf_2da:
-                                        datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (2da Dosis)")
-                                    if inf_anual:
-                                        datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
-
-                                    if lote_inf_input:
-                                        lote_i = lote_inf_input.upper()
-                                        datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
-                                    if cad_inf_input:
-                                        cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
-                                        datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
-
-                                    # --- Mapeo exacto de columnas para COVID ---
-                                    if cov_1ra:
-                                        datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
-                                    if cov_2da:
-                                        datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
-                                    if cov_anual:
-                                        datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
-                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
-
-                                    if lote_cov_input:
-                                        lote_c = lote_cov_input.upper()
-                                        datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
-                                    if cad_cov_input:
-                                        cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
-                                        datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
-
-                                    if datos_a_actualizar:
-                                        worksheet_activa.batch_update(datos_a_actualizar)
-
-                                    lote_final_partes = []
-                                    if lote_inf_input:
-                                        lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
-                                    if lote_cov_input:
-                                        lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
-                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
-
-                                    dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-
-                                    st.session_state.ultimo_comprobante_vacunacion = {
-                                        "nombre": nombre_completo,
-                                        "folio": folio_p,
-                                        "dosis_str": dosis_str,
-                                        "lotes_str": lote_final_str,
-                                        "fecha_aplicacion": fecha_aplicacion_hoja
-                                    }
-                                    st.rerun()
-
-                                except Exception as e:
-                                    st.error(
-                                        "Error al actualizar la base de datos en Google"
-                                        f" Sheets: {e}"
+                                    plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
+                                    copia_1 = spreadsheet.duplicate_sheet(
+                                        plantilla_1.id, 
+                                        insert_sheet_index=len(spreadsheet.worksheets()), 
+                                        new_sheet_name=nombre_copia_1
                                     )
+                                except:
+                                    copia_1 = spreadsheet.add_worksheet(title=nombre_copia_1, rows=1000, cols=30)
+
+                                try:
+                                    plantilla_2 = spreadsheet.worksheet("CENSO")
+                                    spreadsheet.duplicate_sheet(
+                                        plantilla_2.id, 
+                                        insert_sheet_index=len(spreadsheet.worksheets()), 
+                                        new_sheet_name=nombre_copia_2
+                                    )
+                                except:
+                                    spreadsheet.add_worksheet(title=nombre_copia_2, rows=1000, cols=30)
+
+                                hoja_activa = spreadsheet.worksheet(nombre_copia_1)
+                                try:
+                                    hoja_activa.update_acell("D7", "CDMX")
+                                    hoja_activa.update_acell("M7", "ISSSTE")
+                                    hoja_activa.update_acell("T7", "Delegación Sur")
+                                    hoja_activa.update_acell("AB7", "CDMX")
+                                    hoja_activa.update_acell("D8", "CDMX")
+                                    hoja_activa.update_acell("D9", unidad_sel)
+                                    hoja_activa.update_acell("M9", "")
+                                    hoja_activa.update_acell("S9", "")
+                                    hoja_activa.update_acell("AB9", fecha_formato_oficial)
+                                    hoja_activa.update_acell("E10", j_conf["responsable"])
+                                    
+                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
+                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
+                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
+                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
+                                    
+                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
+                                    if j_conf["correo"]:
+                                        try:
+                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
+                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
+                                            prot.editors = {'users': [j_conf["correo"]]}
+                                        except Exception:
+                                            hoja_activa.add_protected_range(
+                                                name=hoja_activa.title,
+                                                editor_users_emails=[j_conf["correo"]],
+                                                description=f"Protección exclusiva para {j_conf['responsable']}"
+                                            )
+                                except Exception as prot_err:
+                                    print(f"Aviso de protección: {prot_err}")
+
+                                hoja_info = {
+                                    "nombre": nombre_copia_1,
+                                    "gid": str(copia_1.id),
+                                    "unidad": unidad_sel,
+                                    "siglas_unidad": siglas_unidad,
+                                    "tipo_jornada": jornada_sel,
+                                    "tipo_jornada_letra": tipo_jornada_letra,
+                                    "responsable": j_conf["responsable"],
+                                    "correo": j_conf["correo"],
+                                    "fecha": j_conf["fecha"],
+                                    "sheet_id": sheet_id_destino
+                                }
+                                hojas_creadas_exito.append(hoja_info)
+                                if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
+                                    st.session_state.historial_jornadas.append(hoja_info)
+
+                            else:
+                                nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                                try:
+                                    plantilla = spreadsheet.worksheet("CENSO NOMINAL")
+                                    nueva_hoja = spreadsheet.duplicate_sheet(
+                                        plantilla.id, 
+                                        insert_sheet_index=len(spreadsheet.worksheets()), 
+                                        new_sheet_name=nombre_nueva_hoja
+                                    )
+                                except:
+                                    nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=30)
+
+                                hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
+                                try:
+                                    hoja_activa.update_acell("D7", "CDMX")
+                                    hoja_activa.update_acell("M7", "ISSSTE")
+                                    hoja_activa.update_acell("T7", "Delegación Sur")
+                                    hoja_activa.update_acell("AB7", "CDMX")
+                                    hoja_activa.update_acell("D8", "CDMX")
+                                    hoja_activa.update_acell("D9", unidad_sel)
+                                    hoja_activa.update_acell("M9", "")
+                                    hoja_activa.update_acell("S9", "")
+                                    hoja_activa.update_acell("AB9", fecha_formato_oficial)
+                                    hoja_activa.update_acell("E10", j_conf["responsable"])
+                                    
+                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
+                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
+                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
+                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
+                                    
+                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
+                                    if j_conf["correo"]:
+                                        try:
+                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
+                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
+                                            prot.editors = {'users': [j_conf["correo"]]}
+                                        except Exception:
+                                            hoja_activa.add_protected_range(
+                                                name=hoja_activa.title,
+                                                editor_users_emails=[j_conf["correo"]],
+                                                description=f"Protección exclusiva para {j_conf['responsable']}"
+                                            )
+                                except Exception as prot_err:
+                                    print(f"Aviso de protección: {prot_err}")
+
+                                hoja_info = {
+                                    "nombre": nombre_nueva_hoja,
+                                    "gid": str(nueva_hoja.id),
+                                    "unidad": unidad_sel,
+                                    "siglas_unidad": siglas_unidad,
+                                    "tipo_jornada": jornada_sel,
+                                    "tipo_jornada_letra": tipo_jornada_letra,
+                                    "responsable": j_conf["responsable"],
+                                    "correo": j_conf["correo"],
+                                    "fecha": j_conf["fecha"],
+                                    "sheet_id": sheet_id_destino
+                                }
+                                hojas_creadas_exito.append(hoja_info)
+                                if not any(h["nombre"] == nombre_nueva_hoja for h in st.session_state.historial_jornadas):
+                                    st.session_state.historial_jornadas.append(hoja_info)
+
+                        st.session_state.jornada_autorizada = True
+                        st.session_state.hojas_creadas_recientes = hojas_creadas_exito
+                        st.success(
+                            "¡Jornadas autorizadas, correo en AU4, enlaces, códigos QR y protección avanzada aplicados con éxito!"
+                        )
+
+                except Exception as e:
+                    st.error(
+                        "Error al configurar Google Sheets. Detalle: " + str(e)
+                    )
+
+            if (
+                st.session_state.jornada_autorizada
+                and st.session_state.hojas_creadas_recientes
+            ):
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                enlaces_html = ""
+                for h_info in st.session_state.hojas_creadas_recientes:
+                    url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing"
+                    enlaces_html += f"""
+                    <div style="margin-bottom: 8px;">
+                        <a href="{url_sheet_universal}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                            🔗 Ver Libro Completo: {h_info['nombre']}
+                        </a>
+                    </div>
+                    """
+
+                st.markdown(
+                    f"""
+                    <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+                        {enlaces_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown(
+                    '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>',
+                    unsafe_allow_html=True,
+                )
+
+                base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+                for idx, j_conf in enumerate(config_jornadas_activas, start=1):
+                    fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+                    if siglas_unidad == "20N":
+                        nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+                    else:
+                        nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+
+                    fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                    resp_encoded = urllib.parse.quote(j_conf["responsable"])
+
+                    js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                    ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
+
+                    link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                    link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
+                    link_prueba_simulacion = link_paciente + "&test=true"
+
+                    titulo_seccion_qr = (
+                        f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
+                        if j_conf["sufijo_hoja"]
+                        else "🔗 Enlaces Operativos y Públicos"
+                    )
+
+                    st.markdown(
+                        f"<h4 style='color: #1e5b4f; margin-top: 1.2rem;'>{titulo_seccion_qr}</h4>",
+                        unsafe_allow_html=True,
+                    )
+
+                    st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
+                    st.code(link_paciente, language="text")
+
+                    st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
+                    st.code(link_prueba_simulacion, language="text")
+
+                    st.markdown("🔹 **Enlace Directo para el Personal Operativo (Abre el panel censal/operativo):**")
+                    st.code(link_operativo, language="text")
+
+                    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                    qr.add_data(link_paciente)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="#611232", back_color="#ffffff")
+
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    byte_im = buf.getvalue()
+
+                    col_qr1, col_qr2 = st.columns([1, 2])
+                    with col_qr1:
+                        st.image(
+                            byte_im,
+                            caption=f"QR de Registro {j_conf['sufijo_hoja']}",
+                            width=180,
+                        )
+                    with col_qr2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.download_button(
+                            label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
+                            data=byte_im,
+                            file_name=(
+                                f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
+                            ),
+                            mime="image/png",
+                            key=f"dl_qr_{idx}",
+                            use_container_width=True,
+                        )
+                    st.markdown("---")
+            else:
+                st.info("ℹ️ Configure los parámetros y autorice la jornada para generar los códigos QR.")
+
+    with tab_historial:
+        col_hist_tit, col_hist_btn = st.columns([3, 1])
+        with col_hist_tit:
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial General de Hojas y Jornadas Activas</div>',
+                unsafe_allow_html=True,
+            )
+        with col_hist_btn:
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Actualizar Historial Universal", use_container_width=True, help="Escanear y mostrar todas las hojas existentes en Google Sheets"):
+                try:
+                    scope = GOOGLE_SCOPES
+                    if "GOOGLE_CREDENTIALS" in st.secrets:
+                        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+                    elif "gpex" in st.secrets:
+                        creds_dict = dict(st.secrets["gpex"])
+                    else:
+                        primera_llave = list(st.secrets.keys())[0]
+                        creds_dict = dict(st.secrets[primera_llave])
+
+                    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
+                    client = gspread.authorize(creds)
+                    
+                    ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
+                    hojas_encontradas = []
+
+                    for sheet_id_item in ids_a_revisar:
+                        try:
+                            sp_item = client.open_by_key(sheet_id_item)
+                            for ws in sp_item.worksheets():
+                                titulo_w = ws.title
+                                if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
+                                    try:
+                                        val_au4 = ""
+                                        try:
+                                            val_au4 = ws.acell("AU4").value
+                                        except:
+                                            pass
+
+                                        siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
+                                        tipo_letra_h = "I" if "INTRA" in titulo_w else "E"
+                                        
+                                        hojas_encontradas.append({
+                                            "nombre": titulo_w,
+                                            "gid": str(ws.id),
+                                            "unidad": "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica",
+                                            "siglas_unidad": siglas_h,
+                                            "tipo_jornada": "Intramuros I" if tipo_letra_h == "I" else "Extramuros E",
+                                            "tipo_jornada_letra": tipo_letra_h,
+                                            "responsable": "PERSONAL OPERATIVO",
+                                            "correo": val_au4.strip().lower() if val_au4 else "No asignado",
+                                            "fecha": datetime.date.today(),
+                                            "sheet_id": sheet_id_item,
+                                            "link_formulario": f"https://medprev-vacunas-invernal.streamlit.app/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
+                                        })
+                                    except:
+                                        pass
+                        except:
+                            pass
+                    
+                    if hojas_encontradas:
+                        st.session_state.historial_jornadas = hojas_encontradas
+                        st.success(f"✅ ¡Historial universal sincronizado! Se detectaron {len(hojas_encontradas)} hojas activas.")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ No se encontraron hojas activas en Google Sheets.")
+                except Exception as e:
+                    st.error(f"Error al sincronizar con Google Sheets: {e}")
+
+        # --- VISTA UNIVERSAL PARA EL ADMINISTRADOR ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        if not st.session_state.historial_jornadas:
+            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial Universal'** para escanear y visualizar todas las pestañas existentes en Google Sheets.")
+        else:
+            st.success(f"👑 Panel de Administración Universal: Mostrando todas las pestañas creadas ({len(st.session_state.historial_jornadas)} en total).")
+            base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+            for i, h_item in enumerate(st.session_state.historial_jornadas):
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                            <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
+                            <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
+                            <p style="margin: 4px 0;"><b>Correo Responsable (AU4):</b> <code>{h_item['correo']}</code></p>
+                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Visible en Vista Universal de Administrador</b></p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                col_h1, col_h2 = st.columns([1, 1])
+                with col_h1:
+                    # Enlace universal limpio sin #gid= para abrir el libro completo con todas las pestañas visibles
+                    url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
+                    st.markdown(f"[🔗 Abrir Libro Completo en Google Sheets (Todas las Pestañas)]({url_sheet_universal})", unsafe_allow_html=True)
+                    
+                    if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
+                        st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
+                
+                with col_h2:
+                    link_qr_generar = h_item.get("link_formulario", base_url)
+                    qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
+                    qr_h.add_data(link_qr_generar)
+                    qr_h.make(fit=True)
+                    img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
+
+                    buf_h = io.BytesIO()
+                    img_h.save(buf_h, format="PNG")
+                    byte_im_h = buf_h.getvalue()
+
+                    st.image(byte_im_h, caption=f"QR ({h_item['nombre']})", width=140)
+                    st.download_button(
+                        label=f"📥 Descargar QR ({h_item['nombre']})",
+                        data=byte_im_h,
+                        file_name=f"QR_{h_item['nombre']}.png",
+                        mime="image/png",
+                        key=f"hist_qr_{i}"
+                    )
+                st.markdown("---")
