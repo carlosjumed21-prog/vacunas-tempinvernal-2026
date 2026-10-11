@@ -25,6 +25,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- ID DE LA CARPETA DE DRIVE PROPORCIONADA PARA ARCHIVOS INDIVIDUALES ---
+CARPETA_DESTINO_DRIVE_ID = "15gg0KzXi7nD5WaZ0nUPDb-vRPgJS_cZp"
+
 col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
     if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
@@ -68,7 +71,6 @@ if not st.session_state.autenticado_admin:
     )
 
     with st.form("form_login_admin"):
-        # --- LOGIN DE ADMINISTRADOR POR CORREO Y CONTRASEÑA ---
         correo_admin_input = st.text_input(
             "📧 Correo Electrónico Administrador:",
             placeholder="carlosju.med21@gmail.com"
@@ -95,7 +97,7 @@ if not st.session_state.autenticado_admin:
                     st.error("❌ Correo o contraseña de administrador incorrectos.")
 else:
     st.markdown(
-        '<p class="main-header">Panel de Control y Administración (Acceso Universal)</p>',
+        '<p class="main-header">Panel de Control y Administración (Espejo y Seguridad)</p>',
         unsafe_allow_html=True,
     )
 
@@ -181,7 +183,7 @@ else:
                     placeholder="Escriba el nombre completo...",
                 )
                 correo_resp_unico = st.text_input(
-                    "📧 Correo electrónico del responsable (para control de acceso en AU4):",
+                    "📧 Correo electrónico del responsable (Dueño del archivo aislado):",
                     placeholder="ejemplo@issste.gob.mx",
                     key="correo_resp_unico"
                 )
@@ -284,7 +286,7 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button(
-                "🚀 Autorizar Jornada(s) y Generar Hoja(s) en Google Sheets",
+                "🚀 Autorizar Jornada(s), Duplicar en Maestro y Crear Archivo Aislado en Drive",
                 use_container_width=True,
             ):
                 try:
@@ -306,10 +308,14 @@ else:
                     )
                     client = gspread.authorize(creds)
                     
-                    sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
-                    spreadsheet = client.open_by_key(sheet_id_destino)
+                    # Usamos la API nativa de Google Drive para crear copias independientes en la carpeta específica
+                    from googleapiclient.discovery import build
+                    drive_service = build('drive', 'v3', credentials=creds)
 
-                    hojas_existentes = [h.title for h in spreadsheet.worksheets()]
+                    sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
+                    spreadsheet_maestro = client.open_by_key(sheet_id_destino)
+
+                    hojas_existentes = [h.title for h in spreadsheet_maestro.worksheets()]
                     duplicadas_detectadas = []
 
                     for j_conf in config_jornadas_activas:
@@ -324,7 +330,7 @@ else:
 
                     if duplicadas_detectadas:
                         st.error(
-                            "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets:"
+                            "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets maestro:"
                             f" {', '.join(duplicadas_detectadas)}. Por favor cambie la fecha o el tipo de jornada."
                         )
                     else:
@@ -347,151 +353,98 @@ else:
                             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
                             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
+                            # 1. Creamos la hoja en el Google Sheets MAESTRO (para tu concentrado)
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
-                                nombre_copia_2 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
-
-                                try:
-                                    plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
-                                    copia_1 = spreadsheet.duplicate_sheet(
-                                        plantilla_1.id, 
-                                        insert_sheet_index=len(spreadsheet.worksheets()), 
-                                        new_sheet_name=nombre_copia_1
-                                    )
-                                except:
-                                    copia_1 = spreadsheet.add_worksheet(title=nombre_copia_1, rows=1000, cols=30)
-
-                                try:
-                                    plantilla_2 = spreadsheet.worksheet("CENSO")
-                                    spreadsheet.duplicate_sheet(
-                                        plantilla_2.id, 
-                                        insert_sheet_index=len(spreadsheet.worksheets()), 
-                                        new_sheet_name=nombre_copia_2
-                                    )
-                                except:
-                                    spreadsheet.add_worksheet(title=nombre_copia_2, rows=1000, cols=30)
-
-                                hoja_activa = spreadsheet.worksheet(nombre_copia_1)
-                                try:
-                                    hoja_activa.update_acell("D7", "CDMX")
-                                    hoja_activa.update_acell("M7", "ISSSTE")
-                                    hoja_activa.update_acell("T7", "Delegación Sur")
-                                    hoja_activa.update_acell("AB7", "CDMX")
-                                    hoja_activa.update_acell("D8", "CDMX")
-                                    hoja_activa.update_acell("D9", unidad_sel)
-                                    hoja_activa.update_acell("M9", "")
-                                    hoja_activa.update_acell("S9", "")
-                                    hoja_activa.update_acell("AB9", fecha_formato_oficial)
-                                    hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    
-                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
-                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
-                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
-                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
-                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
-                                    
-                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
-                                    if j_conf["correo"]:
-                                        try:
-                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
-                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
-                                            prot.editors = {'users': [j_conf["correo"]]}
-                                        except Exception:
-                                            hoja_activa.add_protected_range(
-                                                name=hoja_activa.title,
-                                                editor_users_emails=[j_conf["correo"]],
-                                                description=f"Protección exclusiva para {j_conf['responsable']}"
-                                            )
-                                except Exception as prot_err:
-                                    print(f"Aviso de protección: {prot_err}")
-
-                                hoja_info = {
-                                    "nombre": nombre_copia_1,
-                                    "gid": str(copia_1.id),
-                                    "unidad": unidad_sel,
-                                    "siglas_unidad": siglas_unidad,
-                                    "tipo_jornada": jornada_sel,
-                                    "tipo_jornada_letra": tipo_jornada_letra,
-                                    "responsable": j_conf["responsable"],
-                                    "correo": j_conf["correo"],
-                                    "fecha": j_conf["fecha"],
-                                    "sheet_id": sheet_id_destino
-                                }
-                                hojas_creadas_exito.append(hoja_info)
-                                if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
-                                    st.session_state.historial_jornadas.append(hoja_info)
-
+                                plantilla_1 = spreadsheet_maestro.worksheet("CENSO NOMINAL")
+                                copia_1 = spreadsheet_maestro.duplicate_sheet(
+                                    plantilla_1.id, 
+                                    insert_sheet_index=len(spreadsheet_maestro.worksheets()), 
+                                    new_sheet_name=nombre_copia_1
+                                )
+                                hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_copia_1)
                             else:
                                 nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
-                                try:
-                                    plantilla = spreadsheet.worksheet("CENSO NOMINAL")
-                                    nueva_hoja = spreadsheet.duplicate_sheet(
-                                        plantilla.id, 
-                                        insert_sheet_index=len(spreadsheet.worksheets()), 
-                                        new_sheet_name=nombre_nueva_hoja
-                                    )
-                                except:
-                                    nueva_hoja = spreadsheet.add_worksheet(title=nombre_nueva_hoja, rows=1000, cols=30)
+                                plantilla = spreadsheet_maestro.worksheet("CENSO NOMINAL")
+                                nueva_hoja = spreadsheet_maestro.duplicate_sheet(
+                                    plantilla.id, 
+                                    insert_sheet_index=len(spreadsheet_maestro.worksheets()), 
+                                    new_sheet_name=nombre_nueva_hoja
+                                )
+                                hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_nueva_hoja)
+                                nombre_copia_1 = nombre_nueva_hoja
+                                copia_1 = nueva_hoja
 
-                                hoja_activa = spreadsheet.worksheet(nombre_nueva_hoja)
-                                try:
-                                    hoja_activa.update_acell("D7", "CDMX")
-                                    hoja_activa.update_acell("M7", "ISSSTE")
-                                    hoja_activa.update_acell("T7", "Delegación Sur")
-                                    hoja_activa.update_acell("AB7", "CDMX")
-                                    hoja_activa.update_acell("D8", "CDMX")
-                                    hoja_activa.update_acell("D9", unidad_sel)
-                                    hoja_activa.update_acell("M9", "")
-                                    hoja_activa.update_acell("S9", "")
-                                    hoja_activa.update_acell("AB9", fecha_formato_oficial)
-                                    hoja_activa.update_acell("E10", j_conf["responsable"])
-                                    
-                                    # --- ASIGNACIÓN EN AU4, AU6, AU7 Y AU8 ---
-                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
-                                    hoja_activa.update(values=[[link_paciente]], range_name="AU6")
-                                    hoja_activa.update(values=[[link_operativo]], range_name="AU7")
-                                    hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
-                                    
-                                    # --- PROTECCIÓN NATIVA AVANZADA DE LA PESTAÑA ---
-                                    if j_conf["correo"]:
-                                        try:
-                                            prot = hoja_activa.protect(gspread.models.ProtectionType.sheet)
-                                            prot.description = f"Acceso exclusivo para {j_conf['responsable']}"
-                                            prot.editors = {'users': [j_conf["correo"]]}
-                                        except Exception:
-                                            hoja_activa.add_protected_range(
-                                                name=hoja_activa.title,
-                                                editor_users_emails=[j_conf["correo"]],
-                                                description=f"Protección exclusiva para {j_conf['responsable']}"
-                                            )
-                                except Exception as prot_err:
-                                    print(f"Aviso de protección: {prot_err}")
+                            # Llenamos datos en el maestro
+                            hoja_activa_maestro.update_acell("D7", "CDMX")
+                            hoja_activa_maestro.update_acell("M7", "ISSSTE")
+                            hoja_activa_maestro.update_acell("T7", "Delegación Sur")
+                            hoja_activa_maestro.update_acell("AB7", "CDMX")
+                            hoja_activa_maestro.update_acell("D8", "CDMX")
+                            hoja_activa_maestro.update_acell("D9", unidad_sel)
+                            hoja_activa_maestro.update_acell("AB9", fecha_formato_oficial)
+                            hoja_activa_maestro.update_acell("E10", j_conf["responsable"])
+                            hoja_activa_maestro.update(values=[[j_conf["correo"]]], range_name="AU4")
+                            hoja_activa_maestro.update(values=[[link_paciente]], range_name="AU6")
+                            hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
+                            hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
 
-                                hoja_info = {
-                                    "nombre": nombre_nueva_hoja,
-                                    "gid": str(nueva_hoja.id),
-                                    "unidad": unidad_sel,
-                                    "siglas_unidad": siglas_unidad,
-                                    "tipo_jornada": jornada_sel,
-                                    "tipo_jornada_letra": tipo_jornada_letra,
-                                    "responsable": j_conf["responsable"],
-                                    "correo": j_conf["correo"],
-                                    "fecha": j_conf["fecha"],
-                                    "sheet_id": sheet_id_destino
-                                }
-                                hojas_creadas_exito.append(hoja_info)
-                                if not any(h["nombre"] == nombre_nueva_hoja for h in st.session_state.historial_jornadas):
-                                    st.session_state.historial_jornadas.append(hoja_info)
+                            # 2. CREAR UN ARCHIVO INDEPENDIENTE NUEVO EN LA CARPETA DE DRIVE ESPECÍFICA PARA EL OPERATIVO
+                            # Copiamos el archivo maestro principal o creamos uno nuevo en la carpeta de Drive
+                            file_metadata = {
+                                'name': f"JORNADA_{nombre_copia_1}",
+                                'parents': [CARPETA_DESTINO_DRIVE_ID],
+                                'mimeType': 'application/vnd.google-apps.spreadsheet'
+                            }
+                            
+                            # Duplicamos el archivo maestro en Drive hacia la carpeta asignada
+                            copied_file = drive_service.files().copy(
+                                fileId=sheet_id_destino,
+                                body=file_metadata
+                            ).execute()
+                            
+                            id_archivo_aislado = copied_file.get('id')
+                            
+                            # Autorizamos acceso exclusivo al correo del operador en ese archivo aislado
+                            if j_conf["correo"]:
+                                spreadsheet_aislado = client.open_by_key(id_archivo_aislado)
+                                # Compartimos el archivo con el correo operativo mediante la API de Google Drive
+                                drive_service.permissions().create(
+                                    fileId=id_archivo_aislado,
+                                    body={
+                                        'role': 'editor',
+                                        'type': 'user',
+                                        'emailAddress': j_conf["correo"]
+                                    },
+                                    sendNotificationEmail=True
+                                ).execute()
+
+                            hoja_info = {
+                                "nombre": nombre_copia_1,
+                                "gid": str(copia_1.id),
+                                "unidad": unidad_sel,
+                                "siglas_unidad": siglas_unidad,
+                                "tipo_jornada": jornada_sel,
+                                "tipo_jornada_letra": tipo_jornada_letra,
+                                "responsable": j_conf["responsable"],
+                                "correo": j_conf["correo"],
+                                "fecha": j_conf["fecha"],
+                                "sheet_id": sheet_id_destino,
+                                "sheet_aislado_id": id_archivo_aislado
+                            }
+                            hojas_creadas_exito.append(hoja_info)
+                            if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
+                                st.session_state.historial_jornadas.append(hoja_info)
 
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, correo en AU4, enlaces, códigos QR y protección avanzada aplicados con éxito!"
+                            "¡Jornada(s) autorizada(s) en el maestro y archivo aislado creado con éxito en la carpeta de Google Drive!"
                         )
 
                 except Exception as e:
                     st.error(
-                        "Error al configurar Google Sheets. Detalle: " + str(e)
+                        "Error al configurar Google Sheets y Drive. Detalle: " + str(e)
                     )
 
             if (
@@ -502,19 +455,20 @@ else:
 
                 enlaces_html = ""
                 for h_info in st.session_state.hojas_creadas_recientes:
-                    url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing"
+                    url_archivo_aislado = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_aislado_id']}/edit?usp=sharing"
                     enlaces_html += f"""
-                    <div style="margin-bottom: 8px;">
-                        <a href="{url_sheet_universal}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
-                            🔗 Ver Libro Completo: {h_info['nombre']}
+                    <div style="margin-bottom: 12px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #1e5b4f;">
+                        <b>Responsable:</b> {h_info['responsable']} ({h_info['correo']})<br>
+                        <a href="{url_archivo_aislado}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 6px 12px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block; margin-top: 5px; font-size: 0.9rem;">
+                            📁 Abrir Archivo Exclusivo del Operativo
                         </a>
                     </div>
                     """
 
                 st.markdown(
                     f"""
-                    <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
-                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
+                    <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px;">
+                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 12px; text-align: center;">🟢 ARCHIVOS AISLADOS CREADOS EN LA CARPETA</h3>
                         {enlaces_html}
                     </div>
                     """,
@@ -559,10 +513,7 @@ else:
                     st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
                     st.code(link_paciente, language="text")
 
-                    st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
-                    st.code(link_prueba_simulacion, language="text")
-
-                    st.markdown("🔹 **Enlace Directo para el Personal Operativo (Abre el panel censal/operativo):**")
+                    st.markdown("🔹 **Enlace Directo para el Personal Operativo:**")
                     st.code(link_operativo, language="text")
 
                     qr = qrcode.QRCode(version=1, box_size=10, border=4)
@@ -601,7 +552,7 @@ else:
         col_hist_tit, col_hist_btn = st.columns([3, 1])
         with col_hist_tit:
             st.markdown(
-                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial General de Hojas y Jornadas Activas</div>',
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial General y Acceso Universal</div>',
                 unsafe_allow_html=True,
             )
         with col_hist_btn:
@@ -691,9 +642,9 @@ else:
 
                 col_h1, col_h2 = st.columns([1, 1])
                 with col_h1:
-                    # Enlace universal limpio sin #gid= para abrir el libro completo con todas las pestañas visibles
+                    # Enlace universal limpio sin #gid= para abrir el libro maestro completo
                     url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
-                    st.markdown(f"[🔗 Abrir Libro Completo en Google Sheets (Todas las Pestañas)]({url_sheet_universal})", unsafe_allow_html=True)
+                    st.markdown(f"[🔗 Abrir Libro Maestro Completo en Google Sheets]({url_sheet_universal})", unsafe_allow_html=True)
                     
                     if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
                         st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
