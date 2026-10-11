@@ -378,7 +378,9 @@ else:
                                     "sheet_id": sheet_id_destino
                                 }
                                 hojas_creadas_exito.append(hoja_info)
-                                st.session_state.historial_jornadas.append(hoja_info)
+                                # Evitar duplicados en el historial local
+                                if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
+                                    st.session_state.historial_jornadas.append(hoja_info)
 
                             else:
                                 nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
@@ -424,7 +426,8 @@ else:
                                     "sheet_id": sheet_id_destino
                                 }
                                 hojas_creadas_exito.append(hoja_info)
-                                st.session_state.historial_jornadas.append(hoja_info)
+                                if not any(h["nombre"] == nombre_nueva_hoja for h in st.session_state.historial_jornadas):
+                                    st.session_state.historial_jornadas.append(hoja_info)
 
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
@@ -541,13 +544,65 @@ else:
                 st.info("ℹ️ Configure los parámetros y autorice la jornada para generar los códigos QR.")
 
     with tab_historial:
-        st.markdown(
-            '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial General de Jornadas Autorizadas</div>',
-            unsafe_allow_html=True,
-        )
+        col_hist_tit, col_hist_btn = st.columns([3, 1])
+        with col_hist_tit:
+            st.markdown(
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial de Hojas Existentes en Google Sheets</div>',
+                unsafe_allow_html=True,
+            )
+        with col_hist_btn:
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Actualizar Historial", use_container_width=True, help="Conectar con Google Sheets y sincronizar hojas operativas"):
+                try:
+                    scope = GOOGLE_SCOPES
+                    if "GOOGLE_CREDENTIALS" in st.secrets:
+                        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+                    elif "gpex" in st.secrets:
+                        creds_dict = dict(st.secrets["gpex"])
+                    else:
+                        primera_llave = list(st.secrets.keys())[0]
+                        creds_dict = dict(st.secrets[primera_llave])
+
+                    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
+                    client = gspread.authorize(creds)
+                    
+                    # Conectamos a ambas fuentes posibles de hojas (ISSSTE 20N y General)
+                    ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
+                    hojas_encontradas = []
+
+                    for sheet_id_item in ids_a_revisar:
+                        try:
+                            sp_item = client.open_by_key(sheet_id_item)
+                            for ws in sp_item.worksheets():
+                                titulo_w = ws.title
+                                if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
+                                    # Intentar extraer fecha del título de la hoja (formato DDMMYY al final o en el nombre)
+                                    hojas_encontradas.append({
+                                        "nombre": titulo_w,
+                                        "gid": str(ws.id),
+                                        "unidad": "CMN 20 DE NOVIEMBRE" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "Unidad Médica",
+                                        "siglas_unidad": "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN",
+                                        "tipo_jornada": "Intramuros I" if "INTRA" in titulo_w else "Extramuros E",
+                                        "tipo_jornada_letra": "I" if "INTRA" in titulo_w else "E",
+                                        "responsable": "PERSONAL OPERATIVO",
+                                        "fecha": datetime.date.today(), # Referencia por defecto
+                                        "sheet_id": sheet_id_item
+                                    })
+                        except:
+                            pass
+                    
+                    if hojas_encontradas:
+                        st.session_state.historial_jornadas = hojas_encontradas
+                        st.success(f"✅ ¡Historial sincronizado! Se encontraron {len(hojas_encontradas)} hojas activas en Google Sheets.")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ No se encontraron hojas operativas adicionales en los documentos.")
+                except Exception as e:
+                    st.error(f"Error al sincronizar con Google Sheets: {e}")
 
         if not st.session_state.historial_jornadas:
-            st.info("ℹ️ No hay jornadas registradas en el historial de esta sesión todavía.")
+            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial'** para cargar las hojas existentes y operativas directamente desde Google Sheets.")
         else:
             hoy = datetime.date.today()
             base_url = "https://medprev-vacunas-invernal.streamlit.app"
@@ -555,52 +610,43 @@ else:
             for i, h_item in enumerate(st.session_state.historial_jornadas):
                 fecha_jornada = h_item["fecha"]
                 
-                if fecha_jornada >= hoy:
-                    estatus_badge = "🟢 **Activa**"
-                    estado_color = "#e8f0ec"
-                else:
-                    estatus_badge = "🔴 **Finalizada / Vencida**"
-                    estado_color = "#f9ecec"
-
                 with st.container():
                     st.markdown(
                         f"""
-                        <div style="background-color: {estado_color}; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                        <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
                             <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
                             <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
-                            <p style="margin: 4px 0;"><b>Responsable:</b> {h_item['responsable']} | <b>Fecha Programada:</b> {fecha_jornada.strftime('%d/%m/%Y')}</p>
-                            <p style="margin: 4px 0;"><b>Estatus:</b> {estatus_badge}</p>
+                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja Operativa Activa en Nube</b></p>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
 
-                    if fecha_jornada >= hoy:
-                        col_h1, col_h2 = st.columns([1, 1])
-                        with col_h1:
-                            url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
-                            st.markdown(f"[🔗 Abrir Google Sheet]({url_sheet})", unsafe_allow_html=True)
-                        
-                        with col_h2:
-                            fecha_url_str = fecha_jornada.strftime("%Y-%m-%d")
-                            resp_encoded = urllib.parse.quote(h_item["responsable"])
-                            ruta_formulario = "registro_20_noviembre" if h_item["siglas_unidad"] == "20N" else "formulario"
-                            link_paciente_hist = f"{base_url}/{ruta_formulario}?unidad={h_item['siglas_unidad']}&jornada={h_item['tipo_jornada_letra']}&fecha={fecha_url_str}&resp={resp_encoded}"
+                    col_h1, col_h2 = st.columns([1, 1])
+                    with col_h1:
+                        url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
+                        st.markdown(f"[🔗 Abrir Hoja en Google Sheets]({url_sheet})", unsafe_allow_html=True)
+                    
+                    with col_h2:
+                        fecha_url_str = fecha_jornada.strftime("%Y-%m-%d")
+                        resp_encoded = urllib.parse.quote(h_item["responsable"])
+                        ruta_formulario = "registro_20_noviembre" if h_item["siglas_unidad"] == "20N" else "formulario"
+                        link_paciente_hist = f"{base_url}/{ruta_formulario}?unidad={h_item['siglas_unidad']}&jornada={h_item['tipo_jornada_letra']}&fecha={fecha_url_str}&resp={resp_encoded}"
 
-                            qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
-                            qr_h.add_data(link_paciente_hist)
-                            qr_h.make(fit=True)
-                            img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
+                        qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
+                        qr_h.add_data(link_paciente_hist)
+                        qr_h.make(fit=True)
+                        img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
 
-                            buf_h = io.BytesIO()
-                            img_h.save(buf_h, format="PNG")
-                            byte_im_h = buf_h.getvalue()
+                        buf_h = io.BytesIO()
+                        img_h.save(buf_h, format="PNG")
+                        byte_im_h = buf_h.getvalue()
 
-                            st.download_button(
-                                label=f"📥 Descargar QR Activo ({h_item['nombre']})",
-                                data=byte_im_h,
-                                file_name=f"QR_{h_item['nombre']}.png",
-                                mime="image/png",
-                                key=f"hist_qr_{i}"
-                            )
+                        st.download_button(
+                            label=f"📥 Descargar QR ({h_item['nombre']})",
+                            data=byte_im_h,
+                            file_name=f"QR_{h_item['nombre']}.png",
+                            mime="image/png",
+                            key=f"hist_qr_{i}"
+                        )
                 st.markdown("---")
