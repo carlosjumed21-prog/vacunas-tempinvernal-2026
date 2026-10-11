@@ -664,7 +664,7 @@ else:
                                     placeholder="Ej. A1234",
                                 )
                             with c_inf5:
-                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_inf")
+                                cad_inf_input = st.date_input("Caducidad Influenza", value=None, format="DD/MM/YYYY", key="cad_inf", help="Seleccione o escriba la fecha de caducidad")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
@@ -681,7 +681,7 @@ else:
                                     placeholder="Ej. C5678",
                                 )
                             with c_cov5:
-                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_cov")
+                                cad_cov_input = st.date_input("Caducidad COVID", value=None, format="DD/MM/YYYY", key="cad_cov", help="Seleccione o escriba la fecha de caducidad")
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
@@ -689,19 +689,27 @@ else:
                             )
 
                             if btn_actualizar_dosis:
-                                # --- VALIDACIÓN ESTRICTA DE LOTES ---
+                                # --- VALIDACIÓN ESTRICTA DE LOTES Y CADUCIDAD ---
                                 influenza_seleccionada = inf_1ra or inf_2da or inf_anual
                                 covid_seleccionada = cov_1ra or cov_2da or cov_anual
 
                                 error_validacion = False
 
-                                if influenza_seleccionada and not lote_inf_input.strip():
-                                    st.error("⚠️ **Error:** Seleccionó al menos una dosis de **Influenza**, pero falta ingresar el número de lote.")
-                                    error_validacion = True
+                                if influenza_seleccionada:
+                                    if not lote_inf_input.strip():
+                                        st.error("⚠️ **Error:** Seleccionó al menos una dosis de **Influenza**, pero falta ingresar el número de lote.")
+                                        error_validacion = True
+                                    if not cad_inf_input:
+                                        st.error("⚠️ **Error:** Seleccionó al menos una dosis de **Influenza**, pero falta indicar la fecha de caducidad.")
+                                        error_validacion = True
 
-                                if covid_seleccionada and not lote_cov_input.strip():
-                                    st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta ingresar el número de lote.")
-                                    error_validacion = True
+                                if covid_seleccionada:
+                                    if not lote_cov_input.strip():
+                                        st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta ingresar el número de lote.")
+                                        error_validacion = True
+                                    if not cad_cov_input:
+                                        st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta indicar la fecha de caducidad.")
+                                        error_validacion = True
 
                                 if not influenza_seleccionada and not covid_seleccionada:
                                     st.warning("⚠️ Debe seleccionar al menos una dosis a aplicar antes de guardar.")
