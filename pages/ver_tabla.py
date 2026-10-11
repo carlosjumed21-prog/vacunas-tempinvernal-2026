@@ -4,8 +4,6 @@ import gspread
 import json
 import io
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA PARA OCUPAR TODO EL NAVEGADOR ---
@@ -46,11 +44,10 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # Obtenemos la hoja de trabajo activa para extraer su ID único (gid) y asegurar la descarga exacta
         ws = spreadsheet.worksheet(hoja_activa_tabla)
-        gid_hoja = ws.id
+        todos_los_datos = ws.get_all_values()
 
-        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL ORIGINAL DE LA HOJA ---
+        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL DE LA HOJA ---
         col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -59,57 +56,26 @@ else:
             if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                 st.rerun()
 
-        # --- BOTÓN DE DESCARGA EXCEL DIRECTO DE LA PESTAÑA ESPECÍFICA EN GOOGLE SHEETS ---
+        # --- BOTÓN DE DESCARGA EXCEL CON TODA LA ESTRUCTURA INSTITUCIONAL ---
         with col_tit3:
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             try:
-                import urllib.request
-                # URL de exportación nativa de Google Sheets para una pestaña específica usando su gid
-                url_export_xlsx = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                
-                req = urllib.request.Request(
-                    url_export_xlsx,
-                    headers={'Authorization': f'Bearer {creds.token}'}
-                )
-                
-                # Refrescar credenciales si es necesario
-                if not creds.valid:
-                    creds.refresh(google.auth.transport.requests.Request())
-                    req.add_header('Authorization', f'Bearer {creds.token}')
-
-                with urllib.request.urlopen(req) as response:
-                    excel_original_bytes = response.read()
+                output = io.BytesIO()
+                df_full = pd.DataFrame(todos_los_datos)
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_full.to_excel(writer, sheet_name=hoja_activa_tabla, header=False, index=False)
+                excel_bytes = output.getvalue()
 
                 st.download_button(
                     label="📥 Descargar Hoja Excel",
-                    data=excel_original_bytes,
+                    data=excel_bytes,
                     file_name=f"{hoja_activa_tabla}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
-                    help=f"Descargar la hoja '{hoja_activa_tabla}' exactamente con el formato y estructura original de Google Sheets"
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' completa con su estructura institucional y formato Excel"
                 )
             except Exception as err:
-                # Fallback alternativo mediante openpyxl conservando la estructura de filas y cabeceras institucionales
-                try:
-                    output = io.BytesIO()
-                    todos_los_datos_full = ws.get_all_values()
-                    df_full = pd.DataFrame(todos_los_datos_full)
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        df_full.to_excel(writer, sheet_name=hoja_activa_tabla, header=False, index=False)
-                    excel_fallback_bytes = output.getvalue()
-
-                    st.download_button(
-                        label="📥 Descargar Hoja Excel",
-                        data=excel_fallback_bytes,
-                        file_name=f"{hoja_activa_tabla}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        help=f"Descargar la hoja '{hoja_activa_tabla}' en formato Excel"
-                    )
-                except Exception as ex_inner:
-                    st.error(f"No se pudo generar el archivo Excel: {ex_inner}")
-
-        todos_los_datos = ws.get_all_values()
+                st.error(f"No se pudo generar el archivo Excel: {err}")
 
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
