@@ -6,12 +6,18 @@ import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
 
+# --- IMPORTACIÓN SEGURA DEL AVISO DE PRIVACIDAD ---
 try:
+    # Intento de importación directa (si está en la raíz o en el PYTHONPATH)
     from aviso_privacidad import mostrar_aviso_privacidad
 except ImportError:
-    def mostrar_aviso_privacidad():
-        st.write("Aviso de privacidad institucional VIGILE - ISSSTE.")
-        st.text("Tratamiento de datos personales recabados conforme a la normatividad aplicable.")
+    try:
+        # Intento alternativo si estuviera dentro de una carpeta o módulo
+        from vacunas_tempinvernal_2026.aviso_privacidad import mostrar_aviso_privacidad
+    except ImportError:
+        def mostrar_aviso_privacidad():
+            st.warning("⚠️ No se encontró el archivo aviso_privacidad.py en la ruta actual.")
+            st.write("Aviso de privacidad institucional VIGILE - ISSSTE.")
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
@@ -638,8 +644,6 @@ def mostrar_modal_comprobante():
                         if "chk_" in k
                         else ("" if "input_" in k and "fnac" not in k else None)
                     )
-            # Opcional: si deseas que al reiniciar también aparezca la ventana emergente de privacidad, descomenta la línea de abajo:
-            # st.session_state.aviso_privacidad_visto = False
             st.rerun()
 
 
