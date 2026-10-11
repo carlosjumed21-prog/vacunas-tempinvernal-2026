@@ -725,11 +725,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Preparar fecha inicial en formato ISO si existe en el session_state (para que JS la interprete)
 fecha_inicial_iso = ""
 if st.session_state.get('fecha_nac_str'):
     try:
-        # Intentar parsear por si viene en DD/MM/YYYY o YYYY-MM-DD
         val_str = st.session_state.fecha_nac_str
         if "/" in val_str:
             partes = val_str.split("/")
@@ -740,7 +738,6 @@ if st.session_state.get('fecha_nac_str'):
     except:
         pass
 
-# 1. Renderizamos PRIMERO el componente HTML del calendario interactivo
 componente_calendario_html = f"""
 <!DOCTYPE html>
 <html>
@@ -937,17 +934,14 @@ componente_calendario_html = f"""
 
 components.html(componente_calendario_html, height=290)
 
-# 2. Colocamos el campo de texto sincronizado ABAJO en formato DD/MM/YYYY
 fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="DD/MM/YYYY")
 
 fecha_nacimiento = None
 if st.session_state.get("fecha_nac_str"):
     try:
-        # Convertir DD/MM/YYYY a objeto date para Python
         fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%d/%m/%Y").date()
     except:
         try:
-            # Fallback por si acaso se guardó en formato YYYY-MM-DD anteriormente
             fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
         except:
             pass
@@ -1035,7 +1029,7 @@ curp_con_nacimiento = (
 )
 
 st.markdown(
-    f'<div class="card-curp">🆔 CURP Generada: {curp_con_nacimiento}</div>',
+    f'<div class="card-curp">🆔 CURP / RFC Generada: {curp_con_nacimiento}</div>',
     unsafe_allow_html=True,
 )
 
@@ -1270,18 +1264,14 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "calle": calle,
                 "numero": numero,
                 "colonia": colonia,
+                "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
+                "estado_residencia": estado_residencia if estado_residencia != "SELECCIONE UN ESTADO" else "CDMX",
                 "curp_con_nacimiento": curp_con_nacimiento,
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "antecedente_covid": antecedente_covid,
                 "antecedente_influenza": antecedente_influenza,
                 "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": (
-                    "SÍ" if personas_embarazadas else personas_gestantes
-                ),
-                "personas_gestantes": (
-                    "SÍ" if personas_embarazadas else personas_gestantes
-                ),
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
             }
