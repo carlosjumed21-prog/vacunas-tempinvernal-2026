@@ -571,7 +571,9 @@ def mostrar_modal_comprobante():
                 "input_paterno",
                 "input_materno",
                 "input_nombres",
-                "input_fnac",
+                "sel_anio",
+                "sel_mes",
+                "sel_dia",
                 "input_sexo",
                 "input_estnac",
                 "input_estres",
@@ -607,7 +609,19 @@ def mostrar_modal_comprobante():
                     st.session_state[k] = (
                         False
                         if "chk_" in k
-                        else ("" if "input_" in k and "fnac" not in k else None)
+                        else (
+                            "SELECCIONE"
+                            if "sel_" in k
+                            else (
+                                "SELECCIONE UNA OPCIÓN"
+                                if "input_sexo" in k
+                                or "input_derecho" in k
+                                or "input_estnac" in k
+                                or "input_estres" in k
+                                or "input_ocupacion" in k
+                                else ""
+                            )
+                        )
                     )
             st.rerun()
 
@@ -645,7 +659,9 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
             st.session_state.input_paterno = "BADILLO"
             st.session_state.input_materno = "XICOHTENCATL"
             st.session_state.input_nombres = "CARLOS"
-            st.session_state.input_fnac = datetime.date(1993, 10, 15)
+            st.session_state.sel_anio = 1993
+            st.session_state.sel_mes = "Octubre"
+            st.session_state.sel_dia = 15
             st.session_state.input_sexo = "HOMBRE"
             st.session_state.input_estnac = "CIUDAD DE MÉXICO"
             st.session_state.input_estres = "CIUDAD DE MÉXICO"
@@ -703,23 +719,61 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1:
-    fecha_nacimiento = st.date_input(
-        "Fecha de Nacimiento *",
-        value=None,
-        min_value=datetime.date(1920, 1, 1),
-        max_value=datetime.date.today(),
-        format="DD/MM/YYYY",
-        key="input_fnac",
-    )
-with col_fn2:
+# --- SELECTOR DE FECHA MÓVIL (AÑO, MES, DÍA) ---
+st.markdown(
+    "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
+    unsafe_allow_html=True,
+)
+
+col_f1, col_f2, col_f3 = st.columns(3)
+
+anos_disponibles = ["SELECCIONE"] + list(range(2026, 1919, -1))
+meses_dict = {
+    "Enero": 1,
+    "Febrero": 2,
+    "Marzo": 3,
+    "Abril": 4,
+    "Mayo": 5,
+    "Junio": 6,
+    "Julio": 7,
+    "Agosto": 8,
+    "Septiembre": 9,
+    "Octubre": 10,
+    "Noviembre": 11,
+    "Diciembre": 12,
+}
+meses_disponibles = ["SELECCIONE"] + list(meses_dict.keys())
+dias_disponibles = ["SELECCIONE"] + list(range(1, 32))
+
+with col_f1:
+    anio_sel = st.selectbox("Año", options=anos_disponibles, key="sel_anio")
+with col_f2:
+    mes_sel = st.selectbox("Mes", options=meses_disponibles, key="sel_mes")
+with col_f3:
+    dia_sel = st.selectbox("Día", options=dias_disponibles, key="sel_dia")
+
+fecha_nacimiento = None
+if (
+    anio_sel != "SELECCIONE"
+    and mes_sel != "SELECCIONE"
+    and dia_sel != "SELECCIONE"
+):
+    try:
+        mes_num = meses_dict[mes_sel]
+        fecha_nacimiento = datetime.date(int(anio_sel), mes_num, int(dia_sel))
+    except ValueError:
+        st.error(
+            "⚠️ La fecha seleccionada no es válida (por ejemplo, 31 de febrero)."
+        )
+
+col_fn2_s, col_fn3_s = st.columns(2)
+with col_fn2_s:
     sexo = st.selectbox(
         "Sexo *",
         options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"],
         key="input_sexo",
     )
-with col_fn3:
+with col_fn3_s:
     estado_nacimiento = st.selectbox(
         "Estado de Nacimiento *", options=estados_mexico, key="input_estnac"
     )
@@ -968,9 +1022,9 @@ st.markdown(
 
 st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
-    # Validaciones obligatorias estrictas
+    calle_limpia = calle.strip() if calle else ""
     if not fecha_nacimiento:
-        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento.")
+        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento completa (Año, Mes y Día).")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
         st.error("⚠️ Complete Apellido Paterno, Apellido Materno y Nombre(s).")
     elif sexo == "SELECCIONE UNA OPCIÓN":
@@ -979,7 +1033,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("⚠️ Seleccione su Estado de Nacimiento.")
     elif estado_residencia == "SELECCIONE UN ESTADO":
         st.error("⚠️ Seleccione su Estado de Residencia.")
-    elif not callee := calle.strip(): # Validando calle
+    elif not calle_limpia:
         st.error("⚠️ Complete el campo de Calle.")
     elif not numero.strip():
         st.error("⚠️ Complete el número Exterior/Interior.")
@@ -1007,7 +1061,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "fibrosis_quistica": fibrosis_quistica,
                 "hipertension": hipertension,
                 "otro": otro_riesgo,
-                "texto_otro": texto_otro_riesgo.upper()
+                "texto_otro": texto_otro_riesgo.upper(),
             }
 
             datos_paciente = {
@@ -1025,8 +1079,12 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 "cuenta_derechohabiencia": cuenta_derechohabiencia,
                 "vacuna_interes": vacuna_interes,
                 "grupo_sugerido": grupo_sugerido,
-                "planes_o_embarazo": "SÍ" if personas_embarazadas else personas_gestantes,
-                "personas_gestantes": "SÍ" if personas_embarazadas else personas_gestantes,
+                "planes_o_embarazo": (
+                    "SÍ" if personas_embarazadas else personas_gestantes
+                ),
+                "personas_gestantes": (
+                    "SÍ" if personas_embarazadas else personas_gestantes
+                ),
                 "ocupacion": ocupacion,
                 "comorbilidades": comorbilidades_dict,
             }
@@ -1040,7 +1098,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 datos_paciente=datos_paciente,
             )
 
-            # Forzar la limpieza de caché para que la consulta (pages/2_consulta_censal.py) se actualice en automático
+            # Forzar la limpieza de caché para actualizar instantáneamente la consulta de registros
             st.cache_data.clear()
 
             st.session_state.ultimo_paciente_registrado = {
