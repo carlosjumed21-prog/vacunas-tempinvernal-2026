@@ -4,6 +4,7 @@ import urllib.parse
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
@@ -230,7 +231,7 @@ if not st.session_state.autenticado_consulta:
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">Ingrese su correo institucional y contraseña</p>',
+        '<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>',
         unsafe_allow_html=True,
     )
 
@@ -239,14 +240,14 @@ if not st.session_state.autenticado_consulta:
             "📧 Correo Electrónico Institucional:",
             placeholder="ejemplo@issste.gob.mx"
         )
-        password = st.text_input("Contraseña Operativa:", type="password")
+        password = st.text_input("Contraseña:", type="password")
         
         btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
 
         if btn_login:
             correo_limpio = correo_operador_input.strip().lower()
             if not correo_limpio:
-                st.error("⚠️ Debe ingresar su correo electrónico institucional.")
+                st.error("⚠️ Debe ingresar su correo electrónico.")
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
@@ -259,7 +260,7 @@ if not st.session_state.autenticado_consulta:
                     st.session_state.correo_operativo_asignado = correo_limpio
                     st.rerun()
                 else:
-                    st.error("❌ Credenciales incorrectas. Verifique correo y contraseña.")
+                    st.error("❌ Credenciales incorrectas. Verifique su correo y contraseña.")
 else:
     st.markdown(
         '<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>',
@@ -296,13 +297,13 @@ else:
         h_autorizadas = []
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-        # --- LLAVE UNIVERSAL: Tu correo de admin carga TODAS las hojas operativas directamente ---
+        # --- LLAVE UNIVERSAL: Si eres tú (Admin), ves todas las hojas del libro ---
         if correo_sesion == "carlosju.med21@gmail.com":
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     h_autorizadas.append(h.title)
         else:
-            # Para operativos, se busca estrictamente su correo en la celda AU4
+            # Para operativos, filtramos buscando estrictamente su correo en la celda AU4
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     try:
@@ -316,16 +317,17 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- SELECTOR O TÍTULO DE JORNADA SEGÚN EL ROL ---
+    # --- SELECTOR SEGÚN ROL ---
     if correo_sesion == "carlosju.med21@gmail.com":
         st.markdown(
-            f'<div class="section-title">👑 Vista Administrador General (Acceso Universal): <code>{correo_sesion}</code></div>',
+            f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>',
             unsafe_allow_html=True,
         )
         if h_autorizadas:
             hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
         else:
             hoja_seleccionada = None
+            st.warning("⚠️ No se encontraron hojas operativas en el libro.")
     else:
         st.markdown(
             f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
@@ -333,42 +335,20 @@ else:
         )
         if not h_autorizadas:
             st.warning(
-                f"⚠️ No se encontró ninguna hoja o jornada autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
-                "Verifique con el administrador que el correo ingresado coincida exactamente con el registrado en la celda AU4."
+                f"⚠️ No se encontró ninguna hoja autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
+                "Verifique que su correo coincida exactamente con el registrado en la celda AU4."
             )
             hoja_seleccionada = None
         else:
             hoja_seleccionada = h_autorizadas[0]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE (LIMPIO, SIN OCULTAR HOJAS) ---
-    col_v1, col_v2 = st.columns([3, 1])
-    with col_v1:
-        st.markdown(f"<b>Hoja Activa en Pantalla:</b> {hoja_seleccionada if hoja_seleccionada else 'Ninguna'}", unsafe_allow_html=True)
-    with col_v2:
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Abrir el Google Sheets de la hoja seleccionada"):
-            if hoja_seleccionada:
-                try:
-                    ws_temp = spreadsheet.worksheet(hoja_seleccionada)
-                    url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
-                    st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
-                    st.success(f"🔗 Abriendo Google Sheets: {hoja_seleccionada}")
-                except Exception as ex:
-                    st.warning(f"No se pudo abrir el enlace: {ex}")
-            else:
-                st.warning("⚠️ Seleccione una hoja válida.")
-
-    params_url = st.query_params
-    hoja_enlace = params_url.get("hoja_activa", "")
-
-    if hoja_enlace:
-        if correo_sesion == "carlosju.med21@gmail.com" or hoja_enlace in h_autorizadas:
+    # Ignoramos parámetros URL externos para operativos comunes
+    if correo_sesion != "carlosju.med21@gmail.com":
+        params_url = st.query_params
+        hoja_enlace = params_url.get("hoja_activa", "")
+        if hoja_enlace and hoja_enlace in h_autorizadas:
             hoja_seleccionada = hoja_enlace
-            st.success(
-                f"🔒 Jornada activa por enlace: <b>{hoja_seleccionada}</b>",
-                icon="🔒",
-            )
 
     if hoja_seleccionada:
         try:
@@ -402,8 +382,34 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
+        # --- NUEVA VISUALIZACIÓN ESTILO GOOGLE SHEETS DENTRO DE LA APP ---
         st.markdown(
-            '<div class="section-title">2. Lupa de Búsqueda Rápida</div>',
+            '<div class="section-title">📊 Visualización de Censo (Estilo Hoja de Cálculo)</div>',
+            unsafe_allow_html=True,
+        )
+        
+        try:
+            if len(todos_los_datos) >= 12:
+                # Fila 12 (índice 11) como cabecera y filas posteriores como datos
+                encabezados_tabla = todos_los_datos[11]
+                filas_tabla = todos_los_datos[12:]
+                
+                # Creamos el DataFrame de Pandas para simular la cuadrícula exacta de Google Sheets
+                df_tabla_segura = pd.DataFrame(filas_tabla, columns=encabezados_tabla[:len(filas_tabla[0])])
+                
+                st.dataframe(
+                    df_tabla_segura,
+                    use_container_width=True,
+                    height=350,
+                    hide_index=True
+                )
+            else:
+                st.info("La jornada no tiene suficientes filas para renderizar la cuadrícula.")
+        except Exception as tbl_err:
+            st.warning(f"No se pudo renderizar la tabla tabulada: {tbl_err}")
+
+        st.markdown(
+            '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
             unsafe_allow_html=True,
         )
         if not pacientes_cargados:
