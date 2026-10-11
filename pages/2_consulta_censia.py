@@ -381,10 +381,9 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-# --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA PASANDO SESIÓN Y HOJA ---
-        correo_actual = st.session_state.get("correo_operativo_asignado", "")
+# --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA PASANDO LA HOJA AUTORIZADA ---
         hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
-        url_externa = f"ver_tabla?sesion=activa&correo={urllib.parse.quote(correo_actual)}&hoja={urllib.parse.quote(hoja_actual)}"
+        url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
         
         st.markdown(
             f"""
