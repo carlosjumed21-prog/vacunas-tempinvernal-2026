@@ -613,4 +613,153 @@ else:
                                     <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
                                         <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 ({tipo_biologico_covid})</h4>
                                         <p><b>Categoría:</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
-                                        <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_
+                                        <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema:</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis:</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo:</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación:</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
+
+                        # --- AVISO INDEPENDIENTE DE APLICACIÓN SIMULTÁNEA (SOLO SI SE ELIGE AMBAS) ---
+                        if vacuna_registrada == "AMBAS":
+                            texto_simultanea = ""
+                            if match_inf_prioritario and match_inf_prioritario.get("aplicacion_simultanea"):
+                                texto_simultanea = match_inf_prioritario.get("aplicacion_simultanea")
+                            elif match_cov_prioritario and match_cov_prioritario.get("aplicacion_simultanea"):
+                                texto_simultanea = match_cov_prioritario.get("aplicacion_simultanea")
+                            else:
+                                texto_simultanea = "Ambas vacunas podrán aplicarse de forma simultánea en extremidades distintas, o respetando de 2.5 a 5 cm de distancia si se aplican en el mismo sitio de punción."
+
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #eaf2f0; border-left: 5px solid #1e5b4f; border: 1px solid #cce3de; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px;">
+                                    <p style="color: #1e5b4f; font-weight: 700; margin: 0 0 4px 0;">🔄 Lineamiento de Aplicación Simultánea:</p>
+                                    <p style="color: #161a1d; margin: 0; font-size: 0.95rem;">{texto_simultanea}</p>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                        st.markdown(
+                            '<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        with st.form("form_aplicacion_lotes"):
+                            st.markdown("##### 💉 INFLUENZA")
+                            c_inf1, c_inf2, c_inf3, c_inf4, c_inf5 = st.columns([1, 1, 1, 1.5, 1.5])
+                            with c_inf1:
+                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
+                            with c_inf2:
+                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
+                            with c_inf3:
+                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
+                            with c_inf4:
+                                lote_inf_input = st.text_input(
+                                    "Lote Influenza",
+                                    value=st.session_state.lote_influenza_memoria,
+                                    placeholder="Ej. A1234",
+                                )
+                            with c_inf5:
+                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_inf")
+
+                            st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
+                            c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
+                            with c_cov1:
+                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
+                            with c_cov2:
+                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
+                            with c_cov3:
+                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
+                            with c_cov4:
+                                lote_cov_input = st.text_input(
+                                    "Lote COVID-19",
+                                    value=st.session_state.lote_covid_memoria,
+                                    placeholder="Ej. C5678",
+                                )
+                            with c_cov5:
+                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_cov")
+
+                            btn_actualizar_dosis = st.form_submit_button(
+                                "💾 Guardar Aplicación y Actualizar Hoja Sheets",
+                                use_container_width=True,
+                            )
+
+                            if btn_actualizar_dosis:
+                                try:
+                                    if lote_inf_input:
+                                        st.session_state.lote_influenza_memoria = lote_inf_input.upper()
+                                    if lote_cov_input:
+                                        st.session_state.lote_covid_memoria = lote_cov_input.upper()
+
+                                    f_actual = fila_idx
+                                    f_siguiente = fila_idx + 1
+
+                                    dosis_aplicadas_lista = []
+                                    datos_a_actualizar = []
+
+                                    # --- Mapeo exacto de columnas para INFLUENZA ---
+                                    if inf_1ra:
+                                        datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
+                                    if inf_2da:
+                                        datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append("Influenza (2da Dosis)")
+                                    if inf_anual:
+                                        datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
+
+                                    if lote_inf_input:
+                                        lote_i = lote_inf_input.upper()
+                                        datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+                                    if cad_inf_input:
+                                        cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
+                                        datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+
+                                    # --- Mapeo exacto de columnas para COVID ---
+                                    if cov_1ra:
+                                        datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
+                                    if cov_2da:
+                                        datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
+                                    if cov_anual:
+                                        datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
+                                        dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
+
+                                    if lote_cov_input:
+                                        lote_c = lote_cov_input.upper()
+                                        datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+                                    if cad_cov_input:
+                                        cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
+                                        datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+
+                                    if datos_a_actualizar:
+                                        worksheet_activa.batch_update(datos_a_actualizar)
+
+                                    lote_final_partes = []
+                                    if lote_inf_input:
+                                        lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
+                                    if lote_cov_input:
+                                        lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
+                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
+
+                                    dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
+
+                                    st.session_state.ultimo_comprobante_vacunacion = {
+                                        "nombre": nombre_completo,
+                                        "folio": folio_p,
+                                        "dosis_str": dosis_str,
+                                        "lotes_str": lote_final_str,
+                                        "fecha_aplicacion": fecha_aplicacion_hoja
+                                    }
+                                    st.rerun()
+
+                                except Exception as e:
+                                    st.error(
+                                        "Error al actualizar la base de datos en Google"
+                                        f" Sheets: {e}"
+                                    )
