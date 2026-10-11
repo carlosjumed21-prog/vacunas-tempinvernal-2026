@@ -366,7 +366,6 @@ else:
             if len(todos_los_datos) >= 14:
                 for idx, row in enumerate(todos_los_datos[13:], start=14):
                     if len(row) > 3 and row[1].strip() and row[2].strip():
-                        # Verificar si ya está vacunado (rango AG a AQ -> índices 32 al 42 aprox con "X")
                         ya_vacunado = False
                         for i in range(32, min(43, len(row))):
                             if str(row[i]).strip().upper() == "X":
@@ -386,28 +385,21 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- BOTONES SUPERIORES: ABRIR CENSO Y ACTUALIZAR ---
-        col_btn_ext1, col_btn_ext2 = st.columns([3, 1])
+        # --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA (SIN BOTÓN DUPLICADO) ---
+        hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
+        url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
         
-        with col_btn_ext1:
-            hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
-            url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
-            
-            st.markdown(
-                f"""
-                <div style="margin-top: 5px; margin-bottom: 20px;">
-                    <a href="{url_externa}" target="_blank" 
-                       style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
-                        🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
-                    </a>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            
-        with col_btn_ext2:
-            if st.button("🔄 Actualizar", use_container_width=True, help="Actualizar datos de la jornada actual"):
-                st.rerun()
+        st.markdown(
+            f"""
+            <div style="margin-top: 5px; margin-bottom: 20px;">
+                <a href="{url_externa}" target="_blank" 
+                   style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
+                    🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown(
             '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
@@ -415,7 +407,7 @@ else:
         )
         if not pacientes_cargados:
             st.info(
-                "La jornada seleccionada aún no cuenta con pacientes registrados en el censo."
+                "La jornada seleccionada aún no cuenta com pacientes registrados en el censo."
             )
         else:
             col_busq1, col_busq2 = st.columns([4, 1])
@@ -464,7 +456,6 @@ else:
                         fila_idx = int(seleccion_paciente.split("||")[1])
                         fila_datos = todos_los_datos[fila_idx - 1]
                         
-                        # Verificamos si este paciente específico ya tiene vacuna aplicada
                         esta_vacunado_actual = False
                         for i in range(32, min(43, len(fila_datos))):
                             if str(fila_datos[i]).strip().upper() == "X":
