@@ -232,8 +232,8 @@ def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_an
 
 def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     """
-    Formato solicitado: Fecha YYYYMMDD + INT/EXT + 3 letras de unidad + 4 dígitos consecutivos (iniciando en 0001)
-    Ejemplo: 20261011INT20N0001
+    Formato solicitado con guiones: Fecha YYYYMMDD - INT/EXT - 3 letras de unidad - 4 dígitos consecutivos (iniciando en 0001)
+    Ejemplo: 20261011-INT-20N-0001
     """
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
@@ -247,7 +247,7 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
         st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
         
     secuencial_str = str(consecutivo_num).zfill(4)
-    return f"{fecha_str}{mod_str}{siglas_3}{secuencial_str}"
+    return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
 
 
 @st.cache_data(ttl=30)
