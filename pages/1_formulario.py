@@ -1,10 +1,6 @@
 import datetime
 import streamlit as st
-import streamlit.components.v1 as components
-from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
-from utils.sheets import guardar_registro_censal
-from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
-from logica_registro import (
+from utils.logica_registro import (
     calcular_edad_detallada, generar_curp_algoritmica,
     determinar_grupo_desde_sheets, generar_folio_personalizado,
     estados_mexico, lista_ocupaciones, meses_dict
