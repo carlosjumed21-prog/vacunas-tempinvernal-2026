@@ -26,49 +26,41 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EXACTO (SINTAXIS INGLESA) ---
+# --- FUNCIÓN NATIVA PARA APLICAR FORMATO CONDICIONAL LIMPIO Y ESTRICTO EN GOOGLE SHEETS ---
 def aplicar_formato_condicional_sheets(worksheet):
-    """Aplica formato condicional mediante petición cruda a la API de Google Sheets 
-    usando la sintaxis estándar en inglés para evitar conflictos regionales."""
+    """Limpia reglas anteriores y aplica formato condicional estricto para pintar 
+    de verde de A a AQ a partir de la fila 14 SOLAMENTE si el rango AG-AQ contiene una 'X'."""
     try:
-        body = {
-            "requests": [
-                {
-                    "addConditionalFormatRule": {
-                        "rule": {
-                            "ranges": [
-                                {
-                                    "sheetId": worksheet.id,
-                                    "startRowIndex": 13,      # Fila 14 (base 0)
-                                    "endRowIndex": 1000,      # Rango dinámico hacia abajo
-                                    "startColumnIndex": 0,    # Columna A (índice 0)
-                                    "endColumnIndex": 43      # Columna AQ (índice 43, exclusivo)
-                                }
-                            ],
-                            "booleanRule": {
-                                "condition": {
-                                    "type": "CUSTOM_FORMULA",
-                                    "values": [
-                                        {"userEnteredValue": '=OR(AG14="X", AH14="X", AI14="X", AL14="X", AM14="X", AN14="X")'}
-                                    ]
-                                },
-                                "format": {
-                                    "backgroundColor": {
-                                        "red": 0.831,
-                                        "green": 0.929,
-                                        "blue": 0.855
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            ]
+        from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
+        
+        # 1. Limpiamos todas las reglas condicionales previas para evitar conflictos de fórmulas viejas
+        worksheet.clear_conditional_format_rules()
+        
+        # 2. Definimos el rango horizontal exacto de A (0) a AQ (43) desde la fila 14 (índice 13)
+        rango_grid = {
+            "sheetId": worksheet.id,
+            "startRowIndex": 13,      # Fila 14 (base 0)
+            "endRowIndex": 1000,      # Rango dinámico hacia abajo
+            "startColumnIndex": 0,    # Columna A
+            "endColumnIndex": 43      # Columna AQ
         }
         
-        worksheet.spreadsheet.batch_update(body)
+        # 3. Fórmula estricta: Solo si hay al menos una 'X' en el rango de dosis AG-AQ
+        formula_regla = '=COUNTIF($AG14:$AQ14, "X") > 0'
+        
+        rule = ConditionalFormatRule(
+            ranges=[rango_grid],
+            boolean=BooleanRule(
+                condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
+                format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855)) # Verde claro corporativo
+            )
+        )
+        
+        # Aplicamos la regla limpia a la hoja
+        worksheet.set_conditional_format_rules([rule])
     except Exception as e:
         pass
+
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
@@ -398,7 +390,7 @@ else:
             except:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
-            # Aplicar formato condicional verde automáticamente en la hoja de Google Sheets (rango A:AQ)
+            # Aplicar formato condicional estricto automáticamente en la hoja de Google Sheets (rango A:AQ)
             aplicar_formato_condicional_sheets(worksheet_activa)
 
             todos_los_datos = worksheet_activa.get_all_values()
