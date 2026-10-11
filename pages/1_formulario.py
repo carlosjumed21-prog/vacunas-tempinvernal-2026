@@ -5,42 +5,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
-
-# --- IMPORTACIÓN SEGURA DEL AVISO DE PRIVACIDAD ---
-try:
-    # Intento de importación directa (si está en la raíz o en el PYTHONPATH)
-    from aviso_privacidad import mostrar_aviso_privacidad
-except ImportError:
-    try:
-        # Intento alternativo si estuviera dentro de una carpeta o módulo
-        from vacunas_tempinvernal_2026.aviso_privacidad import mostrar_aviso_privacidad
-    except ImportError:
-        def mostrar_aviso_privacidad():
-            st.warning("⚠️ No se encontró el archivo aviso_privacidad.py en la ruta actual.")
-            st.write("Aviso de privacidad institucional VIGILE - ISSSTE.")
+from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
-# --- VENTANA EMERGENTE (MODAL) PARA EL AVISO DE PRIVACIDAD ---
-@st.dialog("🔒 Aviso de Privacidad Obligatorio", width="large")
-def modal_aviso_privacidad():
-    st.markdown("Por favor lea detenidamente el aviso de privacidad antes de continuar con el registro:")
-    
-    # Contenedor con scroll para leer el aviso
-    with st.container(height=300):
-        mostrar_aviso_privacidad()
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("✅ He leído y acepto el Aviso de Privacidad", use_container_width=True):
-        st.session_state.aviso_privacidad_visto = True
-        st.rerun()
-
-# Control de estado para mostrar el modal al abrir la página o reiniciar
-if "aviso_privacidad_visto" not in st.session_state:
-    st.session_state.aviso_privacidad_visto = False
-
-if not st.session_state.aviso_privacidad_visto:
-    modal_aviso_privacidad()
+# --- LLAMADA A LA VENTANA EMERGENTE (MODAL) DEL AVISO DE PRIVACIDAD ---
+mostrar_aviso_privacidad_si_necesario()
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
 col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
