@@ -26,10 +26,10 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EXACTO EN GOOGLE SHEETS ---
+# --- FUNCIÓN NATIVA POR LOTE PARA APLICAR FORMATO CONDICIONAL EXACTO (SINTAXIS INGLESA) ---
 def aplicar_formato_condicional_sheets(worksheet):
     """Aplica formato condicional mediante petición cruda a la API de Google Sheets 
-    para pintar de verde toda la fila de A a AQ a partir de la fila 14 SOLAMENTE si hay una 'X' en las columnas de dosis (AG a AN)."""
+    usando la sintaxis estándar en inglés para evitar conflictos regionales."""
     try:
         body = {
             "requests": [
@@ -49,7 +49,7 @@ def aplicar_formato_condicional_sheets(worksheet):
                                 "condition": {
                                     "type": "CUSTOM_FORMULA",
                                     "values": [
-                                        {"userEnteredValue": '=OR(AG14="X"; AH14="X"; AI14="X"; AL14="X"; AM14="X"; AN14="X")'}
+                                        {"userEnteredValue": '=OR(AG14="X", AH14="X", AI14="X", AL14="X", AM14="X", AN14="X")'}
                                     ]
                                 },
                                 "format": {
