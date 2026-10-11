@@ -719,7 +719,7 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON DISPARADOR DE ESTADO SÍNCRONO ---
+# --- CALENDARIO INTERACTIVO ESTILO TARJETA CON SELECTORES DE MES Y AÑO ---
 st.markdown(
     "<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>",
     unsafe_allow_html=True,
@@ -939,7 +939,6 @@ componente_calendario_html = f"""
 components.html(componente_calendario_html, height=290)
 
 def actualizar_fecha_callback():
-    # Esta función se ejecuta automáticamente al cambiar el texto y fuerza el recálculo
     pass
 
 fecha_nac_str = st.text_input(
@@ -949,19 +948,6 @@ fecha_nac_str = st.text_input(
     placeholder="DD/MM/YYYY",
     on_change=actualizar_fecha_callback
 )
-
-fecha_nacimiento = None
-if st.session_state.get("fecha_nac_str"):
-    try:
-        fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%d/%m/%Y").date()
-    except:
-        try:
-            fecha_nacimiento = datetime.datetime.strptime(st.session_state.fecha_nac_str, "%Y-%m-%d").date()
-        except:
-            pass
-
-# Campo de texto invisible/sincronizado que recibe el valor del componente HTML y activa los cálculos automáticos
-fecha_nac_str = st.text_input("Fecha Seleccionada", key="fecha_nac_str", label_visibility="collapsed", placeholder="DD/MM/YYYY")
 
 fecha_nacimiento = None
 if st.session_state.get("fecha_nac_str"):
