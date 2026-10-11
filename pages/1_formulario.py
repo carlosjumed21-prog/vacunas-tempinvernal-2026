@@ -6,6 +6,13 @@ import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
 
+try:
+    from aviso_privacidad import mostrar_aviso_privacidad
+except ImportError:
+    def mostrar_aviso_privacidad():
+        with st.expander("📄 Aviso de Privacidad"):
+            st.info("Aviso de privacidad institucional VIGILE - ISSSTE.")
+
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 
 # --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
@@ -15,6 +22,18 @@ with col_nav1:
         st.switch_page("app.py")
 
 st.markdown("---")
+
+# --- MOSTRAR AVISO DE PRIVACIDAD AL ABRIR EL FORMULARIO (SI NO SE HA ACEPTADO) ---
+if "aviso_privacidad_visto" not in st.session_state:
+    st.session_state.aviso_privacidad_visto = False
+
+if not st.session_state.aviso_privacidad_visto:
+    st.markdown("### 🔒 Aviso de Privacidad Obligatorio")
+    mostrar_aviso_privacidad()
+    if st.button("✅ He leído y acepto el Aviso de Privacidad", use_container_width=True):
+        st.session_state.aviso_privacidad_visto = True
+        st.rerun()
+    st.stop()
 
 # --- RECUPERACIÓN CORRECTA DE PARÁMETROS DE URL ---
 params = st.query_params
@@ -938,20 +957,23 @@ vacuna_interes = st.radio(
 )
 
 # --- LÓGICA DE GRUPO OBJETIVO DINÁMICA ---
-tiene_comorbilidades = (
-    vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or 
-    cancer or cardiacas_congenitas or insuficiencia_renal or inmunosupresion or 
-    discapacidades or fibrosis_quistica or hipertension or personas_embarazadas or personal_salud_riesgo
-)
+if fecha_nacimiento is None:
+    grupo_sugerido = "POR ASIGNAR"
+else:
+    tiene_comorbilidades = (
+        vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or 
+        cancer or cardiacas_congenitas or insuficiencia_renal or inmunosupresion or 
+        discapacidades or fibrosis_quistica or hipertension or personas_embarazadas or personal_salud_riesgo
+    )
 
-grupo_sugerido = determinar_grupo_desde_sheets(
-    biologico=vacuna_interes,
-    edad_meses=edad_total_meses,
-    edad_anos=calc_anos,
-    gestante="SÍ" if personas_embarazadas else personas_gestantes,
-    ocupacion=ocupacion,
-    comorbilidades_activas=tiene_comorbilidades
-)
+    grupo_sugerido = determinar_grupo_desde_sheets(
+        biologico=vacuna_interes,
+        edad_meses=edad_total_meses,
+        edad_anos=calc_anos,
+        gestante="SÍ" if personas_embarazadas else personas_gestantes,
+        ocupacion=ocupacion,
+        comorbilidades_activas=tiene_comorbilidades
+    )
 
 st.markdown(
     '<div class="section-title">7. Grupo Objetivo</div>',
