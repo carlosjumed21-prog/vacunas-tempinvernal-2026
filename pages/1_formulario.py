@@ -719,16 +719,17 @@ with col_n2:
 with col_n3:
     nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
-col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1:
-    fecha_nacimiento = st.date_input(
-        "Fecha de Nacimiento *",
-        value=None,
-        min_value=datetime.date(1920, 1, 1),
-        max_value=datetime.date.today(),
-        format="DD/MM/YYYY",
-        key="input_fnac",
-    )
+# --- CALENDARIO EN ANCHO COMPLETO ---
+fecha_nacimiento = st.date_input(
+    "Fecha de Nacimiento *",
+    value=None,
+    min_value=datetime.date(1920, 1, 1),
+    max_value=datetime.date.today(),
+    format="DD/MM/YYYY",
+    key="input_fnac",
+)
+
+col_fn2, col_fn3 = st.columns(2)
 with col_fn2:
     sexo = st.selectbox(
         "Sexo *",
