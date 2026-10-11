@@ -50,7 +50,7 @@ def mostrar_modal_comprobante_vacunacion():
         folio_val = p.get("folio", "S/F")
         dosis_val = p.get("dosis_str", "N/A")
         lotes_val = p.get("lotes_str", "N/A")
-        fecha_val = p.get("fecha_hora", datetime.datetime.now().strftime("%d/%m/%Y")).split()[0]
+        fecha_val = p.get("fecha_aplicacion", datetime.datetime.now().strftime("%d/%m/%Y"))
 
         texto_qr = (
             f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
@@ -58,7 +58,7 @@ def mostrar_modal_comprobante_vacunacion():
             f"PACIENTE: {nombre_val}\n"
             f"DOSIS: {dosis_val}\n"
             f"LOTES: {lotes_val}\n"
-            f"FECHA: {fecha_val}\n"
+            f"FECHA APLICACIÓN: {fecha_val}\n"
             f"ESTADO: VÁLIDO Y VERIFICADO"
         )
         url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
@@ -142,7 +142,7 @@ def mostrar_modal_comprobante_vacunacion():
                         <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
                         <p class="info-text"><b>Dosis:</b> {dosis_val}</p>
                         <p class="info-text"><b>Lotes:</b> {lotes_val}</p>
-                        <p class="info-text"><b>Fecha:</b> {fecha_val}</p>
+                        <p class="info-text"><b>Fecha de Aplicación:</b> {fecha_val}</p>
                     </div>
                     <div class="qr-container">
                         <img src="{url_qr_api}" alt="QR Verificación">
@@ -160,7 +160,7 @@ def mostrar_modal_comprobante_vacunacion():
                 html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
                     canvas.toBlob(blob => {{
                         const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
+                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha Aplicación: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
                         
                         const enlace = document.createElement('a');
                         enlace.download = fileName;
@@ -577,7 +577,7 @@ else:
                                     dosis_aplicadas_lista = []
                                     datos_a_actualizar = []
 
-                                    # --- Mapeo directo según la estructura solicitada ---
+                                    # --- Mapeo exacto de columnas para INFLUENZA ---
                                     if inf_1ra:
                                         datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -595,6 +595,7 @@ else:
                                         cad_i_str = cad_inf_input.strftime("%d/%m/%Y")
                                         datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
+                                    # --- Mapeo exacto de columnas para COVID ---
                                     if cov_1ra:
                                         datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
                                         dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
@@ -623,14 +624,21 @@ else:
                                     lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
                                     dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-                                    fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
+                                    
+                                    # Extracción de la fecha de aplicación exacta desde la celda AB9 de la hoja activa
+                                    try:
+                                        fecha_aplicacion_hoja = worksheet_activa.acell('AB9').value
+                                        if not fecha_aplicacion_hoja:
+                                            fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
+                                    except:
+                                        fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
 
                                     st.session_state.ultimo_comprobante_vacunacion = {
                                         "nombre": nombre_completo,
                                         "folio": folio_p,
                                         "dosis_str": dosis_str,
                                         "lotes_str": lote_final_str,
-                                        "fecha_hora": fecha_actual
+                                        "fecha_aplicacion": fecha_aplicacion_hoja
                                     }
                                     st.rerun()
 
