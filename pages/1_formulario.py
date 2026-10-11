@@ -871,21 +871,31 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- VALIDACIONES AUTOMÁTICAS PARA GRUPOS DE RIESGO ---
+# --- FORZAR ESTADOS EN SESSION_STATE PARA REACTIVIDAD INMEDIATA ---
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
+
+if es_embarazada_activa:
+    st.session_state.chk_personas_embarazadas = True
+else:
+    if "chk_personas_embarazadas" not in st.session_state:
+        st.session_state.chk_personas_embarazadas = False
+
+if es_personal_salud_ocupacion:
+    st.session_state.chk_personal_salud_riesgo = True
+else:
+    if "chk_personal_salud_riesgo" not in st.session_state:
+        st.session_state.chk_personal_salud_riesgo = False
 
 col_r1, col_r2 = st.columns(2)
 with col_r1:
     personas_embarazadas = st.checkbox(
         "PERSONAS EMBARAZADAS", 
-        value=es_embarazada_activa, 
         disabled=es_embarazada_activa,
         key="chk_personas_embarazadas"
     )
     personal_salud_riesgo = st.checkbox(
         "PERSONAL DE SALUD", 
-        value=es_personal_salud_ocupacion, 
         disabled=es_personal_salud_ocupacion,
         key="chk_personal_salud_riesgo"
     )
