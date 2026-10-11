@@ -192,7 +192,6 @@ estados_mexico = [
     "MORELOS",
     "NAYARIT",
     "NUEVO LEÓN",
-    "NUEVO LEÓN",
     "OAXACA",
     "PUEBLA",
     "QUERÉTARO",
@@ -359,13 +358,13 @@ def determinar_grupo_sugerido_fallback(
         elif personas_gestantes == "SÍ":
             return "PERSONAS GESTANTES [Población de Riesgo]"
         elif calc_anos >= 60:
-            return f"{rango_edad_str} [Población Objetivo]"
+            return f"{rango_edad_str} Población General [Población Objetivo]"
         elif is_personal_salud:
             return "PERSONAL DE SALUD [Población de Riesgo]"
         elif tiene_comorbilidades:
             return "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS) [Población de Riesgo]"
         else:
-            return f"{rango_edad_str} [Población Objetivo]"
+            return f"{rango_edad_str} Población General [Población Objetivo]"
     else:
         if 6 <= edad_total_meses <= 59:
             return (
@@ -378,11 +377,11 @@ def determinar_grupo_sugerido_fallback(
         elif is_colectivo_riesgo:
             return f"{ocupacion} [Población de Riesgo]"
         elif calc_anos >= 60:
-            return f"{rango_edad_str} [Población Objetivo]"
+            return f"{rango_edad_str} Población General [Población Objetivo]"
         elif tiene_comorbilidades:
             return "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS) [Población de Riesgo]"
         else:
-            return f"{rango_edad_str} [Población Objetivo]"
+            return f"{rango_edad_str} Población General [Población Objetivo]"
 
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
@@ -899,7 +898,7 @@ with col_r1:
 
 with col_r2:
     cancer = st.checkbox("CÁNCER", key="chk_cancer")
-    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACas O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS CRÓNICOS QUE REQUIERAN CONSUMO PROLONGADO DE SALICILATOS*", key="chk_cardiacas_congenitas")
+    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS CRÓNICOS QUE REQUIERAN CONSUMO PROLONGADO DE SALICILATOS*", key="chk_cardiacas_congenitas")
     insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="chk_insufren")
     inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA POR ENFERMEDAD O TRATAMIENTO, EXCEPTO VIH/sida", key="chk_inmunosupresion")
     discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
