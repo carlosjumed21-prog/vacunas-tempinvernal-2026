@@ -250,7 +250,6 @@ if not st.session_state.autenticado_consulta:
             elif not password:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                # Verificación de credenciales para Admin o Personal Operativo
                 if correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26":
                     st.session_state.autenticado_consulta = True
                     st.session_state.correo_operativo_asignado = correo_limpio
@@ -295,17 +294,15 @@ else:
         
         correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
         h_autorizadas = []
-
-        # Listado de nombres de plantillas/hojas maestras a excluir completamente de la vista operativa
         hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-        # Si el correo es el administrador carlosju.med21@gmail.com, puede ver TODAS las hojas operativas
+        # Si es el Administrador Carlos, cargamos TODAS las hojas operativas
         if correo_sesion == "carlosju.med21@gmail.com":
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     h_autorizadas.append(h.title)
         else:
-            # Para personal operativo, filtramos estrictamente por su correo en la celda AU4
+            # Para operativos, filtramos estrictamente por su correo en AU4
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     try:
@@ -319,58 +316,72 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y OCULTAMIENTO AUTOMÁTICO DE PLANTILLAS Y PESTAÑAS AJENAS ---
+    # --- SELECTOR O TÍTULO DE JORNADA SEGÚN EL ROL ---
+    if correo_sesion == "carlosju.med21@gmail.com":
+        st.markdown(
+            f'<div class="section-title">👑 Vista Administrador General: <code>{correo_sesion}</code></div>',
+            unsafe_allow_html=True,
+        )
+        # Selector para que el Admin elija cúal hoja operar o visualizar
+        if h_autorizadas:
+            hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
+        else:
+            hoja_seleccionada = None
+    else:
+        st.markdown(
+            f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
+            unsafe_allow_html=True,
+        )
+        if not h_autorizadas:
+            st.warning(
+                f"⚠️ No se encontró ninguna hoja o jornada autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
+                "Verifique con el administrador que el correo ingresado coincida exactamente con el registrado en la celda AU4."
+            )
+            hoja_seleccionada = None
+        else:
+            hoja_seleccionada = h_autorizadas[0]
+            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
+
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE (RESPETANDO VISIBILIDAD DE ADMIN) ---
     col_v1, col_v2 = st.columns([3, 1])
     with col_v1:
-        if correo_sesion == "carlosju.med21@gmail.com":
-            st.markdown(
-                f'<div class="section-title">👑 Vista Administrador General (Todas las Hojas): <code>{correo_sesion}</code></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>',
-                unsafe_allow_html=True,
-            )
+        st.markdown(f"<b>Hoja Activa en Pantalla:</b> {hoja_seleccionada if hoja_seleccionada else 'Ninguna'}", unsafe_allow_html=True)
     with col_v2:
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Ocultar plantillas y pestañas ajenas en Sheets y abrir la hoja autorizada"):
-            if h_autorizadas:
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Abrir el Google Sheets de la hoja seleccionada"):
+            if hoja_seleccionada:
                 try:
-                    hoja_a_mostrar = h_autorizadas[0] if correo_sesion != "carlosju.med21@gmail.com" else h_autorizadas[0]
-                    # --- BUCLE PARA OCULTAR LA PLANTILLA Y TODAS LAS DEMÁS PESTAÑAS EN GOOGLE SHEETS ---
-                    for hoja_item in spreadsheet.worksheets():
-                        # Ocultamos las plantillas base maestras para todos
-                        if hoja_item.title in hojas_plantillas_excluir:
-                            try:
-                                hoja_item.hide()
-                            except:
-                                pass
-                        elif correo_sesion == "carlosju.med21@gmail.com":
-                            # Si es Admin (carlosju.med21@gmail.com), dejamos visibles TODAS las hojas operativas
-                            try:
-                                hoja_item.show()
-                            except:
-                                pass
-                        elif hoja_item.title == hoja_a_mostrar:
-                            try:
-                                hoja_item.show()
-                            except:
-                                pass
-                        else:
-                            try:
-                                hoja_item.hide()
-                            except:
-                                pass
+                    ws_temp = spreadsheet.worksheet(hoja_seleccionada)
+                    
+                    # Si es operativo normal, ocultamos las demás pestañas antes de abrir el enlace
+                    if correo_sesion != "carlosju.med21@gmail.com":
+                        for hoja_item in spreadsheet.worksheets():
+                            if hoja_item.title in hojas_plantillas_excluir or hoja_item.title != hoja_seleccionada:
+                                try:
+                                    hoja_item.hide()
+                                except:
+                                    pass
+                            else:
+                                try:
+                                    hoja_item.show()
+                                except:
+                                    pass
+                    else:
+                        # Si es el Admin, nos aseguramos de que todas las hojas operativas estén visibles para él
+                        for hoja_item in spreadsheet.worksheets():
+                            if hoja_item.title not in hojas_plantillas_excluir:
+                                try:
+                                    hoja_item.show()
+                                except:
+                                    pass
 
-                    ws_temp = spreadsheet.worksheet(hoja_a_mostrar)
                     url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
                     st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
-                    st.success(f"🔒 Sincronización de Google Sheets completada.")
+                    st.success(f"🔗 Abriendo Google Sheets: {hoja_seleccionada}")
                 except Exception as ex:
-                    st.warning(f"No se pudo sincronizar la visibilidad de las pestañas: {ex}")
+                    st.warning(f"No se pudo abrir el enlace: {ex}")
             else:
-                st.warning("⚠️ No hay ninguna hoja asociada a este correo.")
+                st.warning("⚠️ Seleccione una hoja válida.")
 
     params_url = st.query_params
     hoja_enlace = params_url.get("hoja_activa", "")
@@ -379,27 +390,9 @@ else:
         if correo_sesion == "carlosju.med21@gmail.com" or hoja_enlace in h_autorizadas:
             hoja_seleccionada = hoja_enlace
             st.success(
-                f"🔒 Jornada activa: <b>{hoja_seleccionada}</b>",
+                f"🔒 Jornada activa por enlace: <b>{hoja_seleccionada}</b>",
                 icon="🔒",
             )
-        else:
-            st.error("❌ El enlace de la jornada no corresponde a las autorizadas para tu cuenta.")
-            hoja_seleccionada = None
-    else:
-        if not h_autorizadas:
-            st.warning(
-                f"⚠️ No se encontró ninguna hoja o jornada autorizada en Google Sheets asociada al correo: **{correo_sesion}**. "
-                "Verifique con el administrador que el correo ingresado coincida exactamente con el registrado en la celda AU4."
-            )
-            hoja_seleccionada = None
-        else:
-            if correo_sesion == "carlosju.med21@gmail.com":
-                # Para el admin, permitimos seleccionar cualquier hoja del listado completo
-                hoja_sel_admin = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas)
-                hoja_seleccionada = hoja_sel_admin
-            else:
-                hoja_seleccionada = h_autorizadas[0]
-                st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
     if hoja_seleccionada:
         try:
