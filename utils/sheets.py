@@ -81,8 +81,7 @@ def guardar_registro_censal(
         # Calcular el consecutivo correspondiente (Bloque 1->1, Bloque 2->2, etc.)
         consecutivo = ((fila_destino - 14) // 2) + 1
 
-        # --- NUEVO FORMATO DE FOLIO CON GUIONES ---
-        # Fecha YYYYMMDD - Modalidad (INT o EXT) - 3 letras de la unidad - Consecutivo (Ej. 20261011-INT-20N-0001)
+        # --- FORMATO DE FOLIO CON GUIONES ---
         fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
         modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
@@ -109,10 +108,13 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # Mapeo exacto columna por columna para la Fila Principal del bloque
+        # Fecha de registro actual del sistema (DD/MM/AAAA)
+        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
+
+        # Mapeo exacto columna por columna para la Fila Principal del bloque (hasta Columna AW)
         fila_registro_principal = [
             str(consecutivo),                                           # Col A: Número consecutivo
-            folio_asignado,                                             # Col B: Folio con el nuevo formato
+            folio_asignado,                                             # Col B: Folio
             p.get("paterno", "").upper(),                               # Col C: Paterno
             p.get("materno", "").upper(),                               # Col D: Materno
             p.get("nombres", "").upper(),                               # Col E: Nombres
@@ -159,11 +161,12 @@ def guardar_registro_censal(
             "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else "",    # Col AT: INFLUENZA marcar X
             "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",     # Col AU: COVID marcar X
             "X" if vacuna_interes == "AMBAS" else "",                   # Col AV: AMBAS marcar X
+            fecha_registro_actual,                                      # Col AW: Fecha de Registro del Sistema
         ]
 
-        # Actualizar o insertar la fila principal del bloque
+        # Actualizar o insertar la fila principal del bloque (A hasta AW)
         if fila_destino <= len(todos_los_valores):
-            rango_celdas = f"A{fila_destino}:AV{fila_destino}"
+            rango_celdas = f"A{fila_destino}:AW{fila_destino}"
             ws.update(rango_celdas, [fila_registro_principal])
         else:
             ws.append_row(fila_registro_principal)
@@ -171,6 +174,9 @@ def guardar_registro_censal(
         # Inyectar la CURP automática específicamente en la Fila complementaria, Columna C
         fila_curp = fila_destino + 1
         ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
+
+        # Inyectar también la fecha de registro en la fila complementaria, columna AW (opcional, por simetría de bloque)
+        ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
 
         return folio_asignado
 
