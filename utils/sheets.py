@@ -33,9 +33,9 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
-    """Registra los datos del paciente mapeando exactamente las columnas
+    """Registra los datos del paciente respetando bloques de 2 filas por paciente
 
-    del Censo Nominal y escribiendo la CURP en la Fila 15, Columna C.
+    a partir de la fila 14 y colocando la CURP en la fila complementaria (Fila + 1, Columna C).
     """
     try:
         client = obtener_cliente_gspread()
@@ -59,22 +59,29 @@ def guardar_registro_censal(
             if ws is None:
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=50)
 
-        # Obtener todos los valores para calcular la fila exacta y el consecutivo
+        # Obtener todos los valores actuales de la hoja
         todos_los_valores = ws.get_all_values()
         
-        # Encontrar la primera fila vacía a partir de la fila 14 (índice 13 en Python)
+        # Cada registro ocupa un bloque de 2 filas. Empezamos en la fila 14 (índice 13 en Python)
         fila_destino = 14
         consecutivo = 1
 
         if len(todos_los_valores) >= 14:
-            for idx in range(13, len(todos_los_valores)):
-                if not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
+            # Buscamos de 2 en 2 filas (bloques de pacientes) para encontrar la primera fila principal libre
+            idx = 13  # Fila 14
+            while idx < len(todos_los_valores):
+                # Verificamos si la fila principal del bloque está vacía (sin folio en columna B / índice 1)
+                if idx >= len(todos_los_valores) or not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
                     fila_destino = idx + 1
                     break
+                idx += 2  # Salto de 2 en 2 filas por cada paciente
             else:
                 fila_destino = len(todos_los_valores) + 1
+                if (fila_destino - 14) % 2 != 0:
+                    fila_destino += 1  # Asegurar paridad de bloques
 
-        consecutivo = fila_destino - 13 if fila_destino >= 14 else 1
+        # Calcular el consecutivo correspondiente (Bloque 1->1, Bloque 2->2, etc.)
+        consecutivo = ((fila_destino - 14) // 2) + 1
 
         folio_asignado = (
             f"VIGILE-{sigla_url}-{datetime.datetime.now().strftime('%Y%m%d')}-{consecutivo:04d}"
@@ -98,24 +105,24 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # Mapeo exacto columna por columna para la Fila Principal (Ej. Fila 14)
-        fila_registro_14 = [
+        # Mapeo exacto columna por columna para la Fila Principal del bloque (ej. 14, 16, 18...)
+        fila_registro_principal = [
             str(consecutivo),                                   # Col A: Número consecutivo
-            folio_asignado,                                     # Col B: Fila 14-15B (Folio)
-            p.get("paterno", "").upper(),                       # Col C: Fila 14-15C (Paterno)
-            p.get("materno", "").upper(),                       # Col D: Fila 14-15D (Materno)
-            p.get("nombres", "").upper(),                       # Col E: Fila 14-15E (Nombres)
+            folio_asignado,                                     # Col B: Folio
+            p.get("paterno", "").upper(),                       # Col C: Paterno
+            p.get("materno", "").upper(),                       # Col D: Materno
+            p.get("nombres", "").upper(),                       # Col E: Nombres
             fn_dia,                                             # Col F: dd
             fn_mes,                                             # Col G: mm
             fn_anio,                                            # Col H: yyyy
             edad_anos,                                          # Col I: Años (A)
             edad_meses,                                         # Col J: Meses (M)
-            p.get("sexo", ""),                                  # Col K: Sexo*
+            p.get("sexo", ""),                                  # Col K: Sexo
             val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app), # Col L: Fecha Aplicación
-            p.get("calle", "").upper(),                         # Col M: Calle*
-            p.get("numero", "").upper(),                        # Col N: No. (Ext / Int)*
-            p.get("colonia", "").upper(),                       # Col O: Colonia*
-            marca_6_59m,                                        # Col P: 6 a 59 MESES*
+            p.get("calle", "").upper(),                         # Col M: Calle
+            p.get("numero", "").upper(),                        # Col N: No.
+            p.get("colonia", "").upper(),                       # Col O: Colonia
+            marca_6_59m,                                        # Col P: 6 a 59 MESES
             marca_60_mas,                                       # Col Q: 60 Y MÁS
             "X" if com.get("personas_embarazadas") else "",     # Col R: EMBARAZADAS
             "X" if com.get("personal_salud_riesgo") else "",    # Col S: PERSONAL DE SALUD
@@ -150,14 +157,14 @@ def guardar_registro_censal(
             "X" if vacuna_interes == "AMBAS" else "",              # Col AV: AMBAS marcar X
         ]
 
-        # Actualizar o insertar la fila principal
+        # Actualizar o insertar la fila principal del bloque
         if fila_destino <= len(todos_los_valores):
             rango_celdas = f"A{fila_destino}:AV{fila_destino}"
-            ws.update(rango_celdas, [fila_registro_14])
+            ws.update(rango_celdas, [fila_registro_principal])
         else:
-            ws.append_row(fila_registro_14)
+            ws.append_row(fila_registro_principal)
 
-        # Inyectar la CURP automática específicamente en la Fila 15, Columna C (C15)
+        # Inyectar la CURP automática específicamente en la Fila complementaria, Columna C (Ej. C15, C17, C19...)
         fila_curp = fila_destino + 1
         ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
 
