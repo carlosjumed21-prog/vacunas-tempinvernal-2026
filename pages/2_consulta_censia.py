@@ -649,10 +649,154 @@ else:
                             unsafe_allow_html=True,
                         )
 
+                        # Componente HTML para el calendario compacto estático a la derecha
+                        inline_calendar_html = """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body { font-family: sans-serif; background: transparent; margin: 0; padding: 0; }
+                            .cal-box {
+                                background: #ffffff;
+                                border: 2px solid #1e5b4f;
+                                border-radius: 8px;
+                                padding: 6px;
+                                width: 250px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                            }
+                            .cal-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 4px;
+                                gap: 2px;
+                            }
+                            .cal-header select, .cal-header button {
+                                padding: 2px 4px;
+                                font-size: 0.75rem;
+                                border: 1px solid #a57f2c;
+                                border-radius: 4px;
+                                background: #fff;
+                                font-weight: bold;
+                                color: #1e5b4f;
+                            }
+                            .cal-header button { background: #f7f4eb; color: #611232; cursor: pointer; }
+                            .cal-grid {
+                                display: grid;
+                                grid-template-columns: repeat(7, 1fr);
+                                text-align: center;
+                                gap: 1px;
+                            }
+                            .cal-day-name {
+                                font-size: 0.65rem;
+                                font-weight: bold;
+                                color: #611232;
+                                padding-bottom: 2px;
+                            }
+                            .cal-day {
+                                padding: 3px 0;
+                                font-size: 0.75rem;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                color: #161a1d;
+                                font-weight: 600;
+                            }
+                            .cal-day:hover { background-color: #f7f4eb; }
+                            .cal-day.selected { background-color: #1e5b4f; color: white; }
+                            .cal-day.other-month { color: #ccc; }
+                        </style>
+                        </head>
+                        <body>
+                        <div class="cal-box">
+                            <div class="cal-header">
+                                <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
+                                <select id="s-m" onchange="actFecha()">
+                                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                                </select>
+                                <select id="s-y" onchange="actFecha()"></select>
+                                <button type="button" onclick="cambiarMes(1)">&#10095;</button>
+                            </div>
+                            <div class="cal-grid">
+                                <div class="cal-day-name">L</div><div class="cal-day-name">M</div><div class="cal-day-name">X</div>
+                                <div class="cal-day-name">J</div><div class="cal-day-name">V</div><div class="cal-day-name">S</div>
+                                <div class="cal-day-name">D</div>
+                            </div>
+                            <div class="cal-grid" id="c-body"></div>
+                        </div>
+                        <script>
+                            let cDate = new Date();
+                            function initYears() {
+                                const sy = document.getElementById('s-y');
+                                const yr = new Date().getFullYear();
+                                for(let y=yr+6; y>=2020; y--) {
+                                    let o = document.createElement('option');
+                                    o.value = y; o.text = y;
+                                    sy.appendChild(o);
+                                }
+                            }
+                            function renderCal() {
+                                const y = cDate.getFullYear();
+                                const m = cDate.getMonth();
+                                document.getElementById('s-m').value = m;
+                                document.getElementById('s-y').value = y;
+                                const cb = document.getElementById('c-body');
+                                cb.innerHTML = '';
+                                const firstDay = new Date(y, m, 1);
+                                let start = firstDay.getDay();
+                                start = (start === 0) ? 6 : start - 1;
+                                const lastDate = new Date(y, m + 1, 0).getDate();
+                                const prevLastDate = new Date(y, m, 0).getDate();
+                                for(let i=start-1; i>=0; i--) {
+                                    let d = document.createElement('div');
+                                    d.className = 'cal-day other-month';
+                                    d.innerText = prevLastDate - i;
+                                    cb.appendChild(d);
+                                }
+                                for(let d=1; d<=lastDate; d++) {
+                                    let div = document.createElement('div');
+                                    div.className = 'cal-day';
+                                    div.innerText = d;
+                                    div.onclick = function() {
+                                        let dd = String(d).padStart(2, '0');
+                                        let mm = String(m + 1).padStart(2, '0');
+                                        let fechaStr = dd + '/' + mm + '/' + y;
+                                        
+                                        const inputs = window.parent.document.querySelectorAll('input[type="text"]');
+                                        for(let inp of inputs) {
+                                            if(inp.placeholder === "DD/MM/AAAA" && !inp.value) {
+                                                inp.value = fechaStr;
+                                                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                                                break;
+                                            }
+                                        }
+                                    };
+                                    cb.appendChild(div);
+                                }
+                            }
+                            function cambiarMes(delta) {
+                                cDate.setMonth(cDate.getMonth() + delta);
+                                renderCal();
+                            }
+                            function actFecha() {
+                                cDate.setFullYear(parseInt(document.getElementById('s-y').value));
+                                cDate.setMonth(parseInt(document.getElementById('s-m').value));
+                                renderCal();
+                            }
+                            initYears();
+                            renderCal();
+                        </script>
+                        </body>
+                        </html>
+                        """
+
                         with st.form("form_aplicacion_lotes"):
                             st.markdown("##### 💉 INFLUENZA")
                             # Fila 1: Dosis en horizontal
-                            c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
+                            c_inf_d1, c_inf_d2, c_inf_d3, _ = st.columns([1, 1, 1, 1.5])
                             with c_inf_d1:
                                 inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
                             with c_inf_d2:
@@ -660,28 +804,31 @@ else:
                             with c_inf_d3:
                                 inf_anual = st.checkbox("Anual", key="chk_inf_anual")
 
-                            # Fila 2: Lote y Caducidad en horizontal
-                            c_inf_l1, c_inf_l2 = st.columns(2)
-                            with c_inf_l1:
+                            # Fila 2: Lote, Caducidad y Calendario a ladito en horizontal
+                            c_inf_l, c_inf_c, c_inf_cal = st.columns([1.5, 1.5, 1.8])
+                            with c_inf_l:
                                 lote_inf_input = st.text_input(
                                     "Lote Influenza",
                                     value=st.session_state.lote_influenza_memoria,
                                     placeholder="Ej. A1234",
                                     key="lote_inf"
                                 )
-                            with c_inf_l2:
+                            with c_inf_c:
                                 cad_inf_input = st.text_input(
                                     "Caducidad Influenza",
                                     value=st.session_state.cad_inf_str,
                                     placeholder="DD/MM/AAAA",
                                     key="cad_inf_txt"
                                 )
+                            with c_inf_cal:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=170)
 
                             st.markdown("---")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             # Fila 1: Dosis COVID en horizontal
-                            c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
+                            c_cov_d1, c_cov_d2, c_cov_d3, _ = st.columns([1, 1, 1, 1.5])
                             with c_cov_d1:
                                 cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
                             with c_cov_d2:
@@ -689,24 +836,27 @@ else:
                             with c_cov_d3:
                                 cov_anual = st.checkbox("Anual", key="chk_cov_anual")
 
-                            # Fila 2: Lote y Caducidad COVID en horizontal
-                            c_cov_l1, c_cov_l2 = st.columns(2)
-                            with c_cov_l1:
+                            # Fila 2: Lote, Caducidad y Calendario a ladito en horizontal
+                            c_cov_l, c_cov_c, c_cov_cal = st.columns([1.5, 1.5, 1.8])
+                            with c_cov_l:
                                 lote_cov_input = st.text_input(
                                     "Lote COVID-19",
                                     value=st.session_state.lote_covid_memoria,
                                     placeholder="Ej. C5678",
                                     key="lote_cov"
                                 )
-                            with c_cov_l2:
+                            with c_cov_c:
                                 cad_cov_input = st.text_input(
                                     "Caducidad COVID",
                                     value=st.session_state.cad_cov_str,
                                     placeholder="DD/MM/AAAA",
                                     key="cad_cov_txt"
                                 )
+                            with c_cov_cal:
+                                st.markdown("<p style='font-size:0.7rem; font-weight:bold; color:#1e5b4f; margin-bottom:1px;'>📅 Calendario (Clic en campo y toque fecha):</p>", unsafe_allow_html=True)
+                                components.html(inline_calendar_html, height=170)
 
-                            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
