@@ -5,7 +5,7 @@ import streamlit as st
 from config import GOOGLE_SCOPES
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def cargar_guias_censia():
     """Conecta con el documento CENSIA en la nube y extrae de forma limpia
 
@@ -129,76 +129,75 @@ def cargar_guias_censia():
 def obtener_recomendaciones_paciente(
     categoria_paciente, lista_riesgos_detectados, vacuna_registrada
 ):
-    """Cruza los datos puros del paciente con las guías CENSIA para retornar
+    try:
+        guia_inf, guia_cov = cargar_guias_censia()
 
-    las tarjetas de Influenza y COVID, priorizando Personal de Salud y Comorbilidades.
-    """
-    guia_inf, guia_cov = cargar_guias_censia()
+        matches_inf = []
+        matches_cov = []
 
-    matches_inf = []
-    matches_cov = []
+        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
+        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-    mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
-    mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
+        # --- Filtrar Influenza ---
+        if mostrar_influenza:
+            for item in guia_inf:
+                cat_b = item["categoria"].strip().upper()
+                gb_c = item["grupos_blancos"].strip().upper()
+                if "RIESGO" in cat_b:
+                    es_match = False
+                    for r in lista_riesgos_detectados:
+                        r_up = r.upper()
+                        if "SALUD" in r_up and "SALUD" in gb_c:
+                            es_match = True
+                        elif (
+                            "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                        ) and r_up in [
+                            "VIH",
+                            "DIABETES",
+                            "OBESIDAD",
+                            "CARDIOPATÍAS",
+                            "ENFERMEDAD PULMONAR",
+                            "CÁNCER",
+                            "RENAL",
+                            "INMUNOSUPRESIÓN",
+                            "HIPERTENSIÓN",
+                        ]:
+                            es_match = True
+                    if es_match and item not in matches_inf:
+                        matches_inf.append(item)
+            if not matches_inf and guia_inf:
+                matches_inf.append(guia_inf[0])
 
-    # --- Filtrar Influenza ---
-    if mostrar_influenza:
-        for item in guia_inf:
-            cat_b = item["categoria"].strip().upper()
-            gb_c = item["grupos_blancos"].strip().upper()
-            if "RIESGO" in cat_b:
-                es_match = False
-                for r in lista_riesgos_detectados:
-                    r_up = r.upper()
-                    if "SALUD" in r_up and "SALUD" in gb_c:
-                        es_match = True
-                    elif (
-                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
-                    ) and r_up in [
-                        "VIH",
-                        "DIABETES",
-                        "OBESIDAD",
-                        "CARDIOPATÍAS",
-                        "ENFERMEDAD PULMONAR",
-                        "CÁNCER",
-                        "RENAL",
-                        "INMUNOSUPRESIÓN",
-                        "HIPERTENSIÓN",
-                    ]:
-                        es_match = True
-                if es_match and item not in matches_inf:
-                    matches_inf.append(item)
-        if not matches_inf and guia_inf:
-            matches_inf.append(guia_inf[0])
+        # --- Filtrar COVID ---
+        if mostrar_covid:
+            for item in guia_cov:
+                cat_b = item["categoria"].strip().upper()
+                gb_c = item["grupos_blancos"].strip().upper()
+                if "RIESGO" in cat_b:
+                    es_match = False
+                    for r in lista_riesgos_detectados:
+                        r_up = r.upper()
+                        if "SALUD" in r_up and "SALUD" in gb_c:
+                            es_match = True
+                        elif (
+                            "COMORBILIDADES" in gb_c or "VIH" in gb_c
+                        ) and r_up in [
+                            "VIH",
+                            "DIABETES",
+                            "OBESIDAD",
+                            "CARDIOPATÍAS",
+                            "ENFERMEDAD PULMONAR",
+                            "CÁNCER",
+                            "RENAL",
+                            "INMUNOSUPRESIÓN",
+                            "HIPERTENSIÓN",
+                        ]:
+                            es_match = True
+                    if es_match and item not in matches_cov:
+                        matches_cov.append(item)
+            if not matches_cov and guia_cov:
+                matches_cov.append(guia_cov[0])
 
-    # --- Filtrar COVID (Moderna, Pfizer, etc.) ---
-    if mostrar_covid:
-        for item in guia_cov:
-            cat_b = item["categoria"].strip().upper()
-            gb_c = item["grupos_blancos"].strip().upper()
-            if "RIESGO" in cat_b:
-                es_match = False
-                for r in lista_riesgos_detectados:
-                    r_up = r.upper()
-                    if "SALUD" in r_up and "SALUD" in gb_c:
-                        es_match = True
-                    elif (
-                        "COMORBILIDADES" in gb_c or "VIH" in gb_c
-                    ) and r_up in [
-                        "VIH",
-                        "DIABETES",
-                        "OBESIDAD",
-                        "CARDIOPATÍAS",
-                        "ENFERMEDAD PULMONAR",
-                        "CÁNCER",
-                        "RENAL",
-                        "INMUNOSUPRESIÓN",
-                        "HIPERTENSIÓN",
-                    ]:
-                        es_match = True
-                if es_match and item not in matches_cov:
-                    matches_cov.append(item)
-        if not matches_cov and guia_cov:
-            matches_cov.append(guia_cov[0])
-
-    return matches_inf, matches_cov
+        return matches_inf, matches_cov
+    except Exception as e:
+        return [], []
