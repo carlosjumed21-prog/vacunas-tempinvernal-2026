@@ -386,7 +386,7 @@ else:
                         return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
 
                     es_riesgo = False
-                    if tiene_equis(15) or tiene_quienes := tiene_equis(16):
+                    if tiene_equis(15) or tiene_equis(16):
                         lista_riesgos_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 AÑOS Y MAS")
                         categoria_paciente = "POBLACIÓN OBJETIVO"
                     else:
