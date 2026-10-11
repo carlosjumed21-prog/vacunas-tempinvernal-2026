@@ -291,6 +291,12 @@ else:
             )
 
     if hoja_seleccionada:
+        # --- BOTÓN DE ACTUALIZACIÓN DINÁMICA DE PACIENTES ---
+        col_act1, col_act2 = st.columns([3, 1])
+        with col_act2:
+            if st.button("🔄 Actualizar Listado", use_container_width=True):
+                st.rerun()
+
         try:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
@@ -475,7 +481,7 @@ else:
                         else:
                             matches_covid_filtrados = matches_covid
 
-                        # --- PRIORIZAR UN SOLO GRUPO (Tomamos únicamente el primer match relevante) ---
+                        # --- PRIORIZAR UN SOLO GRUPO ---
                         match_inf_prioritario = matches_inf[0] if matches_inf else None
                         match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
 
@@ -519,41 +525,44 @@ else:
                             )
 
                         st.markdown(
-                            '<div class="section-title">4. Registro de Dosis Aplicadas y'
-                            " Lotes (Actualización en Base de Datos)</div>",
+                            '<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>',
                             unsafe_allow_html=True,
                         )
 
                         with st.form("form_aplicacion_lotes"):
                             st.markdown("##### 💉 INFLUENZA")
-                            c_inf1, c_inf2, c_inf3, c_inf4 = st.columns(4)
+                            c_inf1, c_inf2, c_inf3, c_inf4, c_inf5 = st.columns([1, 1, 1, 1.5, 1.5])
                             with c_inf1:
                                 inf_1ra = st.checkbox("1ra dosis")
                             with c_inf2:
                                 inf_2da = st.checkbox("2da dosis")
                             with c_inf3:
-                                inf_anual = st.checkbox("Dosis anual")
+                                inf_anual = st.checkbox("Anual")
                             with c_inf4:
                                 lote_inf_input = st.text_input(
                                     "Lote Influenza",
                                     value=st.session_state.lote_influenza_memoria,
                                     placeholder="Ej. A1234",
                                 )
+                            with c_inf5:
+                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), key="cad_inf")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
-                            c_cov1, c_cov2, c_cov3, c_cov4 = st.columns(4)
+                            c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
                             with c_cov1:
-                                cov_1ra = st.checkbox("COVID 1ra dosis")
+                                cov_1ra = st.checkbox("COVID 1ra")
                             with c_cov2:
-                                cov_2da = st.checkbox("COVID 2da dosis")
+                                cov_2da = st.checkbox("COVID 2da")
                             with c_cov3:
-                                cov_anual = st.checkbox("COVID Dosis anual")
+                                cov_anual = st.checkbox("Anual")
                             with c_cov4:
                                 lote_cov_input = st.text_input(
                                     "Lote COVID-19",
                                     value=st.session_state.lote_covid_memoria,
                                     placeholder="Ej. C5678",
                                 )
+                            with c_cov5:
+                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), key="cad_cov")
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
@@ -604,14 +613,14 @@ else:
                                         worksheet_activa.update(f"AL{f_siguiente}", [["X"]])
                                         dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
 
-                                    # --- LOTES ---
-                                    lote_final_str = ""
-                                    if lote_inf_input and lote_cov_input:
-                                        lote_final_str = f"{lote_inf_input.upper()} / {lote_cov_input.upper()}"
-                                    elif lote_inf_input:
-                                        lote_final_str = lote_inf_input.upper()
-                                    elif lote_cov_input:
-                                        lote_final_str = lote_cov_input.upper()
+                                    # --- LOTES Y CADUCIDADES ---
+                                    lote_final_partes = []
+                                    if lote_inf_input:
+                                        lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_inf_input.strftime('%d/%m/%Y')})")
+                                    if lote_cov_input:
+                                        lote_final_partes.append(f"Cov: {lote_cov_input.upper()} (Cad: {cad_cov_input.strftime('%d/%m/%Y')})")
+                                    
+                                    lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else ""
 
                                     if lote_final_str:
                                         worksheet_activa.update(f"AM{f_actual}", [[lote_final_str]])
