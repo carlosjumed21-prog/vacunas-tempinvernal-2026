@@ -240,7 +240,7 @@ if not st.session_state.autenticado_consulta:
         )
         password = st.text_input("Contraseña:", type="password")
         correo_operador_input = st.text_input(
-            "📧 Correo Electrónico Institucional (para visualización exclusiva de su hoja):",
+            "📧 Correo Electrónico Institucional (para visualización y ocultamiento de pestañas ajenas):",
             placeholder="ejemplo@issste.gob.mx"
         )
         btn_login = st.form_submit_button("Iniciar Sesión", use_container_width=True)
@@ -294,7 +294,6 @@ else:
         for h in todas_las_hojas:
             if h.title not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
                 try:
-                    # Leemos el correo asignado en la celda AU4 de cada hoja
                     val_au4 = h.acell("AU4").value
                     if val_au4 and val_au4.strip().lower() == correo_sesion:
                         h_autorizadas.append(h.title)
@@ -305,7 +304,7 @@ else:
         h_autorizadas = []
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
 
-    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y HOJA ASIGNADA ---
+    # --- BOTÓN DE VISUALIZACIÓN DE BASE Y OCULTAMIENTO AUTOMÁTICO DE PESTAÑAS ---
     col_v1, col_v2 = st.columns([3, 1])
     with col_v1:
         st.markdown(
@@ -314,16 +313,30 @@ else:
         )
     with col_v2:
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Acceder directamente a la hoja de Google Sheets autorizada"):
-            # Buscamos el link directo a la hoja asignada si existe
+        if st.button("📊 Visualizar Base y Hoja", use_container_width=True, help="Ocultar pestañas ajenas en Sheets y abrir la hoja autorizada"):
             if h_autorizadas:
                 try:
-                    ws_temp = spreadsheet.worksheet(h_autorizadas[0])
+                    hoja_a_mostrar = h_autorizadas[0]
+                    # --- BUCLE PARA OCULTAR TODAS LAS DEMÁS PESTAÑAS EN GOOGLE SHEETS ---
+                    for hoja_item in spreadsheet.worksheets():
+                        if hoja_item.title not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
+                            if hoja_item.title == hoja_a_mostrar:
+                                try:
+                                    hoja_item.show()
+                                except:
+                                    pass
+                            else:
+                                try:
+                                    hoja_item.hide()
+                                except:
+                                    pass
+
+                    ws_temp = spreadsheet.worksheet(hoja_a_mostrar)
                     url_hoja_directa = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing#gid={ws_temp.id}"
                     st.markdown(f'<meta http-equiv="refresh" content="0;url={url_hoja_directa}">', unsafe_allow_html=True)
-                    st.success(f"🔗 Abriendo hoja protegida: {h_autorizadas[0]}")
-                except:
-                    st.warning("No se pudo generar el enlace directo.")
+                    st.success(f"🔒 Pestañas ajenas ocultadas. Abriendo tu hoja: {hoja_a_mostrar}")
+                except Exception as ex:
+                    st.warning(f"No se pudo sincronizar la visibilidad de las pestañas: {ex}")
             else:
                 st.warning("⚠️ No hay ninguna hoja asociada a este correo.")
 
@@ -331,7 +344,6 @@ else:
     hoja_enlace = params_url.get("hoja_activa", "")
 
     if hoja_enlace:
-        # Validamos que la hoja del enlace pertenezca al correo autenticado
         if hoja_enlace in h_autorizadas:
             hoja_seleccionada = hoja_enlace
             st.success(
@@ -350,7 +362,6 @@ else:
             )
             hoja_seleccionada = None
         else:
-            # Selecciona por default la única hoja asignada o permite elegir entre las del correo
             hoja_seleccionada = h_autorizadas[0]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
