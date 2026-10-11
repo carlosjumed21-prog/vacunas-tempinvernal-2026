@@ -5,24 +5,26 @@ import json
 from google.oauth2 import service_account
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 
-aplicar_configuracion_global("Vista Detallada de Censo", "📊")
+# --- CONFIGURACIÓN DE PANTALLA ANCHA PARA OCUPAR TODO EL NAVEGADOR ---
+st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
 
 st.markdown(
     """
     <style>
         header {visibility: hidden;}
-        .main-header { font-size: 2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 1rem; border-bottom: 3px solid #a57f2c; padding-bottom: 8px; }
+        .main-header { font-size: 1.8rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
+        /* Ocultar elementos laterales sobrantes en modo pantalla completa */
+        [data-testid="stSidebar"] {display: none;}
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown('<p class="main-header">📊 Censo General de Pacientes (Vista Exclusiva)</p>', unsafe_allow_html=True)
-
-# --- VALIDACIÓN DE SESIÓN VÍA PARÁMETROS URL O SESSION STATE ---
+# --- CAPTURA DE PARÁMETROS URL ---
 params = st.query_params
 sesion_url = params.get("sesion", "")
 correo_url = params.get("correo", "").strip().lower()
+hoja_url = params.get("hoja", "").strip()
 
 sesion_valida = False
 correo_sesion = ""
@@ -33,7 +35,6 @@ if "autenticado_consulta" in st.session_state and st.session_state.autenticado_c
 elif sesion_url == "activa" and correo_url:
     sesion_valida = True
     correo_sesion = correo_url
-    # Sincronizamos la sesión para esta página
     st.session_state.autenticado_consulta = True
     st.session_state.correo_operativo_asignado = correo_url
 
@@ -55,39 +56,25 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        todas_las_hojas = spreadsheet.worksheets()
-        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
-        h_autorizadas = []
+        # Validamos que la hoja recibida sea válida para este usuario
+        hoja_activa_tabla = hoja_url if hoja_url else ""
+        
+        col_tit1, col_tit2 = st.columns([4, 1])
+        with col_tit1:
+            st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+        with col_tit2:
+            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                st.rerun()
 
-        if correo_sesion == "carlosju.med21@gmail.com":
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    h_autorizadas.append(h.title)
+        if not hoja_activa_tabla:
+            st.error("❌ No se especificó ninguna jornada activa.")
         else:
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append(h.title)
-                    except:
-                        pass
-
-        if not h_autorizadas:
-            st.error(f"❌ No se encontró ninguna hoja autorizada en Google Sheets asociada al correo: **{correo_sesion}**.")
-        else:
-            col_sel1, col_sel2 = st.columns([3, 1])
-            with col_sel1:
-                hoja_activa_tabla = st.selectbox("Seleccione la Jornada a Visualizar:", options=h_autorizadas)
-            with col_sel2:
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
-                    st.rerun()
-
             ws = spreadsheet.worksheet(hoja_activa_tabla)
             todos_los_datos = ws.get_all_values()
 
             if len(todos_los_datos) >= 14:
+                # Combinación de cabeceras filas 12 y 13
                 fila_cabecera_1 = todos_los_datos[11]
                 fila_cabecera_2 = todos_los_datos[12]
                 filas_tabla = todos_los_datos[13:]
@@ -120,12 +107,13 @@ else:
 
                 df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
                 
-                st.markdown(f"**Total de registros en censo:** `{len(filas_tabla)}`")
+                st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}**")
                 
+                # --- TABLA EXPANDIDA A PANTALLA COMPLETA ---
                 st.dataframe(
                     df_tabla_segura,
                     use_container_width=True,
-                    height=650,
+                    height=750,
                     hide_index=True
                 )
             else:
