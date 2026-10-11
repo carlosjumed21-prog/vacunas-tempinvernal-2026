@@ -10,11 +10,45 @@ from utils.sheets_esquemas import obtener_recomendaciones_paciente
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
-# --- BOTÓN DE RETORNO AL MENÚ PRINCIPAL ---
-col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
-with col_nav1:
-    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
-        st.switch_page("app.py")
+# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT ---
+st.markdown(
+    """
+    <style>
+        header {visibility: hidden;}
+        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
+@st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
+def mostrar_dialogo_cerrar_sesion():
+    st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
+    st.markdown("¿Deseas cerrar sesión y regresar al menú principal?")
+    
+    col_dlg1, col_dlg2 = st.columns(2)
+    with col_dlg1:
+        if st.button("Sí, Cerrar Sesión", use_container_width=True):
+            st.session_state.autenticado_consulta = False
+            st.session_state.ultimo_comprobante_vacunacion = None
+            if "input_busqueda_lupa" in st.session_state:
+                st.session_state.input_busqueda_lupa = ""
+            st.switch_page("app.py")
+    with col_dlg2:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+
+
+# --- BOTÓN DE CIERRE DE SESIÓN EN LA CABECERA ---
+col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 1])
+with col_nav3:
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        mostrar_dialogo_cerrar_sesion()
 
 st.markdown("---")
 
@@ -28,18 +62,6 @@ if "autenticado_consulta" not in st.session_state:
 
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
-
-st.markdown(
-    """
-    <style>
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
 
 
 @st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
@@ -400,6 +422,12 @@ else:
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                         sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
+                        # --- LECTURA DEL CURP (Fila siguiente, Columna C -> Índice 2) ---
+                        curp_actual = ""
+                        fila_curp_idx = fila_idx
+                        if len(todos_los_datos) > fila_curp_idx and len(todos_los_datos[fila_curp_idx]) > 2:
+                            curp_actual = todos_los_datos[fila_curp_idx][2].strip()
+
                         vacuna_registrada = "AMBAS"
                         if len(fila_datos) > 47:
                             at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
@@ -455,6 +483,24 @@ else:
                         with col3:
                             st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
+
+                        # --- CAMPO EDITABLE DE CURP Y ACTUALIZACIÓN DIRECTA EN SHEETS ---
+                        with st.form(f"form_curp_{fila_idx}"):
+                            c_curp1, c_curp2 = st.columns([3, 1])
+                            with c_curp1:
+                                nuevo_curp = st.text_input("CURP (Editable):", value=curp_actual, max_chars=18, key=f"input_curp_{fila_idx}")
+                            with c_curp2:
+                                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                                btn_guardar_curp = st.form_submit_button("💾 Actualizar CURP", use_container_width=True)
+
+                            if btn_guardar_curp:
+                                try:
+                                    fila_curp_excel = fila_idx + 1
+                                    worksheet_activa.update(f"C{fila_curp_excel}", [[nuevo_curp.upper()]])
+                                    st.success("✅ CURP actualizado correctamente en la hoja de origen.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al actualizar el CURP en Sheets: {e}")
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos'
