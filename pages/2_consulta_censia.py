@@ -302,7 +302,6 @@ else:
                 if h.title not in hojas_plantillas_excluir:
                     h_autorizadas.append(h.title)
         else:
-            # Para operativos, filtramos buscando estrictamente su correo en la celda AU4
             for h in todas_las_hojas:
                 if h.title not in hojas_plantillas_excluir:
                     try:
@@ -342,7 +341,6 @@ else:
             hoja_seleccionada = h_autorizadas[0]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
-    # Ignoramos parámetros URL externos para operativos comunes
     if correo_sesion != "carlosju.med21@gmail.com":
         params_url = st.query_params
         hoja_enlace = params_url.get("hoja_activa", "")
@@ -358,7 +356,6 @@ else:
 
             todos_los_datos = worksheet_activa.get_all_values()
 
-            # --- EXTRACCIÓN DE LA FECHA DE APLICACIÓN DESDE LA FILA 9, COLUMNA AB (Índice 27) ---
             fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
             if len(todos_los_datos) >= 9 and len(todos_los_datos[8]) > 27:
                 val_ab9 = todos_los_datos[8][27].strip()
@@ -369,19 +366,27 @@ else:
             if len(todos_los_datos) >= 14:
                 for idx, row in enumerate(todos_los_datos[13:], start=14):
                     if len(row) > 3 and row[1].strip() and row[2].strip():
+                        # Verificar si ya está vacunado (rango AG a AQ -> índices 32 al 42 aprox con "X")
+                        ya_vacunado = False
+                        for i in range(32, min(43, len(row))):
+                            if str(row[i]).strip().upper() == "X":
+                                ya_vacunado = True
+                                break
+
                         pacientes_cargados.append({
                             "fila": idx,
                             "folio": row[1].strip(),
                             "paterno": row[2].strip(),
                             "materno": row[3].strip() if len(row) > 3 else "",
                             "nombres": row[4].strip() if len(row) > 4 else "",
+                            "ya_vacunado": ya_vacunado
                         })
 
         except Exception as e:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- BOTONES SUPERIORES: ABRIR CENSO EN VENTANA EXTERNA Y ACTUALIZAR ---
+        # --- BOTONES SUPERIORES: ABRIR CENSO Y ACTUALIZAR ---
         col_btn_ext1, col_btn_ext2 = st.columns([3, 1])
         
         with col_btn_ext1:
@@ -410,8 +415,7 @@ else:
         )
         if not pacientes_cargados:
             st.info(
-                "La jornada seleccionada aún no cuenta con pacientes registrados en"
-                " el censo."
+                "La jornada seleccionada aún no cuenta con pacientes registrados en el censo."
             )
         else:
             col_busq1, col_busq2 = st.columns([4, 1])
@@ -430,14 +434,12 @@ else:
 
             if not query_busqueda.strip():
                 st.info(
-                    "ℹ️ Escriba en la lupa de búsqueda para localizar rápidamente a un"
-                    " paciente."
+                    "ℹ️ Escriba en la lupa de búsqueda para localizar rápidamente a un paciente."
                 )
             else:
                 q_clean = query_busqueda.strip().upper()
                 pacientes_filtrados = [
-                    p
-                    for p in pacientes_cargados
+                    p for p in pacientes_cargados
                     if q_clean in p["folio"].upper()
                     or q_clean in p["paterno"].upper()
                     or q_clean in p["materno"].upper()
@@ -445,12 +447,10 @@ else:
                 ]
 
                 if not pacientes_filtrados:
-                    st.warning(
-                        "No se encontraron pacientes que coincidan con la búsqueda."
-                    )
+                    st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
                 else:
                     opciones_busqueda = [
-                        f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']}||{p['fila']}"
+                        f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} {'(🟢 YA VACUNADO)' if p['ya_vacunado'] else ''}||{p['fila']}"
                         for p in pacientes_filtrados
                     ]
 
@@ -463,6 +463,16 @@ else:
                     if seleccion_paciente:
                         fila_idx = int(seleccion_paciente.split("||")[1])
                         fila_datos = todos_los_datos[fila_idx - 1]
+                        
+                        # Verificamos si este paciente específico ya tiene vacuna aplicada
+                        esta_vacunado_actual = False
+                        for i in range(32, min(43, len(fila_datos))):
+                            if str(fila_datos[i]).strip().upper() == "X":
+                                esta_vacunado_actual = True
+                                break
+
+                        if esta_vacunado_actual:
+                            st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
 
                         folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
                         paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
@@ -476,7 +486,6 @@ else:
                         fecha_nac_str = f"{dd_n}/{mm_n}/{yy_n}"
 
                         sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-                        sexo_texto = "HOMBRE" if sexo_p == "H" else "MUJER"
 
                         # --- LECTURA DEL CURP (Fila siguiente, Columna C -> Índice 2) ---
                         curp_actual = ""
@@ -525,8 +534,7 @@ else:
                         grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
                         st.markdown(
-                            '<div class="section-title">Vista Previa y Datos Generales'
-                            " del Paciente</div>",
+                            '<div class="section-title">Vista Previa y Datos Generales del Paciente</div>',
                             unsafe_allow_html=True,
                         )
                         col1, col2, col3 = st.columns(3)
@@ -535,32 +543,61 @@ else:
                             st.markdown(f"**Nombre:** {nombre_completo}")
                         with col2:
                             st.markdown(f"**Nacimiento:** {fecha_nac_str}")
-                            st.markdown(f"**Sexo:** {sexo_texto}")
+                            st.markdown(f"**Sexo:** {'HOMBRE' if sexo_p == 'H' else 'MUJER'}")
                         with col3:
                             st.markdown(f"**Grupo / Riesgo:** {grupo_detallado_vista}")
                             st.markdown(f"**Vacuna Solicitada:** {vacuna_registrada}")
 
-                        # --- CAMPO EDITABLE DE CURP Y ACTUALIZACIÓN DIRECTA EN SHEETS ---
-                        with st.form(f"form_curp_{fila_idx}"):
-                            c_curp1, c_curp2 = st.columns([3, 1])
-                            with c_curp1:
-                                nuevo_curp = st.text_input("CURP (Editable):", value=curp_actual, max_chars=18, key=f"input_curp_{fila_idx}")
-                            with c_curp2:
-                                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                                btn_guardar_curp = st.form_submit_button("💾 Actualizar CURP", use_container_width=True)
+                        # --- FORMULARIO DE EDICIÓN INTEGRAL (NOMBRE, NACIMIENTO, SEXO, CURP) ---
+                        with st.form(f"form_editar_paciente_{fila_idx}"):
+                            st.markdown("##### ✏️ Corrección de Datos Generales y CURP del Paciente")
+                            
+                            c_ed1, c_ed2, c_ed3 = st.columns(3)
+                            with c_ed1:
+                                ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, key=f"ed_pat_{fila_idx}")
+                            with c_ed2:
+                                ed_materno = st.text_input("Apellido Materno:", value=materno_p, key=f"ed_mat_{fila_idx}")
+                            with c_ed3:
+                                ed_nombres = st.text_input("Nombres:", value=nombres_p, key=f"ed_nom_{fila_idx}")
 
-                            if btn_guardar_curp:
+                            c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
+                            with c_ed4:
+                                ed_d = st.text_input("Día (Nac):", value=dd_n, key=f"ed_d_{fila_idx}")
+                            with c_ed5:
+                                ed_m = st.text_input("Mes (Nac):", value=mm_n, key=f"ed_m_{fila_idx}")
+                            with c_ed6:
+                                ed_y = st.text_input("Año (Nac):", value=yy_n, key=f"ed_y_{fila_idx}")
+                            with c_ed7:
+                                ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, key=f"ed_sex_{fila_idx}")
+
+                            ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, key=f"ed_curp_{fila_idx}")
+
+                            btn_guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", use_container_width=True)
+
+                            if btn_guardar_edicion:
                                 try:
-                                    fila_curp_excel = fila_idx + 1
-                                    worksheet_activa.update(f"C{fila_curp_excel}", [[nuevo_curp.upper()]])
-                                    st.success("✅ CURP actualizado correctamente en la hoja de origen.")
+                                    f_actual = fila_idx
+                                    f_siguiente = fila_idx + 1
+                                    
+                                    actualizaciones_datos = [
+                                        {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                                        {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                                        {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                                        {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                                        {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                                        {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                                        {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                                        {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+                                    ]
+                                    
+                                    worksheet_activa.batch_update(actualizaciones_datos)
+                                    st.success("✅ ¡Datos del paciente actualizados correctamente en Google Sheets!")
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"Error al actualizar el CURP en Sheets: {e}")
+                                    st.error(f"Error al actualizar los datos en Sheets: {e}")
 
                         st.markdown(
-                            '<div class="section-title">3. Guía y Lineamientos'
-                            " CENSIA (Tarjetas de Grupos Prioritarios)</div>",
+                            '<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>',
                             unsafe_allow_html=True,
                         )
 
