@@ -25,7 +25,8 @@ st.markdown(
         .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } /* Rojo para Sin Aplicar */
         .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } /* Amarillo para Influenza */
-        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } /* Celeste para COVID */
+        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } /* Morado para Simultáneas */
 
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
@@ -141,6 +142,7 @@ else:
             total_sin_aplicar = 0
             total_dosis_influenza = 0
             total_dosis_covid = 0
+            total_simultaneas = 0
 
             fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
@@ -171,17 +173,25 @@ else:
                     total_sin_aplicar += 1
 
                 # 3. Dosis de Influenza (AG, AH, AI -> índices 32, 33, 34)
+                tiene_influenza_fila = False
                 for i in range(32, min(35, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_influenza += 1
+                        tiene_influenza_fila = True
 
                 # 4. Dosis de COVID (AL, AM, AN -> índices 37, 38, 39)
+                tiene_covid_fila = False
                 for i in range(37, min(40, len(row))):
                     if str(row[i]).strip().upper() == "X":
                         total_dosis_covid += 1
+                        tiene_covid_fila = True
 
-            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (7 COLUMNAS EN ORDEN ESTRICTO) ---
-            m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+                # 5. Simultáneas (Ambas columnas AG-AI y AL-AN con "X")
+                if tiene_influenza_fila and tiene_covid_fila:
+                    total_simultaneas += 1
+
+            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
+            m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
             
             with m1:
                 st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
@@ -197,6 +207,8 @@ else:
                 st.markdown(f'<div class="metric-card-5"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
             with m7:
                 st.markdown(f'<div class="metric-card-6"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+            with m8:
+                st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
