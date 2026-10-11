@@ -25,9 +25,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- ID DE LA CARPETA DE DRIVE PROPORCIONADA PARA ARCHIVOS AISLADOS ---
-CARPETA_DESTINO_DRIVE_ID = "15gg0KzXi7nD5WaZ0nUPDb-vRPgJS_cZp"
-
 col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
     if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
@@ -97,7 +94,7 @@ if not st.session_state.autenticado_admin:
                     st.error("❌ Correo o contraseña de administrador incorrectos.")
 else:
     st.markdown(
-        '<p class="main-header">Panel de Control y Administración (Espejo y Seguridad)</p>',
+        '<p class="main-header">Panel de Control y Administración (Gestión de Pestañas Maestras)</p>',
         unsafe_allow_html=True,
     )
 
@@ -183,7 +180,7 @@ else:
                     placeholder="Escriba el nombre completo...",
                 )
                 correo_resp_unico = st.text_input(
-                    "📧 Correo electrónico del responsable (Dueño del archivo aislado):",
+                    "📧 Correo electrónico del responsable (Control de acceso en AU4):",
                     placeholder="ejemplo@issste.gob.mx",
                     key="correo_resp_unico"
                 )
@@ -286,7 +283,7 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button(
-                "🚀 Autorizar Jornada(s), Duplicar en Maestro y Crear Archivo Aislado",
+                "🚀 Autorizar Jornada(s) y Generar Pestaña en Google Sheets",
                 use_container_width=True,
             ):
                 try:
@@ -349,7 +346,7 @@ else:
                             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
                             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
-                            # 1. Creamos la hoja en el Google Sheets MAESTRO
+                            # 1. Duplicación interna de la pestaña en el Google Sheets maestro (Cero consumo de cuota de Drive)
                             if siglas_unidad == "20N":
                                 nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
                                 plantilla_1 = spreadsheet_maestro.worksheet("CENSO NOMINAL")
@@ -371,7 +368,7 @@ else:
                                 nombre_copia_1 = nombre_nueva_hoja
                                 copia_1 = nueva_hoja
 
-                            # Llenamos datos en el maestro
+                            # Llenamos datos en la pestaña
                             hoja_activa_maestro.update_acell("D7", "CDMX")
                             hoja_activa_maestro.update_acell("M7", "ISSSTE")
                             hoja_activa_maestro.update_acell("T7", "Delegación Sur")
@@ -385,16 +382,6 @@ else:
                             hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
                             hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
 
-                            # 2. CREAR UN ARCHIVO AISLADO EN LA CARPETA DE DRIVE
-                            spreadsheet_aislado = client.copy(sheet_id_destino, title=f"JORNADA_{nombre_copia_1}")
-                            id_archivo_aislado = spreadsheet_aislado.id
-
-                            if j_conf["correo"]:
-                                try:
-                                    spreadsheet_aislado.share(j_conf["correo"], perm_type='user', role='editor')
-                                except Exception as share_err:
-                                    print(f"Aviso de permisos: {share_err}")
-
                             hoja_info = {
                                 "nombre": nombre_copia_1,
                                 "gid": str(copia_1.id),
@@ -405,8 +392,7 @@ else:
                                 "responsable": j_conf["responsable"],
                                 "correo": j_conf["correo"],
                                 "fecha": j_conf["fecha"],
-                                "sheet_id": sheet_id_destino,
-                                "sheet_aislado_id": id_archivo_aislado
+                                "sheet_id": sheet_id_destino
                             }
                             hojas_creadas_exito.append(hoja_info)
                             if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
@@ -415,7 +401,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornada(s) autorizada(s) en el maestro y archivo aislado creado con éxito!"
+                            "¡Jornada(s) autorizada(s) y pestaña generada con éxito en Google Sheets maestro!"
                         )
 
                 except Exception as e:
@@ -431,20 +417,19 @@ else:
 
                 enlaces_html = ""
                 for h_info in st.session_state.hojas_creadas_recientes:
-                    url_archivo_aislado = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_aislado_id']}/edit?usp=sharing"
+                    url_sheet_directa = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing#gid={h_info['gid']}"
                     enlaces_html += f"""
-                    <div style="margin-bottom: 12px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #1e5b4f;">
-                        <b>Responsable:</b> {h_info['responsable']} ({h_info['correo']})<br>
-                        <a href="{url_archivo_aislado}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 6px 12px; text-decoration: none; font-weight: bold; border-radius: 4px; display: inline-block; margin-top: 5px; font-size: 0.9rem;">
-                            📁 Abrir Archivo Exclusivo del Operativo
+                    <div style="margin-bottom: 8px;">
+                        <a href="{url_sheet_directa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 8px 16px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 1rem;">
+                            🔗 Ver Pestaña: {h_info['nombre']}
                         </a>
                     </div>
                     """
 
                 st.markdown(
                     f"""
-                    <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px;">
-                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 12px; text-align: center;">🟢 ARCHIVOS AISLADOS CREADOS</h3>
+                    <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 18px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                        <h3 style="color: #1e5b4f; margin-top: 0; margin-bottom: 8px;">🟢 JORNADAS AUTORIZADAS Y ACTIVAS</h3>
                         {enlaces_html}
                     </div>
                     """,
@@ -488,6 +473,9 @@ else:
 
                     st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
                     st.code(link_paciente, language="text")
+
+                    st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
+                    st.code(link_prueba_simulacion, language="text")
 
                     st.markdown("🔹 **Enlace Directo para el Personal Operativo:**")
                     st.code(link_operativo, language="text")
@@ -599,7 +587,7 @@ else:
         if not st.session_state.historial_jornadas:
             st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial Universal'** para escanear y visualizar todas las pestañas existentes en Google Sheets.")
         else:
-            st.success(f"👑 Panel de Administración Universal: Mostrando todas las pestañas creadas ({len(st.session_state.historial_jornadas)} en total).")
+            st.success(f"👑 Panel de Administración Universal: Mostrando todas las pestañas creadas ({len(st.session_state.historial_jornadas)} in total).")
             base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
             for i, h_item in enumerate(st.session_state.historial_jornadas):
