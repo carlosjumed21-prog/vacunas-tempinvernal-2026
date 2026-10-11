@@ -5,7 +5,10 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
+import io
 from google.oauth2 import service_account
+import openpyxl
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 # --- INTENTO DE IMPORTACIÓN SEGURA DE CONFIG ---
 try:
@@ -107,6 +110,67 @@ else:
         gid_hoja = ws.id
         todos_los_datos = ws.get_all_values()
 
+        # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
+        st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+
+        col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+        with col_tit1:
+            st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+        with col_tit2:
+            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                st.rerun()
+
+        # --- BOTÓN DE DESCARGA EXCEL COMPATIBLE CON IMÁGENES QR ---
+        with col_tit3:
+            try:
+                # Generamos un archivo Excel estructurado con openpyxl e incrustamos los QR si existen fórmulas =IMAGE
+                wb = openpyxl.Workbook()
+                ws_excel = wb.active
+                ws_excel.title = hoja_activa_tabla[:31]
+
+                for row_idx, row_data in enumerate(todos_los_datos, start=1):
+                    for col_idx, cell_value in enumerate(row_data, start=1):
+                        # Verificamos si la celda contiene una fórmula de imagen tipo =IMAGE("url")
+                        if str(cell_value).startswith("=IMAGE("):
+                            try:
+                                # Extraer la URL de la fórmula de Google Sheets
+                                url_qr = cell_value.split('"')[1]
+                                # Descargar la imagen del QR temporalmente
+                                req_img = urllib.request.Request(url_qr, headers={'User-Agent': 'Mozilla/5.0'})
+                                with urllib.request.urlopen(req_img) as img_resp:
+                                    img_bytes = img_resp.read()
+                                
+                                img_io = io.BytesIO(img_bytes)
+                                xl_img = OpenpyxlImage(img_io)
+                                xl_img.width = 90
+                                xl_img.height = 90
+                                
+                                # Convertir número de columna a letra de Excel (ej: 1 -> A, etc.)
+                                col_letter = openpyxl.utils.get_column_letter(col_idx)
+                                ws_excel.add_image(xl_img, f"{col_letter}{row_idx}")
+                                ws_excel.cell(row=row_idx, column=col_idx, value="") # Limpiar texto de la fórmula
+                            except Exception:
+                                ws_excel.cell(row=row_idx, column=col_idx, value=cell_value)
+                        else:
+                            ws_excel.cell(row=row_idx, column=col_idx, value=cell_value)
+
+                excel_buffer = io.BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+
+                st.download_button(
+                    label="📥 Descargar Hoja Excel",
+                    data=excel_buffer,
+                    file_name=f"{hoja_activa_tabla}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' con soporte compatible para códigos QR"
+                )
+            except Exception as err:
+                st.error(f"No se pudo preparar la descarga: {err}")
+
+        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
             fila_cabecera_2 = todos_los_datos[12]
@@ -195,44 +259,6 @@ else:
                 elif tiene_influenza and tiene_covid:
                     total_simultaneas += 1
 
-            # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
-            st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
-
-            col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-            with col_tit1:
-                st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-            with col_tit2:
-                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
-                    st.rerun()
-
-            with col_tit3:
-                try:
-                    if not creds.valid:
-                        from google.auth.transport.requests import Request
-                        creds.refresh(Request())
-
-                    url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                    req = urllib.request.Request(
-                        url_export,
-                        headers={'Authorization': f'Bearer {creds.token}'}
-                    )
-
-                    with urllib.request.urlopen(req) as response:
-                        excel_original_bytes = response.read()
-
-                    st.download_button(
-                        label="📥 Descargar Hoja Excel",
-                        data=excel_original_bytes,
-                        file_name=f"{hoja_activa_tabla}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
-                    )
-                except Exception as err:
-                    st.error(f"No se pudo descargar el archivo: {err}")
-
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
             # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
             m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
             
@@ -266,23 +292,3 @@ else:
                         if val == "X":
                             completado = True
                             break
-                except:
-                    pass
-                
-                return ['background-color: #d4edda; color: #155724; font-weight: 600;' if completado else '' for _ in row]
-
-            df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
-
-            # --- TABLA NATIVA CON SCROLL INTERNO Y ENCABEZADOS FIJOS ---
-            st.dataframe(
-                df_estilizado,
-                use_container_width=True,
-                height=650,
-                hide_index=True
-            )
-
-        else:
-            st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
-
-    except Exception as ex:
-        st.error(f"Error al conectar con la base de datos: {ex}")
