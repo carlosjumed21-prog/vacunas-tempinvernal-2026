@@ -53,21 +53,26 @@ def guardar_registro_censal(
             if ws is None:
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=50)
 
-        # Validación estricta para reinicio de folio y consecutivo a partir de la fila 14
+        # Obtener todos los valores para calcular la fila exacta y el consecutivo
         todos_los_valores = ws.get_all_values()
         
-        # Si hay menos de 14 filas, o la fila 14 está completamente vacía, reiniciamos el consecutivo en 1
-        if len(todos_los_valores) < 14 or not any(todos_los_valores[13]):
-            consecutivo = 1
-            fila_destino = 14
-        else:
-            # Contamos cuántos registros válidos hay desde la fila 14 en adelante
-            filas_con_datos = 0
-            for fila in todos_los_valores[13:]:
-                if any(fila):  # Si la fila tiene algún dato
-                    filas_con_datos += 1
-            consecutivo = filas_con_datos + 1
-            fila_destino = 13 + consecutivo
+        # Encontrar la primera fila vacía a partir de la fila 14 (índice 13 en Python)
+        fila_destino = 14
+        consecutivo = 1
+
+        if len(todos_los_valores) >= 14:
+            # Revisar desde la fila 14 (índice 13) hacia abajo para hallar un espacio libre
+            for idx in range(13, len(todos_los_valores)):
+                # Si la fila está totalmente vacía o no tiene folio en la columna B (índice 1)
+                if not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
+                    fila_destino = idx + 1
+                    break
+            else:
+                # Si todas están ocupadas, agregamos una nueva al final y calculamos el consecutivo
+                fila_destino = len(todos_los_valores) + 1
+
+        # Calcular el consecutivo basado en las filas existentes desde la 14
+        consecutivo = fila_destino - 13 if fila_destino >= 14 else 1
 
         folio_asignado = (
             f"VIGILE-{sigla_url}-{datetime.datetime.now().strftime('%Y%m%d')}-{consecutivo:04d}"
@@ -91,6 +96,7 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
+        # Mapeo exacto columna por columna (Desde A hasta AV)
         fila_registro = [
             str(consecutivo),                                   # Col A: Número consecutivo
             folio_asignado,                                     # Col B: Fila 14-15B (Folio)
@@ -142,8 +148,14 @@ def guardar_registro_censal(
             "X" if vacuna_interes == "AMBAS" else "",              # Col AV: AMBAS marcar X
         ]
 
-        # Insertar directamente en la fila exacta calculada
-        ws.insert_row(fila_registro, index=fila_destino)
+        # Si la fila de destino ya existe y está en blanco, actualizamos el rango exacto; si no, insertamos la fila
+        if fila_destino <= len(todos_los_valores):
+            # Actualizar rango de celdas en la fila exacta sin desajustar formato
+            rango_celdas = f"A{fila_destino}:AV{fila_destino}"
+            ws.update(rango_celdas, [fila_registro])
+        else:
+            ws.append_row(fila_registro)
+
         return folio_asignado
 
     except Exception as e:
