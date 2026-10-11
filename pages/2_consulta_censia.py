@@ -381,21 +381,28 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-# --- BOTÓN PARA ABRIR EL CENSO EN VENTANA EXTERNA PASANDO LA HOJA AUTORIZADA ---
-        hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
-        url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
+        # --- BOTONES SUPERIORES: ABRIR CENSO EN VENTANA EXTERNA Y ACTUALIZAR ---
+        col_btn_ext1, col_btn_ext2 = st.columns([3, 1])
         
-        st.markdown(
-            f"""
-            <div style="margin-top: 15px; margin-bottom: 20px; text-align: right;">
-                <a href="{url_externa}" target="_blank" 
-                   style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
-                    🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        with col_btn_ext1:
+            hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
+            url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
+            
+            st.markdown(
+                f"""
+                <div style="margin-top: 5px; margin-bottom: 20px;">
+                    <a href="{url_externa}" target="_blank" 
+                       style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
+                        🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
+                    </a>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            
+        with col_btn_ext2:
+            if st.button("🔄 Actualizar", use_container_width=True, help="Actualizar datos de la jornada actual"):
+                st.rerun()
 
         st.markdown(
             '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
