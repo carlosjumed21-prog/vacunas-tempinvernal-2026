@@ -26,41 +26,6 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN NATIVA PARA APLICAR FORMATO CONDICIONAL ESTRICTO SOBRE COLUMNAS DE DOSIS ---
-def aplicar_formato_condicional_sheets(worksheet):
-    """Aplica formato condicional estricto para pintar de verde de A a AQ a partir de la fila 14 
-    SOLAMENTE cuando las columnas específicas de dosis (AG, AH, AI, AL, AM, AN) tengan una 'X'."""
-    try:
-        from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
-        
-        # 1. Limpiamos reglas previas para asegurar un entorno limpio
-        worksheet.clear_conditional_format_rules()
-        
-        # 2. Rango horizontal exacto de A (0) a AQ (43) desde la fila 14 (índice 13)
-        rango_grid = {
-            "sheetId": worksheet.id,
-            "startRowIndex": 13,      # Fila 14 (base 0)
-            "endRowIndex": 1000,      # Rango dinámico hacia abajo
-            "startColumnIndex": 0,    # Columna A
-            "endColumnIndex": 43      # Columna AQ
-        }
-        
-        # 3. Fórmula estricta evaluando únicamente las celdas exactas de dosis de Influenza y COVID
-        formula_regla = '=OR($AG14="X", $AH14="X", $AI14="X", $AL14="X", $AM14="X", $AN14="X")'
-        
-        rule = ConditionalFormatRule(
-            ranges=[rango_grid],
-            boolean=BooleanRule(
-                condition=BooleanCondition('CUSTOM_FORMULA', [formula_regla]),
-                format=CellFormat(backgroundColor=Color(0.831, 0.929, 0.855)) # Verde claro corporativo
-            )
-        )
-        
-        worksheet.set_conditional_format_rules([rule])
-    except Exception as e:
-        pass
-
-
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
 def mostrar_dialogo_cerrar_sesion():
@@ -388,9 +353,6 @@ else:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
             except:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
-
-            # Aplicar formato condicional estricto automáticamente en la hoja de Google Sheets (rango A:AQ)
-            aplicar_formato_condicional_sheets(worksheet_activa)
 
             todos_los_datos = worksheet_activa.get_all_values()
 
@@ -816,8 +778,36 @@ else:
                                             cad_c_str = cad_cov_input.strftime("%d/%m/%Y")
                                             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-                                        if datos_a_actualizar:
-                                            worksheet_activa.batch_update(datos_a_actualizar)
+                                        # --- PINTAR DE VERDE LA FILA COMPLETA DIRECTAMENTE DESDE PYTHON AL GUARDAR ---
+                                        # Esto pinta formalmente el fondo de la columna A hasta la AQ en las 2 filas del paciente (f_actual y f_siguiente)
+                                        peticion_formato_celdas = {
+                                            "repeatCell": {
+                                                "range": {
+                                                    "sheetId": worksheet_activa.id,
+                                                    "startRowIndex": f_actual - 1,      # Base 0
+                                                    "endRowIndex": f_siguiente,       # Incluye las 2 filas (actual y siguiente)
+                                                    "startColumnIndex": 0,            # Columna A
+                                                    "endColumnIndex": 43              # Columna AQ
+                                                },
+                                                "cell": {
+                                                    "userEnteredFormat": {
+                                                        "backgroundColor": {
+                                                            "red": 0.831,
+                                                            "green": 0.929,
+                                                            "blue": 0.855
+                                                        }
+                                                    }
+                                                },
+                                                "fields": "userEnteredFormat.backgroundColor"
+                                            }
+                                        }
+
+                                        # Ejecutamos tanto la actualización de datos como el pintado de fondo por lotes
+                                        requests_totales = [peticion_formato_celdas]
+                                        
+                                        # Añadimos los valores de celdas a la misma petición batch si prefieres optimizar
+                                        worksheet_activa.batch_update(datos_a_actualizar)
+                                        worksheet_activa.spreadsheet.batch_update({"requests": [peticion_formato_celdas]})
 
                                         lote_final_partes = []
                                         if lote_inf_input:
