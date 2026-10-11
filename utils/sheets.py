@@ -7,6 +7,7 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
 
 def obtener_cliente_gspread():
+    """Autentica y retorna el cliente de gspread usando los secretos de Streamlit."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
@@ -32,10 +33,15 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
+    """Registra los datos del paciente mapeando exactamente las columnas
+
+    del Censo Nominal y escribiendo la CURP en la Fila 15, Columna C.
+    """
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
+        # Definir el nombre de la hoja según la unidad o jornada activa
         nombre_hoja = sigla_url
         if sufijo_js:
             nombre_hoja = f"{sigla_url}_{sufijo_js}"
@@ -61,17 +67,13 @@ def guardar_registro_censal(
         consecutivo = 1
 
         if len(todos_los_valores) >= 14:
-            # Revisar desde la fila 14 (índice 13) hacia abajo para hallar un espacio libre
             for idx in range(13, len(todos_los_valores)):
-                # Si la fila está totalmente vacía o no tiene folio en la columna B (índice 1)
                 if not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
                     fila_destino = idx + 1
                     break
             else:
-                # Si todas están ocupadas, agregamos una nueva al final y calculamos el consecutivo
                 fila_destino = len(todos_los_valores) + 1
 
-        # Calcular el consecutivo basado en las filas existentes desde la 14
         consecutivo = fila_destino - 13 if fila_destino >= 14 else 1
 
         folio_asignado = (
@@ -96,8 +98,8 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # Mapeo exacto columna por columna (Desde A hasta AV)
-        fila_registro = [
+        # Mapeo exacto columna por columna para la Fila Principal (Ej. Fila 14)
+        fila_registro_14 = [
             str(consecutivo),                                   # Col A: Número consecutivo
             folio_asignado,                                     # Col B: Fila 14-15B (Folio)
             p.get("paterno", "").upper(),                       # Col C: Fila 14-15C (Paterno)
@@ -148,13 +150,16 @@ def guardar_registro_censal(
             "X" if vacuna_interes == "AMBAS" else "",              # Col AV: AMBAS marcar X
         ]
 
-        # Si la fila de destino ya existe y está en blanco, actualizamos el rango exacto; si no, insertamos la fila
+        # Actualizar o insertar la fila principal
         if fila_destino <= len(todos_los_valores):
-            # Actualizar rango de celdas en la fila exacta sin desajustar formato
             rango_celdas = f"A{fila_destino}:AV{fila_destino}"
-            ws.update(rango_celdas, [fila_registro])
+            ws.update(rango_celdas, [fila_registro_14])
         else:
-            ws.append_row(fila_registro)
+            ws.append_row(fila_registro_14)
+
+        # Inyectar la CURP automática específicamente en la Fila 15, Columna C (C15)
+        fila_curp = fila_destino + 1
+        ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
 
         return folio_asignado
 
