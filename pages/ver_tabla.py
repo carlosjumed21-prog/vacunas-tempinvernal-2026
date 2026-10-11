@@ -47,7 +47,7 @@ else:
         ws = spreadsheet.worksheet(hoja_activa_tabla)
         todos_los_datos = ws.get_all_values()
 
-        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL DE LA HOJA ---
+        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL IDÉNTICO AL ORIGINAL ---
         col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -56,23 +56,31 @@ else:
             if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                 st.rerun()
 
-        # --- BOTÓN DE DESCARGA EXCEL CON TODA LA ESTRUCTURA INSTITUCIONAL ---
+        # --- BOTÓN DE DESCARGA EXCEL CON EL FORMATO ORIGINAL COMPLETO (INCLUYENDO TÍTULOS SUPERIORES) ---
         with col_tit3:
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             try:
                 output = io.BytesIO()
-                df_full = pd.DataFrame(todos_los_datos)
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_full.to_excel(writer, sheet_name=hoja_activa_tabla, header=False, index=False)
-                excel_bytes = output.getvalue()
+                # Creamos el libro de trabajo de Excel manteniendo estrictamente cada celda y fila tal como está en Sheets
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws_excel = wb.active
+                ws_excel.title = hoja_activa_tabla
+
+                for r_idx, row in enumerate(todos_los_datos, start=1):
+                    for c_idx, val in enumerate(row, start=1):
+                        ws_excel.cell(row=r_idx, column=c_idx, value=val)
+
+                wb.save(output)
+                excel_original_bytes = output.getvalue()
 
                 st.download_button(
                     label="📥 Descargar Hoja Excel",
-                    data=excel_bytes,
+                    data=excel_original_bytes,
                     file_name=f"{hoja_activa_tabla}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
-                    help=f"Descargar la hoja '{hoja_activa_tabla}' completa con su estructura institucional y formato Excel"
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' idéntica al formato original de Google Sheets"
                 )
             except Exception as err:
                 st.error(f"No se pudo generar el archivo Excel: {err}")
