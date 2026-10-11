@@ -239,7 +239,7 @@ if not st.session_state.autenticado_consulta:
         btn_login = st.form_submit_button("Iniciar Sesión", use_container_width=True)
 
         if btn_login:
-            if usuario == "Operativo" and password == "Operativo":
+            if usuario == "Operativo" and password == "OperativoInv26":
                 st.session_state.autenticado_consulta = True
                 st.rerun()
             else:
