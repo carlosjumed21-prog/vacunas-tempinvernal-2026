@@ -1,4 +1,5 @@
 import datetime
+import random
 import unicodedata
 import urllib.parse
 import streamlit as st
@@ -40,6 +41,7 @@ sigla_url = params.get("unidad", "20N").upper()
 nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
 sufijo_js = params.get("js", "")
 modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
+es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
 
 st.session_state.siglas_unidad = sigla_url
 st.session_state.nombre_unidad = (
@@ -216,6 +218,22 @@ estados_mexico = [
     "YUCATÁN",
     "ZACATECAS",
 ]
+
+lista_ocupaciones = [
+    "SELECCIONE UNA OPCIÓN", "NO APLICA",
+    "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
+    "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
+    "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "TRABAJO EN GUARDERÍA",
+    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
+    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES", "PERSONAL MILITAR",
+    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)", "OTRAS PROFESIONES"
+]
+
+meses_dict = {
+    "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
+    "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
+    "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+}
 
 
 @st.cache_data(ttl=600)
@@ -496,7 +514,32 @@ if st.session_state.ultimo_paciente_registrado is not None:
     mostrar_modal_comprobante()
 
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b> | Fecha de Aplicación: <b>{val_fecha_app.strftime("%d/%m/%Y")}</b></p>', unsafe_allow_html=True)
+
+# --- PANEL DE DATOS SIMULADOS (SOLO ADMINISTRADOR) ---
+if es_admin:
+    with st.expander("🛠️ Panel de Administración (Datos de Prueba)", expanded=False):
+        if st.button("🧪 Rellenar con Datos Simulados"):
+            st.session_state.input_paterno = random.choice(["PÉREZ", "GÓMEZ", "LÓPEZ", "MARTÍNEZ", "RODRÍGUEZ"])
+            st.session_state.input_materno = random.choice(["HERNÁNDEZ", "GARCÍA", "SÁNCHEZ", "RAMÍREZ", "TORRES"])
+            st.session_state.input_nombres = random.choice(["JUAN CARLOS", "MARÍA GUADALUPE", "JOSE LUIS", "ANA KAREN", "ROBERTO"])
+            st.session_state.sel_dia = str(random.randint(1, 28)).zfill(2)
+            st.session_state.sel_mes = random.choice(list(meses_dict.keys()))
+            st.session_state.sel_anio = str(random.randint(1975, 2010))
+            st.session_state.input_sexo = random.choice(["HOMBRE", "MUJER"])
+            st.session_state.input_estnac = random.choice(estados_mexico[1:])
+            st.session_state.input_estres = st.session_state.input_estnac
+            st.session_state.input_calle = "AV. REVOLUCIÓN"
+            st.session_state.input_num = str(random.randint(100, 999))
+            st.session_state.input_colonia = "CENTRO"
+            st.session_state.input_derecho = "SÍ"
+            st.session_state.input_ocupacion = random.choice(lista_ocupaciones[1:])
+            st.session_state.ant_cov = random.choice(["SÍ", "NO", "LO DESCONOCE"])
+            st.session_state.ant_inf = random.choice(["SÍ", "NO", "LO DESCONOCE"])
+            st.session_state.input_vacuna = random.choice(["AMBAS", "COVID-19", "INFLUENZA"])
+            if st.session_state.input_sexo == "MUJER":
+                st.session_state.chk_gestante = random.choice(["NO", "SÍ"])
+            st.rerun()
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -518,11 +561,6 @@ with col_d:
     dia_sel = st.selectbox("Día", options=dias_opciones, key="sel_dia", label_visibility="collapsed")
 
 with col_m:
-    meses_dict = {
-        "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
-        "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
-        "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
-    }
     meses_opciones = ["Mes"] + list(meses_dict.keys())
     mes_sel = st.selectbox("Mes", options=meses_opciones, key="sel_mes", label_visibility="collapsed")
 
@@ -556,7 +594,7 @@ with col_fn3:
 
 personas_gestantes = "NO"
 if sexo == "MUJER":
-    personas_gestantes = st.radio("¿Es una persona gestante?", options=["NO", "SÍ"], horizontal=True, key="chk_gestante")
+    personas_gestantes = st.radio("¿Es una persona gestante?", options=["NO", "SÍ"], index=None, horizontal=True, key="chk_gestante")
 
 calc_anos, calc_meses, calc_dias = calcular_edad_detallada(fecha_nacimiento, val_fecha_app) if fecha_nacimiento else (0, 0, 0)
 st.markdown(f'<div class="card-edad">📅 Edad calculada: {calc_anos} Años, {calc_meses} Meses</div>', unsafe_allow_html=True)
@@ -598,16 +636,6 @@ cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", optio
 
 # --- OCUPACIÓN ---
 st.markdown('<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True)
-lista_ocupaciones = [
-    "SELECCIONE UNA OPCIÓN", "NO APLICA",
-    "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
-    "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
-    "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "TRABAJO EN GUARDERÍA",
-    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
-    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES", "PERSONAL MILITAR",
-    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)", "OTRAS PROFESIONES"
-]
-
 if es_rango_infantil:
     st.info("ℹ️ Menor de 6 a 59 meses: Ocupación asignada automáticamente como 'NO APLICA'.")
     st.session_state.input_ocupacion = "NO APLICA"
@@ -620,7 +648,6 @@ st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</di
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-# Sincronizar automáticamente el estado de los checkboxes de riesgo si aplican por ocupación o embarazo
 if "chk_personas_embarazadas" in st.session_state and es_embarazada_activa:
     st.session_state.chk_personas_embarazadas = True
 if "chk_personal_salud_riesgo" in st.session_state and es_personal_salud_ocupacion:
