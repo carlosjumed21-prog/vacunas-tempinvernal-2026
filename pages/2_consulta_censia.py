@@ -26,10 +26,10 @@ st.markdown(
 )
 
 
-# --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS ---
+# --- FUNCIÓN PARA APLICAR FORMATO CONDICIONAL AUTOMÁTICO EN GOOGLE SHEETS (RANGO A:AQ) ---
 def aplicar_formato_condicional_sheets(worksheet):
     """Aplica formato condicional en Google Sheets para pintar de verde claro 
-    las filas de los pacientes a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
+    las filas de los pacientes desde la columna A hasta AQ a partir de la fila 14 cuando el rango AG-AQ tenga 'X'."""
     try:
         rules = worksheet.get_conditional_format_rules()
         formula_regla = '=COUNTIF(AG14:AQ14, "X") > 0'
@@ -44,8 +44,8 @@ def aplicar_formato_condicional_sheets(worksheet):
             from gspread.models import ConditionalFormatRule, BooleanRule, BooleanCondition, CellFormat, Color
             from gspread.utils import range_to_addr_dict
             
-            # Rango completo desde la fila 14 hasta la 1000
-            rango_dict = range_to_addr_dict("A14:AZ1000")
+            # Rango exacto de columnas A hasta AQ desde la fila 14 hasta la 1000
+            rango_dict = range_to_addr_dict("A14:AQ1000")
             rango_dict['sheetId'] = worksheet.id
             
             rule = ConditionalFormatRule(
@@ -389,7 +389,7 @@ else:
             except:
                 worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
 
-            # Aplicar formato condicional verde automáticamente en la hoja de Google Sheets
+            # Aplicar formato condicional verde automáticamente en la hoja de Google Sheets (rango A:AQ)
             aplicar_formato_condicional_sheets(worksheet_activa)
 
             todos_los_datos = worksheet_activa.get_all_values()
