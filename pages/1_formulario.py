@@ -206,7 +206,6 @@ estados_mexico = [
 ]
 
 
-# --- FUNCIÓN PARA CONSULTAR RECOMENDACIONES DESDE EL GOOGLE SHEETS ---
 @st.cache_data(ttl=600)
 def obtener_recomendaciones_sheets(biologico):
     try:
@@ -645,7 +644,7 @@ if params.get("test", "").lower() == "true" or st.session_state.get(
         ):
             st.session_state.input_paterno = "BADILLO"
             st.session_state.input_materno = "XICOHTENCATL"
-            st.session_state.input_nombres = "JUAN CARLOS"
+            st.session_state.input_nombres = "CARLOS"
             st.session_state.input_fnac = datetime.date(1993, 10, 15)
             st.session_state.input_sexo = "HOMBRE"
             st.session_state.input_estnac = "CIUDAD DE MÉXICO"
@@ -709,7 +708,7 @@ with col_fn1:
     fecha_nacimiento = st.date_input(
         "Fecha de Nacimiento *",
         value=None,
-        min_value=datetime.date(1900, 1, 1),
+        min_value=datetime.date(1920, 1, 1),
         max_value=datetime.date.today(),
         format="DD/MM/YYYY",
         key="input_fnac",
@@ -871,7 +870,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- ACTUALIZACIÓN DINÁMICA ESTRICTA EN CADA CICLO ---
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
@@ -905,7 +903,6 @@ with col_r2:
     fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
     hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
     
-    # Opción OTRO agregada con campo de texto libre
     otro_riesgo = st.checkbox("OTRO", key="chk_otro")
     texto_otro_riesgo = ""
     if otro_riesgo:
@@ -931,7 +928,6 @@ with col_av2:
         key="ant_inf",
     )
 
-# --- 8. VACUNA DE INTERÉS ---
 st.markdown(
     '<div class="section-title">8. Vacuna de Interés</div>',
     unsafe_allow_html=True,
@@ -943,7 +939,6 @@ vacuna_interes = st.radio(
     key="input_vacuna",
 )
 
-# --- LÓGICA DE GRUPO OBJETIVO DINÁMICA ---
 if fecha_nacimiento is None:
     grupo_sugerido = "POR ASIGNAR"
 else:
@@ -973,16 +968,27 @@ st.markdown(
 
 st.markdown("---")
 if st.button("Registrarme para la jornada", use_container_width=True):
+    # Validaciones obligatorias estrictas
     if not fecha_nacimiento:
-        st.error("Por favor seleccione la Fecha de Nacimiento.")
-    elif not paterno or not nombres:
-        st.error("Complete Apellido Paterno y Nombre(s).")
+        st.error("⚠️ Por favor seleccione la Fecha de Nacimiento.")
+    elif not paterno.strip() or not materno.strip() or not nombres.strip():
+        st.error("⚠️ Complete Apellido Paterno, Apellido Materno y Nombre(s).")
     elif sexo == "SELECCIONE UNA OPCIÓN":
-        st.error("Seleccione una opción en Sexo.")
+        st.error("⚠️ Seleccione una opción válida en Sexo.")
+    elif estado_nacimiento == "SELECCIONE UN ESTADO":
+        st.error("⚠️ Seleccione su Estado de Nacimiento.")
+    elif estado_residencia == "SELECCIONE UN ESTADO":
+        st.error("⚠️ Seleccione su Estado de Residencia.")
+    elif not callee := calle.strip(): # Validando calle
+        st.error("⚠️ Complete el campo de Calle.")
+    elif not numero.strip():
+        st.error("⚠️ Complete el número Exterior/Interior.")
+    elif not colonia.strip():
+        st.error("⚠️ Complete el campo de Colonia.")
     elif cuenta_derechohabiencia == "SELECCIONE UNA OPCIÓN":
-        st.error("Indique su derechohabiencia.")
+        st.error("⚠️ Indique si cuenta con derechohabiencia.")
     elif not es_rango_infantil and ocupacion == "SELECCIONE UNA OPCIÓN":
-        st.error("Seleccione una opción en Ocupación.")
+        st.error("⚠️ Seleccione una opción en Ocupación.")
     else:
         try:
             comorbilidades_dict = {
@@ -1033,6 +1039,9 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                 nombre_unidad_completo=st.session_state.nombre_unidad,
                 datos_paciente=datos_paciente,
             )
+
+            # Forzar la limpieza de caché para que la consulta (pages/2_consulta_censal.py) se actualice en automático
+            st.cache_data.clear()
 
             st.session_state.ultimo_paciente_registrado = {
                 "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
