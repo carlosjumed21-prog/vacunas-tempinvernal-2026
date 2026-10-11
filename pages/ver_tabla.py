@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
-import io
+import urllib.request
+import urllib.parse
 from google.oauth2 import service_account
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 
@@ -45,9 +46,9 @@ else:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         ws = spreadsheet.worksheet(hoja_activa_tabla)
-        todos_los_datos = ws.get_all_values()
+        gid_hoja = ws.id  # Identificador numérico único de esta pestaña exacta en Google Sheets
 
-        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL IDÉNTICO AL ORIGINAL ---
+        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL ORIGINAL DE GOOGLE DRIVE ---
         col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -56,23 +57,25 @@ else:
             if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
                 st.rerun()
 
-        # --- BOTÓN DE DESCARGA EXCEL CON EL FORMATO ORIGINAL COMPLETO (INCLUYENDO TÍTULOS SUPERIORES) ---
+        # --- BOTÓN DE DESCARGA DIRECTA DEL EXCEL ORIGINAL DESDE GOOGLE DRIVE ---
         with col_tit3:
             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             try:
-                output = io.BytesIO()
-                # Creamos el libro de trabajo de Excel manteniendo estrictamente cada celda y fila tal como está en Sheets
-                import openpyxl
-                wb = openpyxl.Workbook()
-                ws_excel = wb.active
-                ws_excel.title = hoja_activa_tabla
+                # Refrescar token de acceso de las credenciales de servicio
+                if not creds.valid:
+                    from google.auth.transport.requests import Request
+                    creds.refresh(Request())
 
-                for r_idx, row in enumerate(todos_los_datos, start=1):
-                    for c_idx, val in enumerate(row, start=1):
-                        ws_excel.cell(row=r_idx, column=c_idx, value=val)
+                # URL oficial de exportación de Google Drive para descargar una pestaña específica respetando todo el formato original
+                url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+                
+                req = urllib.request.Request(
+                    url_export,
+                    headers={'Authorization': f'Bearer {creds.token}'}
+                )
 
-                wb.save(output)
-                excel_original_bytes = output.getvalue()
+                with urllib.request.urlopen(req) as response:
+                    excel_original_bytes = response.read()
 
                 st.download_button(
                     label="📥 Descargar Hoja Excel",
@@ -80,10 +83,12 @@ else:
                     file_name=f"{hoja_activa_tabla}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
-                    help=f"Descargar la hoja '{hoja_activa_tabla}' idéntica al formato original de Google Sheets"
+                    help=f"Descargar la hoja '{hoja_activa_tabla}' exactamente con el formato y diseño original de Google Sheets"
                 )
             except Exception as err:
-                st.error(f"No se pudo generar el archivo Excel: {err}")
+                st.error(f"No se pudo descargar el archivo original de Google Drive: {err}")
+
+        todos_los_datos = ws.get_all_values()
 
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
