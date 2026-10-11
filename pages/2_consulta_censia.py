@@ -263,7 +263,7 @@ else:
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
         
-        # Hoja 1: Influenza (Columnas A a H: Vacuna, Categoría, Grupos blancos, Esquema, Dosis, Intervalo, Recomendación, Aplicación Simultánea)
+        # Hoja 1: Influenza
         try:
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
@@ -282,7 +282,7 @@ else:
         except Exception:
             pass
 
-        # Hoja 2: COVID (Columnas A a H: Vacuna, Categoría, Grupos blancos, Esquema, Dosis, Intervalo, Recomendación, Aplicación Simultánea)
+        # Hoja 2: COVID
         try:
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
@@ -430,15 +430,8 @@ else:
 
                         vacuna_registrada = fila_datos[25].strip().upper() if len(fila_datos) > 25 else "AMBAS"
 
-                        # --- LECTURA EXACTA DE LAS COLUMNAS DE GRUPOS Y COMORBILIDADES (P a AF) ---
-                        # Mapeo de columnas en la hoja de censo:
-                        # P: 6 a 59 meses | Q: 60 y más | R: Embarazadas | S: Personal Salud
-                        # T: VIH | U: Diabetes | V: Obesidad | W: Cardiopatías | X: Enf. Pulmonar
-                        # Y: Cáncer | Z: Cardíacas congénitas | AA: Insuf. Renal | AB: Inmunosupresión
-                        # AC: Discapacidades | AD: Fibrosis quística | AE: Hipertensión | AF: Otro (Texto libre)
-                        
+                        # --- DTECCIÓN DINÁMICA DE RIESGOS DESDE LAS COLUMNAS P hasta AF ---
                         lista_detectados = []
-                        
                         def tiene_equis(col_idx):
                             return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
 
@@ -450,18 +443,17 @@ else:
                         if tiene_equis(20): lista_detectados.append("DIABETES MELLITUS")
                         if tiene_equis(21): lista_detectados.append("OBESIDAD MÓRBIDA")
                         if tiene_equis(22): lista_detectados.append("CARDIOPATÍAS AGUDAS O CRÓNICAS")
-                        if tiene_equis(23): lista_detectados.append("ENFERMEDAD PULMONAR CRÓNICA, INCLUYE EPOC Y ASMA")
+                        if tiene_equis(23): lista_detectados.append("ENFERMEDAD PULMONAR CRÓNICA")
                         if tiene_equis(24): lista_detectados.append("CÁNCER")
                         if tiene_equis(25): lista_detectados.append("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS")
-                        if tiene_ens := tiene_equis(26): lista_detectados.append("INSUFICIENCIA RENAL")
-                        if tiene_equis(27): lista_detectados.append("INMUNOSUPRESIÓN ADQUIRIDA")
+                        if tiene_equis(26): lista_detectados.append("INSUFICIENCIA RENAL")
+                        if tiene_equis(27): lista_detectados.append("INMUNOSUPRESIÓN")
                         if tiene_equis(28): lista_detectados.append("DISCAPACIDADES")
                         if tiene_equis(29): lista_detectados.append("FIBROSIS QUÍSTICA")
                         if tiene_equis(30): lista_detectados.append("HIPERTENSIÓN ARTERIAL")
                         
-                        # Columna AF (Índice 31) -> Otro (Texto libre)
                         if len(fila_datos) > 31 and fila_datos[31].strip():
-                            lista_detectados.append(f"OTRO: {fila_datos[31].strip().upper()}")
+                            lista_detectados.append(fila_datos[31].strip().upper())
 
                         grupo_detectado = ", ".join(lista_detectados) if lista_detectados else "POBLACIÓN GENERAL"
 
@@ -487,39 +479,27 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # --- BÚSQUEDA DINÁMICA DE RECOMENDACIONES EN HOJAS INFLUENZA Y COVID ---
-                        inf_match = None
-                        cov_match = None
+                        # --- ASEGURAR QUE SIEMPRE SE MUESTREN LAS CARDS DE RECOMENDACIÓN ---
+                        # Si hay registros cargados en el sheet de CENSIA, seleccionamos los más adecuados o tomamos los primeros por defecto
+                        inf_match = guia_influenza_registros[0] if guia_influenza_registros else None
+                        cov_match = guia_covid_registros[0] if guia_covid_registros else None
 
-                        g_upper = grupo_detectado.upper()
-                        
-                        # Buscar en Influenza
+                        # Búsqueda específica optimizada por palabras clave
                         for item in guia_influenza_registros:
                             g_target = item["grupos_blancos"].upper()
-                            if g_target and (any(term in g_upper for term in g_target.split()) or g_target in g_upper):
+                            if g_target and any(term in grupo_detectado.upper() for term in g_target.split()):
                                 inf_match = item
                                 break
-                        if not inf_match and guia_influenza_registros:
-                            inf_match = guia_influenza_registros[0]
 
-                        # Buscar en COVID
                         for item in guia_covid_registros:
                             g_target = item["grupos_blancos"].upper()
-                            if g_target and (any(term in g_upper for term in g_target.split()) or g_target in g_upper):
+                            if g_target and any(term in grupo_detectado.upper() for term in g_target.split()):
                                 cov_match = item
                                 break
-                        if not cov_match and guia_covid_registros:
-                            cov_match = guia_covid_registros[0]
 
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        if mostrar_influenza and not inf_match and guia_influenza_registros:
-                            inf_match = guia_influenza_registros[0]
-                        if mostrar_covid and not cov_match and guia_covid_registros:
-                            cov_match = guia_covid_registros[0]
-
-                        # --- MOSTRAR CARDS DE RECOMENDACIÓN ---
                         if mostrar_influenza and inf_match:
                             simultanea_inf = inf_match.get("aplicacion_simultanea", "")
                             st.markdown(
