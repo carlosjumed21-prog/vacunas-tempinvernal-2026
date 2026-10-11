@@ -441,11 +441,11 @@ else:
 
                         st.markdown(
                             '<div class="section-title">3. Guía y Lineamientos'
-                            " CENSIA (Tarjetas Informativas)</div>",
+                            " CENSIA (Tarjeta del Grupo Prioritario)</div>",
                             unsafe_allow_html=True,
                         )
 
-                        # --- OBTENER RECOMENDACIONES MÚLTIPLES DESDE EL MÓDULO AUXILIAR ---
+                        # --- OBTENER RECOMENDACIONES DESDE EL MÓDULO AUXILIAR ---
                         matches_inf, matches_covid = obtener_recomendaciones_paciente(
                             categoria_paciente, lista_riesgos_detectados, vacuna_registrada
                         )
@@ -453,46 +453,48 @@ else:
                         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                        # --- RENDERIZADO DE CARDS DE INFLUENZA ---
-                        if mostrar_influenza:
-                            for match_inf in matches_inf:
-                                simultanea_inf = match_inf.get("aplicacion_simultanea", "")
-                                st.markdown(
-                                    f"""
-                                    <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                        <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                        <p><b>Categoría (Col. B):</b> {match_inf.get('categoria', 'N/A')}</p>
-                                        <p><b>Grupos blancos (Col. C):</b> {match_inf.get('grupos_blancos', 'N/A')}</p>
-                                        <p><b>Esquema (Col. D):</b> {match_inf.get('esquema', 'N/A')}</p>
-                                        <p><b>Dosis (Col. E):</b> {match_inf.get('dosis', 'N/A')}</p>
-                                        <p><b>Intervalo (Col. F):</b> {match_inf.get('intervalo', 'N/A')}</p>
-                                        <p><b>Recomendación (Col. G):</b> {match_inf.get('recomendacion', 'N/A')}</p>
-                                        {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
+                        # --- PRIORIZAR UN SOLO GRUPO (Tomamos únicamente el primer match relevante) ---
+                        match_inf_prioritario = matches_inf[0] if matches_inf else None
+                        match_cov_prioritario = matches_covid[0] if matches_covid else None
 
-                        # --- RENDERIZADO DE CARDS DE COVID (Moderna, Pfizer, etc.) ---
-                        if mostrar_covid:
-                            for match_cov in matches_covid:
-                                tipo_biologico_covid = match_cov.get('tipo_vacuna', 'COVID-19')
-                                simultanea_cov = match_cov.get("aplicacion_simultanea", "")
-                                st.markdown(
-                                    f"""
-                                    <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                        <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico - Col. A: {tipo_biologico_covid})</h4>
-                                        <p><b>Categoría (Col. B):</b> {match_cov.get('categoria', 'N/A')}</p>
-                                        <p><b>Grupos blancos (Col. C):</b> {match_cov.get('grupos_blancos', 'N/A')}</p>
-                                        <p><b>Esquema (Col. D):</b> {match_cov.get('esquema', 'N/A')}</p>
-                                        <p><b>Dosis (Col. E):</b> {match_cov.get('dosis', 'N/A')}</p>
-                                        <p><b>Intervalo (Col. F):</b> {match_cov.get('intervalo', 'N/A')}</p>
-                                        <p><b>Recomendación (Col. G):</b> {match_cov.get('recomendacion', 'N/A')}</p>
-                                        {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
+                        # --- RENDERIZADO DE LA CARD DE INFLUENZA (SOLO 1) ---
+                        if mostrar_influenza and match_inf_prioritario:
+                            simultanea_inf = match_inf_prioritario.get("aplicacion_simultanea", "")
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional (Grupo Prioritario)</h4>
+                                    <p><b>Categoría (Col. B):</b> {match_inf_prioritario.get('categoria', 'N/A')}</p>
+                                    <p><b>Grupos blancos (Col. C):</b> {match_inf_prioritario.get('grupos_blancos', 'N/A')}</p>
+                                    <p><b>Esquema (Col. D):</b> {match_inf_prioritario.get('esquema', 'N/A')}</p>
+                                    <p><b>Dosis (Col. E):</b> {match_inf_prioritario.get('dosis', 'N/A')}</p>
+                                    <p><b>Intervalo (Col. F):</b> {match_inf_prioritario.get('intervalo', 'N/A')}</p>
+                                    <p><b>Recomendación (Col. G):</b> {match_inf_prioritario.get('recomendacion', 'N/A')}</p>
+                                    {"<hr style='border: 1px dashed #1e5b4f;'/><p style='color: #611232;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_inf + "</p>" if vacuna_registrada == "AMBAS" and simultanea_inf else ""}
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                        # --- RENDERIZADO DE LA CARD DE COVID (SOLO 1) ---
+                        if mostrar_covid and match_cov_prioritario:
+                            tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', 'COVID-19')
+                            simultanea_cov = match_cov_prioritario.get("aplicacion_simultanea", "")
+                            st.markdown(
+                                f"""
+                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 (Biológico - Col. A: {tipo_biologico_covid})</h4>
+                                    <p><b>Categoría (Col. B):</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
+                                    <p><b>Grupos blancos (Col. C):</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
+                                    <p><b>Esquema (Col. D):</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
+                                    <p><b>Dosis (Col. E):</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
+                                    <p><b>Intervalo (Col. F):</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
+                                    <p><b>Recomendación (Col. G):</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
+                                    {"<hr style='border: 1px dashed #611232;'/><p style='color: #1e5b4f;'><b>🔄 Aplicación Simultánea (Columna H):</b> " + simultanea_cov + "</p>" if vacuna_registrada == "AMBAS" and simultanea_cov else ""}
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
                         st.markdown(
                             '<div class="section-title">4. Registro de Dosis Aplicadas y'
