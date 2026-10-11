@@ -291,12 +291,6 @@ else:
             )
 
     if hoja_seleccionada:
-        # --- BOTÓN DE ACTUALIZACIÓN DINÁMICA DE PACIENTES ---
-        col_act1, col_act2 = st.columns([3, 1])
-        with col_act2:
-            if st.button("🔄 Actualizar Listado", use_container_width=True):
-                st.rerun()
-
         try:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
@@ -331,11 +325,20 @@ else:
                 " el censo."
             )
         else:
-            query_busqueda = st.text_input(
-                "🔍 Buscar por Folio, Apellido o Nombre:",
-                placeholder="Escriba parte del folio, apellido o nombre...",
-                key="input_busqueda_lupa",
-            )
+            # --- CAMPO DE BÚSQUEDA Y BOTÓN DE ACTUALIZACIÓN CON LUPA Y ENTER ---
+            col_busq1, col_busq2 = st.columns([4, 1])
+            with col_busq1:
+                query_busqueda = st.text_input(
+                    "🔍 Buscar por Folio, Apellido o Nombre:",
+                    placeholder="Escriba parte del folio, apellido o nombre...",
+                    key="input_busqueda_lupa",
+                    help="Presione Enter para procesar la búsqueda"
+                )
+            with col_busq2:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                if st.button("🔄 Actualizar", use_container_width=True, help="Actualizar listado de pacientes en vivo"):
+                    st.rerun()
+            st.caption("💡 Tip: Presione **Enter** después de escribir en el buscador.")
 
             if not query_busqueda.strip():
                 st.info(
@@ -533,11 +536,11 @@ else:
                             st.markdown("##### 💉 INFLUENZA")
                             c_inf1, c_inf2, c_inf3, c_inf4, c_inf5 = st.columns([1, 1, 1, 1.5, 1.5])
                             with c_inf1:
-                                inf_1ra = st.checkbox("1ra dosis")
+                                inf_1ra = st.checkbox("1ra dosis", key="chk_inf_1ra")
                             with c_inf2:
-                                inf_2da = st.checkbox("2da dosis")
+                                inf_2da = st.checkbox("2da dosis", key="chk_inf_2da")
                             with c_inf3:
-                                inf_anual = st.checkbox("Anual")
+                                inf_anual = st.checkbox("Anual", key="chk_inf_anual")
                             with c_inf4:
                                 lote_inf_input = st.text_input(
                                     "Lote Influenza",
@@ -545,16 +548,16 @@ else:
                                     placeholder="Ej. A1234",
                                 )
                             with c_inf5:
-                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), key="cad_inf")
+                                cad_inf_input = st.date_input("Caducidad Influenza", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_inf")
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
                             with c_cov1:
-                                cov_1ra = st.checkbox("COVID 1ra")
+                                cov_1ra = st.checkbox("COVID 1ra", key="chk_cov_1ra")
                             with c_cov2:
-                                cov_2da = st.checkbox("COVID 2da")
+                                cov_2da = st.checkbox("COVID 2da", key="chk_cov_2da")
                             with c_cov3:
-                                cov_anual = st.checkbox("Anual")
+                                cov_anual = st.checkbox("Anual", key="chk_cov_anual")
                             with c_cov4:
                                 lote_cov_input = st.text_input(
                                     "Lote COVID-19",
@@ -562,7 +565,7 @@ else:
                                     placeholder="Ej. C5678",
                                 )
                             with c_cov5:
-                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), key="cad_cov")
+                                cad_cov_input = st.date_input("Caducidad COVID", value=datetime.date.today(), format="DD/MM/YYYY", key="cad_cov")
 
                             btn_actualizar_dosis = st.form_submit_button(
                                 "💾 Guardar Aplicación y Actualizar Hoja Sheets",
