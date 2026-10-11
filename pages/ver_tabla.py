@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
+import io
 from google.oauth2 import service_account
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 
@@ -43,7 +44,7 @@ else:
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA ---
+        # --- ENCABEZADO CON BOTONES DE ACTUALIZAR Y DESCARGA EXCEL DE LA HOJA ACTUAL ---
         col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
         with col_tit1:
             st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -87,19 +88,29 @@ else:
             filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
 
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
-            
-            # --- BOTÓN DE DESCARGA CSV (MANTENIENDO ESTRUCTURA Y FORMATO) ---
+
+            # --- LÓGICA PARA EXPORTAR EXCLUSIVAMENTE ESTA HOJA EN .XLSX ---
             with col_tit3:
                 st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                csv_data = df_tabla_segura.to_csv(index=False).encode('utf-8-sig') # utf-8-sig asegura compatibilidad de acentos con Excel
-                st.download_button(
-                    label="📥 Descargar CSV",
-                    data=csv_data,
-                    file_name=f"Censo_{hoja_activa_tabla}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    help="Descargar base de datos actual en formato CSV para Excel"
-                )
+                try:
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        # Escribimos las cabeceras originales tal como están en las filas 12 y 13 del sheets opcionalmente, 
+                        # o el dataframe estructurado limpio con los nombres de columna combinados:
+                        df_tabla_segura.to_excel(writer, sheet_name=hoja_activa_tabla, index=False)
+                    
+                    excel_data = output.getvalue()
+
+                    st.download_button(
+                        label="📥 Descargar Hoja Excel",
+                        data=excel_data,
+                        file_name=f"{hoja_activa_tabla}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        help=f"Descargar únicamente la hoja autorizada '{hoja_activa_tabla}' en formato Excel"
+                    )
+                except Exception as err:
+                    st.error(f"Error al preparar la descarga de la hoja: {err}")
             
             st.caption(f"Total de registros activos en censo: **{len(filas_tabla)}** — 🟢 *Los registros en verde indican aplicación registrada (rango AG-AQ).*")
             
