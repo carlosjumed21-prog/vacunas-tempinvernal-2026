@@ -649,7 +649,7 @@ else:
                             unsafe_allow_html=True,
                         )
 
-                        # Componente HTML para el botón que despliega el calendario flotante con selectores de mes y año
+                        # Componente HTML para el botón que despliega el calendario flotante exactamente debajo
                         calendar_button_html = """
                         <!DOCTYPE html>
                         <html>
@@ -661,20 +661,21 @@ else:
                                 background: #ffffff;
                                 border: 1px solid #a57f2c;
                                 border-radius: 4px;
-                                padding: 6px 12px;
-                                font-size: 0.85rem;
+                                padding: 5px 10px;
+                                font-size: 0.8rem;
                                 font-weight: bold;
                                 color: #1e5b4f;
                                 cursor: pointer;
                                 display: inline-flex;
                                 align-items: center;
-                                gap: 6px;
-                                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                                gap: 4px;
+                                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                                margin-top: 4px;
                             }
                             .cal-btn:hover { background: #f7f4eb; }
                             .cal-popup {
                                 display: none;
-                                position: absolute;
+                                position: fixed;
                                 z-index: 999999;
                                 background: #ffffff;
                                 border: 2px solid #1e5b4f;
@@ -682,8 +683,6 @@ else:
                                 padding: 12px;
                                 width: 280px;
                                 box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-                                margin-top: 4px;
-                                left: 0;
                             }
                             .cal-header {
                                 display: flex;
@@ -728,8 +727,8 @@ else:
                         </style>
                         </head>
                         <body>
-                        <div style="position: relative; display: inline-block;">
-                            <button type="button" class="cal-btn" onclick="toggleCal()">📅 Elegir Fecha</button>
+                        <div>
+                            <button type="button" class="cal-btn" onclick="toggleCal(event)">📅 Elegir Fecha</button>
                             <div class="cal-popup" id="pop-box">
                                 <div class="cal-header">
                                     <button type="button" onclick="cambiarMes(-1)">&#10094;</button>
@@ -761,9 +760,16 @@ else:
                                     sy.appendChild(o);
                                 }
                             }
-                            function toggleCal() {
+                            function toggleCal(e) {
                                 const p = document.getElementById('pop-box');
-                                p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+                                if (p.style.display === 'block') {
+                                    p.style.display = 'none';
+                                } else {
+                                    const rect = e.target.getBoundingClientRect();
+                                    p.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+                                    p.style.left = (rect.left + window.scrollX) + 'px';
+                                    p.style.display = 'block';
+                                }
                             }
                             function renderCal() {
                                 const y = cDate.getFullYear();
@@ -800,7 +806,7 @@ else:
                                                 break;
                                             }
                                         }
-                                        toggleCal();
+                                        document.getElementById('pop-box').style.display = 'none';
                                     };
                                     cb.appendChild(div);
                                 }
@@ -843,7 +849,7 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_inf_txt"
                                 )
-                                components.html(calendar_button_html, height=42)
+                                components.html(calendar_button_html, height=38)
 
                             st.markdown(f"##### 🦠 COVID-19 ({biologico_covid_elegido})")
                             c_cov1, c_cov2, c_cov3, c_cov4, c_cov5 = st.columns([1, 1, 1, 1.5, 1.5])
@@ -866,7 +872,7 @@ else:
                                     placeholder="DD/MM/AAAA",
                                     key="cad_cov_txt"
                                 )
-                                components.html(calendar_button_html, height=42)
+                                components.html(calendar_button_html, height=38)
 
                             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
