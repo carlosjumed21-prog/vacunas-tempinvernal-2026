@@ -372,7 +372,8 @@ else:
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
                                     
-                                    # --- ASIGNACIÓN EXACTA EN AU6, AU7 Y AU8 ---
+                                    # --- ASIGNACIÓN EXACTA EN AU4, AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
                                     hoja_activa.update(values=[[link_paciente]], range_name="AU6")
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
@@ -420,7 +421,8 @@ else:
                                     hoja_activa.update_acell("AB9", fecha_formato_oficial)
                                     hoja_activa.update_acell("E10", j_conf["responsable"])
                                     
-                                    # --- ASIGNACIÓN EXACTA EN AU6, AU7 Y AU8 ---
+                                    # --- ASIGNACIÓN EXACTA EN AU4, AU6, AU7 Y AU8 ---
+                                    hoja_activa.update(values=[[j_conf["correo"]]], range_name="AU4")
                                     hoja_activa.update(values=[[link_paciente]], range_name="AU6")
                                     hoja_activa.update(values=[[link_operativo]], range_name="AU7")
                                     hoja_activa.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
@@ -446,7 +448,7 @@ else:
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
                         st.success(
-                            "¡Jornadas autorizadas, enlaces en AU6/AU7 y código QR como imagen en AU8 migrados con éxito a Google Sheets!"
+                            "¡Jornadas autorizadas, correo en AU4, enlaces en AU6/AU7 y código QR como imagen en AU8 migrados con éxito a Google Sheets!"
                         )
 
                 except Exception as e:
@@ -561,12 +563,12 @@ else:
         col_hist_tit, col_hist_btn = st.columns([3, 1])
         with col_hist_tit:
             st.markdown(
-                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial de Hojas con Mapeo Activo en Google Sheets</div>',
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial y Control de Acceso por Correo</div>',
                 unsafe_allow_html=True,
             )
         with col_hist_btn:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-            if st.button("🔄 Actualizar Historial", use_container_width=True, help="Escanear hojas en Google Sheets con mapeo activo en AU6, AU7 y AU8"):
+            if st.button("🔄 Actualizar Historial", use_container_width=True, help="Escanear hojas en Google Sheets con mapeo activo en AU4, AU6, AU7 y AU8"):
                 try:
                     scope = GOOGLE_SCOPES
                     if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -591,6 +593,7 @@ else:
                                 titulo_w = ws.title
                                 if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
                                     try:
+                                        val_au4 = ws.acell("AU4").value # Lectura del correo en AU4
                                         val_au6 = ws.acell("AU6").value
                                         val_au7 = ws.acell("AU7").value
                                         if val_au6 or val_au7:
@@ -605,7 +608,7 @@ else:
                                                 "tipo_jornada": "Intramuros I" if tipo_letra_h == "I" else "Extramuros E",
                                                 "tipo_jornada_letra": tipo_letra_h,
                                                 "responsable": "PERSONAL OPERATIVO",
-                                                "correo": "",
+                                                "correo": val_au4.strip().lower() if val_au4 else "",
                                                 "fecha": datetime.date.today(),
                                                 "sheet_id": sheet_id_item,
                                                 "link_formulario": val_au6 if val_au6 else "#",
@@ -625,54 +628,76 @@ else:
                 except Exception as e:
                     st.error(f"Error al sincronizar con Google Sheets: {e}")
 
+        # --- FILTRO ESTRICTO DE VISUALIZACIÓN POR CORREO ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        correo_filtro = st.text_input(
+            "🔑 Ingrese su correo electrónico para filtrar y ver únicamente las hojas autorizadas a su cuenta:",
+            placeholder="ejemplo@issste.gob.mx",
+            key="filtro_correo_historial"
+        )
+
         if not st.session_state.historial_jornadas:
-            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial'** para escanear y verificar únicamente las hojas operativas que tienen el mapeo activo en Google Sheets.")
+            st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial'** para escanear y verificar las hojas operativas vinculadas en Google Sheets.")
+        elif not correo_filtro:
+            st.warning("⚠️ Por favor ingrese un correo electrónico para desbloquear y visualizar sus hojas asignadas.")
         else:
-            base_url = "https://medprev-vacunas-invernal.streamlit.app"
+            correo_limpio = correo_filtro.strip().lower()
+            if usuario_admin == "Admin":
+                jornadas_a_mostrar = st.session_state.historial_jornadas
+                st.info("👑 Vista de Administrador General: Mostrando todas las hojas activas.")
+            else:
+                jornadas_a_mostrar = [h for h in st.session_state.historial_jornadas if h.get("correo") == correo_limpio]
 
-            for i, h_item in enumerate(st.session_state.historial_jornadas):
-                with st.container():
-                    st.markdown(
-                        f"""
-                        <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
-                            <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
-                            <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
-                            <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja Operativa Disponible</b></p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+            if not jornadas_a_mostrar:
+                st.error("❌ No tienes ninguna hoja o jornada autorizada asociada a este correo electrónico.")
+            else:
+                st.success(f"✅ Se encontraron {len(jornadas_a_mostrar)} hoja(s) asignada(s) a tu cuenta.")
+                base_url = "https://medprev-vacunas-invernal.streamlit.app"
 
-                col_h1, col_h2 = st.columns([1, 1])
-                with col_h1:
-                    url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
-                    st.markdown(f"[🔗 Abrir Google Sheet]({url_sheet})", unsafe_allow_html=True)
+                for i, h_item in enumerate(jornadas_a_mostrar):
+                    with st.container():
+                        st.markdown(
+                            f"""
+                            <div style="background-color: #e8f0ec; border: 1px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                                <h4 style="margin: 0; color: #1e5b4f;">📋 {h_item['nombre']}</h4>
+                                <p style="margin: 4px 0;"><b>Unidad:</b> {h_item['unidad']} | <b>Tipo:</b> {h_item['tipo_jornada']}</p>
+                                <p style="margin: 4px 0;"><b>Correo Autorizado (AU4):</b> <code>{h_item['correo'] if h_item['correo'] else 'No especificado'}</code></p>
+                                <p style="margin: 4px 0;"><b>Estatus:</b> 🟢 <b>Hoja Operativa Disponible</b></p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                    col_h1, col_h2 = st.columns([1, 1])
+                    with col_h1:
+                        url_sheet = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing#gid={h_item['gid']}"
+                        st.markdown(f"[🔗 Abrir Google Sheet (Pestaña Asignada)]({url_sheet})", unsafe_allow_html=True)
+                        
+                        if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
+                            st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
+                        if h_item.get("link_operativo") and h_item["link_operativo"] != "#":
+                            st.markdown(f"🔹 **Panel Operativo:** [Abrir enlace]({h_item['link_operativo']})")
                     
-                    if h_item.get("link_formulario") and h_item["link_formulario"] != "#":
-                        st.markdown(f"🔹 **Formulario Público:** [Abrir enlace]({h_item['link_formulario']})")
-                    if h_item.get("link_operativo") and h_item["link_operativo"] != "#":
-                        st.markdown(f"🔹 **Panel Operativo:** [Abrir enlace]({h_item['link_operativo']})")
-                
-                with col_h2:
-                    link_qr_generar = h_item.get("link_formulario", base_url)
-                    if not link_qr_generar or link_qr_generar == "#":
-                        link_qr_generar = base_url
+                    with col_h2:
+                        link_qr_generar = h_item.get("link_formulario", base_url)
+                        if not link_qr_generar or link_qr_generar == "#":
+                            link_qr_generar = base_url
 
-                    qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
-                    qr_h.add_data(link_qr_generar)
-                    qr_h.make(fit=True)
-                    img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
+                        qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
+                        qr_h.add_data(link_qr_generar)
+                        qr_h.make(fit=True)
+                        img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
 
-                    buf_h = io.BytesIO()
-                    img_h.save(buf_h, format="PNG")
-                    byte_im_h = buf_h.getvalue()
+                        buf_h = io.BytesIO()
+                        img_h.save(buf_h, format="PNG")
+                        byte_im_h = buf_h.getvalue()
 
-                    st.image(byte_im_h, caption=f"QR de Registro ({h_item['nombre']})", width=140)
-                    st.download_button(
-                        label=f"📥 Descargar QR ({h_item['nombre']})",
-                        data=byte_im_h,
-                        file_name=f"QR_{h_item['nombre']}.png",
-                        mime="image/png",
-                        key=f"hist_qr_{i}"
-                    )
-                st.markdown("---")
+                        st.image(byte_im_h, caption=f"QR de Registro ({h_item['nombre']})", width=140)
+                        st.download_button(
+                            label=f"📥 Descargar QR ({h_item['nombre']})",
+                            data=byte_im_h,
+                            file_name=f"QR_{h_item['nombre']}.png",
+                            mime="image/png",
+                            key=f"hist_qr_{i}"
+                        )
+                    st.markdown("---")
