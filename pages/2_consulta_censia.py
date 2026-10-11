@@ -351,12 +351,6 @@ else:
             hoja_seleccionada = hoja_enlace
 
     if hoja_seleccionada:
-        # --- BOTÓN DE ACTUALIZACIÓN / RECARGA DE DATOS EN VIVO ---
-        col_act1, col_act2 = st.columns([3, 1])
-        with col_act2:
-            if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
-                st.rerun()
-
         try:
             try:
                 worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
@@ -388,58 +382,57 @@ else:
             pacientes_cargados = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        # --- VISUALIZACIÓN ESTILO GOOGLE SHEETS (COMBINANDO FILA 12 Y 13 COMO CABECERAS) ---
-        st.markdown(
-            '<div class="section-title">📊 Visualización de Censo (Estilo Hoja de Cálculo)</div>',
-            unsafe_allow_html=True,
-        )
-        
-        try:
-            if len(todos_los_datos) >= 14:
-                # Fila 12 (índice 11) y Fila 13 (índice 12) del Sheets original
-                fila_cabecera_1 = todos_los_datos[11]
-                fila_cabecera_2 = todos_los_datos[12]
-                filas_tabla = todos_los_datos[13:]
-                
-                # Combinamos inteligentemente las dos filas de cabecera para formar etiquetas claras y únicas
-                encabezados_combinados = []
-                conteo_nombres = {}
-                
-                for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
-                    val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
-                    val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
-                    
-                    if val1 and val2 and val1 != val2:
-                        col_str = f"{val1} - {val2}"
-                    elif val2:
-                        col_str = val2
-                    elif val1:
-                        col_str = val1
-                    else:
-                        col_str = f"Col_{idx+1}"
-                    
-                    if col_str in conteo_nombres:
-                        conteo_nombres[col_str] += 1
-                        col_str = f"{col_str}_{conteo_nombres[col_str]}"
-                    else:
-                        conteo_nombres[col_str] = 0
-                    
-                    encabezados_combinados.append(col_str)
+        # --- VISUALIZACIÓN DESPLEGABLE (EXPANCIBLE) ESTILO HOJA DE CÁLCULO ---
+        with st.expander("📊 Ver / Ocultar Censo General Completo en Tiempo Real (Estilo Hoja de Cálculo)", expanded=False):
+            col_act1, col_act2 = st.columns([3, 1])
+            with col_act2:
+                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                    st.rerun()
 
-                filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
+            try:
+                if len(todos_los_datos) >= 14:
+                    fila_cabecera_1 = todos_los_datos[11]
+                    fila_cabecera_2 = todos_los_datos[12]
+                    filas_tabla = todos_los_datos[13:]
+                    
+                    encabezados_combinados = []
+                    conteo_nombres = {}
+                    
+                    for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
+                        val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
+                        val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
+                        
+                        if val1 and val2 and val1 != val2:
+                            col_str = f"{val1} - {val2}"
+                        elif val2:
+                            col_str = val2
+                        elif val1:
+                            col_str = val1
+                        else:
+                            col_str = f"Col_{idx+1}"
+                        
+                        if col_str in conteo_nombres:
+                            conteo_nombres[col_str] += 1
+                            col_str = f"{col_str}_{conteo_nombres[col_str]}"
+                        else:
+                            conteo_nombres[col_str] = 0
+                        
+                        encabezados_combinados.append(col_str)
 
-                df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
-                
-                st.dataframe(
-                    df_tabla_segura,
-                    use_container_width=True,
-                    height=350,
-                    hide_index=True
-                )
-            else:
-                st.info("La jornada no tiene suficientes filas para renderizar la cuadrícula.")
-        except Exception as tbl_err:
-            st.warning(f"No se pudo renderizar la tabla tabulada: {tbl_err}")
+                    filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
+
+                    df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
+                    
+                    st.dataframe(
+                        df_tabla_segura,
+                        use_container_width=True,
+                        height=350,
+                        hide_index=True
+                    )
+                else:
+                    st.info("La jornada no tiene suficientes filas para renderizar la cuadrícula.")
+            except Exception as tbl_err:
+                st.warning(f"No se pudo renderizar la tabla tabulada: {tbl_err}")
 
         st.markdown(
             '<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>',
