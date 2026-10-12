@@ -7,37 +7,42 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-  """Autentica y retorna el cliente de gspread de manera segura."""
+  """Autentica y retorna el cliente de gspread leyendo GOOGLE_CREDENTIALS como JSON plano o diccionario."""
   creds_dict = None
 
-  # Verificamos si existe GOOGLE_CREDENTIALS en los secretos
   if "GOOGLE_CREDENTIALS" in st.secrets:
-    val = st.secrets["GOOGLE_CREDENTIALS"]
-    if isinstance(val, str):
+    raw_val = st.secrets["GOOGLE_CREDENTIALS"]
+    if isinstance(raw_val, str):
       try:
-        creds_dict = json.loads(val)
+        creds_dict = json.loads(raw_val)
       except Exception as err:
         raise ValueError(
-            f"El formato JSON de GOOGLE_CREDENTIALS es inválido: {err}"
+            f"Error al decodificar el JSON de GOOGLE_CREDENTIALS: {err}"
         )
-    elif isinstance(val, dict):
-      creds_dict = dict(val)
+    elif isinstance(raw_val, dict):
+      creds_dict = dict(raw_val)
     else:
-      creds_dict = dict(val)
+      creds_dict = dict(raw_val)
   else:
-    # Si por alguna razón se leyó como un diccionario plano general de secretos
+    # Buscar de forma alternativa si existe otra sección con client_email
     for key in st.secrets.keys():
       if key != "email":
-        potential_dict = st.secrets[key]
-        if isinstance(potential_dict, dict) and "client_email" in potential_dict:
-          creds_dict = dict(potential_dict)
+        potential = st.secrets[key]
+        if isinstance(potential, dict) and "client_email" in potential:
+          creds_dict = dict(potential)
           break
 
   if not creds_dict or "client_email" not in creds_dict:
     raise ValueError(
         "No se encontraron las credenciales de la cuenta de servicio de Google"
-        " Sheets en los secretos. Revisa que la sección o variable"
-        " 'GOOGLE_CREDENTIALS' esté bien escrita en Streamlit Cloud."
+        " Sheets en los secretos. Revisa que la variable 'GOOGLE_CREDENTIALS'"
+        " esté bien escrita en Streamlit Cloud."
+    )
+
+  # Normalizar saltos de línea de la llave privada
+  if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+    creds_dict["private_key"] = creds_dict["private_key"].replace(
+        "\\n", "\n"
     )
 
   creds = service_account.Credentials.from_service_account_info(
