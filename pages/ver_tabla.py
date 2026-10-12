@@ -144,19 +144,16 @@ else:
 
             # --- CONSTRUCCIÓN DE FILAS MANTENIENDO LAS 2 FILAS POR PACIENTE ---
             filas_procesadas = []
-            mapeo_indices_pares = [] # Relaciona la fila visual con el índice par real en Google Sheets
+            mapeo_indices_pares = []
 
             for i in range(0, len(filas_tabla), 2):
                 f1 = filas_tabla[i] if i < len(filas_tabla) else []
                 f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
 
-                # Ajustar longitudes
                 f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
                 f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
-                # Fila 1 del paciente (con la casilla de verificación en True/False)
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 del paciente (la casilla se muestra vacía/deshabilitada visualmente en el mismo estado)
                 fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
@@ -279,9 +276,9 @@ else:
             with m5:
                 st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
             with m6:
-                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
             with m7:
-                st.markdown(f'<div class="metric-card-6"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
@@ -311,10 +308,7 @@ else:
 
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                # Identificamos qué filas visuales (pares) fueron seleccionadas (las filas impares del DF corresponden a la fila 1 de cada paciente)
                 indices_visuales_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-
-                # Obtenemos los índices de pacientes correspondientes (cada paciente ocupa 2 filas en el DataFrame: 2*k y 2*k+1)
                 pacientes_a_eliminar = set([idx // 2 for idx in indices_visuales_marcados])
 
                 if not pacientes_a_eliminar:
@@ -327,12 +321,10 @@ else:
                         for paciente_idx in pacientes_a_eliminar:
                             if paciente_idx < len(mapeo_indices):
                                 idx_par_real = mapeo_indices[paciente_idx]
-                                # Fila 1 y Fila 2 físicas en Google Sheets (la tabla empieza en la fila 14)
                                 fila_fisica_1 = idx_par_real + 14
                                 fila_fisica_2 = idx_par_real + 15
                                 filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
-                        # Ordenar de mayor a menor para borrar sin alterar los índices superiores
                         filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
 
                         for fila_gs in filas_gs_a_borrar:
@@ -358,7 +350,6 @@ else:
                             if updates:
                                 ws.batch_update(updates)
 
-                        # Limpiar caché para forzar lectura fresca
                         if cache_key in st.session_state:
                             del st.session_state[cache_key]
 
