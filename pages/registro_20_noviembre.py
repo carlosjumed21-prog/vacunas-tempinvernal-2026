@@ -1,7 +1,7 @@
 import datetime
 import streamlit as st
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
-from utils.sheets import guardar_registro_censal_20_nov
+from utils.sheets_20_nov import guardar_registro_censal_20_nov
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
 # Importar todos los componentes y funciones auxiliares desde el archivo modular en utils
