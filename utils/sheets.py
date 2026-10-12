@@ -7,43 +7,46 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread buscando de forma universal en st.secrets."""
+    """Autentica y retorna el cliente de gspread leyendo correctamente GOOGLE_CREDENTIALS."""
     creds_dict = None
 
-    keys_disponibles = list(st.secrets.keys())
-
-    for key in keys_disponibles:
-        if key == "email":
-            continue
-        val = st.secrets[key]
-        
-        if isinstance(val, dict) and "client_email" in val:
-            creds_dict = dict(val)
-            break
-        elif isinstance(val, str):
+    # 1. Leer directamente GOOGLE_CREDENTIALS si existe en los secretos
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_val = st.secrets["GOOGLE_CREDENTIALS"]
+        if isinstance(raw_val, str):
             try:
-                parsed = json.loads(val)
-                if isinstance(parsed, dict) and "client_email" in parsed:
-                    creds_dict = parsed
-                    break
-            except Exception:
-                pass
+                creds_dict = json.loads(raw_val)
+            except Exception as err:
+                raise ValueError(f"Error al decodificar el JSON de GOOGLE_CREDENTIALS: {err}")
+        elif isinstance(raw_val, dict):
+            creds_dict = dict(raw_val)
 
+    # 2. Respaldo por si estuviera estructurado de otra forma
     if not creds_dict:
-        if "client_email" in st.secrets:
-            creds_dict = dict(st.secrets)
+        for key in st.secrets.keys():
+            if key == "email":
+                continue
+            val = st.secrets[key]
+            if isinstance(val, dict) and "client_email" in val:
+                creds_dict = dict(val)
+                break
+            elif isinstance(val, str):
+                try:
+                    parsed = json.loads(val)
+                    if isinstance(parsed, dict) and "client_email" in parsed:
+                        creds_dict = parsed
+                        break
+                except Exception:
+                    pass
 
     if not creds_dict or "client_email" not in creds_dict:
         raise ValueError(
-            f"No se encontró ninguna credencial válida de Google Sheets. Llaves detectadas en secretos: {keys_disponibles}"
+            "No se pudo parsear un diccionario válido con 'client_email' desde GOOGLE_CREDENTIALS."
         )
 
-    if "private_key" in creds_dict and isinstance(
-        creds_dict["private_key"], str
-    ):
-        creds_dict["private_key"] = creds_dict["private_key"].replace(
-            "\\n", "\n"
-        )
+    # Normalizar saltos de línea de la llave privada
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
