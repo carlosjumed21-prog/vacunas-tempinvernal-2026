@@ -10,21 +10,16 @@ def obtener_cliente_gspread():
     """Autentica y retorna el cliente de gspread buscando de forma universal en st.secrets."""
     creds_dict = None
 
-    # Diagnóstico: imprimimos las llaves disponibles en st.secrets para identificar el nombre exacto
     keys_disponibles = list(st.secrets.keys())
-    print(f"Llaves disponibles en st.secrets: {keys_disponibles}")
 
-    # Revisar cada llave disponible en los secretos
     for key in keys_disponibles:
         if key == "email":
             continue
         val = st.secrets[key]
         
-        # Si la sección es una tabla (diccionario de TOML) y tiene client_email
         if isinstance(val, dict) and "client_email" in val:
             creds_dict = dict(val)
             break
-        # Si está guardada como texto plano JSON
         elif isinstance(val, str):
             try:
                 parsed = json.loads(val)
@@ -35,7 +30,6 @@ def obtener_cliente_gspread():
                 pass
 
     if not creds_dict:
-        # Último intento: revisar si st.secrets completo actúa como el diccionario de credenciales
         if "client_email" in st.secrets:
             creds_dict = dict(st.secrets)
 
@@ -44,7 +38,6 @@ def obtener_cliente_gspread():
             f"No se encontró ninguna credencial válida de Google Sheets. Llaves detectadas en secretos: {keys_disponibles}"
         )
 
-    # Normalizar saltos de línea de la llave privada
     if "private_key" in creds_dict and isinstance(
         creds_dict["private_key"], str
     ):
@@ -191,7 +184,7 @@ def guardar_registro_censal(
             "X" if com.get("hipertension") else "",
             com.get("texto_otro", ""),
             "",
-            ="",
+            "",
             "",
             "",
             "",
