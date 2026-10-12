@@ -1,3 +1,4 @@
+# utils/logica_registro.py
 import datetime
 import random
 import unicodedata
@@ -292,12 +293,12 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
                 consecutivo_num = max(1, total_filas)
     except Exception:
         consecutivo_num = 1
-        
+    
     secuencial_str = str(consecutivo_num).zfill(4)
     return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
     try:
         import gspread
