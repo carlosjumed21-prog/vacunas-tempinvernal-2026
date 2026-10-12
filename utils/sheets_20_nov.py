@@ -10,14 +10,23 @@ SCOPES = [
 ]
 
 def obtener_cliente_gspread():
-    """Conecta con Google Sheets usando los secretos configurados en Streamlit."""
+    """Conecta con Google Sheets usando la misma estructura de secretos del proyecto."""
+    # Intentar con la clave estándar de Streamlit o la que usa el proyecto
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
-        creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-        client = gspread.authorize(creds)
-        return client
+    elif "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        # Por si usa el conector nativo de gsheets
+        creds_dict = dict(st.secrets["connections"]["gsheets"])
     else:
-        raise Exception("No se encontraron las credenciales 'gcp_service_account' en los st.secrets.")
+        # Intentar cargar directo desde st.secrets si está plano
+        try:
+            creds_dict = dict(st.secrets)
+        except Exception:
+            raise Exception("No se pudieron cargar las credenciales de Google Sheets desde st.secrets.")
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    return client
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """
@@ -34,12 +43,10 @@ def guardar_registro_censal_20_nov(datos_paciente):
     try:
         ws = spreadsheet.worksheet(nombre_hoja)
     except Exception:
-        # Si la pestaña no existe, se crea o se usa la principal por defecto
         ws = spreadsheet.sheet1
 
     valores = ws.get_all_values()
     
-    # Determinar la fila de destino respetando la estructura de censo nominal
     fila_dest = 14
     if len(valores) >= 14:
         idx_t = 13
@@ -61,10 +68,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
     
     folio_asignado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo).zfill(4)}"
     
-    # Extraer comorbilidades y datos del diccionario
-    com = datos_paciente.get("comorbilidades", {})
-    
-    # Aquí puedes estructurar la fila exactamente como lo requiere tu plantilla de Google Sheets
     fila_a_insertar = [
         str(consecutivo),
         folio_asignado,
@@ -82,7 +85,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         val_fecha_app.strftime("%d/%m/%Y")
     ]
     
-    # Insertar o actualizar la fila en la hoja de cálculo
     if fila_dest <= len(valores):
         ws.insert_row(fila_a_insertar, fila_dest)
     else:
