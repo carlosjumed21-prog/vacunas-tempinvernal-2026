@@ -1,5 +1,4 @@
 import datetime
-import json
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 from google.oauth2 import service_account
 import gspread
@@ -7,46 +6,13 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread leyendo de forma directa y flexible st.secrets."""
-    creds_dict = None
-
-    try:
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            val = st.secrets["GOOGLE_CREDENTIALS"]
-            if isinstance(val, dict):
-                creds_dict = dict(val)
-            elif isinstance(val, str):
-                creds_dict = json.loads(val)
-    except Exception as e:
-        raise ValueError(f"Error al procesar GOOGLE_CREDENTIALS en los secretos: {e}")
-
-    if not creds_dict:
-        for k in st.secrets.keys():
-            if k == "email":
-                continue
-            sub_val = st.secrets[k]
-            if isinstance(sub_val, dict) and "client_email" in sub_val:
-                creds_dict = dict(sub_val)
-                break
-            elif isinstance(sub_val, str):
-                try:
-                    parsed = json.loads(sub_val)
-                    if isinstance(parsed, dict) and "client_email" in parsed:
-                        creds_dict = parsed
-                        break
-                except Exception:
-                    pass
-
-    if not creds_dict or "client_email" not in creds_dict:
-        keys_encontradas = list(st.secrets.keys())
+    """Autentica y retorna el cliente de gspread usando la sección [google] de st.secrets."""
+    if "google" not in st.secrets:
         raise ValueError(
-            f"No se encontró la llave de Google en st.secrets. Llaves actuales disponibles: {keys_encontradas}"
+            f"No se encontró la sección [google] en st.secrets. Llaves disponibles: {list(st.secrets.keys())}"
         )
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"]
-        pk = pk.replace("\\n", "\n")
-        creds_dict["private_key"] = pk.strip()
+    creds_dict = dict(st.secrets["google"])
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
@@ -191,6 +157,7 @@ def guardar_registro_censal(
             "",
             "",
             "",
+            дова,
             "",
             "",
             "",
