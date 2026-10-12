@@ -79,7 +79,7 @@ if st.session_state.reiniciar_busqueda:
 
 @st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
 def mostrar_modal_comprobante_vacunacion():
-    p = st.session_state.ultimo_comprobante_vacunacion
+    p = st.session_state.get("ultimo_comprobante_vacunacion")
     if p:
         nombre_val = p.get("nombre", "PACIENTE")
         folio_val = p.get("folio", "S/F")
@@ -187,7 +187,8 @@ def mostrar_modal_comprobante_vacunacion():
                     folio=folio_val,
                     dosis_str=dosis_val,
                     lotes_str=lotes_val,
-                    fecha_val=fecha_val
+                    fecha_val=fecha_val,
+                    tipo="comprobante"  # <--- Parámetro agregado correctamente
                 )
                 if exito:
                     st.success(mensaje)
@@ -201,10 +202,10 @@ def mostrar_modal_comprobante_vacunacion():
             st.rerun()
 
 
-if st.session_state.ultimo_comprobante_vacunacion is not None:
+if st.session_state.get("ultimo_comprobante_vacunacion") is not None:
     mostrar_modal_comprobante_vacunacion()
 
-if not st.session_state.autenticado_consulta:
+if not st.session_state.get("autenticado_consulta", False):
     st.markdown('<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>', unsafe_allow_html=True)
 
