@@ -1,4 +1,5 @@
 import datetime
+import base64
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 from google.oauth2 import service_account
 import gspread
@@ -6,24 +7,39 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread procesando de forma segura la llave privada PEM."""
+    """Autentica y retorna el cliente de gspread reparando cualquier alteración de padding en la llave PEM."""
     if "GOOGLE_CREDENTIALS" not in st.secrets:
         raise ValueError("No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos.")
 
     creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
 
-    # Reparación y formateo blindado de la llave privada PEM
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"].strip()
+        pk = creds_dict["private_key"]
         
-        # Asegurar saltos de línea reales si vinieron escapados
-        if "\\n" in pk:
-            pk = pk.replace("\\n", "\n")
+        # Limpiar retornos de carro y espacios sobrantes
+        pk = pk.replace("\r", "").strip()
+        
+        # Extraer estrictamente el contenido entre los headers si viene mezclado
+        if "BEGIN PRIVATE KEY" in pk:
+            lines = pk.split("\n")
+            clean_lines = []
+            recording = False
+            for line in lines:
+                if "BEGIN PRIVATE KEY" in line:
+                    recording = True
+                    clean_lines.append("-----BEGIN PRIVATE KEY-----")
+                    continue
+                if "END PRIVATE KEY" in line:
+                    clean_lines.append("-----END PRIVATE KEY-----")
+                    recording = False
+                    continue
+                if recording:
+                    # Eliminar espacios internos en la cadena base64 que rompen el padding
+                    stripped = line.strip()
+                    if stripped:
+                        clean_lines.append(stripped)
+            pk = "\n".join(clean_lines)
             
-        # Limpiar espacios extra por línea que corrompen el padding en base64
-        lines = [line.strip() for line in pk.splitlines()]
-        pk = "\n".join(lines)
-        
         creds_dict["private_key"] = pk
 
     creds = service_account.Credentials.from_service_account_info(
