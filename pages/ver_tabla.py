@@ -142,22 +142,32 @@ else:
                 
                 encabezados_combinados.append(col_str)
 
-            # --- AGRUPAR CADA PAR DE FILAS (PACIENTE) EN UNA SOLA FILA PARA EL EDITOR ---
-            filas_agrupadas = []
-            indices_pares_reales = []
-            
+            # --- CONSTRUCCIÓN DE FILAS MANTENIENDO LAS 2 FILAS POR PACIENTE ---
+            filas_procesadas = []
+            mapeo_indices_pares = [] # Relaciona la fila visual con el índice par real en Google Sheets
+
             for i in range(0, len(filas_tabla), 2):
-                fila_1 = filas_tabla[i] if i < len(filas_tabla) else []
-                f1_adj = fila_1 + [''] * max(0, len(encabezados_combinados) - len(fila_1))
+                f1 = filas_tabla[i] if i < len(filas_tabla) else []
+                f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
+
+                # Ajustar longitudes
+                f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
+                f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
+
+                # Fila 1 del paciente (con la casilla de verificación en True/False)
+                fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
+                # Fila 2 del paciente (la casilla se muestra vacía/deshabilitada visualmente en el mismo estado)
+                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
+
+                filas_procesadas.append(fila_v1)
+                filas_procesadas.append(fila_v2)
                 
-                fila_base = list(f1_adj[:len(encabezados_combinados)])
-                filas_agrupadas.append(fila_base)
-                indices_pares_reales.append(i)
+                mapeo_indices_pares.append(i)
 
-            df_tabla_segura = pd.DataFrame(filas_agrupadas, columns=encabezados_combinados)
-            df_tabla_segura.insert(0, "Seleccionar", False)
+            columnas_con_check = ["Seleccionar"] + encabezados_combinados
+            df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-            st.session_state["indices_pares_reales"] = indices_pares_reales
+            st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
             # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
             filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
@@ -284,16 +294,16 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE CON CASILLAS DE VERIFICACIÓN ---
+            # --- TABLA EDITABLE CON CASILLAS DE VERIFICACIÓN (MANTIENE LAS 2 FILAS POR PACIENTE) ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
-                height=520,
+                height=550,
                 hide_index=True,
                 column_config={
                     "Seleccionar": st.column_config.CheckboxColumn(
                         "Seleccionar",
-                        help="Marque para seleccionar el paciente a eliminar",
+                        help="Marque la casilla para seleccionar este paciente",
                         default=False,
                     )
                 }
@@ -301,22 +311,28 @@ else:
 
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                filas_seleccionadas_df = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                # Identificamos qué filas visuales (pares) fueron seleccionadas (las filas impares del DF corresponden a la fila 1 de cada paciente)
+                indices_visuales_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
 
-                if not filas_seleccionadas_df:
+                # Obtenemos los índices de pacientes correspondientes (cada paciente ocupa 2 filas en el DataFrame: 2*k y 2*k+1)
+                pacientes_a_eliminar = set([idx // 2 for idx in indices_visuales_marcados])
+
+                if not pacientes_a_eliminar:
                     st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
                 else:
                     try:
-                        indices_reales = st.session_state.get("indices_pares_reales", [])
+                        mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
                         
                         filas_gs_a_borrar = []
-                        for idx_df in filas_seleccionadas_df:
-                            if idx_df < len(indices_reales):
-                                idx_par = indices_reales[idx_df]
-                                fila_fisica_1 = idx_par + 14
-                                fila_fisica_2 = idx_par + 15
+                        for paciente_idx in pacientes_a_eliminar:
+                            if paciente_idx < len(mapeo_indices):
+                                idx_par_real = mapeo_indices[paciente_idx]
+                                # Fila 1 y Fila 2 físicas en Google Sheets (la tabla empieza en la fila 14)
+                                fila_fisica_1 = idx_par_real + 14
+                                fila_fisica_2 = idx_par_real + 15
                                 filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
+                        # Ordenar de mayor a menor para borrar sin alterar los índices superiores
                         filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
 
                         for fila_gs in filas_gs_a_borrar:
