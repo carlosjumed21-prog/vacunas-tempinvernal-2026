@@ -1,15 +1,17 @@
 import datetime
 import streamlit as st
-from config import GOOGLE_SHEET_ID
 from utils.sheets import obtener_cliente_gspread
+
+# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
+SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """
     Función exclusiva para registrar los datos censales del CMN 20 de Noviembre
-    en su respectiva pestaña de Google Sheets, asignando su folio correspondiente.
+    en su propia hoja de Google Sheets, asignando su folio correspondiente.
     """
     client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    spreadsheet = client.open_by_key(SHEET_ID_20_NOV)
     
     sigla_url = st.session_state.get("siglas_unidad", "20N")
     sufijo_js = st.query_params.get("js", "")
