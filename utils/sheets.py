@@ -7,28 +7,41 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread leyendo GOOGLE_CREDENTIALS como JSON plano."""
-    crens_raw = st.secrets.get("GOOGLE_CREDENTIALS")
+    """Autentica y retorna el cliente de gspread buscando de forma universal en st.secrets."""
+    creds_dict = None
 
-    if not crens_raw:
-        raise ValueError(
-            "No se encontraron las credenciales de la cuenta de servicio de Google Sheets en los secretos."
-        )
+    # Diagnóstico: imprimimos las llaves disponibles en st.secrets para identificar el nombre exacto
+    keys_disponibles = list(st.secrets.keys())
+    print(f"Llaves disponibles en st.secrets: {keys_disponibles}")
 
-    # Si se leyó como texto, lo convertimos a diccionario mediante json.loads
-    if isinstance(crens_raw, str):
-        try:
-            creds_dict = json.loads(crens_raw)
-        except Exception as err:
-            raise ValueError(
-                f"El formato JSON de GOOGLE_CREDENTIALS es inválido: {err}"
-            )
-    else:
-        creds_dict = dict(crens_raw)
+    # Revisar cada llave disponible en los secretos
+    for key in keys_disponibles:
+        if key == "email":
+            continue
+        val = st.secrets[key]
+        
+        # Si la sección es una tabla (diccionario de TOML) y tiene client_email
+        if isinstance(val, dict) and "client_email" in val:
+            creds_dict = dict(val)
+            break
+        # Si está guardada como texto plano JSON
+        elif isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, dict) and "client_email" in parsed:
+                    creds_dict = parsed
+                    break
+            except Exception:
+                pass
+
+    if not creds_dict:
+        # Último intento: revisar si st.secrets completo actúa como el diccionario de credenciales
+        if "client_email" in st.secrets:
+            creds_dict = dict(st.secrets)
 
     if not creds_dict or "client_email" not in creds_dict:
         raise ValueError(
-            "El diccionario de credenciales no contiene el campo 'client_email'."
+            f"No se encontró ninguna credencial válida de Google Sheets. Llaves detectadas en secretos: {keys_disponibles}"
         )
 
     # Normalizar saltos de línea de la llave privada
@@ -178,7 +191,7 @@ def guardar_registro_censal(
             "X" if com.get("hipertension") else "",
             com.get("texto_otro", ""),
             "",
-            "",
+            ="",
             "",
             "",
             "",
