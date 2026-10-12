@@ -242,18 +242,27 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     consecutivo_num = 1
     try:
         registros = obtener_registros_existentes_sheets(sigla_url, "", "I", val_fecha_app)
-        if registros and isinstance(registros, list):
-            consecutivo_num = len(registros) + 1
+        if registros and isinstance(registros, list) and len(registros) > 0:
+            max_consecutivo = 0
+            for reg in registros:
+                folio_existente = str(reg.get("Folio", reg.get("folio", "")))
+                if "-" in folio_existente:
+                    try:
+                        partes = folio_existente.split("-")
+                        num_actual = int(partes[-1])
+                        if num_actual > max_consecutivo:
+                            max_consecutivo = num_actual
+                    except ValueError:
+                        pass
+            
+            if max_consecutivo > 0:
+                consecutivo_num = max_consecutivo + 1
+            else:
+                consecutivo_num = len(registros) + 1
         else:
-            if "contador_folio_consecutivo" not in st.session_state:
-                st.session_state["contador_folio_consecutivo"] = 1
-            consecutivo_num = st.session_state["contador_folio_consecutivo"]
-            st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
+            consecutivo_num = 1
     except Exception:
-        if "contador_folio_consecutivo" not in st.session_state:
-            st.session_state["contador_folio_consecutivo"] = 1
-        consecutivo_num = st.session_state["contador_folio_consecutivo"]
-        st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
+        consecutivo_num = 1
         
     secuencial_str = str(consecutivo_num).zfill(4)
     return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
