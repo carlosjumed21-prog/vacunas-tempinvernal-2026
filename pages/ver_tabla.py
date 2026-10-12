@@ -142,7 +142,7 @@ else:
                 
                 encabezados_combinados.append(col_str)
 
-            # --- CONSTRUCCIÓN DE FILAS: CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
+            # --- CONSTRUCCIÓN DE FILAS: CASILLA BOOLEANA EN AMBAS FILAS PARA EVITAR CONFLICTO ---
             filas_procesadas = []
             mapeo_indices_pares = []
 
@@ -153,10 +153,10 @@ else:
                 f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
                 f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
-                # Fila 1 del paciente (Lleva booleano False para habilitar el checkbox interactivo)
+                # Fila 1 del paciente (Lleva booleano False)
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 del paciente (Lleva cadena vacía para que no se muestre casilla interactiva en la fila de CURP)
-                fila_v2 = [""] + list(f2_adj[:len(encabezados_combinados)])
+                # Fila 2 del paciente (Lleva False para mantener tipo bool homogéneo en la columna)
+                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
@@ -165,6 +165,9 @@ else:
 
             columnas_con_check = ["Seleccionar"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
+
+            # Forzar explícitamente la columna a booleano para habilitar la interactividad del editor
+            df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
             st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
@@ -293,7 +296,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE CON CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
+            # --- TABLA EDITABLE CON CASILLAS FUNCIONALES ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
@@ -310,11 +313,12 @@ else:
 
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                # Buscamos las filas visuales marcadas como True (solo las filas pares del DF, índice 0, 2, 4...)
-                filas_seleccionadas_verdaderas = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                # Filtrar solo los índices pares (filas principales del paciente) marcados como True
+                filas_seleccionadas_verdaderas = [
+                    idx for idx in df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                    if idx % 2 == 0
+                ]
                 
-                # Como las casillas interactivas solo están en las filas principales (índices pares del DF), 
-                # cada índice marcado dividido entre 2 nos da el número de paciente exacto.
                 pacientes_a_eliminar = set([idx // 2 for idx in filas_seleccionadas_verdaderas])
 
                 if not pacientes_a_eliminar:
