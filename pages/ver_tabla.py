@@ -64,10 +64,10 @@ st.markdown(
             border-bottom: 2px solid #e0e0e0;
         }
 
-        /* --- ESTILO PARA FILAS VACUNADAS (VERDE SUAVE) EN ST.DATA_EDITOR --- */
-        /* Seleccionamos las celdas de las filas marcadas con la clase especial */
+        /* --- CLASE CSS PARA PINTAR DE VERDE LAS FILAS VACUNADAS EN LA VISTA PREVIA --- */
         tr.fila-ag-aq-aplicada td {
-            background-color: #e2f0d9 !important;
+            background-color: #d4edda !important;
+            color: #155724 !important;
         }
     </style>
 """,
@@ -151,7 +151,7 @@ else:
             # --- CONSTRUCCIÓN DE FILAS Y DETECCIÓN DE AG-AQ ---
             filas_procesadas = []
             mapeo_indices_pares = []
-            filas_con_dosis_aplicada = set() # Para identificar qué índices visuales se deben pintar de verde
+            filas_con_dosis_aplicada = set() # Índices visuales en el DataFrame que se pintarán de verde
 
             contador_df_idx = 0
             for i in range(0, len(filas_tabla), 2):
@@ -168,14 +168,14 @@ else:
                         tiene_aplicacion_ag_aq = True
                         break
 
-                # Si tiene dosis aplicada, guardamos tanto la fila principal como la de CURP para pintarlas juntas
+                # Si tiene dosis aplicada, marcamos tanto la fila principal como la de su CURP
                 if tiene_aplicacion_ag_aq:
                     filas_con_dosis_aplicada.add(contador_df_idx)     # Fila 1 (Datos paciente)
                     filas_con_dosis_aplicada.add(contador_df_idx + 1) # Fila 2 (CURP)
 
-                # Fila 1 principal del paciente (Solo checkbox booleano al inicio)
+                # Fila 1 principal del paciente (Checkbox booleano)
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 de CURP
+                # Fila 2 de CURP (Checkbox booleano también para mantener tipo de dato homogéneo)
                 fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
@@ -187,7 +187,7 @@ else:
             columnas_con_check = ["Seleccionar"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-            # Forzar la columna de selección a booleano para evitar bloqueos
+            # Forzar la columna de selección a booleano para habilitar la casilla de verificación
             df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
             st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
@@ -308,7 +308,7 @@ else:
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=ThreadID if 'ThreadID' in globals() else 0)
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
             
             # --- BOTÓN DE ELIMINACIÓN SUPERIOR ---
             col_btn1, col_btn_rest = st.columns([2, 5])
@@ -317,7 +317,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE ---
+            # --- TABLA EDITABLE EN STREAMLIT ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
@@ -332,25 +332,23 @@ else:
                 }
             )
 
-            # --- SCRIPT JS PARA COLOREAR LAS FILAS DE VERDE EN EL DOM DE STREAMLIT ---
+            # --- SCRIPT JAVASCRIPT PARA PINTAR LAS FILAS DE VERDE EN LA VISTA PREVIA ---
             filas_verde_json = json.dumps(list(filas_con_dosis_aplicada))
             st.markdown(
                 f"""
                 <script>
                     const indicesVerdes = {filas_verde_json};
-                    function pintarFilas() {{
+                    function pintarFilasVistaPrevia() {{
                         const doc = window.parent.document;
                         const filas = doc.querySelectorAll('div[data-testid="stDataEditor"] tbody tr, [data-testid="stTable"] tbody tr, .glideDataEditor tbody tr');
-                        // Como Streamlit renderiza la tabla virtualmente, aplicamos estilo a las filas cuyos índices coincidan
                         filas.forEach((tr, index) => {{
                             if (indicesVerdes.includes(index)) {{
                                 tr.classList.add('fila-ag-aq-aplicada');
                             }}
                         }});
                     }}
-                    // Ejecutar de forma periódica y al cargar para asegurar que el DOM virtual pinte las filas correctamente
-                    setTimeout(pintarFilas, 500);
-                    setTimeout(pintarFilas, 1500);
+                    setTimeout(pintarFilasVistaPrevia, 400);
+                    setTimeout(pintarFilasVistaPrevia, 1200);
                 </script>
                 """,
                 unsafe_allow_html=True
