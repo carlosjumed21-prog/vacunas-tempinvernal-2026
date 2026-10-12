@@ -65,7 +65,6 @@ st.markdown(
         }
 
         /* --- ESTILO PARA FILAS VACUNADAS (VERDE SUAVE) EN ST.DATA_EDITOR --- */
-        /* Seleccionamos las celdas de las filas marcadas con la clase especial */
         tr.fila-ag-aq-aplicada td {
             background-color: #e2f0d9 !important;
         }
@@ -168,14 +167,14 @@ else:
                         tiene_aplicacion_ag_aq = True
                         break
 
-                # Si tiene dosis aplicada, guardamos tanto la fila principal como la de CURP para pintarlas juntas
+                # Si tiene dosis aplicada, marcamos ambas filas visuales (la principal y la de CURP) para pintarlas completas
                 if tiene_aplicacion_ag_aq:
                     filas_con_dosis_aplicada.add(contador_df_idx)     # Fila 1 (Datos paciente)
                     filas_con_dosis_aplicada.add(contador_df_idx + 1) # Fila 2 (CURP)
 
-                # Fila 1 principal del paciente (Solo checkbox booleano al inicio)
+                # Fila 1 principal del paciente
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 de CURP
+                # Fila 2 de CURP (La casilla de selección inicia vacía/False, pero la vincularemos lógicamente)
                 fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
@@ -308,7 +307,7 @@ else:
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=ThreadID if 'ThreadID' in globals() else 0)
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
             
             # --- BOTÓN DE ELIMINACIÓN SUPERIOR ---
             col_btn1, col_btn_rest = st.columns([2, 5])
@@ -332,25 +331,49 @@ else:
                 }
             )
 
-            # --- SCRIPT JS PARA COLOREAR LAS FILAS DE VERDE EN EL DOM DE STREAMLIT ---
+            # --- SCRIPT JS PARA UNIFICAR LA SELECCIÓN Y COLOREAR LAS FILAS COMPLETAS EN EL DOM ---
             filas_verde_json = json.dumps(list(filas_con_dosis_aplicada))
             st.markdown(
                 f"""
                 <script>
                     const indicesVerdes = {filas_verde_json};
-                    function pintarFilas() {{
+                    function actualizarInterfaz() {{
                         const doc = window.parent.document;
                         const filas = doc.querySelectorAll('div[data-testid="stDataEditor"] tbody tr, [data-testid="stTable"] tbody tr, .glideDataEditor tbody tr');
-                        // Como Streamlit renderiza la tabla virtualmente, aplicamos estilo a las filas cuyos índices coincidan
+                        
                         filas.forEach((tr, index) => {{
+                            // 1. Pintar fila completa si tiene AG-AQ aplicada
                             if (indicesVerdes.includes(index)) {{
                                 tr.classList.add('fila-ag-aq-aplicada');
                             }}
+
+                            // 2. Sincronizar selección de pares (Fila Principal de Paciente + Fila de CURP)
+                            // Cada paciente ocupa dos filas consecutivas: 2k y 2k+1
+                            if (index % 2 === 0) {{
+                                const checkboxActual = tr.querySelector('input[type="checkbox"]');
+                                const siguienteTr = filas[index + 1];
+                                if (checkboxActual && siguienteTr) {{
+                                    const checkboxSiguiente = siguienteTr.querySelector('input[type="checkbox"]');
+                                    if (checkboxSiguiente) {{
+                                        // Si el estado cambia en una, replicarlo en la otra para que actúen como una unidad
+                                        if (checkboxActual.checked !== checkboxSiguiente.checked) {{
+                                            checkboxSiguiente.checked = checkboxActual.checked;
+                                            checkboxSiguiente.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                        }}
+                                    }}
+                                }}
+                            }}
                         }});
                     }}
-                    // Ejecutar de forma periódica y al cargar para asegurar que el DOM virtual pinte las filas correctamente
-                    setTimeout(pintarFilas, 500);
-                    setTimeout(pintarFilas, 1500);
+                    
+                    // Ejecutar periódicamente para asegurar sincronización con la renderización virtual
+                    setTimeout(actualizarInterfaz, 500);
+                    setTimeout(actualizarInterfaz, 1500);
+                    
+                    // Escuchar cambios de clics para respuesta inmediata
+                    window.parent.document.addEventListener('click', () => {{
+                        setTimeout(actualizarInterfaz, 200);
+                    }});
                 </script>
                 """,
                 unsafe_allow_html=True
@@ -358,11 +381,8 @@ else:
 
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                filas_seleccionadas_verdaderas = [
-                    idx for idx in df_editado[df_editado["Seleccionar"] == True].index.tolist()
-                    if idx % 2 == 0
-                ]
-                
+                # Detectar cualquier fila marcada (ya sea la principal o la de la CURP) y asociarla al paciente correspondiente (dividiendo por 2)
+                filas_seleccionadas_verdaderas = df_editado[df_editado["Seleccionar"] == True].index.tolist()
                 pacientes_a_eliminar = set([idx // 2 for idx in filas_seleccionadas_verdaderas])
 
                 if not pacientes_a_eliminar:
