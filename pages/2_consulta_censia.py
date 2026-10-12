@@ -350,7 +350,6 @@ else:
                     for p in pacientes_filtrados
                 ]
 
-                # Si el usuario no ha escrito nada, agregamos una opción inicial vacía para evitar seleccionar un paciente por defecto
                 if not q_clean:
                     opciones_busqueda.insert(0, "Seleccione un paciente de la lista...||0")
 
@@ -372,6 +371,19 @@ else:
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                     yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
+
+                    # Cálculo preciso de edad en meses
+                    try:
+                        d_n_int = int(dd_n)
+                        m_n_int = int(mm_n)
+                        y_n_int = int(yy_n)
+                        f_nac = datetime.date(y_n_int, m_n_int, d_n_int)
+                        f_hoy = datetime.date.today()
+                        edad_meses_calc = (f_hoy.year - f_nac.year) * 12 + (f_hoy.month - f_nac.month)
+                        if f_hoy.day < f_nac.day:
+                            edad_meses_calc -= 1
+                    except:
+                        edad_meses_calc = 372 # Adulto por defecto (31 años)
 
                     sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                     curp_actual = todos_los_datos[fila_idx][2].strip() if len(todos_los_datos) > fila_idx and len(todos_los_datos[fila_idx]) > 2 else ""
@@ -441,7 +453,8 @@ else:
 
                     st.markdown('<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>', unsafe_allow_html=True)
 
-                    matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada)
+                    antecedente_vacunal = "NO" # Por defecto o evaluado según censo
+                    matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses_calc, antecedente_vacunal)
 
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
@@ -451,11 +464,17 @@ else:
                         matches_moderna = [m for m in matches_covid if "moderna" in m.get('tipo_vacuna', '').lower() or "spikevax" in m.get('tipo_vacuna', '').lower()]
                         matches_pfizer = [m for m in matches_covid if "pfizer" in m.get('tipo_vacuna', '').lower() or "comirnaty" in m.get('tipo_vacuna', '').lower()]
 
-                        col_bio1, col_bio2 = st.columns(2)
-                        with col_bio1:
-                            biologico_covid_elegido = st.radio("💉 Seleccione Biológico COVID-19:", options=["Moderna", "Pfizer/BioNTech (Comirnaty)"], horizontal=True, key="radio_biologico_covid")
-                        
-                        matches_covid_filtrados = matches_moderna if biologico_covid_elegido == "Moderna" else (matches_pfizer if matches_pfizer else matches_covid)
+                        # Validación estricta menor de 12 años (< 144 meses)
+                        if edad_meses_calc < 144:
+                            st.info("ℹ️ Biológico Pfizer/BioNTech no disponible para menores de 12 años (Aplicación exclusiva $\ge 12$ años).")
+                            biologico_covid_elegido = "Moderna"
+                            matches_covid_filtrados = matches_moderna if matches_moderna else matches_covid
+                        else:
+                            col_bio1, col_bio2 = st.columns(2)
+                            with col_bio1:
+                                biologico_covid_elegido = st.radio("💉 Seleccione Biológico COVID-19:", options=["Moderna", "Pfizer/BioNTech (Comirnaty)"], horizontal=True, key="radio_biologico_covid")
+                            
+                            matches_covid_filtrados = matches_moderna if biologico_covid_elegido == "Moderna" else (matches_pfizer if matches_pfizer else matches_covid)
                     else:
                         matches_covid_filtrados = matches_covid
 
@@ -481,22 +500,25 @@ else:
                             )
 
                     with col_card2:
-                        if mostrar_covid and match_cov_prioritario:
-                            tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
-                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 ({tipo_biologico_covid})</h4>
-                                    <p><b>Categoría:</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema:</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis:</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo:</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación:</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
+                        if mostrar_covid:
+                            if edad_meses_calc < 144 and biologico_covid_elegido == "Pfizer/BioNTech (Comirnaty)":
+                                st.error("❌ **CONTRAINDICADO:** La vacuna Pfizer/BioNTech (Comirnaty) está contraindicada y no autorizada para menores de 12 años.")
+                            elif match_cov_prioritario:
+                                tipo_biologico_covid = match_cov_prioritario.get('tipo_vacuna', biologico_covid_elegido)
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
+                                        <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19 ({tipo_biologico_covid})</h4>
+                                        <p><b>Categoría:</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
+                                        <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
+                                        <p><b>Esquema:</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
+                                        <p><b>Dosis:</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
+                                        <p><b>Intervalo:</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
+                                        <p><b>Recomendación:</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True,
+                                )
 
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
