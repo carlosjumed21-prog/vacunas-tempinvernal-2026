@@ -117,9 +117,10 @@ def cargar_guias_censia():
 def obtener_recomendaciones_paciente(
     edad_meses, antecedente_vacunal, lista_riesgos_detectados, vacuna_registrada
 ):
-    """Cruza los datos del paciente con las guías CENSIA según edad,
+    """Cruza los datos del paciente con las guías CENSIA evaluando con precisión
 
-    antecedente vacunal (SI/NO), comorbilidades y tipo de vacuna.
+    el riesgo específico detectado (VIH, comorbilidades, personal de salud, embarazo)
+    y evitando cruces erróneos de filas.
     """
     try:
         guia_inf, guia_cov = cargar_guias_censia()
@@ -130,9 +131,12 @@ def obtener_recomendaciones_paciente(
         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-        tiene_comorbilidades = len(lista_riesgos_detectados) > 0
-        es_embarazada = any("EMBARAZ" in r.upper() for r in lista_riesgos_detectados)
-        es_personal_salud = any("SALUD" in r.upper() for r in lista_riesgos_detectados)
+        # Identificamos los riesgos reales del paciente de forma limpia
+        riesgos_up = [r.upper() for r in lista_riesgos_detectados]
+        es_embarazada = any("EMBARAZ" in r for r in riesgos_up)
+        es_personal_salud = any("SALUD" in r for r in riesgos_up)
+        tiene_vih = any("VIH" in r for r in riesgos_up)
+        tiene_comorbilidades = len(riesgos_up) > 0
 
         # ==========================================
         # 1. FILTRADO INFLUENZA
@@ -146,34 +150,28 @@ def obtener_recomendaciones_paciente(
                 es_match = False
 
                 if "POBLACIÓN OBJETIVO" in cat:
-                    # Rango 6 a 18 meses (6 a 18 meses)
-                    if 6 <= edad_meses <= 18:
-                        if "6 A 18 MESES" in gb:
-                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
-                                es_match = True
-                            elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
-                                es_match = True
-                    # Rango 19 a 59 meses
-                    elif 19 <= edad_meses <= 59:
-                        if "19 A 59 MESES" in gb:
-                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
-                                es_match = True
-                            elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
-                                es_match = True
-                    # 60 años y más (>= 720 meses)
-                    elif edad_meses >= 720:
-                        if "60 AÑOS Y MAS" in gb:
+                    if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
+                        if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
                             es_match = True
+                        elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                            es_match = True
+                    elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
+                        if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                            es_match = True
+                        elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                            es_match = True
+                    elif edad_meses >= 720 and "60 AÑOS Y MAS" in gb:
+                        es_match = True
 
                 elif "POBLACIÓN DE RIESGO" in cat:
                     if es_embarazada and "GESTANTES" in gb:
                         es_match = True
                     elif es_personal_salud and "PERSONAL DE SALUD" in gb:
                         es_match = True
-                    elif tiene_comorbilidades:
-                        if (5 <= edad_meses < 10) and "5 A 8 AÑOS" in gb:
+                    elif tiene_comorbilidades or tiene_vih:
+                        if (9 <= edad_meses < 720) and "9 A 59 AÑOS" in gb:
                             es_match = True
-                        elif (9 <= edad_meses < 720) and "9 A 59 AÑOS" in gb:
+                        elif (5 <= edad_meses < 9) and "5 A 8 AÑOS" in gb:
                             es_match = True
 
                 if es_match and item not in matches_inf:
@@ -187,26 +185,19 @@ def obtener_recomendaciones_paciente(
                 vac_tipo = item["tipo_vacuna"].strip().upper()
                 cat = item["categoria"].strip().upper()
                 gb = item["grupos_blancos"].strip().upper()
-                dosis = item["dosis"].strip().upper()
 
                 es_match = False
 
                 # Restricción estricta de Pfizer para < 12 años (144 meses)
                 if "PFIZER" in vac_tipo and edad_meses < 144:
-                    continue  # No se muestra card ni se procesa para menores de 12 años
+                    continue
 
                 if "POBLACIÓN OBJETIVO" in cat:
                     if "MODERNA" in vac_tipo:
                         if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
-                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
-                                es_match = True
-                            elif antecedente_vacunal == "SI" and "SEGUNDA" in dosis:
-                                es_match = True
+                            es_match = True
                         elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
-                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
-                                es_match = True
-                            elif antecedente_vacunal == "SI" and "SEGUNDA" in dosis:
-                                es_match = True
+                            es_match = True
                         elif 60 <= edad_meses <= 131 and "5 A 11 AÑOS" in gb:
                             es_match = True
                         elif edad_meses >= 144 and "12 AÑOS" in gb:
@@ -222,7 +213,7 @@ def obtener_recomendaciones_paciente(
                         es_match = True
                     elif edad_meses >= 720 and "60 AÑOS O MÁS" in gb:
                         es_match = True
-                    elif tiene_comorbilidades and "COMORBILIDADES" in gb:
+                    elif (tiene_comorbilidades or tiene_vih) and "COMORBILIDADES" in gb:
                         if 6 <= edad_meses < 720:
                             es_match = True
 
