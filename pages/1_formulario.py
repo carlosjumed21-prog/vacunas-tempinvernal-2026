@@ -1,3 +1,4 @@
+# (modificado) pages/1_formulario.py
 import datetime
 import random
 import streamlit as st
@@ -25,20 +26,62 @@ st.markdown(
         header {visibility: hidden;}
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; white-space: normal !important; word-wrap: break-word !important; }
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-[...]
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;[...]
         .stCheckbox { margin-bottom: 8px !important; }
-        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
-        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
-        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 15px; }
-        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
+        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; ma[...]
+        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; ma[...]
+        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; m[...]
+        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !import[...]
+        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem[...]
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         div[data-baseweb="select"] > div { font-size: 1rem !important; white-space: normal !important; }
     </style>
 """,
     unsafe_allow_html=True,
 )
+
+# ---------- NUEVA FUNCIÓN: obtener_folio_proyectado (lazy + cacheada) ----------
+@st.cache_data(ttl=60)
+def obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, modalidad):
+    """
+    Calcula el folio proyectado consultando únicamente la columna B (folios)
+    para localizar la primera fila libre y así evitar leer toda la hoja.
+    Cacheada por (sigla_url, sufijo_js, val_fecha_app, modalidad) durante TTL.
+    """
+    try:
+        client_temp = obtener_cliente_gspread()
+        spreadsheet_temp = client_temp.open_by_key(GOOGLE_SHEET_ID)
+        nombre_hoja_temp = f"{sigla_url}_{sufijo_js}" if sufijo_js else sigla_url
+        ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
+
+        # Leer solo la columna B (índice 2) para encontrar la primera fila vacía
+        col_b = ws_temp.col_values(2)  # devuelve lista de strings (1-indexed respecto a hoja)
+        fila_dest_temp = 14
+        if len(col_b) >= 14:
+            idx_t = 13  # índice 13 corresponde a fila 14 (0-based en la lista)
+            while idx_t < len(col_b):
+                # si la celda está vacía, hemos encontrado la fila destino
+                if not col_b[idx_t].strip():
+                    fila_dest_temp = idx_t + 1
+                    break
+                idx_t += 2
+            else:
+                fila_dest_temp = len(col_b) + 1
+                if (fila_dest_temp - 14) % 2 != 0:
+                    fila_dest_temp += 1
+
+        consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
+        f_str = val_fecha_app.strftime("%Y%m%d")
+        m_str = "INT" if modalidad == "INTRAMUROS" else "EXT"
+        s_3 = (sigla_url[:3].upper()).ljust(3, "X")
+        folio_proyectado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo_temp).zfill(4)}"
+        return folio_proyectado
+    except Exception:
+        # Fallback robusto (mismo formato anterior) si hay error al consultar Sheets
+        return f"{val_fecha_app.strftime('%Y%m%d')}-INT-{sigla_url[:3].upper().ljust(3, 'X')}-0001"
+
+# ---------------------------------------------------------------------------
 
 # --- RECUPERACIÓN DE PARÁMETROS DE URL ---
 params = st.query_params
@@ -62,6 +105,10 @@ try:
 except:
     val_fecha_app = fecha_sistema
 
+# Inicializamos la cache en session_state si no existe
+if "folio_proyectado_cached" not in st.session_state:
+    st.session_state["folio_proyectado_cached"] = None
+
 if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
 if "paciente_duplicado_info" not in st.session_state:
@@ -76,34 +123,9 @@ if "ant_inf" not in st.session_state:
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
-# Calcular de forma idéntica a sheets.py el próximo folio proyectado para la cabecera
-try:
-    client_temp = obtener_cliente_gspread()
-    spreadsheet_temp = client_temp.open_by_key(GOOGLE_SHEET_ID)
-    nombre_hoja_temp = f"{sigla_url}_{sufijo_js}" if sufijo_js else sigla_url
-    ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
-    valores_temp = ws_temp.get_all_values()
-    
-    fila_dest_temp = 14
-    if len(valores_temp) >= 14:
-        idx_t = 13
-        while idx_t < len(valores_temp):
-            if idx_t >= len(valores_temp) or not any(valores_temp[idx_t]) or not valores_temp[idx_t][1]:
-                fila_dest_temp = idx_t + 1
-                break
-            idx_t += 2
-        else:
-            fila_dest_temp = len(valores_temp) + 1
-            if (fila_dest_temp - 14) % 2 != 0:
-                fila_dest_temp += 1
-    consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
-    
-    f_str = val_fecha_app.strftime("%Y%m%d")
-    m_str = "INT" if st.session_state.modalidad == "INTRAMUROS" else "EXT"
-    s_3 = sigla_url[:3].upper().ljust(3, 'X')
-    folio_proyectado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo_temp).zfill(4)}"
-except Exception:
-    folio_proyectado = f"{val_fecha_app.strftime('%Y%m%d')}-INT-{sigla_url[:3].upper().ljust(3, 'X')}-0001"
+# Nota: ahora NO ejecutamos la lectura completa de Sheets en top-level.
+# Se ejecutará sólo cuando el usuario pulse el botón "Calcular folio proyectado"
+# o si ya existe en st.session_state["folio_proyectado_cached"].
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -156,7 +178,7 @@ def mostrar_modal_comprobante():
             .info-container {{ flex: 1; z-index: 2; position: relative; }}
             .qr-container {{ width: 110px; text-align: center; z-index: 2; position: relative; }}
             .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
-            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px[...]
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
             .btn-container {{ display: flex; gap: 8px; }}
@@ -319,7 +341,17 @@ with col_f1:
 with col_f2:
     st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 with col_f3:
-    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_proyectado}</b></div>', unsafe_allow_html=True)
+    # Mostrar folio si está cacheado; si no, permitir calcularlo bajo demanda
+    folio_cached = st.session_state.get("folio_proyectado_cached")
+    if folio_cached:
+        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_cached}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>— (Pulse calcular)</b></div>', unsafe_allow_html=True)
+        if st.button("Calcular folio proyectado", key="btn_calcular_folio"):
+            with st.spinner("Calculando folio proyectado desde Google Sheets..."):
+                folio_calculado = obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, st.session_state.modalidad)
+                st.session_state["folio_proyectado_cached"] = folio_calculado
+            st.experimental_rerun()
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -338,6 +370,8 @@ fecha_nacimiento = None
 if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
     try: fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
     except ValueError: st.error("⚠️ La combinación de fecha seleccionada no es válida.")
+
+if fecha_nacimiento:
 
 if fecha_nacimiento:
     st.markdown(f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;"><span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {fecha_nacimiento.strftime("%d/%m/%Y")}</span></div>', unsafe_allow_html=True)
