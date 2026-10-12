@@ -7,26 +7,51 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread leyendo la sección [GOOGLE_CREDENTIALS]."""
+    """Autentica y retorna el cliente de gspread buscando de forma universal y tolerante en st.secrets."""
+    creds_dict = None
+
+    # 1. Buscar si existe la sección exacta o la variable GOOGLE_CREDENTIALS
     if "GOOGLE_CREDENTIALS" in st.secrets:
-        # Streamlit lee las tablas por sección directamente como diccionarios
-        creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
-    else:
-        raise ValueError(
-            "No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos de Streamlit Cloud."
-        )
+        raw = st.secrets["GOOGLE_CREDENTIALS"]
+        if isinstance(raw, dict):
+            creds_dict = dict(raw)
+        elif isinstance(raw, str):
+            try:
+                creds_dict = json.loads(raw)
+            except Exception:
+                pass
+
+    # 2. Si aún no se encuentra, buscar en todas las llaves de st.secrets una que tenga client_email
+    if not creds_dict:
+        for key in st.secrets.keys():
+            if key == "email":
+                continue
+            val = st.secrets[key]
+            if isinstance(val, dict) and "client_email" in val:
+                creds_dict = dict(val)
+                break
+            elif isinstance(val, str):
+                try:
+                    parsed = json.loads(val)
+                    if isinstance(parsed, dict) and "client_email" in parsed:
+                        creds_dict = parsed
+                        break
+                except Exception:
+                    pass
+
+    # 3. Último recurso: revisar si el secreto completo es el diccionario de credenciales
+    if not creds_dict and "client_email" in st.secrets:
+        creds_dict = dict(st.secrets)
 
     if not creds_dict or "client_email" not in creds_dict:
         raise ValueError(
-            "Las credenciales de Google Sheets están incompletas o no contienen 'client_email'."
+            "No se encontraron las credenciales de Google Sheets en st.secrets. Verifica que estén configuradas correctamente en Streamlit Cloud."
         )
 
-    # Asegurar que la llave privada mantenga sus saltos de línea originales de PEM
+    # Normalizar correctamente los saltos de línea de la llave privada PEM
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         pk = creds_dict["private_key"]
-        # Si por alguna razón quedaron diagonales escapadas, las regresamos a saltos reales
-        if "\\n" in pk and "\n" not in pk:
-            pk = pk.replace("\\n", "\n")
+        pk = pk.replace("\\n", "\n")
         creds_dict["private_key"] = pk.strip()
 
     creds = service_account.Credentials.from_service_account_info(
