@@ -137,7 +137,10 @@ else:
                 encabezados_combinados.append(col_str)
 
             filas_ajustadas = [row[:len(encabezados_combinados)] + [''] * max(0, len(encabezados_combinados) - len(row)) for row in filas_tabla]
+            
+            # --- CREAR DATAFRAME CON COLUMNA DE SELECCIÓN ---
             df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
+            df_tabla_segura.insert(0, "Seleccionar", False)
 
             # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
             filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
@@ -257,29 +260,69 @@ else:
             st.caption(f"🟢 *Los registros en verde indican aplicación registrada.*")
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- FUNCIÓN DE ESTILIZACIÓN ESTRICTA (RANGO AG A AQ) ---
-            def colorear_completados(row):
-                completado = False
-                try:
-                    for i in range(32, min(43, len(row))):
-                        val = str(row.iloc[i]).strip().upper()
-                        if val == "X":
-                            completado = True
-                            break
-                except:
-                    pass
-                
-                return ['background-color: #d4edda; color: #155724; font-weight: 600;' if completado else '' for _ in row]
-
-            df_estilizado = df_tabla_segura.style.apply(colorear_completados, axis=1)
-
-            # --- TABLA NATIVA CON SCROLL INTERNO Y ENCABEZADOS FIJOS ---
-            st.dataframe(
-                df_estilizado,
+            # --- TABLA EDITABLE CON CASILLAS DE VERIFICACIÓN ---
+            st.markdown("### 📋 Seleccione las filas que desea eliminar:")
+            
+            df_editado = st.data_editor(
+                df_tabla_segura,
                 use_container_width=True,
-                height=650,
-                hide_index=True
+                height=500,
+                hide_index=True,
+                column_config={
+                    "Seleccionar": st.column_config.CheckboxColumn(
+                        "🗑️ Eliminar",
+                        help="Marque para seleccionar la fila a eliminar",
+                        default=False,
+                    )
+                }
             )
+
+            # --- BOTÓN DE ELIMINACIÓN ---
+            if st.button("🗑️ Eliminar filas seleccionadas", type="primary"):
+                filas_a_eliminar = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+
+                if not filas_a_eliminar:
+                    st.warning("⚠️ No ha seleccionado ninguna fila para eliminar.")
+                else:
+                    try:
+                        # Ordenar de mayor a menor índice para eliminar desde abajo hacia arriba
+                        # y evitar desfasar los índices de gspread durante el proceso.
+                        filas_a_eliminar.sort(reverse=True)
+
+                        for idx_df in filas_a_eliminar:
+                            # En Google Sheets, la tabla empieza en la fila 14 (índice 13 en Python)
+                            fila_gs_real = idx_df + 14
+                            ws.delete_rows(fila_gs_real)
+
+                        # --- RECALCULAR Y REORGANIZAR COLUMNA A (CONSECUTIVO) ---
+                        # Volvemos a leer los datos actualizados de la hoja para reordenar la columna A
+                        datos_actualizados = ws.get_all_values()
+                        if len(datos_actualizados) >= 14:
+                            filas_actuales = datos_actualizados[13:]
+                            
+                            # Actualizar los números consecutivos en la Columna A (índice 0)
+                            contador = 1
+                            updates = []
+                            for i, row in enumerate(filas_actuales):
+                                # Asumiendo filas principales cada 2 filas o según tu estructura de censo
+                                # Actualizamos el consecutivo si la celda no está vacía
+                                if len(row) > 0 and row[0].strip() != "":
+                                    # Solo actualizamos las filas principales de pacientes
+                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
+                                    updates.append({
+                                        'range': cell_coord,
+                                        'values': [[str(contador)]]
+                                    })
+                                    contador += 1
+
+                            if updates:
+                                ws.batch_update(updates)
+
+                        st.success(f"✅ Se eliminaron correctamente {len(filas_a_eliminar)} fila(s) y se reordenó el consecutivo.")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
 
         else:
             st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
