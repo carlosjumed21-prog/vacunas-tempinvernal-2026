@@ -63,6 +63,12 @@ st.markdown(
             padding-bottom: 10px;
             border-bottom: 2px solid #e0e0e0;
         }
+
+        /* --- ESTILO PARA FILAS VACUNADAS (VERDE SUAVE) EN ST.DATA_EDITOR --- */
+        /* Seleccionamos las celdas de las filas marcadas con la clase especial */
+        tr.fila-ag-aq-aplicada td {
+            background-color: #e2f0d9 !important;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -142,10 +148,12 @@ else:
                 
                 encabezados_combinados.append(col_str)
 
-            # --- CONSTRUCCIÓN DE FILAS Y EVALUACIÓN DE AG-AQ ---
+            # --- CONSTRUCCIÓN DE FILAS Y DETECCIÓN DE AG-AQ ---
             filas_procesadas = []
             mapeo_indices_pares = []
+            filas_con_dosis_aplicada = set() # Para identificar qué índices visuales se deben pintar de verde
 
+            contador_df_idx = 0
             for i in range(0, len(filas_tabla), 2):
                 f1 = filas_tabla[i] if i < len(filas_tabla) else []
                 f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
@@ -153,33 +161,33 @@ else:
                 f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
                 f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
-                # --- EVALUAR SI TIENE APLICACIÓN EN RANGO AG-AQ (Columnas de Dosis aprox. índices 32 a 42) ---
+                # Comprobar si tiene alguna "X" en las columnas de AG-AQ (aproximadamente índices 32 al 42)
                 tiene_aplicacion_ag_aq = False
                 for col_idx in range(32, min(43, len(f1_adj))):
-                    val_celda = str(f1_adj[col_idx]).strip().upper()
-                    if val_celda == "X" or val_celda != "":
-                        # Validar si corresponde a una marca de dosis
-                        if val_celda == "X":
-                            tiene_aplicacion_ag_aq = True
-                            break
+                    if str(f1_adj[col_idx]).strip().upper() == "X":
+                        tiene_aplicacion_ag_aq = True
+                        break
 
-                # Indicador visual en texto/emoji para resaltar filas con AG-AQ aplicada
-                estatus_ag_aq = "🟢 AG-AQ Aplicada" if tiene_aplicacion_ag_aq else "⚪ Pendiente"
+                # Si tiene dosis aplicada, guardamos tanto la fila principal como la de CURP para pintarlas juntas
+                if tiene_aplicacion_ag_aq:
+                    filas_con_dosis_aplicada.add(contador_df_idx)     # Fila 1 (Datos paciente)
+                    filas_con_dosis_aplicada.add(contador_df_idx + 1) # Fila 2 (CURP)
 
-                # Fila 1 principal del paciente (Incluye checkbox booleano y el estatus AG-AQ)
-                fila_v1 = [False, estatus_ag_aq] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 de CURP (Celda vacía para checkbox y estatus en la fila secundaria)
-                fila_v2 = [False, ""] + list(f2_adj[:len(encabezados_combinados)])
+                # Fila 1 principal del paciente (Solo checkbox booleano al inicio)
+                fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
+                # Fila 2 de CURP
+                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
                 
                 mapeo_indices_pares.append(i)
+                contador_df_idx += 2
 
-            columnas_con_check = ["Seleccionar", "Estatus AG-AQ"] + encabezados_combinados
+            columnas_con_check = ["Seleccionar"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-            # Forzar explícitamente la columna a booleano para habilitar la interactividad del editor
+            # Forzar la columna de selección a booleano para evitar bloqueos
             df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
             st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
@@ -300,7 +308,7 @@ else:
             with m8:
                 st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=ThreadID if 'ThreadID' in globals() else 0)
             
             # --- BOTÓN DE ELIMINACIÓN SUPERIOR ---
             col_btn1, col_btn_rest = st.columns([2, 5])
@@ -309,7 +317,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE CON CASILLAS Y ESTADO AG-AQ VISUAL ---
+            # --- TABLA EDITABLE ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
@@ -320,17 +328,36 @@ else:
                         "Seleccionar",
                         help="Marque la casilla para seleccionar este paciente",
                         default=False,
-                    ),
-                    "Estatus AG-AQ": st.column_config.TextColumn(
-                        "Estatus AG-AQ",
-                        help="Indica si cuenta con aplicación de dosis registrada"
                     )
                 }
             )
 
+            # --- SCRIPT JS PARA COLOREAR LAS FILAS DE VERDE EN EL DOM DE STREAMLIT ---
+            filas_verde_json = json.dumps(list(filas_con_dosis_aplicada))
+            st.markdown(
+                f"""
+                <script>
+                    const indicesVerdes = {filas_verde_json};
+                    function pintarFilas() {{
+                        const doc = window.parent.document;
+                        const filas = doc.querySelectorAll('div[data-testid="stDataEditor"] tbody tr, [data-testid="stTable"] tbody tr, .glideDataEditor tbody tr');
+                        // Como Streamlit renderiza la tabla virtualmente, aplicamos estilo a las filas cuyos índices coincidan
+                        filas.forEach((tr, index) => {{
+                            if (indicesVerdes.includes(index)) {{
+                                tr.classList.add('fila-ag-aq-aplicada');
+                            }}
+                        }});
+                    }}
+                    // Ejecutar de forma periódica y al cargar para asegurar que el DOM virtual pinte las filas correctamente
+                    setTimeout(pintarFilas, 500);
+                    setTimeout(pintarFilas, 1500);
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
+
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                # Filtrar solo los índices pares (filas principales del paciente) marcados como True
                 filas_seleccionadas_verdaderas = [
                     idx for idx in df_editado[df_editado["Seleccionar"] == True].index.tolist()
                     if idx % 2 == 0
