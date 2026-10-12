@@ -7,58 +7,26 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread limpiando y formateando correctamente la llave privada."""
-    creds_dict = None
-
-    try:
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            if isinstance(raw_creds, dict):
-                creds_dict = dict(raw_creds)
-            elif isinstance(raw_creds, str):
-                creds_dict = json.loads(raw_creds)
-        
-        if not creds_dict:
-            for k, v in st.secrets.items():
-                if isinstance(v, dict) and "client_email" in v:
-                    creds_dict = dict(v)
-                    break
-                elif isinstance(v, str):
-                    try:
-                        parsed = json.loads(v)
-                        if isinstance(parsed, dict) and "client_email" in parsed:
-                            creds_dict = parsed
-                            break
-                    except Exception:
-                        pass
-        
-        if not creds_dict and "client_email" in st.secrets:
-            creds_dict = dict(st.secrets)
-
-    except Exception as e:
-        raise ValueError(f"Error interno al procesar los secretos de Google: {e}")
+    """Autentica y retorna el cliente de gspread leyendo la sección [GOOGLE_CREDENTIALS]."""
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        # Streamlit lee las tablas por sección directamente como diccionarios
+        creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
+    else:
+        raise ValueError(
+            "No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos de Streamlit Cloud."
+        )
 
     if not creds_dict or "client_email" not in creds_dict:
         raise ValueError(
-            "No se pudo encontrar ni parsear 'client_email' en los secretos. Revisa la sección [GOOGLE_CREDENTIALS]."
+            "Las credenciales de Google Sheets están incompletas o no contienen 'client_email'."
         )
 
-    # --- LIMPIEZA BLINDADA DE LA LLAVE PRIVADA ---
+    # Asegurar que la llave privada mantenga sus saltos de línea originales de PEM
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         pk = creds_dict["private_key"]
-        
-        # Si por error se escaparon mal las diagonales o vinieron con caracteres extraños
-        pk = pk.replace("\\n", "\n")
-        pk = pk.replace("\\r", "")
-        
-        # Asegurar que comience y termine exactamente con los headers PEM requeridos por Google
-        if "BEGIN PRIVATE KEY" in pk and not pk.strip().startswith("-----BEGIN PRIVATE KEY-----"):
-            # En caso de que tenga basura al inicio o comillas rezagadas
-            start_idx = pk.find("-----BEGIN PRIVATE KEY-----")
-            end_idx = pk.find("-----END PRIVATE KEY-----") + len("-----END PRIVATE KEY-----")
-            if start_idx != -1 and end_idx != -1:
-                pk = pk[start_idx:end_idx]
-
+        # Si por alguna razón quedaron diagonales escapadas, las regresamos a saltos reales
+        if "\\n" in pk and "\n" not in pk:
+            pk = pk.replace("\\n", "\n")
         creds_dict["private_key"] = pk.strip()
 
     creds = service_account.Credentials.from_service_account_info(
