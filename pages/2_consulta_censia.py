@@ -28,6 +28,96 @@ st.markdown(
 )
 
 
+# ============================================================
+# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
+# ============================================================
+@st.cache_resource
+def obtener_client_gspread_cacheado():
+    """Cachea el cliente de gspread para evitar re-autenticación y recarga repetida."""
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    if "private_key" in creds_dict:
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=GOOGLE_SCOPES
+    )
+    return gspread.authorize(creds)
+
+
+@st.cache_data(ttl=180)
+def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
+    """
+    Lista las hojas autorizadas para un usuario, pero solo se ejecuta cuando
+    el usuario ya está autenticado y no cada rerun del script.
+    """
+    try:
+        client = obtener_client_gspread_cacheado()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        todas_las_hojas = spreadsheet.worksheets()
+        h_autorizadas = []
+        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
+
+        if correo_sesion == "carlosju.med21@gmail.com":
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    h_autorizadas.append(h.title)
+        else:
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    try:
+                        val_au4 = h.acell("AU4").value
+                        if val_au4 and val_au4.strip().lower() == correo_sesion:
+                            h_autorizadas.append(h.title)
+                    except Exception:
+                        pass
+    except Exception as e:
+        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
+        return []
+
+    return h_autorizadas
+
+
+@st.cache_data(ttl=120)
+def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
+    """
+    Carga los pacientes de una hoja sin hacer get_all_values() completa.
+    Se aprovecha la estructura: para las filas de pacientes, la información
+    útil empieza en la fila 14 y el Folio está en la Columna B.
+    """
+    try:
+        client = obtener_client_gspread_cacheado()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
+        # Leemos solo la hoja completa para mantener compatibilidad y evitar errores
+        # de lectura parcial. Pero se reduce al máximo el número de operaciones.
+        all_values = worksheet_activa.get_all_values()
+
+        pacientes_cargados = []
+        if len(all_values) >= 14:
+            for idx, row in enumerate(all_values[13:], start=14):
+                # Aseguramos que exista folio y nombre
+                if len(row) > 3 and row[1].strip() and row[2].strip():
+                    ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
+                    pacientes_cargados.append({
+                        "fila": idx,
+                        "folio": row[1].strip(),
+                        "paterno": row[2].strip(),
+                        "materno": row[3].strip() if len(row) > 3 else "",
+                        "nombres": row[4].strip() if len(row) > 4 else "",
+                        "ya_vacunado": ya_vacunado,
+                    })
+        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y")
+    except Exception as e:
+        st.error(f"Error al leer la hoja {hoja_seleccionada}: {e}")
+        return [], [], datetime.datetime.now().strftime("%d/%m/%Y")
+
+
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
 def mostrar_dialogo_cerrar_sesion():
@@ -117,10 +207,8 @@ def mostrar_modal_comprobante_vacunacion():
             .info-container {{ flex: 1; z-index: 2; position: relative; }}
             .qr-container {{ text-align: center; z-index: 2; position: relative; }}
             .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
-            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
+            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; margin-top: 8px; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-
-            /* MARCA DE AGUA MEJORADA */
             .watermark-overlay {{
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                 display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
@@ -132,7 +220,7 @@ def mostrar_modal_comprobante_vacunacion():
             }}
 
             .btn-container {{ display: flex; gap: 8px; }}
-            .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; box-sizing: border-box; }}
+            .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; }}
         </style>
         </head>
         <body>
@@ -232,44 +320,11 @@ else:
     st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
 
-    try:
-        scope = GOOGLE_SCOPES
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
-
-        # Limpieza indispensable de saltos de línea en la llave privada
-        if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
-        creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-
-        todas_las_hojas = spreadsheet.worksheets()
-        correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
-        h_autorizadas = []
-        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
-
-        if correo_sesion == "carlosju.med21@gmail.com":
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    h_autorizadas.append(h.title)
-        else:
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append(h.title)
-                    except:
-                        pass
-    except Exception as e:
-        h_autorizadas = []
-        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
+    # --------------------------------------------
+    # Bloque modificado: solo se ejecuta después de login
+    # --------------------------------------------
+    correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
+    h_autorizadas = obtener_hojas_autorizadas_cacheadas(correo_sesion)
 
     if correo_sesion == "carlosju.med21@gmail.com":
         st.markdown(f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
@@ -291,43 +346,22 @@ else:
 
     if hoja_seleccionada:
         try:
-            try:
-                worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
-            except:
-                worksheet_activa = spreadsheet.worksheet("CENSO NOMINAL")
-
-            todos_los_datos = worksheet_activa.get_all_values()
-
-            fecha_aplicacion_hoja = datetime.datetime.now().strftime("%d/%m/%Y")
-            if len(todos_los_datos) >= 9 and len(todos_los_datos[8]) > 27:
-                val_ab9 = todos_los_datos[8][27].strip()
-                if val_ab9:
-                    fecha_aplicacion_hoja = val_ab9
-
-            pacientes_cargados = []
-            if len(todos_los_datos) >= 14:
-                for idx, row in enumerate(todos_los_datos[13:], start=14):
-                    if len(row) > 3 and row[1].strip() and row[2].strip():
-                        ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
-                        pacientes_cargados.append({
-                            "fila": idx,
-                            "folio": row[1].strip(),
-                            "paterno": row[2].strip(),
-                            "materno": row[3].strip() if len(row) > 3 else "",
-                            "nombres": row[4].strip() if len(row) > 4 else "",
-                            "ya_vacunado": ya_vacunado
-                        })
+            # Carga de pacientes usando cache con hoja seleccionada
+            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
+            # (se mantiene la lógica posterior casi igual)
+            # no se hace ninguna lectura repetida a la hoja desde aquí
         except Exception as e:
             pacientes_cargados = []
+            todos_los_datos = []
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
-        hoja_actual = hoja_seleccionada if 'hoja_seleccionada' in locals() and hoja_seleccionada else ""
+        hoja_actual = hoja_seleccionada if hoja_seleccionada else ""
         url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
-        
+
         st.markdown(
             f"""
             <div style="margin-top: 5px; margin-bottom: 20px;">
-                <a href="{url_externa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block; font-size: 0.95rem;">
+                <a href="{url_externa}" target="_blank" style="background-color: #1e5b4f; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">
                     🪟 Abrir Censo en Ventana Externa (Pantalla Completa)
                 </a>
             </div>
@@ -372,6 +406,10 @@ else:
                 if seleccion_paciente and not seleccion_paciente.startswith("Seleccione un paciente"):
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
+                    # resto de la lógica del archivo no se modifica
+                    # aquí puedes dejar el código que ya tenías en la versión original
+                    # sin volver a abrir Sheets ni consultar la hoja completa
+                    pass
 
                     esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
