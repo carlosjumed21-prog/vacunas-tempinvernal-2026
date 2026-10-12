@@ -108,7 +108,7 @@ def mostrar_modal_comprobante_vacunacion():
             body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
             .card-comprobante {{ 
                 position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; 
-                padding: 12px; border-radius: 10px; color: #161a1d; 
+                padding: 14px; border-radius: 10px; color: #161a1d; 
                 box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
             }}
             .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
@@ -119,24 +119,25 @@ def mostrar_modal_comprobante_vacunacion():
             .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
 
+            /* MARCA DE AGUA MEJORADA */
             .watermark-overlay {{
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                 display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
                 pointer-events: none; z-index: 1; overflow: hidden;
             }}
             .watermark-row {{
-                display: flex; gap: 15px; white-space: nowrap; font-size: 0.85rem; font-weight: 900;
-                color: rgba(30, 91, 79, 0.10); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
+                display: flex; gap: 30px; white-space: nowrap; font-size: 0.82rem; font-weight: 900;
+                color: rgba(30, 91, 79, 0.08); text-transform: uppercase; letter-spacing: 2px; transform: rotate(-25deg);
             }}
+
             .btn-container {{ display: flex; gap: 8px; }}
-            .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; box-sizing: border-box; }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
-            .btn-img {{ background-color: #1e5b4f; color: white; }}
+            .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; box-sizing: border-box; }}
         </style>
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
                 <div class="watermark-overlay">
+                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
                     <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
                     <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
                 </div>
@@ -153,24 +154,9 @@ def mostrar_modal_comprobante_vacunacion():
                 <div class="folio-grande">Folio: {folio_val}</div>
             </div>
             <div class="btn-container">
-                <button class="btn btn-wa" onclick="compartirImagenWhatsApp()">💬 WhatsApp (Img)</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
+                <button class="btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
             </div>
             <script>
-            function compartirImagenWhatsApp() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
-                    canvas.toBlob(blob => {{
-                        const fileName = 'Comprobante_Vacunacion_{folio_val}.png';
-                        const textoMensaje = `💉 *COMPROBANTE DE VACUNACIÓN*\\nPaciente: {nombre_val}\\nFolio: *{folio_val}*\\nDosis: {dosis_val}\\nLotes: {lotes_val}\\nFecha Aplicación: {fecha_val}\\n✅ Verificado con Sello QR Oficial.`;
-                        const enlace = document.createElement('a');
-                        enlace.download = fileName;
-                        enlace.href = URL.createObjectURL(blob);
-                        enlace.click();
-                        window.open('https://wa.me/?text=' + encodeURIComponent(textoMensaje), '_blank');
-                    }}, 'image/png');
-                }});
-            }}
             function descargarCaptura() {{
                 const elemento = document.getElementById('comprobante-captura');
                 html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
