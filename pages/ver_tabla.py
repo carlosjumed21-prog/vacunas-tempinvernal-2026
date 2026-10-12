@@ -157,9 +157,7 @@ else:
                 if tiene_aplicacion_ag_aq:
                     indices_filas_verdes.extend([contador_df_idx, contador_df_idx + 1])
 
-                # Fila 1 (Principal): Lleva booleano False para mostrar la casilla interactiva
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 (CURP): Lleva None en la columna de selección para OCULTAR la casilla en esta fila doble
                 fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
@@ -264,86 +262,88 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- USO DE PANDAS STYLER PARA PINTAR TODA LA FILA DE VERDE CON GARANTÍA NATIVA ---
-            def color_filas_completas(row):
-                if row.name in indices_filas_verdes:
-                    return ['background-color: #e2f0d9; color: #111111'] * len(row)
-                return [''] * len(row)
+            # --- FRAGMENTO AISLADO PARA LA TABLA Y ELIMINACIÓN (MEJORA DE FLUIDEZ) ---
+            @st.fragment
+            def render_seccion_tabla_interactiva():
+                def color_filas_completas(row):
+                    if row.name in indices_filas_verdes:
+                        return ['background-color: #e2f0d9; color: #111111'] * len(row)
+                    return [''] * len(row)
 
-            df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+                df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
 
-            # --- TABLA EDITABLE CON CONFIGURACIÓN DE COLUMNAS ---
-            column_configs = {
-                "Seleccionar": st.column_config.CheckboxColumn(
-                    "Seleccionar",
-                    help="Marque la casilla para seleccionar este paciente",
-                    default=False,
+                column_configs = {
+                    "Seleccionar": st.column_config.CheckboxColumn(
+                        "Seleccionar",
+                        help="Marque la casilla para seleccionar este paciente",
+                        default=False,
+                    )
+                }
+                for col in encabezados_combinados:
+                    if col != "Seleccionar":
+                        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+                df_editado = st.data_editor(
+                    df_estilizado,
+                    use_container_width=True,
+                    height=550,
+                    hide_index=True,
+                    column_config=column_configs
                 )
-            }
-            for col in encabezados_combinados:
-                if col != "Seleccionar":
-                    column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-            df_editado = st.data_editor(
-                df_estilizado,
-                use_container_width=True,
-                height=550,
-                hide_index=True,
-                column_config=column_configs
-            )
+                if btn_eliminar:
+                    indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                    pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
 
-            # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
-            if btn_eliminar:
-                indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-                pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
-
-                if not pacientes_a_eliminar:
-                    st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-                else:
-                    try:
-                        mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
-                        
-                        filas_gs_a_borrar = []
-                        for paciente_idx in pacientes_a_eliminar:
-                            if paciente_idx < len(mapeo_indices):
-                                idx_par_real = mapeo_indices[paciente_idx]
-                                fila_fisica_1 = idx_par_real + 14
-                                fila_fisica_2 = idx_par_real + 15
-                                filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
-
-                        filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
-
-                        for fila_gs in filas_gs_a_borrar:
-                            ws.delete_rows(fila_gs)
-
-                        # --- RECALCULAR LA COLUMNA A (CONSECUTIVO) ---
-                        datos_actualizados = ws.get_all_values()
-                        if len(datos_actualizados) >= 14:
-                            filas_actuales = datos_actualizados[13:]
+                    if not pacientes_a_eliminar:
+                        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+                    else:
+                        try:
+                            mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
                             
-                            contador = 1
-                            updates = []
-                            for i in range(0, len(filas_actuales), 2):
-                                row = filas_actuales[i]
-                                if len(row) > 0 and row[0].strip() != "":
-                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
-                                    updates.append({
-                                        'range': cell_coord,
-                                        'values': [[str(contador)]]
-                                    })
-                                    contador += 1
+                            filas_gs_a_borrar = []
+                            for paciente_idx in pacientes_a_eliminar:
+                                if paciente_idx < len(mapeo_indices):
+                                    idx_par_real = mapeo_indices[paciente_idx]
+                                    fila_fisica_1 = idx_par_real + 14
+                                    fila_fisica_2 = idx_par_real + 15
+                                    filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
-                            if updates:
-                                ws.batch_update(updates)
+                            filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
 
-                        if cache_key in st.session_state:
-                            del st.session_state[cache_key]
+                            for fila_gs in filas_gs_a_borrar:
+                                ws.delete_rows(fila_gs)
 
-                        st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
-                        st.rerun()
+                            datos_actualizados = ws.get_all_values()
+                            if len(datos_actualizados) >= 14:
+                                filas_actuales = datos_actualizados[13:]
+                                
+                                contador = 1
+                                updates = []
+                                for i in range(0, len(filas_actuales), 2):
+                                    row = filas_actuales[i]
+                                    if len(row) > 0 and row[0].strip() != "":
+                                        cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
+                                        updates.append({
+                                            'range': cell_coord,
+                                            'values': [[str(contador)]]
+                                        })
+                                        contador += 1
 
-                    except Exception as e:
-                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+                                if updates:
+                                    ws.batch_update(updates)
+
+                            if cache_key in st.session_state:
+                                del st.session_state[cache_key]
+
+                            st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
+                            st.rerun()
+
+                        except Exception as e:
+                            st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+
+            # Ejecutamos el fragmento interactivo
+            render_seccion_tabla_interactiva()
 
         else:
             st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
