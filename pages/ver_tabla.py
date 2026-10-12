@@ -157,8 +157,10 @@ else:
                 if tiene_aplicacion_ag_aq:
                     indices_filas_verdes.extend([contador_df_idx, contador_df_idx + 1])
 
+                # Fila 1 (Principal): SÍ lleva checkbox booleano habilitado
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
+                # Fila 2 (CURP): NO lleva checkbox (se pone una cadena vacía "" o valor no booleano para que la celda aparezca inactiva/vacía en esa columna)
+                fila_v2 = [""] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
@@ -168,7 +170,6 @@ else:
 
             columnas_con_check = ["Seleccionar"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
-            df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
             st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
@@ -263,7 +264,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- USO DE ST.DATAFRAME CON PANDAS STYLER PARA PINTAR LAS FILAS COMPLETAS ---
+            # --- ESTILIZADO CON PANDAS STYLER PARA PINTAR AMBAS FILAS DE VERDE ---
             def color_filas_aplicadas(row):
                 if row.name in indices_filas_verdes:
                     return ['background-color: #e2f0d9'] * len(row)
@@ -271,9 +272,8 @@ else:
 
             df_estilizado = df_tabla_segura.style.apply(color_filas_aplicadas, axis=1)
 
-            # Nota: st.dataframe muestra de forma limpia y garantizada las filas coloreadas con Pandas Styler.
-            # Si requieres edición de celdas directas, usa st.data_editor. Aquí empleamos st.dataframe optimizado visualmente:
-            df_editado = st.dataframe(
+            # --- TABLA EDITABLE ---
+            df_editado = st.data_editor(
                 df_estilizado,
                 use_container_width=True,
                 height=550,
@@ -281,16 +281,66 @@ else:
                 column_config={
                     "Seleccionar": st.column_config.CheckboxColumn(
                         "Seleccionar",
-                        help="Marque la casilla para seleccionar este paciente",
+                        help="Marque la casilla para seleccionar este paciente (solo disponible en la fila principal)",
                         default=False,
                     )
                 }
             )
 
-            # --- ACCIÓN DE ELIMINACIÓN ---
+            # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                # Nota: Si el usuario marca desde la interfaz visual y hace clic, se capturan las filas seleccionadas de la estructura
-                pass
+                # Como la casilla está exclusivamente en las filas pares (índices 0, 2, 4...), 
+                # al estar marcada, su índice dividido por 2 nos da exactamente el paciente correspondiente.
+                indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
+
+                if not pacientes_a_eliminar:
+                    st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+                else:
+                    try:
+                        mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
+                        
+                        filas_gs_a_borrar = []
+                        for paciente_idx in pacientes_a_eliminar:
+                            if paciente_idx < len(mapeo_indices):
+                                idx_par_real = mapeo_indices[paciente_idx]
+                                fila_fisica_1 = idx_par_real + 14
+                                fila_fisica_2 = idx_par_real + 15
+                                filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
+
+                        filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
+
+                        for fila_gs in filas_gs_a_borrar:
+                            ws.delete_rows(fila_gs)
+
+                        # --- RECALCULAR LA COLUMNA A (CONSECUTIVO) ---
+                        datos_actualizados = ws.get_all_values()
+                        if len(datos_actualizados) >= 14:
+                            filas_actuales = datos_actualizados[13:]
+                            
+                            contador = 1
+                            updates = []
+                            for i in range(0, len(filas_actuales), 2):
+                                row = filas_actuales[i]
+                                if len(row) > 0 and row[0].strip() != "":
+                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
+                                    updates.append({
+                                        'range': cell_coord,
+                                        'values': [[str(contador)]]
+                                    })
+                                    contador += 1
+
+                            if updates:
+                                ws.batch_update(updates)
+
+                        if cache_key in st.session_state:
+                            del st.session_state[cache_key]
+
+                        st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
 
         else:
             st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
