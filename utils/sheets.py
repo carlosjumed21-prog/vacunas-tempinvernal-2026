@@ -7,28 +7,47 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread leyendo GOOGLE_CREDENTIALS como JSON plano."""
+    """Autentica y retorna el cliente de gspread leyendo de forma directa y flexible st.secrets."""
     creds_dict = None
 
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_val = st.secrets["GOOGLE_CREDENTIALS"]
-        if isinstance(raw_val, str):
-            try:
-                creds_dict = json.loads(raw_val)
-            except Exception as err:
-                raise ValueError(f"Error al decodificar el JSON de GOOGLE_CREDENTIALS: {err}")
-        elif isinstance(raw_val, dict):
-            creds_dict = dict(raw_val)
+    # Intentar leer directamente de st.secrets["GOOGLE_CREDENTIALS"]
+    try:
+        if "GOOGLE_CREDENTIALS" in st.secrets:
+            val = st.secrets["GOOGLE_CREDENTIALS"]
+            if isinstance(val, dict):
+                creds_dict = dict(val)
+            elif isinstance(val, str):
+                creds_dict = json.loads(val)
+    except Exception as e:
+        raise ValueError(f"Error al procesar GOOGLE_CREDENTIALS en los secretos: {e}")
+
+    # Si no se encontró arriba, buscar iterando en los secretos disponibles
+    if not creds_dict:
+        for k in st.secrets.keys():
+            if k == "email":
+                continue
+            sub_val = st.secrets[k]
+            if isinstance(sub_val, dict) and "client_email" in sub_val:
+                creds_dict = dict(sub_val)
+                break
+            elif isinstance(sub_val, str):
+                try:
+                    parsed = json.loads(sub_val)
+                    if isinstance(parsed, dict) and "client_email" in parsed:
+                        creds_dict = parsed
+                        break
+                except Exception:
+                    pass
 
     if not creds_dict or "client_email" not in creds_dict:
+        keys_encontradas = list(st.secrets.keys())
         raise ValueError(
-            "No se encontraron las credenciales de la cuenta de servicio de Google Sheets en st.secrets."
+            f"No se encontró la llave de Google en st.secrets. Llaves actuales disponibles: {keys_encontradas}"
         )
 
-    # Reemplazo estricto y limpio de los saltos de línea para evitar el error de PEM
+    # Normalizar saltos de línea de la llave privada de forma segura
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         pk = creds_dict["private_key"]
-        # Convertir literales '\\n' en saltos de línea reales '\n'
         pk = pk.replace("\\n", "\n")
         creds_dict["private_key"] = pk.strip()
 
@@ -131,7 +150,7 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
-        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
+-        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
 
         fila_registro_principal = [
             str(consecutivo),
