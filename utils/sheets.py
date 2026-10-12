@@ -7,29 +7,37 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-  """Autentica y retorna el cliente de gspread manejando tanto formato de texto JSON como tabla TOML."""
+  """Autentica y retorna el cliente de gspread de manera segura."""
   creds_dict = None
 
+  # Verificamos si existe GOOGLE_CREDENTIALS en los secretos
   if "GOOGLE_CREDENTIALS" in st.secrets:
-    raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-    if isinstance(raw_creds, str):
-      creds_dict = json.loads(raw_creds)
-    elif isinstance(raw_creds, dict):
-      creds_dict = dict(raw_creds)
+    val = st.secrets["GOOGLE_CREDENTIALS"]
+    if isinstance(val, str):
+      try:
+        creds_dict = json.loads(val)
+      except Exception as err:
+        raise ValueError(
+            f"El formato JSON de GOOGLE_CREDENTIALS es inválido: {err}"
+        )
+    elif isinstance(val, dict):
+      creds_dict = dict(val)
     else:
-      # Manejo para contenedores o estructuras anidadas de Streamlit
-      creds_dict = dict(raw_creds)
-  elif "gpex" in st.secrets:
-    creds_dict = dict(st.secrets["gpex"])
+      creds_dict = dict(val)
   else:
-    primera_llave = list(st.secrets.keys())[0]
-    creds_dict = dict(st.secrets[primera_llave])
+    # Si por alguna razón se leyó como un diccionario plano general de secretos
+    for key in st.secrets.keys():
+      if key != "email":
+        potential_dict = st.secrets[key]
+        if isinstance(potential_dict, dict) and "client_email" in potential_dict:
+          creds_dict = dict(potential_dict)
+          break
 
-  # Asegurarnos de que las llaves esenciales existan explícitamente si vinieran de un formato mapeado
-  if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-    # Reemplazar los saltos de línea escapados si el formato lo requiere
-    creds_dict["private_key"] = creds_dict["private_key"].replace(
-        "\\n", "\n"
+  if not creds_dict or "client_email" not in creds_dict:
+    raise ValueError(
+        "No se encontraron las credenciales de la cuenta de servicio de Google"
+        " Sheets en los secretos. Revisa que la sección o variable"
+        " 'GOOGLE_CREDENTIALS' esté bien escrita en Streamlit Cloud."
     )
 
   creds = service_account.Credentials.from_service_account_info(
