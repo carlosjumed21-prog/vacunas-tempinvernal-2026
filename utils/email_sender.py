@@ -4,9 +4,10 @@ from email.mime.text import MIMEText
 import streamlit as st
 import urllib.parse
 
-def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val):
+def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
     """
-    Envía el Folio de Registro por correo con un diseño HTML idéntico a la tarjeta de registro nominal.
+    Envía por correo el Folio de Registro (para formulario) o el Comprobante Oficial (para consulta),
+    respetando el asunto y el diseño visual de cada interfaz.
     """
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
@@ -19,21 +20,34 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg = MIMEMultipart('alternative')
     msg['From'] = remitente_email
     msg['To'] = destinatario_email
-    msg['Subject'] = f"Folio de Registro de Vacunación - {folio}"
     
-    # Texto QR idéntico al del modal de registro
+    # Asuntos diferenciados según la interfaz de origen
+    if tipo == "comprobante":
+        msg['Subject'] = "COMPROBANTE DE VACUNACIÓN - GRACIAS POR CUIDAR DE SU SALUD"
+        titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
+        texto_marca_agua = "COMPROBANTE OFICIAL VIGILE"
+        texto_qr_header = "ISSSTE - COMPROBANTE OFICIAL VIGILE"
+        leyenda_inferior = ""
+        color_marca = "rgba(30, 91, 79, 0.08)"
+    else:
+        msg['Subject'] = "FOLIO DE REGISTRO - NO ES UN COMPROBANTE"
+        titulo_tarjeta = "FOLIO DE VACUNACION REGISTRADO"
+        texto_marca_agua = "NO ES UN COMPROBANTE OFICIAL"
+        texto_qr_header = "ISSSTE - REGISTRO DE FOLIO VIGILE"
+        leyenda_inferior = "Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial."
+        color_marca = "rgba(97, 18, 50, 0.10)"
+
     texto_qr = (
-        f"ISSSTE - REGISTRO DE FOLIO VIGILE\n"
+        f"{texto_qr_header}\n"
         f"FOLIO: {folio}\n"
         f"PACIENTE: {nombre_paciente}\n"
-        f"VACUNA: {dosis_str}\n"
-        f"GRUPO: {lotes_str}\n"
-        f"FECHA: {fecha_val}\n"
+        f"DOSIS/VACUNA: {dosis_str}\n"
+        f"LOTES/GRUPO: {lotes_str}\n"
+        f"FECHA APLICACIÓN: {fecha_val}\n"
         f"ESTADO: REGISTRADO"
     )
     url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=130x130&data={urllib.parse.quote(texto_qr)}"
 
-    # HTML idéntico al diseño de la tarjeta de registro con marca de agua y leyendas
     html_cuerpo = f"""
     <!DOCTYPE html>
     <html>
@@ -53,7 +67,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         }}
         .watermark-row {{
             display: flex; gap: 15px; white-space: nowrap; font-size: 0.75rem; font-weight: 900;
-            color: rgba(97, 18, 50, 0.10); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
+            color: {color_marca}; text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
         }}
         .titulo-ticket {{ font-size: 0.95rem; font-weight: 900; color: #1e5b4f; text-align: center; margin: 0 0 10px 0; z-index: 2; position: relative; }}
         .cuerpo-ticket {{ display: flex; align-items: center; justify-content: space-between; gap: 15px; z-index: 2; position: relative; }}
@@ -67,24 +81,24 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     <body>
         <div class="card-comprobante">
             <div class="watermark-overlay">
-                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
             </div>
-            <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
+            <div class="titulo-ticket">{titulo_tarjeta}</div>
             <div class="cuerpo-ticket">
                 <div class="info-container">
                     <p class="info-text"><b>Paciente:</b> {nombre_paciente}</p>
-                    <p class="info-text"><b>Vacuna:</b> {dosis_str}</p>
-                    <p class="info-text"><b>Grupo:</b> {lotes_str}</p>
-                    <p class="info-text"><b>Fecha:</b> {fecha_val}</p>
+                    <p class="info-text"><b>Dosis/Vacuna:</b> {dosis_str}</p>
+                    <p class="info-text"><b>Lotes/Grupo:</b> {lotes_str}</p>
+                    <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
                 </div>
                 <div class="qr-container">
                     <img src="{url_qr_api}" alt="QR Verificación">
                 </div>
             </div>
             <div class="folio-grande">Folio: {folio}</div>
-            <div class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</div>
+            {"<div class='leyenda-posterior'>" + leyenda_inferior + "</div>" if leyenda_inferior else ""}
         </div>
     </body>
     </html>
@@ -97,6 +111,6 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         servidor.login(remitente_email, remitente_password)
         servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
         servidor.quit()
-        return True, "¡Folio de registro enviado exitosamente por correo!"
+        return True, "¡Correo enviado exitosamente!"
     except Exception as e:
         return False, f"Error al conectar con el servidor de correo: {e}"
