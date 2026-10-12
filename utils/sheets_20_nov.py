@@ -1,32 +1,7 @@
 import datetime
-import gspread
-from google.oauth2.service_account import Credentials
 import streamlit as st
 from config import GOOGLE_SHEET_ID
-
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-def obtener_cliente_gspread():
-    """Conecta con Google Sheets usando la misma estructura de secretos del proyecto."""
-    # Intentar con la clave estándar de Streamlit o la que usa el proyecto
-    if "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-    elif "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-        # Por si usa el conector nativo de gsheets
-        creds_dict = dict(st.secrets["connections"]["gsheets"])
-    else:
-        # Intentar cargar directo desde st.secrets si está plano
-        try:
-            creds_dict = dict(st.secrets)
-        except Exception:
-            raise Exception("No se pudieron cargar las credenciales de Google Sheets desde st.secrets.")
-
-    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
+from utils.sheets import obtener_cliente_gspread
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """
