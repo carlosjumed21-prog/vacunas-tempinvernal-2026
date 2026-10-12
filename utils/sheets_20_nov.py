@@ -5,6 +5,24 @@ import gspread
 import streamlit as st
 from config import GOOGLE_SCOPES
 
+def obtener_cliente_gspread():
+    """Autentica y retorna el cliente de gspread utilizando los secretos del proyecto."""
+    scope = GOOGLE_SCOPES
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = (
+            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        )
+    elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=scope
+    )
+    return gspread.authorize(creds)
 
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
@@ -16,23 +34,7 @@ def guardar_registro_censal(
             f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
         )
 
-        scope = GOOGLE_SCOPES
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = (
-                json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-            )
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
-
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
-        client = gspread.authorize(creds)
-        
+        client = obtener_cliente_gspread()
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
 
@@ -75,11 +77,6 @@ def guardar_registro_censal(
         colonia = datos_paciente["colonia"]
         curp_con_nacimiento = datos_paciente["curp_con_nacimiento"]
         cuenta_derechohabiencia = datos_paciente["cuenta_derechohabiencia"]
-        grupo_sugerido = datos_paciente["grupo_sugerido"]
-        planes_o_embarazo = datos_paciente.get("planes_o_embarazo", "NO")
-        ocupacion = datos_paciente["ocupacion"]
-        comorbilidades = datos_paciente["comorbilidades"]
-        
         responsable_brigada = datos_paciente.get("responsable", "")
 
         dia_n = str(fecha_nacimiento.day).zfill(2)
@@ -177,23 +174,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
     en la hoja nominal duplicada y en la hoja de censo correspondiente.
     """
     try:
-        scope = GOOGLE_SCOPES
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = (
-                json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-            )
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
-
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
-        client = gspread.authorize(creds)
-        
+        client = obtener_cliente_gspread()
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
 
