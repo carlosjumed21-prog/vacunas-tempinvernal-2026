@@ -258,14 +258,17 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
         if registros and isinstance(registros, list) and len(registros) > 0:
             max_consecutivo = 0
             for reg in registros:
-                # Buscar en las variantes comunes de la Columna B (Folio)
-                folio_existente = str(reg.get("Folio", reg.get("folio", reg.get("FOLIO", ""))))
+                # Buscar en las variantes comunes de la Columna B (Folio) y limpiar espacios
+                folio_existente = str(reg.get("Folio", reg.get("folio", reg.get("FOLIO", "")))).strip()
                 if "-" in folio_existente:
                     try:
                         partes = folio_existente.split("-")
-                        num_actual = int(partes[-1])
-                        if num_actual > max_consecutivo:
-                            max_consecutivo = num_actual
+                        # Extraer estrictamente los dígitos del segmento final para evitar ceros o errores de formato
+                        num_str = "".join([c for c in partes[-1] if c.isdigit()])
+                        if num_str:
+                            num_actual = int(num_str)
+                            if num_actual > max_consecutivo:
+                                max_consecutivo = num_actual
                     except ValueError:
                         pass
             
