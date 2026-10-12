@@ -1,5 +1,4 @@
 import datetime
-import base64
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 from google.oauth2 import service_account
 import gspread
@@ -7,40 +6,52 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread reparando cualquier alteración de padding en la llave PEM."""
+    """Autentica y retorna el cliente de gspread normalizando correctamente la llave privada."""
     if "GOOGLE_CREDENTIALS" not in st.secrets:
-        raise ValueError("No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos.")
+        raise ValueError("No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos de Streamlit Cloud.")
 
-    creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
+    # Extraer los datos de la sección de secretos de forma segura
+    secret_section = st.secrets["GOOGLE_CREDENTIALS"]
+    creds_dict = {
+        "type": secret_section.get("type", "service_account"),
+        "project_id": secret_section.get("project_id"),
+        "private_key_id": secret_section.get("private_key_id"),
+        "private_key": secret_section.get("private_key"),
+        "client_email": secret_section.get("client_email"),
+        "client_id": secret_section.get("client_id"),
+        "auth_uri": secret_section.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
+        "token_uri": secret_section.get("token_uri", "https://oauth2.googleapis.com/token"),
+        "auth_provider_x509_cert_url": secret_section.get("auth_provider_x509_cert_url", "https://www.googleapis.com/oauth2/v1/certs"),
+        "client_x509_cert_url": secret_section.get("client_x509_cert_url"),
+        "universe_domain": secret_section.get("universe_domain", "googleapis.com")
+    }
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"]
-        
-        # Limpiar retornos de carro y espacios sobrantes
+    pk = creds_dict.get("private_key", "")
+    if pk:
+        # Limpiar retornos de carro y espacios extras
         pk = pk.replace("\r", "").strip()
         
-        # Extraer estrictamente el contenido entre los headers si viene mezclado
-        if "BEGIN PRIVATE KEY" in pk:
-            lines = pk.split("\n")
-            clean_lines = []
-            recording = False
-            for line in lines:
-                if "BEGIN PRIVATE KEY" in line:
-                    recording = True
-                    clean_lines.append("-----BEGIN PRIVATE KEY-----")
-                    continue
-                if "END PRIVATE KEY" in line:
-                    clean_lines.append("-----END PRIVATE KEY-----")
-                    recording = False
-                    continue
-                if recording:
-                    # Eliminar espacios internos en la cadena base64 que rompen el padding
-                    stripped = line.strip()
-                    if stripped:
-                        clean_lines.append(stripped)
-            pk = "\n".join(clean_lines)
+        # Si la llave viene con caracteres '\\n' escapados, los convertimos a saltos de línea reales
+        if "\\n" in pk and "\n" not in pk:
+            pk = pk.replace("\\n", "\n")
             
-        creds_dict["private_key"] = pk
+        # Asegurarnos de que las cabeceras estén limpias y sin espacios internos
+        lines = [line.strip() for line in pk.split("\n") if line.strip()]
+        
+        # Reconstruir el bloque PEM de forma exacta
+        header = "-----BEGIN PRIVATE KEY-----"
+        footer = "-----END PRIVATE KEY-----"
+        
+        if header in lines:
+            lines.remove(header)
+        if footer in lines:
+            lines.remove(footer)
+            
+        # Formatear el contenido base64 en líneas exactas de 64 caracteres (requisito estricto de padding RSA)
+        body_joined = "".join(lines)
+        chunks = [body_joined[i:i+64] for i in range(0, len(body_joined), 64)]
+        
+        creds_dict["private_key"] = f"{header}\n" + "\n".join(chunks) + f"\n{footer}\n"
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
