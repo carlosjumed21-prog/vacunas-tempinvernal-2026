@@ -6,9 +6,8 @@ SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas):
     """
-    Crea las pestañas correspondientes en la hoja de Google Sheets exclusiva del CMN 20 de Noviembre,
-    insertándolas al inicio (delante de las hojas principales) para mantener el orden,
-    y asegurando la estructura de censo nominal con los encabezados institucionales.
+    Crea las dos pestañas correspondientes (_NOMINAL y _CENSO) en la hoja de Google Sheets 
+    exclusiva del CMN 20 de Noviembre, insertándolas al inicio para mantener el orden.
     """
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(SHEET_ID_20_NOV)
@@ -17,50 +16,59 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
     
     for j_conf in config_jornadas_activas:
         fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
-        nombre_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+        
+        # Nombres oficiales de las dos hojas requeridas para el 20 de Noviembre
+        nombre_hoja_nominal = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+        nombre_hoja_censo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
         
         try:
-            # Verificar si ya existe para evitar duplicados exactos
+            # --- 1. CREACIÓN DE LA HOJA NOMINAL ---
             try:
-                ws_existente = spreadsheet.worksheet(nombre_hoja)
-                gid = ws_existente.id
-                hojas_creadas.append({
-                    "nombre": nombre_hoja,
-                    "sheet_id": SHEET_ID_20_NOV,
-                    "gid": gid,
-                    "unidad": unidad_sel,
-                    "tipo_jornada": jornada_sel,
-                    "correo": j_conf["correo"]
-                })
-                continue
+                copia_1 = spreadsheet.worksheet(nombre_hoja_nominal)
             except gspread.exceptions.WorksheetNotFound:
-                pass
-            
-            # Duplicar plantilla base o crear nueva hoja insertándola al principio (index=0)
-            try:
-                plantilla = spreadsheet.worksheet("CENSO")
-                nueva_hoja = spreadsheet.duplicate_sheet(plantilla.id, new_sheet_name=nombre_hoja, insert_sheet_index=0)
-            except Exception:
-                # Si no existe la plantilla CENSO, crea una nueva hoja en la posición 0 (al frente)
-                nueva_hoja = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=35, index=0)
-                
-                # Encabezados institucionales y de cabecera específicos para el 20 de Noviembre
-                encabezados_institucionales = [
-                    ["SUBDIRECCIÓN MÉDICA - CENTRO MÉDICO NACIONAL '20 DE NOVIEMBRE'"],
-                    [f"JORNADA: {jornada_sel} | RESPONSABLE: {j_conf['responsable']}"],
-                    [f"FECHA DE APLICACIÓN: {j_conf['fecha'].strftime('%d/%m/%Y')} | DIRECCIÓN: {j_conf['direccion']}"],
-                    [],
-                    ["No.", "FOLIO", "RFC", "DERECHOHABIENCIA", "TIPO DH", "¿TRABAJA EN CMN 20N?", "NO. TRABAJADOR", "PERSONAL SALUD", 
-                     "CATEGORÍA", "SERVICIO", "COORDINACIÓN", "TURNO", "PATERNO", "MATERNO", "NOMBRE", 
-                     "ESTADO NAC.", "MUNICIPIO NAC.", "DÍA NAC.", "MES NAC.", "AÑO NAC.", "AÑOS", "MESES", 
-                     "SEXO", "EMBARAZO", "CURP", "CALLE", "NÚMERO", "COLONIA", "CORREO", "VACUNA INTERÉS", "GRUPO OBJETIVO", "FECHA REGISTRO"]
-                ]
-                nueva_hoja.append_rows(encabezados_institucionales)
+                try:
+                    plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
+                    copia_1 = spreadsheet.duplicate_sheet(
+                        plantilla_1.id, 
+                        insert_sheet_index=0, 
+                        new_sheet_name=nombre_hoja_nominal
+                    )
+                except Exception:
+                    copia_1 = spreadsheet.add_worksheet(title=nombre_hoja_nominal, rows=1000, cols=35, index=0)
 
-            gid_nueva = nueva_hoja.id
+            # --- 2. CREACIÓN DE LA HOJA DE CENSO TABULAR ---
+            try:
+                spreadsheet.worksheet(nombre_hoja_censo)
+            except gspread.exceptions.WorksheetNotFound:
+                try:
+                    plantilla_2 = spreadsheet.worksheet("CENSO")
+                    spreadsheet.duplicate_sheet(
+                        plantilla_2.id, 
+                        insert_sheet_index=1, 
+                        new_sheet_name=nombre_hoja_censo
+                    )
+                except Exception:
+                    spreadsheet.add_worksheet(title=nombre_hoja_censo, rows=1000, cols=35, index=1)
+
+            # Actualizar datos de cabecera en la hoja nominal activa
+            try:
+                copia_1.update_acell("D7", "CDMX")
+                copia_1.update_acell("M7", "ISSSTE")
+                copia_1.update_acell("T7", "Delegación Sur")
+                copia_1.update_acell("AB7", "CDMX")
+                copia_1.update_acell("D8", "CDMX")
+                copia_1.update_acell("D9", unidad_sel)
+                copia_1.update_acell("M9", "")
+                copia_1.update_acell("S9", "")
+                copia_1.update_acell("AB9", j_conf["fecha"].strftime('%d/%m/%Y'))
+                copia_1.update_acell("E10", j_conf["responsable"])
+            except Exception:
+                pass
+
+            gid_nueva = copia_1.id
             
             hojas_creadas.append({
-                "nombre": nombre_hoja,
+                "nombre": nombre_hoja_nominal,
                 "sheet_id": SHEET_ID_20_NOV,
                 "gid": gid_nueva,
                 "unidad": unidad_sel,
