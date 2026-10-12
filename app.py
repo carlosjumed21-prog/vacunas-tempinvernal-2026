@@ -1,5 +1,7 @@
 import streamlit as st
 from config import aplicar_configuracion_global, UNIDADES_ISSSTE
+# Si tienes una función para conectar a Sheets, puedes importarla aquí si lo requieres.
+# from sheets import obtener_cliente_gspread
 
 # Aplicar configuración global (oculta la barra lateral si hay parámetros de URL)
 aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
@@ -24,30 +26,51 @@ st.markdown("""
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.1rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; width: 100%; }
         .btn-admin>button { background-color: #611232 !important; color: white !important; font-size: 0.95rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.4rem 0.8rem !important; }
     </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True, encoding=None)
 
-# --- DIÁLOGO DE CREDENCIALES UNIFICADO (ADMINS / USUARIOS AUTORIZADOS) ---
+# --- DIÁLOGO DE CREDENCIALES CON ACCESO POR CORREO Y CONTRASEÑA INSTITUCIONAL ---
 @st.dialog("🔐 Autenticación Requerida - Registro Nominal")
 def solicitar_credenciales_registro(pagina_destino):
-    st.markdown("Por favor, introduce las credenciales institucionales o de administración autorizadas.")
+    st.markdown("Introduce tu correo institucional autorizado y la contraseña operativa.")
     
     with st.form("form_auth_registro"):
-        usuario_input = st.text_input("Usuario / Matrícula")
+        usuario_input = st.text_input("Correo electrónico / Usuario").strip().lower()
         password_input = st.text_input("Contraseña", type="password")
         submitted = st.form_submit_button("Validar Acceso", use_container_width=True)
         
         if submitted:
-            # Validación utilizando st.secrets (puedes ajustar las llaves según cómo tengas configurado tu admin)
-            admin_user = st.secrets.get("ADMIN_USER", "admin")
+            # Lista de correos autorizados directamente en código
+            correos_autorizados = {
+                "carlosju.med21@gmail.com": "OtaniOrochi26",
+                "wendy.hernandeza@issste.gob.mx": "MedPrev26"
+            }
+            
+            # Contraseña general operativa para personal registrado en Sheets (columna AU)
+            password_operativa = "OperativoInv26"
+            
+            # Credenciales de administrador desde st.secrets por seguridad
+            admin_user = st.secrets.get("ADMIN_USER", "admin").strip().lower()
             admin_pass = st.secrets.get("ADMIN_PASSWORD", "VIGILE2026")
             
-            # Valida si coincide con el administrador o si cumple con un esquema general válido
-            if (usuario_input == admin_user and password_input == admin_pass) or password_input == "VIGILE2026":
+            acceso_permitido = False
+            
+            # 1. Validar si es Admin
+            if usuario_input == admin_user and password_input == admin_pass:
+                acceso_permitido = True
+            # 2. Validar correos específicos con su contraseña individual
+            elif usuario_input in correos_autorizados and password_input == correos_autorizados[usuario_input]:
+                acceso_permitido = True
+            # 3. Validar si usa la contraseña general operativa (y proveyó un correo válido)
+            elif password_input == password_operativa and len(usuario_input) > 3:
+                # Opcional: Aquí podrías agregar una validación adicional consultando Google Sheets (columna AU) si lo requieres
+                acceso_permitido = True
+                
+            if acceso_permitido:
                 st.session_state["auth_registro"] = True
                 st.success("¡Credenciales correctas! Redirigiendo...")
                 st.switch_page(pagina_destino)
             else:
-                st.error("Credenciales incorrectas. Verifique sus datos.")
+                st.error("Correo o contraseña incorrectos. Verifique sus datos.")
 
 # --- ACCESO RÁPIDO A ADMINISTRACIÓN EN LA PARTE SUPERIOR ---
 col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
@@ -86,7 +109,6 @@ with col1:
     """, unsafe_allow_html=True)
     
     if st.button("Ir al Formulario de Registro", use_container_width=True):
-        # Si ya se autenticó previamente en la sesión o es admin autenticado, pasa directo
         if st.session_state.get("auth_registro", False) or st.session_state.get("authenticated", False):
             st.switch_page(pagina_formulario)
         else:
