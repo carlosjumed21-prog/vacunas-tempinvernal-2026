@@ -1,4 +1,4 @@
-# (modificado) pages/1_formulario.py
+# pages/1_formulario.py
 import datetime
 import random
 import streamlit as st
@@ -26,14 +26,14 @@ st.markdown(
         header {visibility: hidden;}
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-[...]
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;[...]
+        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
+        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         .stCheckbox { margin-bottom: 8px !important; }
-        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; ma[...]
-        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; ma[...]
-        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; m[...]
-        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !import[...]
-        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem[...]
+        .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 12px; }
+        .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 12px; }
+        .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 12px; }
+        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 8px; }
+        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1.1rem !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         div[data-baseweb="select"] > div { font-size: 1rem !important; white-space: normal !important; }
     </style>
@@ -178,7 +178,7 @@ def mostrar_modal_comprobante():
             .info-container {{ flex: 1; z-index: 2; position: relative; }}
             .qr-container {{ width: 110px; text-align: center; z-index: 2; position: relative; }}
             .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
-            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px[...]
+            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
             .btn-container {{ display: flex; gap: 8px; }}
@@ -266,15 +266,21 @@ def mostrar_modal_comprobante():
             ]
             for k in keys_a_limpiar:
                 if k in st.session_state:
-                    if "chk_" in k: st.session_state[k] = False
+                    if "chk_" in k:
+                        st.session_state[k] = False
                     elif "sel_" in k:
-                        if k == "sel_dia": st.session_state[k] = "Día"
-                        elif k == "sel_mes": st.session_state[k] = "Mes"
-                        elif k == "sel_anio": st.session_state[k] = "Año"
+                        if k == "sel_dia":
+                            st.session_state[k] = "Día"
+                        elif k == "sel_mes":
+                            st.session_state[k] = "Mes"
+                        elif k == "sel_anio":
+                            st.session_state[k] = "Año"
                     elif k in ["input_sexo", "input_derecho", "input_estnac", "input_estres", "input_ocupacion"]:
                         st.session_state[k] = "SELECCIONE UNA OPCIÓN"
-                    elif "ant_" in k or "input_vacuna" in k: st.session_state[k] = None
-                    else: st.session_state[k] = ""
+                    elif "ant_" in k or "input_vacuna" in k:
+                        st.session_state[k] = None
+                    else:
+                        st.session_state[k] = ""
             st.rerun()
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
@@ -356,29 +362,45 @@ with col_f3:
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
 col_n1, col_n2, col_n3 = st.columns(3)
-with col_n1: paterno = st.text_input("Apellido Paterno *", key="input_paterno")
-with col_n2: materno = st.text_input("Apellido Materno *", key="input_materno")
-with col_n3: nombres = st.text_input("Nombre(s) *", key="input_nombres")
+with col_n1:
+    paterno = st.text_input("Apellido Paterno *", key="input_paterno")
+with col_n2:
+    materno = st.text_input("Apellido Materno *", key="input_materno")
+with col_n3:
+    nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
 st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
 col_d, col_m, col_a = st.columns(3)
-with col_d: dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], key="sel_dia", label_visibility="collapsed")
-with col_m: mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), key="sel_mes", label_visibility="collapsed")
-with col_a: anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], key="sel_anio", label_visibility="collapsed")
+with col_d:
+    dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], key="sel_dia", label_visibility="collapsed")
+with col_m:
+    mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), key="sel_mes", label_visibility="collapsed")
+with col_a:
+    anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], key="sel_anio", label_visibility="collapsed")
 
 fecha_nacimiento = None
 if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
-    try: fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
-    except ValueError: st.error("⚠️ La combinación de fecha seleccionada no es válida.")
+    try:
+        fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
+    except ValueError:
+        st.error("⚠️ La combinación de fecha seleccionada no es válida.")
 
 if fecha_nacimiento:
+    # Mostrar un pequeño resumen de la fecha seleccionada para confirmación
+    st.markdown(
+        f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">'
+        f'<span style="font-size: 1.1rem; font-weight: 700; color: #611232;">Fecha de Nacimiento seleccionada:</span><br>'
+        f'<b>{fecha_nacimiento.strftime("%d/%m/%Y")}</b>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
-if fecha_nacimiento:
-    st.markdown(f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;"><span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {fecha_nacimiento.strftime("%d/%m/%Y")}</span></div>', unsafe_allow_html=True)
-
+# Continuación del formulario (edad, sexo, CURP, domicilio, etc.)
 col_fn2, col_fn3 = st.columns(2)
-with col_fn2: sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="input_sexo")
-with col_fn3: estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, key="input_estnac")
+with col_fn2:
+    sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="input_sexo")
+with col_fn3:
+    estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, key="input_estnac")
 
 personas_gestantes = "NO"
 if sexo == "MUJER":
@@ -394,8 +416,10 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 st.markdown("<br>", unsafe_allow_html=True)
 col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
 with col_img2:
-    try: st.image("assets/INE.png", width=350, caption="📌 Ubicación del Dígito Verificador")
-    except: pass
+    try:
+        st.image("assets/INE.png", width=350, caption="📌 Ubicación del Dígito Verificador")
+    except Exception:
+        pass
 st.markdown("<br>", unsafe_allow_html=True)
 
 digitos_faltantes = st.text_input("Dígito Verificador (Opcional - Últimos caracteres)", max_chars=2, key="input_digitos")
@@ -408,9 +432,12 @@ st.markdown(f'<div class="card-curp">🆔 CURP / RFC Generada: {curp_con_nacimie
 st.markdown('<div class="section-title">3. Domicilio, Correo y Afiliación</div>', unsafe_allow_html=True)
 estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="input_estres")
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-with col_dom1: calle = st.text_input("Calle *", key="input_calle")
-with col_dom2: numero = st.text_input("No. (Ext / Int) *", key="input_num")
-with col_dom3: colonia = st.text_input("Colonia *", key="input_col")
+with col_dom1:
+    calle = st.text_input("Calle *", key="input_calle")
+with col_dom2:
+    numero = st.text_input("No. (Ext / Int) *", key="input_num")
+with col_dom3:
+    colonia = st.text_input("Colonia *", key="input_col")
 
 col_corr1, col_corr2 = st.columns(2)
 with col_corr1:
@@ -473,9 +500,15 @@ with col_av2:
 
 vacuna_interes = st.radio("Seleccione la vacuna de su interés: *", options=["AMBAS", "COVID-19", "INFLUENZA"], index=None, horizontal=True, key="input_vacuna")
 
-tiene_comorbilidades = vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or cancer or cardiacas_congenitas or insuficiencia_renal or inmunosupresion or discapacidades or fibrosis_quistica or hipertension or otro_riesgo or personas_embarazadas or personal_salud_riesgo
+tiene_comorbilidades = (
+    vih or diabetes or obesidad or cardiopatias or enfermedad_pulmonar or cancer or cardiacas_congenitas or
+    insuficiencia_renal or inmunosupresion or discapacidades or fibrosis_quistica or hipertension or otro_riesgo
+)
 
-grupo_sugerido = determinar_grupo_desde_sheets(vacuna_interes, edad_total_meses, calc_anos, "SÍ" if personas_embarazadas else personas_gestantes, ocupacion, tiene_comorbilidades) if vacuna_interes else "POR ASIGNAR"
+grupo_sugerido = determinar_grupo_desde_sheets(
+    vacuna_interes, edad_total_meses, calc_anos, "SÍ" if personas_gestantes else personas_gestantes,
+    ocupacion, tiene_comorbilidades
+) if vacuna_interes else "SIN DATO"
 
 st.markdown('<div class="section-title">7. Grupo Objetivo</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div>', unsafe_allow_html=True)
@@ -542,11 +575,13 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                 )
 
-                st.cache_data.clear()
+                # Evitar limpiar cache globalmente; solo invalidamos folio proyectado específico de sesión
+                st.session_state["folio_proyectado_cached"] = None
+
                 st.session_state.ultimo_paciente_registrado = {
                     "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
-                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,  # <--- Folio exacto y sincronizado con la Columna B
+                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
                     "correo_paciente": correo_paciente.strip(),
                     "fecha_aplicacion": fecha_aplicacion_str,
                 }
