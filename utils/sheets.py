@@ -6,13 +6,18 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando la sección [google] de st.secrets."""
-    if "google" not in st.secrets:
-        raise ValueError(
-            f"No se encontró la sección [google] en st.secrets. Llaves disponibles: {list(st.secrets.keys())}"
-        )
+    """Autentica y retorna el cliente de gspread usando estrictamente la sección [GOOGLE_CREDENTIALS]."""
+    if "GOOGLE_CREDENTIALS" not in st.secrets:
+        raise ValueError("No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos.")
 
-    creds_dict = dict(st.secrets["google"])
+    creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
+
+    # Normalizar los saltos de línea de la llave privada PEM
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        pk = creds_dict["private_key"]
+        if "\\n" in pk and "\n" not in pk:
+            pk = pk.replace("\\n", "\n")
+        creds_dict["private_key"] = pk.strip()
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
@@ -157,7 +162,6 @@ def guardar_registro_censal(
             "",
             "",
             "",
-            дова,
             "",
             "",
             "",
