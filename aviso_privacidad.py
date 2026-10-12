@@ -13,7 +13,7 @@ def mostrar_modal_aviso():
     st.markdown("- La notificación y vigilancia de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización (ESAVI), en estricto cumplimiento con la normatividad vigente.")
     
     st.markdown("**Transferencia y confidencialidad estadística:**")
-    st.markdown("La información podrá ser integrada en informes estadísticos y sistemas oficiales de seguimiento (tales como plataformas institucionales de la Secretaría de Salud y CENSIA) garantizando medidas de confidencialidad y acceso restringido.")
+    st.markdown("La información podrá ser integrada en informes estadísticos y sistemas institucionales de seguimiento, tales como CENSIA (Secretaría de Salud) y el Sistema de Información Estadística de Medicina Preventiva (ISSSTE), garantizando medidas de confidencialidad y acceso restringido.")
     
     st.markdown("**Ejercicio de Derechos ARCO:**")
     st.markdown("Puedes ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición directamente ante la unidad o instancia responsable del programa.")
