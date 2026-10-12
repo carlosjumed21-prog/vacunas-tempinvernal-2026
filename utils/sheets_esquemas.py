@@ -1,4 +1,5 @@
 import json
+import datetime
 from google.oauth2 import service_account
 import gspread
 import streamlit as st
@@ -115,11 +116,11 @@ def cargar_guias_censia():
 
 
 def obtener_recomendaciones_paciente(
-    categoria_paciente, lista_riesgos_detectados, vacuna_registrada
+    categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses=0, antecedente_vacunal="NO"
 ):
-    """Cruza los datos puros del paciente con las guías CENSIA compatible
+    """Cruza los datos del paciente con las guías CENSIA evaluando con precisión
 
-    con los 3 argumentos que envía la interfaz (categoria_paciente, riesgos, vacuna).
+    la edad en meses, antecedentes, comorbilidades y restricciones de biológicos (Pfizer >= 12 años).
     """
     try:
         guia_inf, guia_cov = cargar_guias_censia()
@@ -129,11 +130,6 @@ def obtener_recomendaciones_paciente(
 
         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
-
-        # Extraemos de forma segura edad y antecedentes desde st.session_state si están disponibles,
-        # o estimamos valores por defecto seguros para evitar bloqueos.
-        edad_meses = st.session_state.get("edad_meses", 372)  # Por defecto adulto (31 años)
-        antecedente_vacunal = st.session_state.get("antecedente_vacunal", "SI")
 
         riesgos_up = [r.upper() for r in lista_riesgos_detectados]
         es_embarazada = any("EMBARAZ" in r for r in riesgos_up)
@@ -156,12 +152,12 @@ def obtener_recomendaciones_paciente(
                     if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
                         if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
                             es_match = True
-                        elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                        elif antecedente_vacunal == "SI" and ("ANUAL" in dosis or "SEGUNDA" in dosis):
                             es_match = True
                     elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
                         if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
                             es_match = True
-                        elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                        elif antecedente_vacunal == "SI" and ("ANUAL" in dosis or "SEGUNDA" in dosis):
                             es_match = True
                     elif edad_meses >= 720 and "60 AÑOS Y MAS" in gb:
                         es_match = True
@@ -191,7 +187,7 @@ def obtener_recomendaciones_paciente(
 
                 es_match = False
 
-                # Restricción estricta de Pfizer para < 12 años (144 meses)
+                # Restricción estricta CENSIA: Pfizer es exclusivamente para >= 12 años (144 meses)
                 if "PFIZER" in vac_tipo and edad_meses < 144:
                     continue
 
