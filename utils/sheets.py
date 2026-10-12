@@ -6,18 +6,25 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando estrictamente la sección [GOOGLE_CREDENTIALS]."""
+    """Autentica y retorna el cliente de gspread procesando de forma segura la llave privada PEM."""
     if "GOOGLE_CREDENTIALS" not in st.secrets:
         raise ValueError("No se encontró la sección [GOOGLE_CREDENTIALS] en los secretos.")
 
     creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
 
-    # Normalizar los saltos de línea de la llave privada PEM
+    # Reparación y formateo blindado de la llave privada PEM
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"]
-        if "\\n" in pk and "\n" not in pk:
+        pk = creds_dict["private_key"].strip()
+        
+        # Asegurar saltos de línea reales si vinieron escapados
+        if "\\n" in pk:
             pk = pk.replace("\\n", "\n")
-        creds_dict["private_key"] = pk.strip()
+            
+        # Limpiar espacios extra por línea que corrompen el padding en base64
+        lines = [line.strip() for line in pk.splitlines()]
+        pk = "\n".join(lines)
+        
+        creds_dict["private_key"] = pk
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
