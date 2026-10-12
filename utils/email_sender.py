@@ -8,8 +8,8 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     Envía el comprobante de vacunación por correo usando las credenciales SMTP de st.secrets.
     """
     try:
-        smtp_server = st.secrets["SMTP_SERVER"]
-        smtp_port = st.secrets["SMTP_PORT"]
+        smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("SMTP_PORT", 465))
         remitente_email = st.secrets["SMTP_USER"]
         remitente_password = st.secrets["SMTP_PASSWORD"]
     except KeyError as e:
@@ -38,8 +38,8 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg.attach(MIMEText(cuerpo, 'plain'))
         
     try:
-        servidor = smtplib.SMTP(smtp_server, smtp_port)
-        servidor.starttls()
+        # Usamos SMTP_SSL directo para el puerto 465 (más estable en la nube)
+        servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
         servidor.login(remitente_email, remitente_password)
         servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
         servidor.quit()
