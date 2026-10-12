@@ -41,6 +41,7 @@ def aplicar_configuracion_global(
 
 
 # --- FUNCIÓN REUTILIZABLE EN CONFIG PARA SELECTOR DE FECHA COMPACTO (MES/AÑO/DÍA) ---
+@st.fragment
 def render_selector_fecha_compacto(label_texto, key_sufijo):
     st.markdown(f"<label style='font-size: 0.95rem; font-weight: 600; color: #161a1d;'>{label_texto}</label>", unsafe_allow_html=True)
     
