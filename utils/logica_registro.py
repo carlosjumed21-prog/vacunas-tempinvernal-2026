@@ -239,11 +239,20 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
     siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
     
+    consecutivo_num = 1
     try:
         registros = obtener_registros_existentes_sheets(sigla_url, "", "I", val_fecha_app)
-        consecutivo_num = len(registros) + 1
-    except:
-        consecutivo_num = st.session_state.get("contador_folio_consecutivo", 1)
+        if registros and isinstance(registros, list):
+            consecutivo_num = len(registros) + 1
+        else:
+            if "contador_folio_consecutivo" not in st.session_state:
+                st.session_state["contador_folio_consecutivo"] = 1
+            consecutivo_num = st.session_state["contador_folio_consecutivo"]
+            st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
+    except Exception:
+        if "contador_folio_consecutivo" not in st.session_state:
+            st.session_state["contador_folio_consecutivo"] = 1
+        consecutivo_num = st.session_state["contador_folio_consecutivo"]
         st.session_state["contador_folio_consecutivo"] = consecutivo_num + 1
         
     secuencial_str = str(consecutivo_num).zfill(4)
