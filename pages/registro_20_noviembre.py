@@ -4,8 +4,8 @@ from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal_20_nov
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 
-# Importar todos los componentes y funciones auxiliares desde el archivo modular
-from componentes_censo_20n import (
+# Importar todos los componentes y funciones auxiliares desde el archivo modular en utils
+from utils.componentes_censo_20n import (
     cargar_catalogos_excel,
     calcular_edad_detallada,
     estados_mexico,
