@@ -7,24 +7,25 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-  """Autentica y retorna el cliente de gspread leyendo GOOGLE_CREDENTIALS como JSON plano o diccionario."""
+  """Busca de forma flexible las credenciales de Google Sheets en st.secrets e inicia sesión."""
   creds_dict = None
 
-  if "GOOGLE_CREDENTIALS" in st.secrets:
-    raw_val = st.secrets["GOOGLE_CREDENTIALS"]
-    if isinstance(raw_val, str):
-      try:
-        creds_dict = json.loads(raw_val)
-      except Exception as err:
-        raise ValueError(
-            f"Error al decodificar el JSON de GOOGLE_CREDENTIALS: {err}"
-        )
-    elif isinstance(raw_val, dict):
-      creds_dict = dict(raw_val)
-    else:
-      creds_dict = dict(raw_val)
-  else:
-    # Buscar de forma alternativa si existe otra sección con client_email
+  # 1. Intentar buscar por nombres comunes en st.secrets
+  posibles_llaves = ["GOOGLE_CREDENTIALS", "gpex", "GOOGLE_APPLICATION_CREDENTIALS"]
+  for llave in posibles_llaves:
+    if llave in st.secrets:
+      val = st.secrets[llave]
+      if isinstance(val, str):
+        try:
+          creds_dict = json.loads(val)
+        except Exception:
+          pass
+      elif isinstance(val, dict):
+        creds_dict = dict(val)
+      break
+
+  # 2. Si no se encontró por nombre exacto, buscar cualquier sección que contenga client_email
+  if not creds_dict:
     for key in st.secrets.keys():
       if key != "email":
         potential = st.secrets[key]
@@ -34,9 +35,9 @@ def obtener_cliente_gspread():
 
   if not creds_dict or "client_email" not in creds_dict:
     raise ValueError(
-        "No se encontraron las credenciales de la cuenta de servicio de Google"
-        " Sheets en los secretos. Revisa que la variable 'GOOGLE_CREDENTIALS'"
-        " esté bien escrita en Streamlit Cloud."
+        "No se encontraron las credenciales de la cuenta de servicio de Google "
+        "Sheets en los secretos de Streamlit Cloud. Por favor, verifica en "
+        "Settings > Secrets que la variable esté configurada correctamente."
     )
 
   # Normalizar saltos de línea de la llave privada
@@ -216,16 +217,4 @@ def guardar_registro_censal(
       rango_celdas = f"A{fila_destino}:AW{fila_destino}"
       ws.update(rango_celdas, [fila_registro_principal])
     else:
-      ws.append_row(fila_registro_principal)
-
-    # Inyectar la CURP automática específicamente en la Fila complementaria, Columna C
-    fila_curp = fila_destino + 1
-    ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
-
-    # Inyectar también la fecha de registro en la fila complementaria, columna AW (opcional, por simetría de bloque)
-    ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
-
-    return folio_asignado
-
-  except Exception as e:
-    raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
+      ws
