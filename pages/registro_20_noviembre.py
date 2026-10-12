@@ -39,7 +39,7 @@ st.markdown(
         .stCheckbox { margin-bottom: 8px !important; }
         .card-edad { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #611232; font-size: 1.3rem !important; margin-bottom: 15px; }
         .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
-        .card-rfc { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
+        .card-rfc { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
         .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
@@ -64,7 +64,7 @@ st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" i
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
-# --- FECHAS Y CÁLCULO SEGURO DEL SIGUIENTE FOLIO DESDE GOOGLE SHEETS ---
+# --- FECHAS Y CÁLCULO SEGURO DEL SIGUIENTE FOLIO ---
 fecha_sistema = datetime.date.today()
 fecha_url_str = params.get("fecha", fecha_sistema.strftime("%Y-%m-%d"))
 try:
@@ -86,12 +86,17 @@ if "ant_inf" not in st.session_state:
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
-# Calcular de forma idéntica el próximo folio proyectado para la cabecera
+# Calcular de forma segura el folio proyectado en la cabecera
 try:
     client_temp = obtener_cliente_gspread()
-    spreadsheet_temp = client_temp.open_by_key(GOOGLE_SHEET_ID)
-    nombre_hoja_temp = f"{sigla_url}_{sufijo_js}" if sufijo_js else sigla_url
-    ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
+    sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
+    spreadsheet_temp = client_temp.open_by_key(sheet_id_20n)
+    tipo_texto_jornada_temp = "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
+    nombre_hoja_temp = f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{val_fecha_app.strftime('%d%m%y')}_NOMINAL"
+    try:
+        ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
+    except:
+        ws_temp = spreadsheet_temp.worksheet("CENSO NOMINAL")
     valores_temp = ws_temp.get_all_values()
     
     fila_dest_temp = 14
@@ -108,12 +113,10 @@ try:
                 fila_dest_temp += 1
     consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
     
-    f_str = val_fecha_app.strftime("%Y%m%d")
-    m_str = "INT" if st.session_state.modalidad == "INTRAMUROS" else "EXT"
-    s_3 = sigla_url[:3].upper().ljust(3, 'X')
-    folio_proyectado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo_temp).zfill(4)}"
+    aammmdd = val_fecha_app.strftime("%y%m%d")
+    folio_proyectado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(consecutivo_temp).zfill(3)}"
 except Exception:
-    folio_proyectado = f"{val_fecha_app.strftime('%Y%m%d')}-INT-{sigla_url[:3].upper().ljust(3, 'X')}-0001"
+    folio_proyectado = f"{val_fecha_app.strftime('%y%m%d')}-{st.session_state.tipo_jornada}{sigla_url}-001"
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -285,7 +288,7 @@ def mostrar_modal_duplicado():
             st.session_state.paciente_duplicado_info = None
             st.rerun()
 
-# --- LLAMADAS A MODALES SEGÚN EL ESTADO ---
+# --- LLAMADAS A MODALES ---
 if st.session_state.get("ultimo_paciente_registrado") is not None:
     mostrar_modal_comprobante()
 
@@ -462,7 +465,7 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# --- BOTÓN DE REGISTRO PROTEGIDO CONTRA CLICS MÚLTIPLES ---
+# --- BOTÓN DE REGISTRO ---
 btn_disabled = st.session_state.enviando_registro
 if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_width=True, disabled=btn_disabled, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
@@ -502,7 +505,6 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
                     "hipertension": hipertension, "otro": otro_riesgo, "texto_otro": texto_otro_riesgo.upper(),
                 }
 
-                # Mapeo completo listo para guardar en Google Sheets con los campos del 20 de Noviembre
                 datos_paciente = {
                     "paterno": paterno, "materno": materno, "nombres": nombres,
                     "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
@@ -517,10 +519,19 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
                     "modalidad": st.session_state.modalidad,
                     "rfc": rfc_generado,
                     "val_fecha_app": val_fecha_app,
-                    "tipo_jornada": st.session_state.tipo_jornada
+                    "tipo_jornada": st.session_state.tipo_jornada,
+                    "fn_dia": str(fecha_nacimiento.day).zfill(2),
+                    "fn_mes": str(fecha_nacimiento.month).zfill(2),
+                    "fn_ano": str(fecha_nacimiento.year),
+                    "dh": cuenta_derechohabiencia,
+                    "tipo_dh": "TRABAJADOR",
+                    "trabaja_cmn": "SÍ",
+                    "num_trabajador": "",
+                    "personal_salud": "SÍ" if personal_salud_riesgo else "NO",
+                    "embarazo": "SÍ" if personas_embarazadas else "NO",
                 }
 
-                # Llamada al guardado exclusivo en Google Sheets del CMN 20 de Noviembre
+                # Llamada a la función de guardado dual (nominal y censo) en la hoja del 20 de Noviembre
                 folio_asignado = guardar_registro_censal_20_nov(datos_paciente)
 
                 st.cache_data.clear()
