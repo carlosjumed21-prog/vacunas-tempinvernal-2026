@@ -77,7 +77,7 @@ if "input_vacuna" not in st.session_state:
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
-    p = st.session_state.ultimo_paciente_registrado
+    p = st.session_state.get("ultimo_paciente_registrado")
     if p:
         curp_mostrar = p.get("curp_con_nacimiento", "CURP")
         nombre_val = p["nombre_completo"]
@@ -191,7 +191,8 @@ def mostrar_modal_comprobante():
                     folio=folio_val,
                     dosis_str=vacuna_val,
                     lotes_str=f"Grupo: {grupo_val}",
-                    fecha_val=fecha_val
+                    fecha_val=fecha_val,
+                    tipo="folio"
                 )
                 if exito:
                     st.success(mensaje)
@@ -226,7 +227,7 @@ def mostrar_modal_comprobante():
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
 def mostrar_modal_duplicado():
-    p = st.session_state.paciente_duplicado_info
+    p = st.session_state.get("paciente_duplicado_info")
     if p:
         st.markdown(
             f"""
@@ -244,10 +245,10 @@ def mostrar_modal_duplicado():
             st.session_state.paciente_duplicado_info = None
             st.rerun()
 
-if st.session_state.ultimo_paciente_registrado is not None:
+if st.session_state.get("ultimo_paciente_registrado") is not None:
     mostrar_modal_comprobante()
 
-if st.session_state.paciente_duplicado_info is not None:
+if st.session_state.get("paciente_duplicado_info") is not None:
     mostrar_modal_duplicado()
 
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
