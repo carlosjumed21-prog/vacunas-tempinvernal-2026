@@ -21,7 +21,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg['From'] = remitente_email
     msg['To'] = destinatario_email
     
-    # Asuntos diferenciados según la interfaz de origen
+    # Asuntos y contenidos diferenciados según el tipo de correo solicitado
     if tipo == "comprobante":
         msg['Subject'] = "COMPROBANTE DE VACUNACIÓN - GRACIAS POR CUIDAR DE SU SALUD"
         titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
