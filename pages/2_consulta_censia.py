@@ -340,16 +340,23 @@ else:
             ]
 
             if not pacientes_filtrados:
-                st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
+                if q_clean:
+                    st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
+                else:
+                    st.info("ℹ️ Ingrese un criterio de búsqueda (Folio, Apellido o Nombre) para localizar y evaluar al paciente.")
             else:
                 opciones_busqueda = [
                     f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} {'(🟢 YA VACUNADO)' if p['ya_vacunado'] else ''}||{p['fila']}"
                     for p in pacientes_filtrados
                 ]
 
+                # Si el usuario no ha escrito nada, agregamos una opción inicial vacía para evitar seleccionar un paciente por defecto
+                if not q_clean:
+                    opciones_busqueda.insert(0, "Seleccione un paciente de la lista...||0")
+
                 seleccion_paciente = st.selectbox("Seleccione del listado de coincidencias:", options=opciones_busqueda, format_func=lambda x: x.split("||")[0])
 
-                if seleccion_paciente:
+                if seleccion_paciente and not seleccion_paciente.startswith("Seleccione un paciente"):
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
 
