@@ -9,7 +9,7 @@ from config import GOOGLE_SCOPES
 def cargar_guias_censia():
     """Conecta con el documento CENSIA en la nube y extrae de forma limpia
 
-    las guías de Influenza y COVID, propagando valores en celdas combinadas.
+    las guías de Influenza y COVID, propagando valores en celdas combinadas (Columnas A a H).
     """
     guia_influenza_registros = []
     guia_covid_registros = []
@@ -39,16 +39,10 @@ def cargar_guias_censia():
             ws_inf = doc_censia.worksheet("Influenza")
             filas_inf = ws_inf.get_all_values()
             v_vac, v_cat, v_esq, v_dos, v_int, v_rec, v_sim = (
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
+                "", "", "", "", "", "", ""
             )
             for row in filas_inf[1:]:
-                if len(row) >= 7:
+                if len(row) >= 8:
                     if row[0].strip():
                         v_vac = row[0].strip()
                     if row[1].strip():
@@ -61,7 +55,7 @@ def cargar_guias_censia():
                         v_int = row[5].strip()
                     if row[6].strip():
                         v_rec = row[6].strip()
-                    if len(row) >= 8 and row[7].strip():
+                    if row[7].strip():
                         v_sim = row[7].strip()
 
                     guia_influenza_registros.append({
@@ -82,16 +76,10 @@ def cargar_guias_censia():
             ws_cov = doc_censia.worksheet("COVID")
             filas_cov = ws_cov.get_all_values()
             c_vac, c_cat, c_esq, c_dos, c_int, c_rec, c_sim = (
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
+                "", "", "", "", "", "", ""
             )
             for row in filas_cov[1:]:
-                if len(row) >= 7:
+                if len(row) >= 8:
                     if row[0].strip():
                         c_vac = row[0].strip()
                     if row[1].strip():
@@ -104,7 +92,7 @@ def cargar_guias_censia():
                         c_int = row[5].strip()
                     if row[6].strip():
                         c_rec = row[6].strip()
-                    if len(row) >= 8 and row[7].strip():
+                    if row[7].strip():
                         c_sim = row[7].strip()
 
                     guia_covid_registros.append({
@@ -127,11 +115,11 @@ def cargar_guias_censia():
 
 
 def obtener_recomendaciones_paciente(
-    categoria_paciente, lista_riesgos_detectados, vacuna_registrada
+    edad_meses, antecedente_vacunal, lista_riesgos_detectados, vacuna_registrada
 ):
-    """Cruza los datos puros del paciente con las guías CENSIA para retornar
+    """Cruza los datos del paciente con las guías CENSIA según edad,
 
-    las tarjetas de Influenza y COVID, escaneando correctamente Personal de Salud y Comorbilidades.
+    antecedente vacunal (SI/NO), comorbilidades y tipo de vacuna.
     """
     try:
         guia_inf, guia_cov = cargar_guias_censia()
@@ -142,74 +130,107 @@ def obtener_recomendaciones_paciente(
         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-        # --- Filtrar Influenza ---
+        tiene_comorbilidades = len(lista_riesgos_detectados) > 0
+        es_embarazada = any("EMBARAZ" in r.upper() for r in lista_riesgos_detectados)
+        es_personal_salud = any("SALUD" in r.upper() for r in lista_riesgos_detectados)
+
+        # ==========================================
+        # 1. FILTRADO INFLUENZA
+        # ==========================================
         if mostrar_influenza:
             for item in guia_inf:
-                gb_c = item["grupos_blancos"].strip().upper()
+                cat = item["categoria"].strip().upper()
+                gb = item["grupos_blancos"].strip().upper()
+                dosis = item["dosis"].strip().upper()
+                
                 es_match = False
-                for r in lista_riesgos_detectados:
-                    r_up = r.upper()
-                    if (
-                        ("SALUD" in r_up and "SALUD" in gb_c)
-                        or ("PERSONAL DE SALUD" in gb_c)
-                    ):
+
+                if "POBLACIÓN OBJETIVO" in cat:
+                    # Rango 6 a 18 meses (6 a 18 meses)
+                    if 6 <= edad_meses <= 18:
+                        if "6 A 18 MESES" in gb:
+                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                                es_match = True
+                            elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                                es_match = True
+                    # Rango 19 a 59 meses
+                    elif 19 <= edad_meses <= 59:
+                        if "19 A 59 MESES" in gb:
+                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                                es_match = True
+                            elif antecedente_vacunal == "SI" and "ANUAL" in dosis:
+                                es_match = True
+                    # 60 años y más (>= 720 meses)
+                    elif edad_meses >= 720:
+                        if "60 AÑOS Y MAS" in gb:
+                            es_match = True
+
+                elif "POBLACIÓN DE RIESGO" in cat:
+                    if es_embarazada and "GESTANTES" in gb:
                         es_match = True
-                    elif (
-                        ("COMORBILIDADES" in gb_c
-                        or "VIH" in gb_c
-                        or "6 MESES A 59 AÑOS" in gb_c)
-                        and r_up in [
-                            "VIH",
-                            "DIABETES",
-                            "OBESIDAD",
-                            "CARDIOPATÍAS",
-                            "ENFERMEDAD PULMONAR",
-                            "CÁNCER",
-                            "RENAL",
-                            "INMUNOSUPRESIÓN",
-                            "HIPERTENSIÓN",
-                        ]
-                    ):
+                    elif es_personal_salud and "PERSONAL DE SALUD" in gb:
                         es_match = True
+                    elif tiene_comorbilidades:
+                        if (5 <= edad_meses < 10) and "5 A 8 AÑOS" in gb:
+                            es_match = True
+                        elif (9 <= edad_meses < 720) and "9 A 59 AÑOS" in gb:
+                            es_match = True
+
                 if es_match and item not in matches_inf:
                     matches_inf.append(item)
-            if not matches_inf and guia_inf:
-                matches_inf.append(guia_inf[0])
 
-        # --- Filtrar COVID (Escaneo robusto para Moderna y Pfizer) ---
+        # ==========================================
+        # 2. FILTRADO COVID-19 (Moderna y Pfizer)
+        # ==========================================
         if mostrar_covid:
             for item in guia_cov:
-                gb_c = item["grupos_blancos"].strip().upper()
+                vac_tipo = item["tipo_vacuna"].strip().upper()
+                cat = item["categoria"].strip().upper()
+                gb = item["grupos_blancos"].strip().upper()
+                dosis = item["dosis"].strip().upper()
+
                 es_match = False
-                for r in lista_riesgos_detectados:
-                    r_up = r.upper()
-                    if (
-                        ("SALUD" in r_up and "SALUD" in gb_c)
-                        or ("PERSONAL DE SALUD" in gb_c)
-                    ):
+
+                # Restricción estricta de Pfizer para < 12 años (144 meses)
+                if "PFIZER" in vac_tipo and edad_meses < 144:
+                    continue  # No se muestra card ni se procesa para menores de 12 años
+
+                if "POBLACIÓN OBJETIVO" in cat:
+                    if "MODERNA" in vac_tipo:
+                        if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
+                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                                es_match = True
+                            elif antecedente_vacunal == "SI" and "SEGUNDA" in dosis:
+                                es_match = True
+                        elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
+                            if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                                es_match = True
+                            elif antecedente_vacunal == "SI" and "SEGUNDA" in dosis:
+                                es_match = True
+                        elif 60 <= edad_meses <= 131 and "5 A 11 AÑOS" in gb:
+                            es_match = True
+                        elif edad_meses >= 144 and "12 AÑOS" in gb:
+                            es_match = True
+                    elif "PFIZER" in vac_tipo:
+                        if edad_meses >= 144 and "12 AÑOS" in gb:
+                            es_match = True
+
+                elif "POBLACIÓN DE RIESGO" in cat:
+                    if es_embarazada and "GESTANTES" in gb:
                         es_match = True
-                    elif (
-                        ("COMORBILIDADES" in gb_c
-                        or "VIH" in gb_c
-                        or "6 MESES A 59 AÑOS" in gb_c)
-                        and r_up in [
-                            "VIH",
-                            "DIABETES",
-                            "OBESIDAD",
-                            "CARDIOPATÍAS",
-                            "ENFERMEDAD PULMONAR",
-                            "CÁNCER",
-                            "RENAL",
-                            "INMUNOSUPRESIÓN",
-                            "HIPERTENSIÓN",
-                        ]
-                    ):
+                    elif es_personal_salud and "PERSONAL DE SALUD" in gb:
                         es_match = True
+                    elif edad_meses >= 720 and "60 AÑOS O MÁS" in gb:
+                        es_match = True
+                    elif tiene_comorbilidades and "COMORBILIDADES" in gb:
+                        if 6 <= edad_meses < 720:
+                            es_match = True
+
                 if es_match and item not in matches_cov:
                     matches_cov.append(item)
-            if not matches_cov and guia_cov:
-                matches_cov.append(guia_cov[0])
 
         return matches_inf, matches_cov
+
     except Exception as e:
+        st.error(f"Error al procesar recomendaciones: {e}")
         return [], []
