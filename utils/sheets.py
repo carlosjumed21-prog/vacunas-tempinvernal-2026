@@ -1,3 +1,4 @@
+# utils/sheets.py
 import datetime
 import json
 from config import GOOGLE_SHEET_ID, GOOGLE_SCOPES
@@ -6,8 +7,12 @@ import gspread
 import streamlit as st
 
 
+@st.cache_resource
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS en formato JSON crudo."""
+    """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS en formato JSON crudo.
+    
+    Se cachea para evitar re-autenticación y lecturas repetidas en cada rerun de Streamlit.
+    """
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
@@ -37,8 +42,9 @@ def guardar_registro_censal(
     datos_paciente,
 ):
     """Registra los datos del paciente respetando bloques de 2 filas por paciente
-
     a partir de la fila 14 y colocando la CURP en la fila complementaria (Fila + 1, Columna C).
+    
+    Ajustado para evitar leer la hoja completa con get_all_values() y usar solo la columna B.
     """
     try:
         client = obtener_cliente_gspread()
@@ -60,29 +66,37 @@ def guardar_registro_censal(
             if ws is None:
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=50)
 
-        todos_los_valores = ws.get_all_values()
-        
+        # --- OPTIMIZACIÓN CLAVE: no usar get_all_values() para calcular fila
+        #    solo leemos la columna B (folios) para detectar la primera fila libre
+        col_b = ws.col_values(2)  # Columna B = folio
+
         fila_destino = 14
         consecutivo = 1
 
-        if len(todos_los_valores) >= 14:
-            idx = 13
-            while idx < len(todos_los_valores):
-                if idx >= len(todos_los_valores) or not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
+        if len(col_b) >= 14:
+            idx = 13  # índice 13 = fila 14 (lista 0-based)
+            while idx < len(col_b):
+                # Si la celda en la columna B está vacía, aquí va el siguiente registro
+                if not col_b[idx].strip():
                     fila_destino = idx + 1
                     break
                 idx += 2
             else:
-                fila_destino = len(todos_los_valores) + 1
+                # Si todas las filas del patrón están ocupadas, agregamos una nueva pareja
+                fila_destino = len(col_b) + 1
                 if (fila_destino - 14) % 2 != 0:
                     fila_destino += 1
 
         consecutivo = ((fila_destino - 14) // 2) + 1
 
-        fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
+        fecha_str = (
+            val_fecha_app.strftime("%Y%m%d")
+            if isinstance(val_fecha_app, datetime.date)
+            else datetime.date.today().strftime("%Y%m%d")
+        )
         modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
-        siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
+        siglas_3 = sigla_url[:3].upper().ljust(3, "X")
         secuencial_str = str(consecutivo).zfill(4)
 
         folio_asignado = f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
@@ -149,15 +163,17 @@ def guardar_registro_censal(
             "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",
             "X" if vacuna_interes == "AMBAS" else "",
             fecha_registro_actual,
-            correo_paciente_val,  # <--- Columna AX (50) asignada al correo electrónico
+            correo_paciente_val,  # Columna AX (50)
         ]
 
-        if fila_destino <= len(todos_los_valores):
+        if fila_destino <= len(col_b):
+            # Reescribe desde A...AX en la fila libre que encontramos
             rango_celdas = f"A{fila_destino}:AX{fila_destino}"
             ws.update(rango_celdas, [fila_registro_principal])
         else:
             ws.append_row(fila_registro_principal)
 
+        # CURP se guarda en la fila complementaria siguiente
         fila_curp = fila_destino + 1
         ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
         ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
