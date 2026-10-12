@@ -1,11 +1,13 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 import streamlit as st
 
-def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val):
+def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, archivo_bytes=None, nombre_archivo="comprobante.png"):
     """
-    Envía el comprobante de vacunación por correo usando las credenciales SMTP de st.secrets.
+    Envía el comprobante de vacunación por correo usando las credenciales SMTP con opción de adjuntar archivos.
     """
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
@@ -36,13 +38,20 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     ISSSTE
     """
     msg.attach(MIMEText(cuerpo, 'plain'))
+    
+    # Adjuntar archivo si se proporciona
+    if archivo_bytes:
+        parte = MIMEBase('application', 'octet-stream')
+        parte.set_payload(archivo_bytes)
+        encoders.encode_base64(parte)
+        parte.add_header('Content-Disposition', f'attachment; filename="{nombre_archivo}"')
+        msg.attach(parte)
         
     try:
-        # Usamos SMTP_SSL directo para el puerto 465 (más estable en la nube)
         servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
         servidor.login(remitente_email, remitente_password)
         servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
         servidor.quit()
-        return True, "¡Correo enviado exitosamente!"
+        return True, "¡Correo y comprobante enviados exitosamente!"
     except Exception as e:
         return False, f"Error al conectar con el servidor de correo: {e}"
