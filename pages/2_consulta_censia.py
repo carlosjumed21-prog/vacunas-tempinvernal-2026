@@ -249,15 +249,11 @@ else:
         if "GOOGLE_CREDENTIALS" in st.secrets:
             raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        elif "gcp_service_account" in st.secrets:
-            creds_dict = dict(st.secrets["gcp_service_account"])
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
         else:
             primera_llave = list(st.secrets.keys())[0]
             creds_dict = dict(st.secrets[primera_llave])
 
-        # Asegurar compatibilidad si se cargó desde la sección de tabla TOML
+        # Limpieza indispensable de saltos de línea en la llave privada
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
