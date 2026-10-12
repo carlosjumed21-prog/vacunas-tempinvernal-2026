@@ -1,4 +1,3 @@
-
 import datetime
 import io
 import json
@@ -17,7 +16,7 @@ def autenticar_administrador(correo, password):
     """Valida las credenciales de acceso del administrador."""
     correo_limpio = correo.strip().lower()
     if (correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26") or \
-       (correo_limpio == "wendy@issste.gob.mx" and password == "MedPrev26"):
+       (correo_limpio == "wendy.hernandeza@issste.gob.mx" and password == "MedPrev26"):
         return True, correo_limpio
     return False, ""
 
