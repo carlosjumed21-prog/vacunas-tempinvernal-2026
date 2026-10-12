@@ -464,6 +464,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
                     "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
                     "modalidad": st.session_state.modalidad,
+                    "folio": folio_asignado
                 }
 
                 guardar_registro_censal(
