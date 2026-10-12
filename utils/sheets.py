@@ -7,7 +7,7 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread manejando de forma segura cualquier formato en st.secrets."""
+    """Autentica y retorna el cliente de gspread limpiando y formateando correctamente la llave privada."""
     creds_dict = None
 
     try:
@@ -43,10 +43,23 @@ def obtener_cliente_gspread():
             "No se pudo encontrar ni parsear 'client_email' en los secretos. Revisa la sección [GOOGLE_CREDENTIALS]."
         )
 
+    # --- LIMPIEZA BLINDADA DE LA LLAVE PRIVADA ---
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         pk = creds_dict["private_key"]
+        
+        # Si por error se escaparon mal las diagonales o vinieron con caracteres extraños
         pk = pk.replace("\\n", "\n")
-        creds_dict["private_key"] = pk
+        pk = pk.replace("\\r", "")
+        
+        # Asegurar que comience y termine exactamente con los headers PEM requeridos por Google
+        if "BEGIN PRIVATE KEY" in pk and not pk.strip().startswith("-----BEGIN PRIVATE KEY-----"):
+            # En caso de que tenga basura al inicio o comillas rezagadas
+            start_idx = pk.find("-----BEGIN PRIVATE KEY-----")
+            end_idx = pk.find("-----END PRIVATE KEY-----") + len("-----END PRIVATE KEY-----")
+            if start_idx != -1 and end_idx != -1:
+                pk = pk[start_idx:end_idx]
+
+        creds_dict["private_key"] = pk.strip()
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
