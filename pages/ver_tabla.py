@@ -105,7 +105,14 @@ else:
 
         ws = spreadsheet.worksheet(hoja_activa_tabla)
         gid_hoja = ws.id
-        todos_los_datos = ws.get_all_values()
+
+        # --- GESTIÓN DE CACHÉ PARA EVITAR LÍMITE DE CUOTA (429) ---
+        if f"datos_hoja_{hoja_activa_tabla}" not in st.session_state or st.button("🔄 Actualizar Datos", key="btn_reload"):
+            st.session_state[f"datos_hoja_{hoja_activa_tabla}"] = ws.get_all_values()
+            # Limpiar caché al forzar recarga
+            st.rerun()
+
+        todos_los_datos = st.session_state[f"datos_hoja_{hoja_activa_tabla}"]
 
         if len(todos_los_datos) >= 14:
             fila_cabecera_1 = todos_los_datos[11]
@@ -137,29 +144,20 @@ else:
                 encabezados_combinados.append(col_str)
 
             # --- AGRUPAR CADA PAR DE FILAS (PACIENTE) EN UNA SOLA FILA PARA EL EDITOR ---
-            # Como cada paciente ocupa 2 filas físicas en Sheets, combinamos sus valores o mapeamos por índice par.
             filas_agrupadas = []
-            indices_pares_reales = [] # Para saber a qué fila de Sheets corresponde cada renglón visual
+            indices_pares_reales = []
             
             for i in range(0, len(filas_tabla), 2):
                 fila_1 = filas_tabla[i] if i < len(filas_tabla) else []
-                fila_2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
-                
-                # Rellenar longitudes
                 f1_adj = fila_1 + [''] * max(0, len(encabezados_combinados) - len(fila_1))
-                f2_adj = fila_2 + [''] * max(0, len(encabezados_combinados) - len(fila_2))
                 
-                # Creamos una fila representativa (tomamos principalmente la fila principal, y mostramos datos clave o combinados)
-                # O bien, mantenemos la fila 1 visual pero guardamos el vínculo a ambas filas físicas (i y i+1)
                 fila_base = list(f1_adj[:len(encabezados_combinados)])
                 filas_agrupadas.append(fila_base)
                 indices_pares_reales.append(i)
 
-            filas_ajustadas = filas_agrupadas
-            df_tabla_segura = pd.DataFrame(filas_ajustadas, columns=encabezados_combinados)
+            df_tabla_segura = pd.DataFrame(filas_agrupadas, columns=encabezados_combinados)
             df_tabla_segura.insert(0, "Seleccionar", False)
 
-            # Guardamos los índices reales en session_state para usarlos al eliminar
             st.session_state["indices_pares_reales"] = indices_pares_reales
 
             # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
@@ -225,7 +223,9 @@ else:
             with col_tit1:
                 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
             with col_tit2:
-                if st.button("🔄 Actualizar Datos", use_container_width=True, help="Recargar datos más recientes desde Google Sheets"):
+                if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header", help="Recargar datos más recientes desde Google Sheets"):
+                    if f"datos_hoja_{hoja_activa_tabla}" in st.session_state:
+                        del st.session_state[f"datos_hoja_{hoja_activa_tabla}"]
                     st.rerun()
 
             with col_tit3:
@@ -252,111 +252,4 @@ else:
                         help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
                     )
                 except Exception as err:
-                    st.error(f"No se pudo descargar el archivo: {err}")
-
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
-            m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-            
-            with m1:
-                st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
-            with m2:
-                st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
-            with m3:
-                st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
-            with m4:
-                st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
-            with m5:
-                st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
-            with m6:
-                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Dosis Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
-            with m7:
-                st.markdown(f'<div class="metric-card-6"><div class="metric-label">Dosis COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
-            with m8:
-                st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
-
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-            
-            # --- BOTÓN DE ELIMINACIÓN SUPERIOR (SIN TEXTO INNECESARIO) ---
-            col_btn1, col_btn_rest = st.columns([2, 5])
-            with col_btn1:
-                btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
-
-            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
-
-            # --- TABLA EDITABLE CON CASILLAS DE VERIFICACIÓN ---
-            df_editado = st.data_editor(
-                df_tabla_segura,
-                use_container_width=True,
-                height=520,
-                hide_index=True,
-                column_config={
-                    "Seleccionar": st.column_config.CheckboxColumn(
-                        "Seleccionar",
-                        help="Marque para seleccionar el paciente a eliminar",
-                        default=False,
-                    )
-                }
-            )
-
-            # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
-            if btn_eliminar:
-                filas_seleccionadas_df = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-
-                if not filas_seleccionadas_df:
-                    st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-                else:
-                    try:
-                        indices_reales = st.session_state.get("indices_pares_reales", [])
-                        
-                        # Recopilar todos los pares de filas físicas de Google Sheets a eliminar
-                        # Como cada paciente usa 2 filas (ej: índice real i y i+1), borramos ambas.
-                        filas_gs_a_borrar = []
-                        for idx_df in filas_seleccionadas_df:
-                            if idx_df < len(indices_reales):
-                                idx_par = indices_reales[idx_df]
-                                # Fila 1 del paciente y Fila 2 del paciente
-                                fila_fisica_1 = idx_par + 14
-                                fila_fisica_2 = idx_par + 15
-                                filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
-
-                        # Ordenar de mayor a menor índice para eliminar desde abajo hacia arriba
-                        # y evitar alterar las coordenadas de las filas superiores durante el borrado.
-                        filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
-
-                        for fila_gs in filas_gs_a_borrar:
-                            ws.delete_rows(fila_gs)
-
-                        # --- RECALCULAR Y REORGANIZAR LA COLUMNA A (CONSECUTIVO) ---
-                        datos_actualizados = ws.get_all_values()
-                        if len(datos_actualizados) >= 14:
-                            filas_actuales = datos_actualizados[13:]
-                            
-                            contador = 1
-                            updates = []
-                            # Iteramos de 2 en 2 porque cada paciente abarca 2 filas
-                            for i in range(0, len(filas_actuales), 2):
-                                row = filas_actuales[i]
-                                if len(row) > 0 and row[0].strip() != "":
-                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
-                                    updates.append({
-                                        'range': cell_coord,
-                                        'values': [[str(contador)]]
-                                    })
-                                    contador += 1
-
-                            if updates:
-                                ws.batch_update(updates)
-
-                        st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
-                        st.rerun()
-
-                    except Exception as e:
-                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
-
-        else:
-            st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
-
-    except Exception as ex:
-        st.error(f"Error al conectar con la base de datos: {ex}")
+                    st.error(f"No se pudo descargar el archivo: {
