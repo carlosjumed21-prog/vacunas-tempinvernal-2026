@@ -61,8 +61,6 @@ try:
 except:
     val_fecha_app = fecha_sistema
 
-folio_inicial = "POR ASIGNAR"
-
 if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
 if "paciente_duplicado_info" not in st.session_state:
@@ -76,6 +74,9 @@ if "ant_inf" not in st.session_state:
     st.session_state.ant_inf = None
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
+
+# Calcular de forma preventiva el siguiente folio que le correspondería al usuario para mostrarlo en cabecera
+folio_proyectado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -290,7 +291,7 @@ with col_f1:
 with col_f2:
     st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 with col_f3:
-    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_inicial}</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_proyectado}</b></div>', unsafe_allow_html=True)
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
@@ -419,7 +420,7 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# --- BOTÓN DE REGISTRO PROTEGIDO CONTRA CLICS MÚLTIPLES (SIN FORMULARIO) ---
+# --- BOTÓN DE REGISTRO PROTEGIDO CONTRA CLICS MÚLTIPLES ---
 btn_disabled = st.session_state.enviando_registro
 if st.button("Registrarme para la jornada", use_container_width=True, disabled=btn_disabled):
     if not fecha_nacimiento:
@@ -433,7 +434,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        # Bloquear el botón inmediatamente para evitar reenvíos
+        # Bloquear el botón inmediatamente para evitar reenvíos múltiples
         st.session_state.enviando_registro = True
         
         duplicado, folio_previo = verificar_curp_duplicada(
@@ -449,6 +450,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
             st.rerun()
         else:
             try:
+                # Generar el folio único exacto que irá a la Columna B
                 folio_asignado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
                 fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
@@ -473,7 +475,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
                     "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
                     "modalidad": st.session_state.modalidad,
-                    "folio": folio_asignado
+                    "folio": folio_asignado  # <--- Folio único guardado en la Columna B
                 }
 
                 guardar_registro_censal(
@@ -485,7 +487,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                 st.session_state.ultimo_paciente_registrado = {
                     "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
-                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
+                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado, # <--- Folio mostrado en el comprobante final
                     "correo_paciente": correo_paciente.strip(),
                     "fecha_aplicacion": fecha_aplicacion_str,
                 }
