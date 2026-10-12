@@ -3,13 +3,14 @@ import random
 import streamlit as st
 import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
-from utils.sheets import guardar_registro_censal
+from utils.sheets import guardar_registro_censal, obtener_cliente_gspread
+from config import GOOGLE_SHEET_ID
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
 from utils.email_sender import enviar_comprobante_correo
 from utils.logica_registro import (
     calcular_edad_detallada, generar_curp_algoritmica,
-    determinar_grupo_desde_sheets, generar_folio_personalizado,
-    verificar_curp_duplicada, estados_mexico, lista_ocupaciones, meses_dict
+    determinar_grupo_desde_sheets, verificar_curp_duplicada,
+    estados_mexico, lista_ocupaciones, meses_dict
 )
 
 aplicar_configuracion_global("Censo Nominal - Registro", "💉")
@@ -53,7 +54,7 @@ st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" i
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
-# --- FECHAS Y FOLIO INICIAL ---
+# --- FECHAS Y CÁLCULO SEGURO DEL SIGUIENTE FOLIO DESDE GOOGLE SHEETS ---
 fecha_sistema = datetime.date.today()
 fecha_url_str = params.get("fecha", fecha_sistema.strftime("%Y-%m-%d"))
 try:
@@ -75,7 +76,34 @@ if "ant_inf" not in st.session_state:
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
-folio_proyectado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
+# Calcular de forma idéntica a sheets.py el próximo folio proyectado para la cabecera
+try:
+    client_temp = obtener_cliente_gspread()
+    spreadsheet_temp = client_temp.open_by_key(GOOGLE_SHEET_ID)
+    nombre_hoja_temp = f"{sigla_url}_{sufijo_js}" if sufijo_js else sigla_url
+    ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
+    valores_temp = ws_temp.get_all_values()
+    
+    fila_dest_temp = 14
+    if len(valores_temp) >= 14:
+        idx_t = 13
+        while idx_t < len(valores_temp):
+            if idx_t >= len(valores_temp) or not any(valores_temp[idx_t]) or not valores_temp[idx_t][1]:
+                fila_dest_temp = idx_t + 1
+                break
+            idx_t += 2
+        else:
+            fila_dest_temp = len(valores_temp) + 1
+            if (fila_dest_temp - 14) % 2 != 0:
+                fila_dest_temp += 1
+    consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
+    
+    f_str = val_fecha_app.strftime("%Y%m%d")
+    m_str = "INT" if st.session_state.modalidad == "INTRAMUROS" else "EXT"
+    s_3 = sigla_url[:3].upper().ljust(3, 'X')
+    folio_proyectado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo_temp).zfill(4)}"
+except Exception:
+    folio_proyectado = f"{val_fecha_app.strftime('%Y%m%d')}-INT-{sigla_url[:3].upper().ljust(3, 'X')}-0001"
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -449,7 +477,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
             st.rerun()
         else:
             try:
-                folio_asignado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
                 fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                 comorbilidades_dict = {
@@ -473,10 +500,10 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
                     "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
                     "modalidad": st.session_state.modalidad,
-                    "folio": folio_asignado
                 }
 
-                guardar_registro_censal(
+                # RECUPERAR EL FOLIO REAL CALCULADO DIRECTAMENTE POR SHEETS.PY (COLUMNA B)
+                folio_asignado = guardar_registro_censal(
                     sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
                     val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                 )
@@ -485,7 +512,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                 st.session_state.ultimo_paciente_registrado = {
                     "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
-                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
+                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,  # <--- Folio exacto y sincronizado con la Columna B
                     "correo_paciente": correo_paciente.strip(),
                     "fecha_aplicacion": fecha_aplicacion_str,
                 }
