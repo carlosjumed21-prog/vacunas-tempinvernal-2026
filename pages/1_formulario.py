@@ -5,6 +5,7 @@ import streamlit.components.v1 as components
 from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
+from utils.email_sender import enviar_comprobante_correo
 from utils.logica_registro import (
     calcular_edad_detallada, generar_curp_algoritmica,
     determinar_grupo_desde_sheets, generar_folio_personalizado,
@@ -83,6 +84,7 @@ def mostrar_modal_comprobante():
         folio_val = p["folio"]
         vacuna_val = p.get("vacuna_interes", "AMBAS")
         grupo_val = p["grupo_objetivo"]
+        correo_capturado = p.get("correo_paciente", "")
         fecha_val = datetime.date.today().strftime("%d/%m/%Y")
 
         texto_qr = (
@@ -172,12 +174,36 @@ def mostrar_modal_comprobante():
         """
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- ENVÍO DE CORREO AUTOMÁTICO O MANUAL DESDE EL MODAL ---
+        st.markdown("##### ✉️ Enviar Comprobante de Folio por Correo")
+        correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_capturado, placeholder="correo@ejemplo.com", key="input_correo_registro_modal")
+        
+        if st.button("🚀 Enviar Folio por Correo", use_container_width=True, key="btn_enviar_mail_reg"):
+            if not correo_destino_input.strip():
+                st.warning("⚠️ Ingrese un correo electrónico válido.")
+            else:
+                exito, mensaje = enviar_comprobante_correo(
+                    destinatario_email=correo_destino_input.strip(),
+                    nombre_paciente=nombre_val,
+                    folio=folio_val,
+                    dosis_str=vacuna_val,
+                    lotes_str=f"Grupo: {grupo_val}",
+                    fecha_val=fecha_val
+                )
+                if exito:
+                    st.success(mensaje)
+                else:
+                    st.error(mensaje)
+
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True):
             st.session_state.ultimo_paciente_registrado = None
             keys_a_limpiar = [
                 "input_paterno", "input_materno", "input_nombres", "sel_dia", "sel_mes", "sel_anio",
                 "input_sexo", "input_estnac", "input_estres", "input_calle", "input_num", "input_col",
                 "input_derecho", "input_ocupacion", "input_digitos", "input_vacuna", "ant_cov", "ant_inf",
+                "input_correo_paciente",
                 "chk_personas_embarazadas", "chk_personal_salud_riesgo", "chk_vih", "chk_diabetes", "chk_obesidad",
                 "chk_cardiopatias", "chk_enfermedad_pulmonar", "chk_cancer", "chk_cardiacas_congenitas",
                 "chk_insufren", "chk_inmunosupresion", "chk_discapacidad", "chk_fibrosis", "chk_hipertension",
@@ -243,6 +269,7 @@ if es_admin:
             st.session_state.input_colonia = "CENTRO"
             st.session_state.input_derecho = "SÍ"
             st.session_state.input_ocupacion = random.choice(lista_ocupaciones[1:])
+            st.session_state.input_correo_paciente = "carlosju.med21@gmail.com"
             st.session_state.ant_cov = random.choice(["SÍ", "NO", "LO DESCONOCE"])
             st.session_state.ant_inf = random.choice(["SÍ", "NO", "LO DESCONOCE"])
             st.session_state.input_vacuna = random.choice(["AMBAS", "COVID-19", "INFLUENZA"])
@@ -276,7 +303,7 @@ with col_a: anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in 
 fecha_nacimiento = None
 if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
     try: fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
-    except ValueError: st.error("⚠️ La combinación de fecha seleccionada no estelar / válida.")
+    except ValueError: st.error("⚠️ La combinación de fecha seleccionada no es válida.")
 
 if fecha_nacimiento:
     st.markdown(f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;"><span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {fecha_nacimiento.strftime("%d/%m/%Y")}</span></div>', unsafe_allow_html=True)
@@ -309,14 +336,19 @@ curp_con_nacimiento = f"{curp_algoritmica}/{estado_nacimiento.upper()}" if estad
 
 st.markdown(f'<div class="card-curp">🆔 CURP / RFC Generada: {curp_con_nacimiento}</div>', unsafe_allow_html=True)
 
-# --- DOMICILIO Y AFILIACIÓN ---
-st.markdown('<div class="section-title">3. Domicilio y Afiliación</div>', unsafe_allow_html=True)
+# --- DOMICILIO, CORREO Y AFILIACIÓN ---
+st.markdown('<div class="section-title">3. Domicilio, Correo y Afiliación</div>', unsafe_allow_html=True)
 estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="input_estres")
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1: calle = st.text_input("Calle *", key="input_calle")
 with col_dom2: numero = st.text_input("No. (Ext / Int) *", key="input_num")
 with col_dom3: colonia = st.text_input("Colonia *", key="input_col")
-cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"], key="input_derecho")
+
+col_corr1, col_corr2 = st.columns(2)
+with col_corr1:
+    correo_paciente = st.text_input("📧 Correo Electrónico (Para envío de su folio) *", placeholder="correo@ejemplo.com", key="input_correo_paciente")
+with col_corr2:
+    cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE UNA OPCIÓN", "NO", "SÍ"], key="input_derecho")
 
 # --- OCUPACIÓN ---
 st.markdown('<div class="section-title">4. Ocupación</div>', unsafe_allow_html=True)
@@ -332,7 +364,6 @@ st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</di
 es_personal_salud_ocupacion = "PERSONAL DE SALUD" in ocupacion.upper()
 es_embarazada_activa = (sexo == "MUJER" and personas_gestantes == "SÍ")
 
-# Sincronización bidireccional y limpieza de estado
 if es_embarazada_activa:
     st.session_state.chk_personas_embarazadas = True
 elif sexo != "MUJER" or personas_gestantes != "SÍ":
@@ -387,6 +418,8 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
         st.error("⚠️ Complete Apellido Paterno, Materno y Nombre(s).")
+    elif not correo_paciente.strip():
+        st.error("⚠️ Ingrese el correo electrónico para enviarle su comprobante de folio.")
     elif sexo == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Sexo.")
     elif vacuna_interes is None:
@@ -419,6 +452,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "paterno": paterno, "materno": materno, "nombres": nombres,
                     "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
                     "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
+                    "correo_paciente": correo_paciente.strip(),
                     "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
                     "estado_residencia": estado_residencia if estado_residencia != "SELECCIONE UN ESTADO" else "CDMX",
                     "curp_con_nacimiento": curp_con_nacimiento, "cuenta_derechohabiencia": cuenta_derechohabiencia,
@@ -438,6 +472,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
                     "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
+                    "correo_paciente": correo_paciente.strip(),
                 }
                 st.rerun()
             except Exception as e:
