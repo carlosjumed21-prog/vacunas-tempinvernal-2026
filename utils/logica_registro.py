@@ -242,10 +242,24 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     consecutivo_num = 1
     try:
         registros = obtener_registros_existentes_sheets(sigla_url, "", "I", val_fecha_app)
+        
+        # Respaldo: si no encuentra con el nombre estructurado, lee la primera hoja activa del archivo
+        if not registros:
+            import gspread
+            from google.oauth2.service_account import Credentials
+            scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/drive.readonly"]
+            if "gcp_service_account" in st.secrets:
+                credentials = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=scopes)
+                gc = gspread.authorize(credentials)
+                sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
+                worksheet = sh.get_worksheet(0)
+                registros = worksheet.get_all_records()
+
         if registros and isinstance(registros, list) and len(registros) > 0:
             max_consecutivo = 0
             for reg in registros:
-                folio_existente = str(reg.get("Folio", reg.get("folio", "")))
+                # Buscar en las variantes comunes de la Columna B (Folio)
+                folio_existente = str(reg.get("Folio", reg.get("folio", reg.get("FOLIO", ""))))
                 if "-" in folio_existente:
                     try:
                         partes = folio_existente.split("-")
