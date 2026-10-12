@@ -419,10 +419,10 @@ with st.form("form_registro_vacunacion"):
 
     st.markdown("---")
     
-    # Botón de envío nativo del formulario (deshabilita los clics múltiples automáticamente mientras procesa)
+    # Botón de envío del formulario que previene clics múltiples automáticamente
     submit_button = st.form_submit_button("Registrarme para la jornada", use_container_width=True)
 
-# Lógica ejecutada al hacer submit en el formulario
+# Lógica ejecutada al hacer submit
 if submit_button:
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
