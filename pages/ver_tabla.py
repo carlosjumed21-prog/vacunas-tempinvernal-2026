@@ -9,364 +9,412 @@ from google.oauth2 import service_account
 
 # --- INTENTO DE IMPORTACIÓN SEGURA DE CONFIG ---
 try:
-    from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+    from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 except ImportError:
-    GOOGLE_SCOPES = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    GOOGLE_SHEET_ID = st.secrets.get("GOOGLE_SHEET_ID", "")
+    GOOGLE_SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    GOOGLE_SHEET_ID = st.secrets.get("GOOGLE_SHEET_ID", "")
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA PARA OCUPAR TODO EL NAVEGADOR ---
 st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
 
 st.markdown(
-    """
-    <style>
-        /* --- ELIMINAR ESPACIOS EN BLANCO SUPERIORES DE STREAMLIT --- */
-        header {visibility: hidden;}
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 0rem !important;
-        }
-        [data-testid="stSidebar"] {display: none;}
-        
-        /* --- ESTILOS DE TARJETAS DE MÉTRICAS --- */
-        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } 
+    """
+    <style>
+        /* --- ELIMINAR ESPACIOS EN BLANCO SUPERIORES DE STREAMLIT --- */
+        header {visibility: hidden;}
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
+        }
+        [data-testid="stSidebar"] {display: none;}
+        
+        /* --- ESTILOS DE TARJETAS DE MÉTRICAS --- */
+        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } 
 
-        .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
-        .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
+        .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
+        .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
 
-        .main-header { 
-            font-size: 1.6rem !important; 
-            font-weight: 800 !important; 
-            color: #1e5b4f !important; 
-            margin-bottom: 0rem; 
-            border-bottom: 3px solid #a57f2c; 
-            padding-bottom: 4px; 
-        }
+        .main-header { 
+            font-size: 1.6rem !important; 
+            font-weight: 800 !important; 
+            color: #1e5b4f !important; 
+            margin-bottom: 0rem; 
+            border-bottom: 3px solid #a57f2c; 
+            padding-bottom: 4px; 
+        }
 
-        /* --- CONTENEDOR FIJO Y PEGADO ARRIBA --- */
-        .fixed-top-container {
-            position: sticky;
-            top: -20px;
-            z-index: 999;
-            background-color: #ffffff;
-            padding-top: 5px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-    </style>
+        /* --- CONTENEDOR FIJO Y PEGADO ARRIBA --- */
+        .fixed-top-container {
+            position: sticky;
+            top: -20px;
+            z-index: 999;
+            background-color: #ffffff;
+            padding-top: 5px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        /* --- ESTILO PARA FILAS VACUNADAS (VERDE SUAVE) EN ST.DATA_EDITOR --- */
+        /* Seleccionamos las celdas de las filas marcadas con la clase especial */
+        tr.fila-ag-aq-aplicada td {
+            background-color: #e2f0d9 !important;
+        }
+    </style>
 """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True,
 )
 
 # --- VALIDACIÓN DE SECRETOS Y CREDENCIALES ---
 if not GOOGLE_SHEET_ID:
-    st.error("❌ Falta configurar `GOOGLE_SHEET_ID` en los secretos de Streamlit o en tu archivo de configuración.")
-    st.stop()
+    st.error("❌ Falta configurar `GOOGLE_SHEET_ID` en los secretos de Streamlit o en tu archivo de configuración.")
+    st.stop()
 
 # --- CAPTURA DE LA HOJA AUTORIZADA DESDE LA URL ---
 params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
 
 if not hoja_activa_tabla:
-    st.warning("⚠️ No se especificó ninguna jornada activa. Por favor abra la vista desde el Módulo Operativo principal.")
+    st.warning("⚠️ No se especificó ninguna jornada activa. Por favor abra la vista desde el Módulo Operativo principal.")
 else:
-    try:
-        scope = GOOGLE_SCOPES
-        creds_dict = None
-        
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        elif "gpex" in st.secrets:
-            creds_dict = dict(st.secrets["gpex"])
-        elif len(st.secrets.keys()) > 0:
-            primera_llave = list(st.secrets.keys())[0]
-            if primera_llave != "GOOGLE_SHEET_ID":
-                creds_dict = dict(st.secrets[primera_llave])
+    try:
+        scope = GOOGLE_SCOPES
+        creds_dict = None
+        
+        if "GOOGLE_CREDENTIALS" in st.secrets:
+            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        elif "gpex" in st.secrets:
+            creds_dict = dict(st.secrets["gpex"])
+        elif len(st.secrets.keys()) > 0:
+            primera_llave = list(st.secrets.keys())[0]
+            if primera_llave != "GOOGLE_SHEET_ID":
+                creds_dict = dict(st.secrets[primera_llave])
 
-        if not creds_dict:
-            raise KeyError("No se encontraron credenciales de servicio válidas en `st.secrets`.")
+        if not creds_dict:
+            raise KeyError("No se encontraron credenciales de servicio válidas en `st.secrets`.")
 
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
-        client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=scope
+        )
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        ws = spreadsheet.worksheet(hoja_activa_tabla)
-        gid_hoja = ws.id
+        ws = spreadsheet.worksheet(hoja_activa_tabla)
+        gid_hoja = ws.id
 
-        # --- GESTIÓN DE CACHÉ PARA EVITAR LÍMITE DE CUOTA (429) ---
-        cache_key = f"datos_hoja_{hoja_activa_tabla}"
-        if cache_key not in st.session_state:
-            st.session_state[cache_key] = ws.get_all_values()
+        # --- GESTIÓN DE CACHÉ PARA EVITAR LÍMITE DE CUOTA (429) ---
+        cache_key = f"datos_hoja_{hoja_activa_tabla}"
+        if cache_key not in st.session_state:
+            st.session_state[cache_key] = ws.get_all_values()
 
-        todos_los_datos = st.session_state[cache_key]
+        todos_los_datos = st.session_state[cache_key]
 
-        if len(todos_los_datos) >= 14:
-            fila_cabecera_1 = todos_los_datos[11]
-            fila_cabecera_2 = todos_los_datos[12]
-            filas_tabla = todos_los_datos[13:]
-            
-            encabezados_combinados = []
-            conteo_nombres = {}
-            
-            for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
-                val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
-                val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
-                
-                if val1 and val2 and val1 != val2:
-                    col_str = f"{val1} - {val2}"
-                elif val2:
-                    col_str = val2
-                elif val1:
-                    col_str = val1
-                else:
-                    col_str = f"Col_{idx+1}"
-                
-                if col_str in conteo_nombres:
-                    conteo_nombres[col_str] += 1
-                    col_str = f"{col_str}_{conteo_nombres[col_str]}"
-                else:
-                    conteo_nombres[col_str] = 0
-                
-                encabezados_combinados.append(col_str)
+        if len(todos_los_datos) >= 14:
+            fila_cabecera_1 = todos_los_datos[11]
+            fila_cabecera_2 = todos_los_datos[12]
+            filas_tabla = todos_los_datos[13:]
+            
+            encabezados_combinados = []
+            conteo_nombres = {}
+            
+            for idx in range(max(len(fila_cabecera_1), len(fila_cabecera_2))):
+                val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
+                val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
+                
+                if val1 and val2 and val1 != val2:
+                    col_str = f"{val1} - {val2}"
+                elif val2:
+                    col_str = val2
+                elif val1:
+                    col_str = val1
+                else:
+                    col_str = f"Col_{idx+1}"
+                
+                if col_str in conteo_nombres:
+                    conteo_nombres[col_str] += 1
+                    col_str = f"{col_str}_{conteo_nombres[col_str]}"
+                else:
+                    conteo_nombres[col_str] = 0
+                
+                encabezados_combinados.append(col_str)
 
-            # --- CONSTRUCCIÓN DE FILAS: CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
-            filas_procesadas = []
-            mapeo_indices_pares = []
+            # --- CONSTRUCCIÓN DE FILAS Y DETECCIÓN DE AG-AQ ---
+            filas_procesadas = []
+            mapeo_indices_pares = []
+            filas_con_dosis_aplicada = set() # Para identificar qué índices visuales se deben pintar de verde
 
-            for i in range(0, len(filas_tabla), 2):
-                f1 = filas_tabla[i] if i < len(filas_tabla) else []
-                f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
+            contador_df_idx = 0
+            for i in range(0, len(filas_tabla), 2):
+                f1 = filas_tabla[i] if i < len(filas_tabla) else []
+                f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
 
-                f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
-                f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
+                f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
+                f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
-                # Fila 1 del paciente (Lleva booleano False para habilitar el checkbox interactivo)
-                fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 del paciente (Lleva cadena vacía para que no se muestre casilla interactiva en la fila de CURP)
-                fila_v2 = [""] + list(f2_adj[:len(encabezados_combinados)])
+                # Comprobar si tiene alguna "X" en las columnas de AG-AQ (aproximadamente índices 32 al 42)
+                tiene_aplicacion_ag_aq = False
+                for col_idx in range(32, min(43, len(f1_adj))):
+                    if str(f1_adj[col_idx]).strip().upper() == "X":
+                        tiene_aplicacion_ag_aq = True
+                        break
 
-                filas_procesadas.append(fila_v1)
-                filas_procesadas.append(fila_v2)
-                
-                mapeo_indices_pares.append(i)
+                # Si tiene dosis aplicada, guardamos tanto la fila principal como la de CURP para pintarlas juntas
+                if tiene_aplicacion_ag_aq:
+                    filas_con_dosis_aplicada.add(contador_df_idx)     # Fila 1 (Datos paciente)
+                    filas_con_dosis_aplicada.add(contador_df_idx + 1) # Fila 2 (CURP)
 
-            columnas_con_check = ["Seleccionar"] + encabezados_combinados
-            df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
+                # Fila 1 principal del paciente (Solo checkbox booleano al inicio)
+                fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
+                # Fila 2 de CURP
+                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
 
-            st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
+                filas_procesadas.append(fila_v1)
+                filas_procesadas.append(fila_v2)
+                
+                mapeo_indices_pares.append(i)
+                contador_df_idx += 2
 
-            # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
-            filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
+            columnas_con_check = ["Seleccionar"] + encabezados_combinados
+            df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-            total_censo_registros = 0
-            total_preregistros = 0
-            registros_nuevos_hoy = 0
-            total_aplicaciones = 0
-            total_sin_aplicar = 0
-            total_dosis_influenza = 0
-            total_dosis_covid = 0
-            total_simultaneas = 0
+            # Forzar la columna de selección a booleano para evitar bloqueos
+            df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
-            fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
+            st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
-            for row in filas_principales:
-                val_col_a = str(row[0]).strip() if len(row) > 0 else ""
-                if val_col_a != "":
-                    total_censo_registros += 1
+            # --- CÁLCULO DE MÉTRICAS DINÁMICAS (SALTANDO FILAS DE CURP) ---
+            filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
 
-                fecha_fila = row[48].strip() if len(row) > 48 else ""
+            total_censo_registros = 0
+            total_preregistros = 0
+            registros_nuevos_hoy = 0
+            total_aplicaciones = 0
+            total_sin_aplicar = 0
+            total_dosis_influenza = 0
+            total_dosis_covid = 0
+            total_simultaneas = 0
 
-                if fecha_fila == fecha_hoy_str:
-                    registros_nuevos_hoy += 1
-                else:
-                    total_preregistros += 1
+            fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
-                tiene_aplicacion = False
-                for i in range(32, min(43, len(row))):
-                    if str(row[i]).strip().upper() == "X":
-                        tiene_aplicacion = True
-                        break
-                
-                if tiene_aplicacion:
-                    total_aplicaciones += 1
-                else:
-                    total_sin_aplicar += 1
+            for row in filas_principales:
+                val_col_a = str(row[0]).strip() if len(row) > 0 else ""
+                if val_col_a != "":
+                    total_censo_registros += 1
 
-                tiene_influenza = False
-                for i in range(32, min(35, len(row))):
-                    if str(row[i]).strip().upper() == "X":
-                        tiene_influenza = True
-                        break
+                fecha_fila = row[48].strip() if len(row) > 48 else ""
 
-                tiene_covid = False
-                for i in range(37, min(40, len(row))):
-                    if str(row[i]).strip().upper() == "X":
-                        tiene_covid = True
-                        break
+                if fecha_fila == fecha_hoy_str:
+                    registros_nuevos_hoy += 1
+                else:
+                    total_preregistros += 1
 
-                if tiene_influenza and not tiene_covid:
-                    total_dosis_influenza += 1
-                elif tiene_covid and not tiene_influenza:
-                    total_dosis_covid += 1
-                elif tiene_influenza and tiene_covid:
-                    total_simultaneas += 1
+                tiene_aplicacion = False
+                for i in range(32, min(43, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        tiene_aplicacion = True
+                        break
+                
+                if tiene_aplicacion:
+                    total_aplicaciones += 1
+                else:
+                    total_sin_aplicar += 1
 
-            # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
-            st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+                tiene_influenza = False
+                for i in range(32, min(35, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        tiene_influenza = True
+                        break
 
-            col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-            with col_tit1:
-                st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-            with col_tit2:
-                if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header", help="Recargar datos más recientes desde Google Sheets"):
-                    if cache_key in st.session_state:
-                        del st.session_state[cache_key]
-                    st.rerun()
+                tiene_covid = False
+                for i in range(37, min(40, len(row))):
+                    if str(row[i]).strip().upper() == "X":
+                        tiene_covid = True
+                        break
 
-            with col_tit3:
-                try:
-                    if not creds.valid:
-                        from google.auth.transport.requests import Request
-                        creds.refresh(Request())
+                if tiene_influenza and not tiene_covid:
+                    total_dosis_influenza += 1
+                elif tiene_covid and not tiene_influenza:
+                    total_dosis_covid += 1
+                elif tiene_influenza and tiene_covid:
+                    total_simultaneas += 1
 
-                    url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-                    req = urllib.request.Request(
-                        url_export,
-                        headers={'Authorization': f'Bearer {creds.token}'}
-                    )
+            # --- ZONA FIJA SUPERIOR (ENCABEZADO Y MÉTRICAS) ---
+            st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
-                    with urllib.request.urlopen(req) as response:
-                        excel_original_bytes = response.read()
+            col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+            with col_tit1:
+                st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+            with col_tit2:
+                if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header", help="Recargar datos más recientes desde Google Sheets"):
+                    if cache_key in st.session_state:
+                        del st.session_state[cache_key]
+                    st.rerun()
 
-                    st.download_button(
-                        label="📥 Descargar Hoja Excel",
-                        data=excel_original_bytes,
-                        file_name=f"{hoja_activa_tabla}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                        help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
-                    )
-                except Exception as err:
-                    st.error(f"No se pudo descargar el archivo: {err}")
+            with col_tit3:
+                try:
+                    if not creds.valid:
+                        from google.auth.transport.requests import Request
+                        creds.refresh(Request())
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                    url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+                    req = urllib.request.Request(
+                        url_export,
+                        headers={'Authorization': f'Bearer {creds.token}'}
+                    )
 
-            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
-            m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-            
-            with m1:
-                st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
-            with m2:
-                st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
-            with m3:
-                st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
-            with m4:
-                st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
-            with m5:
-                st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
-            with m6:
-                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
-            with m7:
-                st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
-            with m8:
-                st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
+                    with urllib.request.urlopen(req) as response:
+                        excel_original_bytes = response.read()
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-            
-            # --- BOTÓN DE ELIMINACIÓN SUPERIOR ---
-            col_btn1, col_btn_rest = st.columns([2, 5])
-            with col_btn1:
-                btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
+                    st.download_button(
+                        label="📥 Descargar Hoja Excel",
+                        data=excel_original_bytes,
+                        file_name=f"{hoja_activa_tabla}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        help=f"Descargar la hoja '{hoja_activa_tabla}' con el diseño original de Google Sheets"
+                    )
+                except Exception as err:
+                    st.error(f"No se pudo descargar el archivo: {err}")
 
-            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-            # --- TABLA EDITABLE CON CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
-            df_editado = st.data_editor(
-                df_tabla_segura,
-                use_container_width=True,
-                height=550,
-                hide_index=True,
-                column_config={
-                    "Seleccionar": st.column_config.CheckboxColumn(
-                        "Seleccionar",
-                        help="Marque la casilla para seleccionar este paciente",
-                        default=False,
-                    )
-                }
-            )
+            # --- BARRA SUPERIOR DE MÉTRICAS DINÁMICAS (8 COLUMNAS) ---
+            m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+            
+            with m1:
+                st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
+            with m2:
+                st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
+            with m3:
+                st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
+            with m4:
+                st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
+            with m5:
+                st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
+            with m6:
+                st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+            with m7:
+                st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+            with m8:
+                st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
-            # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
-            if btn_eliminar:
-                # Buscamos las filas visuales marcadas como True (solo las filas pares del DF, índice 0, 2, 4...)
-                filas_seleccionadas_verdaderas = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-                
-                # Como las casillas interactivas solo están en las filas principales (índices pares del DF), 
-                # cada índice marcado dividido entre 2 nos da el número de paciente exacto.
-                pacientes_a_eliminar = set([idx // 2 for idx in filas_seleccionadas_verdaderas])
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=ThreadID if 'ThreadID' in globals() else 0)
+            
+            # --- BOTÓN DE ELIMINACIÓN SUPERIOR ---
+            col_btn1, col_btn_rest = st.columns([2, 5])
+            with col_btn1:
+                btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
 
-                if not pacientes_a_eliminar:
-                    st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-                else:
-                    try:
-                        mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
-                        
-                        filas_gs_a_borrar = []
-                        for paciente_idx in pacientes_a_eliminar:
-                            if paciente_idx < len(mapeo_indices):
-                                idx_par_real = mapeo_indices[paciente_idx]
-                                fila_fisica_1 = idx_par_real + 14
-                                fila_fisica_2 = idx_par_real + 15
-                                filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
+            st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-                        filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
+            # --- TABLA EDITABLE ---
+            df_editado = st.data_editor(
+                df_tabla_segura,
+                use_container_width=True,
+                height=550,
+                hide_index=True,
+                column_config={
+                    "Seleccionar": st.column_config.CheckboxColumn(
+                        "Seleccionar",
+                        help="Marque la casilla para seleccionar este paciente",
+                        default=False,
+                    )
+                }
+            )
 
-                        for fila_gs in filas_gs_a_borrar:
-                            ws.delete_rows(fila_gs)
+            # --- SCRIPT JS PARA COLOREAR LAS FILAS DE VERDE EN EL DOM DE STREAMLIT ---
+            filas_verde_json = json.dumps(list(filas_con_dosis_aplicada))
+            st.markdown(
+                f"""
+                <script>
+                    const indicesVerdes = {filas_verde_json};
+                    function pintarFilas() {{
+                        const doc = window.parent.document;
+                        const filas = doc.querySelectorAll('div[data-testid="stDataEditor"] tbody tr, [data-testid="stTable"] tbody tr, .glideDataEditor tbody tr');
+                        // Como Streamlit renderiza la tabla virtualmente, aplicamos estilo a las filas cuyos índices coincidan
+                        filas.forEach((tr, index) => {{
+                            if (indicesVerdes.includes(index)) {{
+                                tr.classList.add('fila-ag-aq-aplicada');
+                            }}
+                        }});
+                    }}
+                    // Ejecutar de forma periódica y al cargar para asegurar que el DOM virtual pinte las filas correctamente
+                    setTimeout(pintarFilas, 500);
+                    setTimeout(pintarFilas, 1500);
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
 
-                        # --- RECALCULAR Y REORGANIZAR LA COLUMNA A (CONSECUTIVO) ---
-                        datos_actualizados = ws.get_all_values()
-                        if len(datos_actualizados) >= 14:
-                            filas_actuales = datos_actualizados[13:]
-                            
-                            contador = 1
-                            updates = []
-                            for i in range(0, len(filas_actuales), 2):
-                                row = filas_actuales[i]
-                                if len(row) > 0 and row[0].strip() != "":
-                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
-                                    updates.append({
-                                        'range': cell_coord,
-                                        'values': [[str(contador)]]
-                                    })
-                                    contador += 1
+            # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
+            if btn_eliminar:
+                filas_seleccionadas_verdaderas = [
+                    idx for idx in df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                    if idx % 2 == 0
+                ]
+                
+                pacientes_a_eliminar = set([idx // 2 for idx in filas_seleccionadas_verdaderas])
 
-                            if updates:
-                                ws.batch_update(updates)
+                if not pacientes_a_eliminar:
+                    st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+                else:
+                    try:
+                        mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
+                        
+                        filas_gs_a_borrar = []
+                        for paciente_idx in pacientes_a_eliminar:
+                            if paciente_idx < len(mapeo_indices):
+                                idx_par_real = mapeo_indices[paciente_idx]
+                                fila_fisica_1 = idx_par_real + 14
+                                fila_fisica_2 = idx_par_real + 15
+                                filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
-                        if cache_key in st.session_state:
-                            del st.session_state[cache_key]
+                        filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
 
-                        st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
-                        st.rerun()
+                        for fila_gs in filas_gs_a_borrar:
+                            ws.delete_rows(fila_gs)
 
-                    except Exception as e:
-                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+                        # --- RECALCULAR Y REORGANIZAR LA COLUMNA A (CONSECUTIVO) ---
+                        datos_actualizados = ws.get_all_values()
+                        if len(datos_actualizados) >= 14:
+                            filas_actuales = datos_actualizados[13:]
+                            
+                            contador = 1
+                            updates = []
+                            for i in range(0, len(filas_actuales), 2):
+                                row = filas_actuales[i]
+                                if len(row) > 0 and row[0].strip() != "":
+                                    cell_coord = gspread.utils.rowcol_to_a1(i + 14, 1)
+                                    updates.append({
+                                        'range': cell_coord,
+                                        'values': [[str(contador)]]
+                                    })
+                                    contador += 1
 
-        else:
-            st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
+                            if updates:
+                                ws.batch_update(updates)
 
-    except Exception as ex:
-        st.error(f"Error al conectar con la base de datos: {ex}")
+                        if cache_key in st.session_state:
+                            del st.session_state[cache_key]
+
+                        st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+
+        else:
+            st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura.")
+
+    except Exception as ex:
+        st.error(f"Error al conectar con la base de datos: {ex}")
