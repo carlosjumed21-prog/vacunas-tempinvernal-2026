@@ -8,6 +8,7 @@ from utils.admin_utils import (
     sincronizar_historial_universal,
     generar_imagen_qr
 )
+from utils.admin_20_nov import autorizar_y_crear_jornadas_20_nov
 
 aplicar_configuracion_global("Panel de Administración - Censo Nominal", "⚙️")
 
@@ -186,9 +187,15 @@ else:
                 elif duplicadas:
                     st.error(f"⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets maestro: {', '.join(duplicadas)}. Por favor cambie la fecha o el tipo de jornada.")
                 else:
-                    hojas_creadas_exito, error_creacion = autorizar_y_crear_jornadas(
-                        siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas
-                    )
+                    if siglas_unidad == "20N":
+                        hojas_creadas_exito, error_creacion = autorizar_y_crear_jornadas_20_nov(
+                            siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas
+                        )
+                    else:
+                        hojas_creadas_exito, error_creacion = autorizar_y_crear_jornadas(
+                            siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas
+                        )
+
                     if error_creacion:
                         st.error(f"Error al configurar Google Sheets. Detalle: {error_creacion}")
                     else:
