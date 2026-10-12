@@ -38,10 +38,10 @@ def procesar_guardado_aplicacion(
 
     if covid_seleccionada:
         if not lote_cov_input.strip():
-            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta ingresar el número de lote.")
+            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta ingresar el número de lote.")
             error_validacion = True
         if not cad_cov_input.strip():
-            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **COVID-19 ({biologico_covid_elegido})**, pero falta indicar la fecha de caducidad.")
+            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta indicar la fecha de caducidad.")
             error_validacion = True
 
     if not influenza_seleccionada and not covid_seleccionada:
@@ -100,13 +100,13 @@ def procesar_guardado_aplicacion(
 
         if cov_1ra:
             datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
-            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (1ra Dosis)")
+            dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
         if cov_2da:
             datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
-            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (2da Dosis)")
+            dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (2da Dosis)")
         if cov_anual:
             datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
-            dosis_aplicadas_lista.append(f"COVID-19 {biologico_covid_elegido} (Dosis Anual)")
+            dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (Dosis Anual)")
 
         if lote_cov_input:
             lote_c = lote_cov_input.upper()
