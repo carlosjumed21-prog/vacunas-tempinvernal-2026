@@ -351,20 +351,39 @@ if es_admin:
 st.markdown('<div class="section-title">1. Control de Fechas y Folio</div>', unsafe_allow_html=True)
 col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
-    st.markdown(f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>',
+        unsafe_allow_html=True
+    )
 with col_f2:
-    st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>',
+        unsafe_allow_html=True
+    )
 with col_f3:
-    folio_cached = st.session_state.get("folio_proyectado_cached")
-    if folio_cached:
-        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_cached}</b></div>', unsafe_allow_html=True)
+    # Para el formulario público NO mostramos ni calculamos el folio antes del registro.
+    # Mostramos un placeholder indicando que el folio se asignará al finalizar el registro.
+    # Si es un administrador (es_admin), dejamos un botón para calcular folio proyectado (solo para pruebas/operación).
+    if es_admin:
+        folio_cached = st.session_state.get("folio_proyectado_cached")
+        if folio_cached:
+            st.markdown(f'<div class="card-info-header">🔖 Folio de Registro (Proyectado)<br><b>{folio_cached}</b></div>', unsafe_allow_html=True)
+            if st.button("🧾 Borrar folio proyectado (limpiar cache)", key="btn_clear_folio"):
+                st.session_state["folio_proyectado_cached"] = None
+                safe_rerun()
+        else:
+            st.markdown(f'<div class="card-info-header">🔖 Folio de Registro (Proyección solo para administración)<br><b>— (Pulse calcular)</b></div>', unsafe_allow_html=True)
+            if st.button("Calcular folio proyectado (Admin)", key="btn_calcular_folio_admin"):
+                with st.spinner("Calculando folio proyectado desde Google Sheets..."):
+                    folio_calculado = obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, st.session_state.modalidad)
+                    st.session_state["folio_proyectado_cached"] = folio_calculado
+                safe_rerun()
     else:
-        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>— (Pulse calcular)</b></div>', unsafe_allow_html=True)
-        if st.button("Calcular folio proyectado", key="btn_calcular_folio"):
-            with st.spinner("Calculando folio proyectado desde Google Sheets..."):
-                folio_calculado = obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, st.session_state.modalidad)
-                st.session_state["folio_proyectado_cached"] = folio_calculado
-            safe_rerun()
+        # Texto para usuarios públicos: se asignará un folio al finalizar el registro
+        st.markdown(
+            f'<div class="card-info-header">🔖 Folio de Registro<br><b>— (Se asignará al finalizar el registro)</b></div>',
+            unsafe_allow_html=True
+        )
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
