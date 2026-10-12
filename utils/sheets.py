@@ -7,39 +7,31 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-    """Busca de forma flexible las credenciales de Google Sheets en st.secrets e inicia sesión."""
-    creds_dict = None
+    """Autentica y retorna el cliente de gspread leyendo GOOGLE_CREDENTIALS como JSON plano."""
+    crens_raw = st.secrets.get("GOOGLE_CREDENTIALS")
 
-    posibles_llaves = [
-        "GOOGLE_CREDENTIALS",
-        "gpex",
-        "GOOGLE_APPLICATION_CREDENTIALS",
-    ]
-    for llave in posibles_llaves:
-        if llave in st.secrets:
-            val = st.secrets[llave]
-            if isinstance(val, str):
-                try:
-                    creds_dict = json.loads(val)
-                except Exception:
-                    pass
-            elif isinstance(val, dict):
-                creds_dict = dict(val)
-            break
-
-    if not creds_dict:
-        for key in st.secrets.keys():
-            if key != "email":
-                potential = st.secrets[key]
-                if isinstance(potential, dict) and "client_email" in potential:
-                    creds_dict = dict(potential)
-                    break
-
-    if not creds_dict or "client_email" not in creds_dict:
+    if not crens_raw:
         raise ValueError(
             "No se encontraron las credenciales de la cuenta de servicio de Google Sheets en los secretos."
         )
 
+    # Si se leyó como texto, lo convertimos a diccionario mediante json.loads
+    if isinstance(crens_raw, str):
+        try:
+            creds_dict = json.loads(crens_raw)
+        except Exception as err:
+            raise ValueError(
+                f"El formato JSON de GOOGLE_CREDENTIALS es inválido: {err}"
+            )
+    else:
+        creds_dict = dict(crens_raw)
+
+    if not creds_dict or "client_email" not in creds_dict:
+        raise ValueError(
+            "El diccionario de credenciales no contiene el campo 'client_email'."
+        )
+
+    # Normalizar saltos de línea de la llave privada
     if "private_key" in creds_dict and isinstance(
         creds_dict["private_key"], str
     ):
