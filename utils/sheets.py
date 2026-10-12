@@ -7,21 +7,30 @@ import streamlit as st
 
 
 def obtener_cliente_gspread():
-  """Autentica y retorna el cliente de gspread usando los secretos de Streamlit."""
+  """Autentica y retorna el cliente de gspread manejando tanto formato de texto JSON como tabla TOML."""
   creds_dict = None
 
   if "GOOGLE_CREDENTIALS" in st.secrets:
     raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
     if isinstance(raw_creds, str):
       creds_dict = json.loads(raw_creds)
+    elif isinstance(raw_creds, dict):
+      creds_dict = dict(raw_creds)
     else:
-      # Si Streamlit ya lo leyó como un diccionario (tabla TOML), lo convertimos a dict estándar
+      # Manejo para contenedores o estructuras anidadas de Streamlit
       creds_dict = dict(raw_creds)
   elif "gpex" in st.secrets:
     creds_dict = dict(st.secrets["gpex"])
   else:
     primera_llave = list(st.secrets.keys())[0]
     creds_dict = dict(st.secrets[primera_llave])
+
+  # Asegurarnos de que las llaves esenciales existan explícitamente si vinieran de un formato mapeado
+  if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+    # Reemplazar los saltos de línea escapados si el formato lo requiere
+    creds_dict["private_key"] = creds_dict["private_key"].replace(
+        "\\n", "\n"
+    )
 
   creds = service_account.Credentials.from_service_account_info(
       creds_dict, scopes=GOOGLE_SCOPES
