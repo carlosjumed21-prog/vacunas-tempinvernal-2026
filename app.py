@@ -26,6 +26,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- DIÁLOGO DE CREDENCIALES PARA REGISTRO NOMINAL ---
+@st.dialog("🔐 Autenticación Requerida - Registro Nominal")
+def solicitar_credenciales_registro(pagina_destino):
+    st.markdown("Por favor, introduce la clave de acceso institucional para autorizar la captura en el censo nominal.")
+    
+    with st.form("form_auth_registro"):
+        usuario = st.text_input("Usuario / Matrícula")
+        password = st.text_input("Contraseña o Clave de Acceso", type="password")
+        submitted = st.form_submit_button("Validar Acceso", use_container_width=True)
+        
+        if submitted:
+            # Puedes cambiar esta lógica por una validación con st.secrets o base de datos
+            # Por ejemplo: if password == st.secrets["ADMIN_PASSWORD"]:
+            if password == "VIGILE2026" and usuario:  # Clave de ejemplo
+                st.session_state["auth_registro"] = True
+                st.success("¡Credenciales correctas! Redirigiendo...")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas. Verifique sus datos.")
+
 # --- ACCESO RÁPIDO A ADMINISTRACIÓN EN LA PARTE SUPERIOR ---
 col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
 with col_top3:
@@ -61,8 +81,18 @@ with col1:
             <p>Acceso al formulario de captura para pacientes en jornadas de vacunación.</p>
         </div>
     """, unsafe_allow_html=True)
+    
     if st.button("Ir al Formulario de Registro", use_container_width=True):
-        st.switch_page(pagina_formulario)
+        # Verificar si el usuario ya está autenticado en la sesión
+        if st.session_state.get("auth_registro", False):
+            st.switch_page(pagina_formulario)
+        else:
+            solicitar_credenciales_registro(pagina_formulario)
+
+# Si ya se autenticó y la página se recargó tras el diálogo, podemos manejar la redirección directa si es necesario
+if st.session_state.get("auth_registro", False) and params.get("redirect", "") == "true":
+    st.session_state["auth_registro"] = False # Opcional: limpiar estado si deseas pedirlo cada vez
+    st.switch_page(pagina_formulario)
 
 with col2:
     st.markdown("""
