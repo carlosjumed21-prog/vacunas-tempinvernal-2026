@@ -1,15 +1,16 @@
-
 import gspread
 from utils.sheets_20_nov import obtener_cliente_gspread
-from config import GOOGLE_SHEET_ID
+
+# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
+SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas):
     """
-    Crea las pestañas correspondientes en el Google Sheets maestro de forma específica 
-    para el CMN 20 de Noviembre, asegurando la estructura dual de censo nominal.
+    Crea las pestañas correspondientes en la hoja de Google Sheets exclusiva del CMN 20 de Noviembre,
+    asegurando la estructura de censo nominal y los encabezados institucionales correctos.
     """
     client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    spreadsheet = client.open_by_key(SHEET_ID_20_NOV)
     
     hojas_creadas = []
     
@@ -24,7 +25,7 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
                 gid = ws_existente.id
                 hojas_creadas.append({
                     "nombre": nombre_hoja,
-                    "sheet_id": GOOGLE_SHEET_ID,
+                    "sheet_id": SHEET_ID_20_NOV,
                     "gid": gid,
                     "unidad": unidad_sel,
                     "tipo_jornada": jornada_sel,
@@ -35,9 +36,8 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
                 pass
             
             # Duplicar una plantilla base o crear una nueva hoja con los encabezados del 20 de Noviembre
-            # Si tienes una hoja plantilla llamada 'PLANTILLA_20N' en tu Google Sheet:
             try:
-                plantilla = spreadsheet.worksheet("PLANTILLA_20N")
+                plantilla = spreadsheet.worksheet("CENSO")
                 nueva_hoja = spreadsheet.duplicate_sheet(plantilla.id, new_sheet_name=nombre_hoja)
             except Exception:
                 # Si no existe plantilla, se crea una nueva en blanco y se configuran los encabezados institucionales
@@ -60,7 +60,7 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
             
             hojas_creadas.append({
                 "nombre": nombre_hoja,
-                "sheet_id": GOOGLE_SHEET_ID,
+                "sheet_id": SHEET_ID_20_NOV,
                 "gid": gid_nueva,
                 "unidad": unidad_sel,
                 "tipo_jornada": jornada_sel,
