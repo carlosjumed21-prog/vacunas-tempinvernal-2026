@@ -75,7 +75,6 @@ if "ant_inf" not in st.session_state:
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
-# Calcular de forma preventiva el siguiente folio que le correspondería al usuario para mostrarlo en cabecera
 folio_proyectado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
@@ -203,7 +202,7 @@ def mostrar_modal_comprobante():
                     st.error(mensaje)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ Nuevo Registro", use_container_width=True):
+        if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.ultimo_paciente_registrado = None
             keys_a_limpiar = [
                 "input_paterno", "input_materno", "input_nombres", "sel_dia", "sel_mes", "sel_anio",
@@ -244,10 +243,11 @@ def mostrar_modal_duplicado():
             """,
             unsafe_allow_html=True
         )
-        if st.button("Entendido (Reiniciar)", use_container_width=True):
+        if st.button("Entendido (Reiniciar)", use_container_width=True, key="btn_entendido_duplicado"):
             st.session_state.paciente_duplicado_info = None
             st.rerun()
 
+# --- LLAMADAS A MODALES SEGÚN EL ESTADO ---
 if st.session_state.get("ultimo_paciente_registrado") is not None:
     mostrar_modal_comprobante()
 
@@ -422,7 +422,7 @@ st.markdown("---")
 
 # --- BOTÓN DE REGISTRO PROTEGIDO CONTRA CLICS MÚLTIPLES ---
 btn_disabled = st.session_state.enviando_registro
-if st.button("Registrarme para la jornada", use_container_width=True, disabled=btn_disabled):
+if st.button("Registrarme para la jornada", use_container_width=True, disabled=btn_disabled, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
@@ -434,7 +434,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        # Bloquear el botón inmediatamente para evitar reenvíos múltiples
         st.session_state.enviando_registro = True
         
         duplicado, folio_previo = verificar_curp_duplicada(
@@ -450,7 +449,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
             st.rerun()
         else:
             try:
-                # Generar el folio único exacto que irá a la Columna B
                 folio_asignado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
                 fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
@@ -475,7 +473,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
                     "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
                     "modalidad": st.session_state.modalidad,
-                    "folio": folio_asignado  # <--- Folio único guardado en la Columna B
+                    "folio": folio_asignado
                 }
 
                 guardar_registro_censal(
@@ -487,7 +485,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                 st.session_state.ultimo_paciente_registrado = {
                     "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
-                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado, # <--- Folio mostrado en el comprobante final
+                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
                     "correo_paciente": correo_paciente.strip(),
                     "fecha_aplicacion": fecha_aplicacion_str,
                 }
