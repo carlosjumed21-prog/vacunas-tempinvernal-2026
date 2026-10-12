@@ -85,7 +85,7 @@ def mostrar_modal_comprobante():
         vacuna_val = p.get("vacuna_interes", "AMBAS")
         grupo_val = p["grupo_objetivo"]
         correo_capturado = p.get("correo_paciente", "")
-        fecha_val = datetime.date.today().strftime("%d/%m/%Y")
+        fecha_val = p.get("fecha_aplicacion", val_fecha_app.strftime("%d/%m/%Y"))
 
         texto_qr = (
             f"ISSSTE - REGISTRO DE FOLIO VIGILE\n"
@@ -94,7 +94,7 @@ def mostrar_modal_comprobante():
             f"CURP: {curp_mostrar}\n"
             f"VACUNA: {vacuna_val}\n"
             f"GRUPO: {grupo_val}\n"
-            f"FECHA: {fecha_val}\n"
+            f"FECHA APLICACIÓN: {fecha_val}\n"
             f"ESTADO: REGISTRADO"
         )
 
@@ -130,8 +130,7 @@ def mostrar_modal_comprobante():
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
             .btn-container {{ display: flex; gap: 8px; }}
-            .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; }}
-            .btn-wa {{ background-color: #25D366; color: white; }}
+            .btn {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; }}
             .btn-img {{ background-color: #1e5b4f; color: white; }}
         </style>
         </head>
@@ -149,6 +148,7 @@ def mostrar_modal_comprobante():
                         <p class="info-text"><b>CURP:</b> {curp_mostrar}</p>
                         <p class="info-text"><b>Vacuna:</b> {vacuna_val}</p>
                         <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
+                        <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
                     </div>
                     <div class="qr-container"><canvas id="qr-canvas"></canvas></div>
                 </div>
@@ -156,24 +156,12 @@ def mostrar_modal_comprobante():
                 <p class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
             </div>
             <div class="btn-container">
-                <button class="btn btn-wa" onclick="compartirWhatsApp()">💬 WhatsApp</button>
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar</button>
+                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
             </div>
             <script>
                 window.addEventListener('DOMContentLoaded', () => {{
                     new QRious({{ element: document.getElementById('qr-canvas'), value: {repr(texto_qr)}, size: 250 }});
                 }});
-                function compartirWhatsApp() {{
-                    html2canvas(document.getElementById('comprobante-captura'), {{ scale: 2, useCORS: true }}).then(canvas => {{
-                        canvas.toBlob(blob => {{
-                            const enlace = document.createElement('a');
-                            enlace.download = 'Folio_{folio_val}.png';
-                            enlace.href = URL.createObjectURL(blob);
-                            enlace.click();
-                            window.open('https://wa.me/?text=' + encodeURIComponent("💉 Folio: *{folio_val}* - {nombre_val}"), '_blank');
-                        }}, 'image/png');
-                    }});
-                }}
                 function descargarCaptura() {{
                     html2canvas(document.getElementById('comprobante-captura'), {{ scale: 2, useCORS: true }}).then(canvas => {{
                         const enlace = document.createElement('a');
@@ -186,7 +174,7 @@ def mostrar_modal_comprobante():
         </body>
         </html>
         """
-        components.html(html_comprobante_component, height=350)
+        components.html(html_comprobante_component, height=360)
         st.markdown("<br>", unsafe_allow_html=True)
 
         # --- ENVÍO DE CORREO DESDE EL MODAL ---
@@ -452,6 +440,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
         else:
             try:
                 folio_asignado = generar_folio_personalizado(val_fecha_app, st.session_state.modalidad, sigla_url)
+                fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                 comorbilidades_dict = {
                     "personas_embarazadas": personas_embarazadas, "personal_salud_riesgo": personal_salud_riesgo,
@@ -487,6 +476,7 @@ if st.button("Registrarme para la jornada", use_container_width=True):
                     "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
                     "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
                     "correo_paciente": correo_paciente.strip(),
+                    "fecha_aplicacion": fecha_aplicacion_str,
                 }
                 st.rerun()
             except Exception as e:
