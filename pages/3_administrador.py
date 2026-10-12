@@ -1,17 +1,13 @@
 import datetime
-import io
-import json
-import urllib.parse
-from config import (
-    GOOGLE_SCOPES,
-    GOOGLE_SHEET_ID,
-    UNIDADES_ISSSTE,
-    aplicar_configuracion_global,
-)
-from google.oauth2 import service_account
-import gspread
-import qrcode
 import streamlit as st
+from config import UNIDADES_ISSSTE, aplicar_configuracion_global
+from utils.admin_utils import (
+    autenticar_administrador,
+    verificar_hojas_existentes,
+    autorizar_y_crear_jornadas,
+    sincronizar_historial_universal,
+    generar_imagen_qr
+)
 
 aplicar_configuracion_global("Panel de Administración - Censo Nominal", "⚙️")
 
@@ -39,6 +35,7 @@ with col_nav2:
 
 st.markdown("---")
 
+# Inicialización de variables de sesión
 if "autenticado_admin" not in st.session_state:
     st.session_state.autenticado_admin = False
 if "usuario_admin_actual" not in st.session_state:
@@ -53,51 +50,35 @@ if "jornada_autorizada" not in st.session_state:
     st.session_state.jornada_autorizada = False
 if "hojas_creadas_recientes" not in st.session_state:
     st.session_state.hojas_creadas_recientes = []
-
 if "historial_jornadas" not in st.session_state:
     st.session_state.historial_jornadas = []
 
+# --- VISTA DE LOGIN ---
 if not st.session_state.autenticado_admin:
-    st.markdown(
-        '<p class="main-header">Acceso Restringido - Panel de Administración</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="sub-header">Ingrese su correo electrónico y contraseña de administrador</p>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<p class="main-header">Acceso Restringido - Panel de Administración</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña de administrador</p>', unsafe_allow_html=True)
 
     with st.form("form_login_admin"):
-        correo_admin_input = st.text_input(
-            "📧 Correo Electrónico Administrador:",
-            placeholder="carlosju.med21@gmail.com"
-        )
+        correo_admin_input = st.text_input("📧 Correo Electrónico Administrador:", placeholder="carlosju.med21@gmail.com")
         password_admin = st.text_input("Contraseña:", type="password")
-        
-        btn_login_admin = st.form_submit_button(
-            "Ingresar al Panel", use_container_width=True
-        )
+        btn_login_admin = st.form_submit_button("Ingresar al Panel", use_container_width=True)
 
         if btn_login_admin:
-            correo_admin_limpio = correo_admin_input.strip().lower()
-            if not correo_admin_limpio:
+            if not correo_admin_input.strip():
                 st.error("⚠️ Debe ingresar su correo electrónico.")
             elif not password_admin:
                 st.error("⚠️ Debe ingresar su contraseña.")
             else:
-                if (correo_admin_limpio == "carlosju.med21@gmail.com" and password_admin == "OtaniOrochi26") or \
-                   (correo_admin_limpio == "wendy@issste.gob.mx" and password_admin == "MedPrev26"):
+                exito, usuario = autenticar_administrador(correo_admin_input, password_admin)
+                if exito:
                     st.session_state.autenticado_admin = True
-                    st.session_state.usuario_admin_actual = correo_admin_limpio
+                    st.session_state.usuario_admin_actual = usuario
                     st.rerun()
                 else:
                     st.error("❌ Correo o contraseña de administrador incorrectos.")
 else:
-    st.markdown(
-        '<p class="main-header">Panel de Control y Administración (Gestión de Pestañas Maestras)</p>',
-        unsafe_allow_html=True,
-    )
-
+    # --- PANEL DE CONTROL PRINCIPAL ---
+    st.markdown('<p class="main-header">Panel de Control y Administración (Gestión de Pestañas Maestras)</p>', unsafe_allow_html=True)
     tab_creacion, tab_historial = st.tabs(["🚀 Creación de Jornadas", "📋 Historial y Estatus de Jornadas"])
 
     with tab_creacion:
@@ -108,63 +89,29 @@ else:
 
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            unidad_sel = st.selectbox(
-                "Unidad Médica ISSSTE:", options=list(UNIDADES_ISSSTE.keys())
-            )
-            siglas_unidad = (
-                UNIDADES_ISSSTE[unidad_sel]["sigla"]
-                if unidad_sel in UNIDADES_ISSSTE
-                else ""
-            )
+            unidad_sel = st.selectbox("Unidad Médica ISSSTE:", options=list(UNIDADES_ISSSTE.keys()))
+            siglas_unidad = UNIDADES_ISSSTE[unidad_sel]["sigla"] if unidad_sel in UNIDADES_ISSSTE else ""
 
         with col_c2:
-            jornada_sel = st.selectbox(
-                "Tipo de Jornada:",
-                options=["Seleccione tipo...", "Intramuros I", "Extramuros E"],
-            )
-            tipo_jornada_letra = (
-                "I"
-                if "Intramuros" in jornada_sel
-                else ("E" if "Extramuros" in jornada_sel else "")
-            )
-            tipo_jornada_texto = (
-                "INTRA"
-                if tipo_jornada_letra == "I"
-                else ("EXTRA" if tipo_jornada_letra == "E" else "")
-            )
+            jornada_sel = st.selectbox("Tipo de Jornada:", options=["Seleccione tipo...", "Intramuros I", "Extramuros E"])
+            tipo_jornada_letra = "I" if "Intramuros" in jornada_sel else ("E" if "Extramuros" in jornada_sel else "")
+            tipo_jornada_texto = "INTRA" if tipo_jornada_letra == "I" else ("EXTRA" if tipo_jornada_letra == "E" else "")
 
-        if (
-            unidad_sel != "Seleccione una unidad médica..."
-            and st.session_state.unidad_anterior != unidad_sel
-        ):
+        if unidad_sel != "Seleccione una unidad médica..." and st.session_state.unidad_anterior != unidad_sel:
             st.session_state.unidad_anterior = unidad_sel
             st.session_state.config_direccion_base = UNIDADES_ISSSTE[unidad_sel]["dir"]
             st.session_state.jornada_autorizada = False
             st.rerun()
 
-        if (
-            unidad_sel == "Seleccione una unidad médica..."
-            or jornada_sel == "Seleccione tipo..."
-        ):
-            st.warning(
-                "⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos para habilitar la configuración."
-            )
+        if unidad_sel == "Seleccione una unidad médica..." or jornada_sel == "Seleccione tipo...":
+            st.warning("⚠️ Por favor seleccione una Unidad Médica y un Tipo de Jornada válidos para habilitar la configuración.")
         else:
             st.markdown("---")
-            jornadas_simultaneas = st.toggle(
-                "⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en operación)",
-                value=False,
-            )
+            jornadas_simultaneas = st.toggle("⚡ Activar Jornadas Simultáneas (Múltiples equipos o células en operación)", value=False)
 
             num_jornadas = 1
             if jornadas_simultaneas:
-                num_jornadas = st.number_input(
-                    "Número de jornadas simultáneas a habilitar:",
-                    min_value=2,
-                    max_value=5,
-                    value=2,
-                    step=1,
-                )
+                num_jornadas = st.number_input("Número de jornadas simultáneas a habilitar:", min_value=2, max_value=5, value=2, step=1)
 
             st.markdown(
                 '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">2. Parámetros Independientes por Cédula / Brigada</div>',
@@ -175,44 +122,24 @@ else:
 
             if not jornadas_simultaneas:
                 st.markdown('<div class="card-simultanea">', unsafe_allow_html=True)
-                resp_unico = st.text_input(
-                    "👤 Nombre del responsable de vacunación:",
-                    placeholder="Escriba el nombre completo...",
-                )
-                correo_resp_unico = st.text_input(
-                    "📧 Correo electrónico del responsable (Control de acceso en AU4):",
-                    placeholder="ejemplo@issste.gob.mx",
-                    key="correo_resp_unico"
-                )
+                resp_unico = st.text_input("👤 Nombre del responsable de vacunación:", placeholder="Escriba el nombre completo...")
+                correo_resp_unico = st.text_input("📧 Correo electrónico del responsable:", placeholder="ejemplo@issste.gob.mx", key="correo_resp_unico")
                 
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
-                    f_app = st.date_input(
-                        "Fecha de Aplicación:",
-                        value=datetime.date.today(),
-                        format="DD/MM/YYYY",
-                        key="f_app_unica",
-                    )
+                    f_app = st.date_input("Fecha de Aplicación:", value=datetime.date.today(), format="DD/MM/YYYY", key="f_app_unica")
                 with col_f2:
-                    h_ini = st.time_input(
-                        "Hora Inicio:", value=datetime.time(8, 0), key="h_ini_unica"
-                    )
+                    h_ini = st.time_input("Hora Inicio:", value=datetime.time(8, 0), key="h_ini_unica")
                 with col_f3:
-                    h_fin = st.time_input(
-                        "Hora Cierre:", value=datetime.time(14, 0), key="h_fin_unica"
-                    )
+                    h_fin = st.time_input("Hora Cierre:", value=datetime.time(14, 0), key="h_fin_unica")
 
-                dir_oficial = st.text_area(
-                    "📍 Dirección Oficial de esta Jornada:",
-                    value=st.session_state.config_direccion_base,
-                    height=70,
-                    key="dir_unica",
-                )
+                dir_oficial = st.text_area("📍 Dirección Oficial de esta Jornada:", value=st.session_state.config_direccion_base, height=70, key="dir_unica")
                 st.markdown("</div>", unsafe_allow_html=True)
 
                 config_jornadas_activas.append({
                     "sufijo_hoja": "",
                     "sufijo_qr": "",
+                    "tipo_texto": tipo_jornada_texto,
                     "responsable": resp_unico.upper() if resp_unico else "PERSONAL",
                     "correo": correo_resp_unico.strip().lower(),
                     "fecha": f_app,
@@ -221,57 +148,27 @@ else:
                     "direccion": dir_oficial,
                 })
             else:
-                st.info(
-                    f"Configurando {num_jornadas} equipos simultáneos con fechas, horarios y ubicaciones personalizadas:"
-                )
+                st.info(f"Configurando {num_jornadas} equipos simultáneos con fechas, horarios y ubicaciones personalizadas:")
                 for i in range(1, num_jornadas + 1):
-                    st.markdown(
-                        f'<div class="card-simultanea"><h4 style="color: #1e5b4f; margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>',
-                        unsafe_allow_html=True,
-                    )
-                    resp_sim = st.text_input(
-                        f"👤 Responsable de Brigada #{i}:",
-                        placeholder=f"Nombre del responsable {i}...",
-                        key=f"resp_sim_{i}",
-                    )
-                    correo_sim = st.text_input(
-                        f"📧 Correo electrónico de Brigada #{i}:",
-                        placeholder=f"correo_brigada_{i}@issste.gob.mx",
-                        key=f"correo_sim_{i}"
-                    )
+                    st.markdown(f'<div class="card-simultanea"><h4 style="color: #1e5b4f; margin-top:0;">📋 Cédula / Brigada Simultánea # {i}</h4>', unsafe_allow_html=True)
+                    resp_sim = st.text_input(f"👤 Responsable de Brigada #{i}:", placeholder=f"Nombre del responsable {i}...", key=f"resp_sim_{i}")
+                    correo_sim = st.text_input(f"📧 Correo electrónico de Brigada #{i}:", placeholder=f"correo_brigada_{i}@issste.gob.mx", key=f"correo_sim_{i}")
 
                     col_f1, col_f2, col_f3 = st.columns(3)
                     with col_f1:
-                        f_app_sim = st.date_input(
-                            f"Fecha de Aplicación #{i}:",
-                            value=datetime.date.today(),
-                            format="DD/MM/YYYY",
-                            key=f"f_app_sim_{i}",
-                        )
+                        f_app_sim = st.date_input(f"Fecha de Aplicación #{i}:", value=datetime.date.today(), format="DD/MM/YYYY", key=f"f_app_sim_{i}")
                     with col_f2:
-                        h_ini_sim = st.time_input(
-                            f"Hora Inicio #{i}:",
-                            value=datetime.time(8, 0),
-                            key=f"h_ini_sim_{i}",
-                        )
+                        h_ini_sim = st.time_input(f"Hora Inicio #{i}:", value=datetime.time(8, 0), key=f"h_ini_sim_{i}")
                     with col_f3:
-                        h_fin_sim = st.time_input(
-                            f"Hora Cierre #{i}:",
-                            value=datetime.time(14, 0),
-                            key=f"h_fin_sim_{i}",
-                        )
+                        h_fin_sim = st.time_input(f"Hora Cierre #{i}:", value=datetime.time(14, 0), key=f"h_fin_sim_{i}")
 
-                    dir_sim = st.text_area(
-                        f"📍 Dirección Oficial para Brigada #{i}:",
-                        value=st.session_state.config_direccion_base,
-                        height=70,
-                        key=f"dir_sim_{i}",
-                    )
+                    dir_sim = st.text_area(f"📍 Dirección Oficial para Brigada #{i}:", value=st.session_state.config_direccion_base, height=70, key=f"dir_sim_{i}")
                     st.markdown("</div>", unsafe_allow_html=True)
 
                     config_jornadas_activas.append({
                         "sufijo_hoja": f"_JS{i}",
                         "sufijo_qr": f"_JS{i}",
+                        "tipo_texto": tipo_jornada_texto,
                         "responsable": resp_sim.upper() if resp_sim else f"RESPONSABLE JS{i}",
                         "correo": correo_sim.strip().lower(),
                         "fecha": f_app_sim,
@@ -282,139 +179,28 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            if st.button(
-                "🚀 Autorizar Jornada(s) y Generar Pestaña en Google Sheets",
-                use_container_width=True,
-            ):
-                try:
-                    scope = GOOGLE_SCOPES
-
-                    if "GOOGLE_CREDENTIALS" in st.secrets:
-                        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-                        creds_dict = (
-                            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-                        )
-                    elif "gpex" in st.secrets:
-                        creds_dict = dict(st.secrets["gpex"])
-                    else:
-                        primera_llave = list(st.secrets.keys())[0]
-                        creds_dict = dict(st.secrets[primera_llave])
-
-                    creds = service_account.Credentials.from_service_account_info(
-                        creds_dict, scopes=scope
+            if st.button("🚀 Autorizar Jornada(s) y Generar Pestaña en Google Sheets", use_container_width=True):
+                duplicadas, error_verif = verificar_hojas_existentes(siglas_unidad, config_jornadas_activas)
+                if error_verif:
+                    st.error(f"Error al verificar hojas existentes: {error_verif}")
+                elif duplicadas:
+                    st.error(f"⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets maestro: {', '.join(duplicadas)}. Por favor cambie la fecha o el tipo de jornada.")
+                else:
+                    hojas_creadas_exito, error_creacion = autorizar_y_crear_jornadas(
+                        siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas
                     )
-                    client = gspread.authorize(creds)
-                    
-                    sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
-                    spreadsheet_maestro = client.open_by_key(sheet_id_destino)
-
-                    hojas_existentes = [h.title for h in spreadsheet_maestro.worksheets()]
-                    duplicadas_detectadas = []
-
-                    for j_conf in config_jornadas_activas:
-                        fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
-                        if siglas_unidad == "20N":
-                            nombre_prueba = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
-                        else:
-                            nombre_prueba = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
-
-                        if nombre_prueba in hojas_existentes:
-                            duplicadas_detectadas.append(nombre_prueba)
-
-                    if duplicadas_detectadas:
-                        st.error(
-                            "⚠️ ALERTA: Las siguientes hojas ya existen en Google Sheets maestro:"
-                            f" {', '.join(duplicadas_detectadas)}. Por favor cambie la fecha o el tipo de jornada."
-                        )
+                    if error_creacion:
+                        st.error(f"Error al configurar Google Sheets. Detalle: {error_creacion}")
                     else:
-                        hojas_creadas_exito = []
-                        base_url = "https://medprev-vacunas-invernal.streamlit.app"
-
-                        for j_conf in config_jornadas_activas:
-                            fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
-                            fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
-
-                            fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
-                            resp_encoded = urllib.parse.quote(j_conf["responsable"])
-                            js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
-                            ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
-                            link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-
-                            nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL" if siglas_unidad == "20N" else f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
-                            link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
-
-                            url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
-                            formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
-
-                            if siglas_unidad == "20N":
-                                nombre_copia_1 = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
-                                plantilla_1 = spreadsheet_maestro.worksheet("CENSO NOMINAL")
-                                copia_1 = spreadsheet_maestro.duplicate_sheet(
-                                    plantilla_1.id, 
-                                    insert_sheet_index=len(spreadsheet_maestro.worksheets()), 
-                                    new_sheet_name=nombre_copia_1
-                                )
-                                hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_copia_1)
-                            else:
-                                nombre_nueva_hoja = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
-                                plantilla = spreadsheet_maestro.worksheet("CENSO NOMINAL")
-                                nueva_hoja = spreadsheet_maestro.duplicate_sheet(
-                                    plantilla.id, 
-                                    insert_sheet_index=len(spreadsheet_maestro.worksheets()), 
-                                    new_sheet_name=nombre_nueva_hoja
-                                )
-                                hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_nueva_hoja)
-                                nombre_copia_1 = nombre_nueva_hoja
-                                copia_1 = nueva_hoja
-
-                            hoja_activa_maestro.update_acell("D7", "CDMX")
-                            hoja_activa_maestro.update_acell("M7", "ISSSTE")
-                            hoja_activa_maestro.update_acell("T7", "Delegación Sur")
-                            hoja_activa_maestro.update_acell("AB7", "CDMX")
-                            hoja_activa_maestro.update_acell("D8", "CDMX")
-                            hoja_activa_maestro.update_acell("D9", unidad_sel)
-                            hoja_activa_maestro.update_acell("AB9", fecha_formato_oficial)
-                            hoja_activa_maestro.update_acell("E10", j_conf["responsable"])
-                            hoja_activa_maestro.update(values=[[j_conf["correo"]]], range_name="AU4")
-                            hoja_activa_maestro.update(values=[[link_paciente]], range_name="AU6")
-                            hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
-                            hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
-
-                            hoja_info = {
-                                "nombre": nombre_copia_1,
-                                "gid": str(copia_1.id),
-                                "unidad": unidad_sel,
-                                "siglas_unidad": siglas_unidad,
-                                "tipo_jornada": jornada_sel,
-                                "tipo_jornada_letra": tipo_jornada_letra,
-                                "responsable": j_conf["responsable"],
-                                "correo": j_conf["correo"],
-                                "fecha": j_conf["fecha"],
-                                "sheet_id": sheet_id_destino,
-                                "link_formulario": link_paciente,
-                                "link_operativo": link_operativo
-                            }
-                            hojas_creadas_exito.append(hoja_info)
-                            if not any(h["nombre"] == nombre_copia_1 for h in st.session_state.historial_jornadas):
-                                st.session_state.historial_jornadas.append(hoja_info)
-
                         st.session_state.jornada_autorizada = True
                         st.session_state.hojas_creadas_recientes = hojas_creadas_exito
-                        st.success(
-                            "¡Jornada(s) autorizada(s) y pestaña generada con éxito en Google Sheets maestro!"
-                        )
+                        for h_info in hojas_creadas_exito:
+                            if not any(h["nombre"] == h_info["nombre"] for h in st.session_state.historial_jornadas):
+                                st.session_state.historial_jornadas.append(h_info)
+                        st.success("¡Jornada(s) autorizada(s) y pestaña generada con éxito en Google Sheets maestro!")
 
-                except Exception as e:
-                    st.error(
-                        "Error al configurar Google Sheets. Detalle: " + str(e)
-                    )
-
-            if (
-                st.session_state.jornada_autorizada
-                and st.session_state.hojas_creadas_recientes
-            ):
+            if st.session_state.jornada_autorizada and st.session_state.hojas_creadas_recientes:
                 st.markdown("<br>", unsafe_allow_html=True)
-
                 enlaces_html = ""
                 for h_info in st.session_state.hojas_creadas_recientes:
                     url_sheet_directa = f"https://docs.google.com/spreadsheets/d/{h_info['sheet_id']}/edit?usp=sharing#gid={h_info['gid']}"
@@ -441,69 +227,42 @@ else:
                     unsafe_allow_html=True,
                 )
 
-                base_url = "https://medprev-vacunas-invernal.streamlit.app"
-
                 for idx, j_conf in enumerate(config_jornadas_activas, start=1):
                     fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
-                    if siglas_unidad == "20N":
-                        nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
-                    else:
-                        nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                    nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL" if siglas_unidad == "20N" else f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
 
+                    base_url = "https://medprev-vacunas-invernal.streamlit.app"
                     fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
-                    resp_encoded = urllib.parse.quote(j_conf["responsable"])
-
+                    resp_encoded = urllib.parse.quote(j_conf["responsable"]) if "urllib" in globals() else j_conf["responsable"]
                     js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
                     ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
 
                     link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
+                    import urllib.parse
                     link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
                     link_prueba_simulacion = link_paciente + "&test=true"
 
-                    titulo_seccion_qr = (
-                        f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}"
-                        if j_conf["sufijo_hoja"]
-                        else "🔗 Enlaces Operativos y Públicos"
-                    )
+                    titulo_seccion_qr = f"🔗 Enlaces para Cédula / Brigada {j_conf['sufijo_hoja']}" if j_conf["sufijo_hoja"] else "🔗 Enlaces Operativos y Públicos"
 
-                    st.markdown(
-                        f"<h4 style='color: #1e5b4f; margin-top: 1.2rem;'>{titulo_seccion_qr}</h4>",
-                        unsafe_allow_html=True,
-                    )
-
+                    st.markdown(f"<h4 style='color: #1e5b4f; margin-top: 1.2rem;'>{titulo_seccion_qr}</h4>", unsafe_allow_html=True)
                     st.markdown("🔹 **Enlace Público para Registro de Pacientes (QR):**")
                     st.code(link_paciente, language="text")
-
                     st.markdown("🔹 **Enlace de Prueba (Autocompleta formulario con datos simulados):**")
                     st.code(link_prueba_simulacion, language="text")
-
                     st.markdown("🔹 **Enlace Directo para el Personal Operativo:**")
                     st.code(link_operativo, language="text")
 
-                    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-                    qr.add_data(link_paciente)
-                    qr.make(fit=True)
-                    img = qr.make_image(fill_color="#611232", back_color="#ffffff")
-
-                    buf = io.BytesIO()
-                    img.save(buf, format="PNG")
-                    byte_im = buf.getvalue()
+                    byte_im = generar_imagen_qr(link_paciente)
 
                     col_qr1, col_qr2 = st.columns([1, 2])
                     with col_qr1:
-                        st.image(
-                            byte_im,
-                            caption=f"QR de Registro {j_conf['sufijo_hoja']}",
-                            width=180,
-                        )
+                        st.image(byte_im, caption=f"QR de Registro {j_conf['sufijo_hoja']}", width=180)
                     with col_qr2:
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.download_button(
                             label=f"📥 Descargar QR Paciente ({j_conf['sufijo_hoja'] if j_conf['sufijo_hoja'] else 'Principal'})",
                             data=byte_im,
-                            file_name=(
-                                f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png"
-                            ),
+                            file_name=f"QR_Vacunacion_{siglas_unidad}_{tipo_jornada_letra}{j_conf['sufijo_hoja']}.png",
                             mime="image/png",
                             key=f"dl_qr_{idx}",
                             use_container_width=True,
@@ -522,87 +281,16 @@ else:
         with col_hist_btn:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Actualizar Historial Universal", use_container_width=True, help="Escanear y mostrar todas las hojas existentes en Google Sheets"):
-                try:
-                    scope = GOOGLE_SCOPES
-                    if "GOOGLE_CREDENTIALS" in st.secrets:
-                        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-                        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-                    elif "gpex" in st.secrets:
-                        creds_dict = dict(st.secrets["gpex"])
-                    else:
-                        primera_llave = list(st.secrets.keys())[0]
-                        creds_dict = dict(st.secrets[primera_llave])
+                hojas_encontradas, error_sync = sincronizar_historial_universal()
+                if error_sync:
+                    st.error(f"Error al sincronizar con Google Sheets: {error_sync}")
+                elif hojas_encontradas:
+                    st.session_state.historial_jornadas = hojas_encontradas
+                    st.success(f"✅ ¡Historial universal sincronizado! Se detectaron {len(hojas_encontradas)} hojas activas.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ No se encontraron hojas activas en Google Sheets.")
 
-                    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
-                    client = gspread.authorize(creds)
-                    
-                    ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
-                    hojas_encontradas = []
-
-                    base_url = "https://medprev-vacunas-invernal.streamlit.app"
-
-                    for sheet_id_item in ids_a_revisar:
-                        try:
-                            sp_item = client.open_by_key(sheet_id_item)
-                            for ws in sp_item.worksheets():
-                                titulo_w = ws.title
-                                if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                                    try:
-                                        val_au4 = ""
-                                        link_form_leido = ""
-                                        link_op_leido = ""
-                                        try:
-                                            val_au4 = ws.acell("AU4").value
-                                        except:
-                                            pass
-                                        try:
-                                            link_form_leido = ws.acell("AU6").value
-                                        except:
-                                            pass
-                                        try:
-                                            link_op_leido = ws.acell("AU7").value
-                                        except:
-                                            pass
-
-                                        siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
-                                        tipo_letra_h = "I" if "INTRA" in titulo_w else "E"
-                                        
-                                        if not link_form_leido or not link_form_leido.startswith("http"):
-                                            ruta_form = "registro_20_noviembre" if siglas_h == "20N" else "formulario"
-                                            link_form_leido = f"{base_url}/{ruta_form}?unidad={siglas_h}&jornada={tipo_letra_h}"
-
-                                        if not link_op_leido or not link_op_leido.startswith("http"):
-                                            link_op_leido = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
-
-                                        hojas_encontradas.append({
-                                            "nombre": titulo_w,
-                                            "gid": str(ws.id),
-                                            "unidad": "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica",
-                                            "siglas_unidad": siglas_h,
-                                            "tipo_jornada": "Intramuros I" if tipo_letra_h == "I" else "Extramuros E",
-                                            "tipo_jornada_letra": tipo_letra_h,
-                                            "responsable": "PERSONAL OPERATIVO",
-                                            "correo": val_au4.strip().lower() if val_au4 else "No asignado",
-                                            "fecha": datetime.date.today(),
-                                            "sheet_id": sheet_id_item,
-                                            "link_formulario": link_form_leido,
-                                            "link_operativo": link_op_leido
-                                        })
-                                    except:
-                                        pass
-                        except:
-                            pass
-                    
-                    if hojas_encontradas:
-                        st.session_state.historial_jornadas = hojas_encontradas
-                        st.success(f"✅ ¡Historial universal sincronizado! Se detectaron {len(hojas_encontradas)} hojas activas.")
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ No se encontraron hojas activas en Google Sheets.")
-                except Exception as e:
-                    st.error(f"Error al sincronizar con Google Sheets: {e}")
-
-        # --- VISTA UNIVERSAL Y DETALLADA PARA EL ADMINISTRADOR ---
         st.markdown("<br>", unsafe_allow_html=True)
         if not st.session_state.historial_jornadas:
             st.info("ℹ️ Haga clic en **'🔄 Actualizar Historial Universal'** para escanear y visualizar todas las pestañas existentes en Google Sheets con sus respectivos enlaces y QR.")
@@ -632,20 +320,14 @@ else:
                     st.markdown("🔹 **Enlace Formulario Público:**")
                     st.code(link_form_val, language="text")
 
+                    import urllib.parse
                     link_op_val = h_item.get("link_operativo", f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(h_item['nombre'])}")
                     st.markdown("🔹 **Enlace Operativo Personalizado:**")
                     st.code(link_op_val, language="text")
                 
                 with col_h2:
                     link_qr_generar = h_item.get("link_formulario", base_url)
-                    qr_h = qrcode.QRCode(version=1, box_size=10, border=4)
-                    qr_h.add_data(link_qr_generar)
-                    qr_h.make(fit=True)
-                    img_h = qr_h.make_image(fill_color="#611232", back_color="#ffffff")
-
-                    buf_h = io.BytesIO()
-                    img_h.save(buf_h, format="PNG")
-                    byte_im_h = buf_h.getvalue()
+                    byte_im_h = generar_imagen_qr(link_qr_generar)
 
                     st.image(byte_im_h, caption=f"QR de Registro ({h_item['nombre']})", width=160)
                     st.download_button(
