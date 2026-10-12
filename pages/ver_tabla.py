@@ -142,7 +142,7 @@ else:
                 
                 encabezados_combinados.append(col_str)
 
-            # --- CONSTRUCCIÓN DE FILAS MANTENIENDO LAS 2 FILAS POR PACIENTE ---
+            # --- CONSTRUCCIÓN DE FILAS: CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
             filas_procesadas = []
             mapeo_indices_pares = []
 
@@ -153,8 +153,10 @@ else:
                 f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
                 f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
+                # Fila 1 del paciente (Lleva booleano False para habilitar el checkbox interactivo)
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
+                # Fila 2 del paciente (Lleva cadena vacía para que no se muestre casilla interactiva en la fila de CURP)
+                fila_v2 = [""] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
@@ -291,7 +293,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE CON CASILLAS DE VERIFICACIÓN (MANTIENE LAS 2 FILAS POR PACIENTE) ---
+            # --- TABLA EDITABLE CON CASILLA SOLO EN LA PRIMERA FILA DEL PACIENTE ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
@@ -308,8 +310,12 @@ else:
 
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                indices_visuales_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-                pacientes_a_eliminar = set([idx // 2 for idx in indices_visuales_marcados])
+                # Buscamos las filas visuales marcadas como True (solo las filas pares del DF, índice 0, 2, 4...)
+                filas_seleccionadas_verdaderas = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+                
+                # Como las casillas interactivas solo están en las filas principales (índices pares del DF), 
+                # cada índice marcado dividido entre 2 nos da el número de paciente exacto.
+                pacientes_a_eliminar = set([idx // 2 for idx in filas_seleccionadas_verdaderas])
 
                 if not pacientes_a_eliminar:
                     st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
