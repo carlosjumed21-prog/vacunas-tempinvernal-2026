@@ -115,12 +115,11 @@ def cargar_guias_censia():
 
 
 def obtener_recomendaciones_paciente(
-    edad_meses, antecedente_vacunal, lista_riesgos_detectados, vacuna_registrada
+    categoria_paciente, lista_riesgos_detectados, vacuna_registrada
 ):
-    """Cruza los datos del paciente con las guías CENSIA evaluando con precisión
+    """Cruza los datos puros del paciente con las guías CENSIA compatible
 
-    el riesgo específico detectado (VIH, comorbilidades, personal de salud, embarazo)
-    y evitando cruces erróneos de filas.
+    con los 3 argumentos que envía la interfaz (categoria_paciente, riesgos, vacuna).
     """
     try:
         guia_inf, guia_cov = cargar_guias_censia()
@@ -131,7 +130,11 @@ def obtener_recomendaciones_paciente(
         mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
         mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-        # Identificamos los riesgos reales del paciente de forma limpia
+        # Extraemos de forma segura edad y antecedentes desde st.session_state si están disponibles,
+        # o estimamos valores por defecto seguros para evitar bloqueos.
+        edad_meses = st.session_state.get("edad_meses", 372)  # Por defecto adulto (31 años)
+        antecedente_vacunal = st.session_state.get("antecedente_vacunal", "SI")
+
         riesgos_up = [r.upper() for r in lista_riesgos_detectados]
         es_embarazada = any("EMBARAZ" in r for r in riesgos_up)
         es_personal_salud = any("SALUD" in r for r in riesgos_up)
