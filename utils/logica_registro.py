@@ -234,6 +234,7 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     """
     Formato solicitado con guiones: Fecha YYYYMMDD - INT/EXT - 3 letras de unidad - 4 dígitos consecutivos (iniciando en 0001)
     Ejemplo: 20261011-INT-20N-0001
+    Lee directamente los valores de la Columna B (columna 2) de la hoja de Google Sheets para respetar la continuidad real.
     """
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
@@ -241,29 +242,40 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     
     consecutivo_num = 1
     try:
-        registros = obtener_registros_existentes_sheets(sigla_url, "", "I", val_fecha_app)
+        import gspread
+        from google.oauth2.service_account import Credentials
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
+        ]
+        if "gcp_service_account" in st.secrets:
+            credentials = Credentials.from_service_account_info(
+                dict(st.secrets["gcp_service_account"]), scopes=scopes
+            )
+            gc = gspread.authorize(credentials)
+        else:
+            gc = gspread.oauth()
+            
+        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
+        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
         
-        # Respaldo: si no encuentra con el nombre estructurado, lee la primera hoja activa del archivo
-        if not registros:
-            import gspread
-            from google.oauth2.service_account import Credentials
-            scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/drive.readonly"]
-            if "gcp_service_account" in st.secrets:
-                credentials = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=scopes)
-                gc = gspread.authorize(credentials)
-                sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-                worksheet = sh.get_worksheet(0)
-                registros = worksheet.get_all_records()
+        worksheet = None
+        try:
+            worksheet = sh.worksheet(nombre_tabla)
+        except Exception:
+            # Si no encuentra la pestaña por fecha, toma la primera pestaña activa del libro
+            worksheet = sh.get_worksheet(0)
 
-        if registros and isinstance(registros, list) and len(registros) > 0:
+        if worksheet:
+            # Extraer toda la Columna B (columna 2) para evaluar los folios existentes de forma directa
+            columna_b = worksheet.col_values(2)
             max_consecutivo = 0
-            for reg in registros:
-                # Buscar en las variantes comunes de la Columna B (Folio) y limpiar espacios
-                folio_existente = str(reg.get("Folio", reg.get("folio", reg.get("FOLIO", "")))).strip()
+            
+            for valor in columna_b:
+                folio_existente = str(valor).strip()
                 if "-" in folio_existente:
                     try:
                         partes = folio_existente.split("-")
-                        # Extraer estrictamente los dígitos del segmento final para evitar ceros o errores de formato
                         num_str = "".join([c for c in partes[-1] if c.isdigit()])
                         if num_str:
                             num_actual = int(num_str)
@@ -275,9 +287,9 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
             if max_consecutivo > 0:
                 consecutivo_num = max_consecutivo + 1
             else:
-                consecutivo_num = len(registros) + 1
-        else:
-            consecutivo_num = 1
+                # Si la columna B tiene datos pero no guiones, usamos el conteo de filas menos la cabecera
+                total_filas = len(columna_b)
+                consecutivo_num = max(1, total_filas)
     except Exception:
         consecutivo_num = 1
         
