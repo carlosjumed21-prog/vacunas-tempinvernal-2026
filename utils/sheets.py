@@ -106,6 +106,7 @@ def guardar_registro_censal(
         vacuna_interes = p.get("vacuna_interes", "")
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
+        correo_paciente_val = p.get("correo_paciente", "").strip()
 
         fila_registro_principal = [
             str(consecutivo),
@@ -148,10 +149,11 @@ def guardar_registro_censal(
             "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",
             "X" if vacuna_interes == "AMBAS" else "",
             fecha_registro_actual,
+            correo_paciente_val,  # <--- Columna AX (50) asignada al correo electrónico
         ]
 
         if fila_destino <= len(todos_los_valores):
-            rango_celdas = f"A{fila_destino}:AW{fila_destino}"
+            rango_celdas = f"A{fila_destino}:AX{fila_destino}"
             ws.update(rango_celdas, [fila_registro_principal])
         else:
             ws.append_row(fila_registro_principal)
