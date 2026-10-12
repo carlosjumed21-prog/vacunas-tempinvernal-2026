@@ -60,13 +60,6 @@ st.markdown(
             padding-bottom: 10px;
             border-bottom: 2px solid #e0e0e0;
         }
-
-        /* Selector CSS robusto para pintar TODA LA FILA COMPLETA de verde suave */
-        tr.fila-verde-completa td, 
-        tr.fila-verde-completa th, 
-        .glideDataEditor tr.fila-verde-completa td {
-            background-color: #e2f0d9 !important;
-        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -164,11 +157,10 @@ else:
                 if tiene_aplicacion_ag_aq:
                     indices_filas_verdes.extend([contador_df_idx, contador_df_idx + 1])
 
-                # Para evitar bloqueos de celdas nulas en st.data_editor, 
-                # la columna de selección lleva False en ambas filas lógicas, 
-                # pero con column_config restringiremos la interacción o validación visual.
+                # Fila 1 (Principal): Lleva booleano False para mostrar la casilla interactiva
                 fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
+                # Fila 2 (CURP): Lleva None en la columna de selección para OCULTAR la casilla en esta fila doble
+                fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
@@ -178,8 +170,6 @@ else:
 
             columnas_con_check = ["Seleccionar"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
-
-            df_tabla_segura["Seleccionar"] = df_tabla_segura["Seleccionar"].astype(bool)
 
             st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
@@ -274,8 +264,15 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- TABLA EDITABLE NATIVA CON CONFIGURACIÓN DE COLUMNAS ---
-            # Deshabilitamos la edición de celdas generales para evitar bloqueos y habilitamos los checkboxes interactivos
+            # --- USO DE PANDAS STYLER PARA PINTAR TODA LA FILA DE VERDE CON GARANTÍA NATIVA ---
+            def color_filas_completas(row):
+                if row.name in indices_filas_verdes:
+                    return ['background-color: #e2f0d9; color: #111111'] * len(row)
+                return [''] * len(row)
+
+            df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+            # --- TABLA EDITABLE CON CONFIGURACIÓN DE COLUMNAS ---
             column_configs = {
                 "Seleccionar": st.column_config.CheckboxColumn(
                     "Seleccionar",
@@ -283,52 +280,20 @@ else:
                     default=False,
                 )
             }
-            # Hacer que las demás columnas sean de solo lectura para evitar desalineación de filas en el editor
             for col in encabezados_combinados:
                 if col != "Seleccionar":
                     column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
             df_editado = st.data_editor(
-                df_tabla_segura,
+                df_estilizado,
                 use_container_width=True,
                 height=550,
                 hide_index=True,
                 column_config=column_configs
             )
 
-            # --- SCRIPT JAVASCRIPT MEJORADO PARA PINTAR TODA LA FILA COMPLETA DE VERDE ---
-            filas_verde_json = json.dumps(indices_filas_verdes)
-            st.markdown(
-                f"""
-                <script>
-                    const indicesVerdes = {filas_verde_json};
-                    function pintarFilasCompletas() {{
-                        const doc = window.parent.document;
-                        // Buscamos las filas en el DOM virtual de Streamlit / Grid Editor
-                        const filas = doc.querySelectorAll('div[data-testid="stDataEditor"] tbody tr, [data-testid="stTable"] tbody tr, .glideDataEditor tbody tr, table tbody tr');
-                        
-                        filas.forEach((tr, index) => {{
-                            if (indicesVerdes.includes(index)) {{
-                                tr.classList.add('fila-verde-completa');
-                                // Asegurar que todas las celdas hijas también tengan el color de fondo aplicado
-                                tr.querySelectorAll('td, th').forEach(td => {{
-                                    td.style.backgroundColor = '#e2f0d9';
-                                }});
-                            }}
-                        }});
-                    }}
-                    setTimeout(pintarFilasCompletas, 400);
-                    setTimeout(pintarFilasCompletas, 1000);
-                    setTimeout(pintarFilasCompletas, 2000);
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
-
             # --- ACCIÓN DEL BOTÓN DE ELIMINACIÓN ---
             if btn_eliminar:
-                # Obtenemos los índices donde la columna "Seleccionar" es True
-                # Como agrupamos de 2 en 2, tomamos las filas principales pares (0, 2, 4...) o cualquier índice marcado cuyo paciente sea idx // 2
                 indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
                 pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
 
