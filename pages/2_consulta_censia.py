@@ -86,6 +86,7 @@ def mostrar_modal_comprobante_vacunacion():
         dosis_val = p.get("dosis_str", "N/A")
         lotes_val = p.get("lotes_str", "N/A")
         fecha_val = p.get("fecha_aplicacion", datetime.datetime.now().strftime("%d/%m/%Y"))
+        correo_ax = p.get("correo_ax", "")
 
         texto_qr = (
             f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
@@ -173,9 +174,9 @@ def mostrar_modal_comprobante_vacunacion():
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL ---
+        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL (AUTOCOMPLETADO DESDE AX) ---
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
-        correo_destino_input = st.text_input("Correo electrónico del paciente:", placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
+        correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
         
         if st.button("🚀 Enviar Comprobante por Correo", use_container_width=True, key="btn_enviar_mail_modal"):
             if not correo_destino_input.strip():
@@ -188,7 +189,7 @@ def mostrar_modal_comprobante_vacunacion():
                     dosis_str=dosis_val,
                     lotes_str=lotes_val,
                     fecha_val=fecha_val,
-                    tipo="comprobante"  # <--- Parámetro agregado correctamente
+                    tipo="comprobante"
                 )
                 if exito:
                     st.success(mensaje)
@@ -380,6 +381,9 @@ else:
                     paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+                    
+                    # Extracción del correo guardado en la columna AX (índice 49)
+                    correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
@@ -589,6 +593,10 @@ else:
                     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
                     if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
+                        # Guardamos el correo en el diccionario del comprobante antes de invocar el guardado para asegurarnos de tenerlo a la mano
+                        if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
+                            st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
+
                         exito = procesar_guardado_aplicacion(
                             worksheet_activa=worksheet_activa,
                             fila_idx=fila_idx,
@@ -605,4 +613,7 @@ else:
                             fecha_aplicacion_hoja=fecha_aplicacion_hoja
                         )
                         if exito:
+                            # Actualizamos el estado con el correo extraído de la columna AX
+                            if st.session_state.get("ultimo_comprobante_vacunacion"):
+                                st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
                             st.rerun()
