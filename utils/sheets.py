@@ -10,7 +10,6 @@ def obtener_cliente_gspread():
     """Autentica y retorna el cliente de gspread leyendo de forma directa y flexible st.secrets."""
     creds_dict = None
 
-    # Intentar leer directamente de st.secrets["GOOGLE_CREDENTIALS"]
     try:
         if "GOOGLE_CREDENTIALS" in st.secrets:
             val = st.secrets["GOOGLE_CREDENTIALS"]
@@ -21,7 +20,6 @@ def obtener_cliente_gspread():
     except Exception as e:
         raise ValueError(f"Error al procesar GOOGLE_CREDENTIALS en los secretos: {e}")
 
-    # Si no se encontró arriba, buscar iterando en los secretos disponibles
     if not creds_dict:
         for k in st.secrets.keys():
             if k == "email":
@@ -45,7 +43,6 @@ def obtener_cliente_gspread():
             f"No se encontró la llave de Google en st.secrets. Llaves actuales disponibles: {keys_encontradas}"
         )
 
-    # Normalizar saltos de línea de la llave privada de forma segura
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         pk = creds_dict["private_key"]
         pk = pk.replace("\\n", "\n")
@@ -150,7 +147,7 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
--        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
+        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
 
         fila_registro_principal = [
             str(consecutivo),
