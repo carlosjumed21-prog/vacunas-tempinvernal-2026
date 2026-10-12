@@ -7,7 +7,8 @@ SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas):
     """
     Crea las pestañas correspondientes en la hoja de Google Sheets exclusiva del CMN 20 de Noviembre,
-    asegurando la estructura de censo nominal y los encabezados institucionales correctos.
+    insertándolas al inicio (delante de las hojas principales) para mantener el orden,
+    y asegurando la estructura de censo nominal con los encabezados institucionales.
     """
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(SHEET_ID_20_NOV)
@@ -35,13 +36,13 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
             except gspread.exceptions.WorksheetNotFound:
                 pass
             
-            # Duplicar una plantilla base o crear una nueva hoja con los encabezados del 20 de Noviembre
+            # Duplicar plantilla base o crear nueva hoja insertándola al principio (index=0)
             try:
                 plantilla = spreadsheet.worksheet("CENSO")
-                nueva_hoja = spreadsheet.duplicate_sheet(plantilla.id, new_sheet_name=nombre_hoja)
+                nueva_hoja = spreadsheet.duplicate_sheet(plantilla.id, new_sheet_name=nombre_hoja, insert_sheet_index=0)
             except Exception:
-                # Si no existe plantilla, se crea una nueva en blanco y se configuran los encabezados institucionales
-                nueva_hoja = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=35)
+                # Si no existe la plantilla CENSO, crea una nueva hoja en la posición 0 (al frente)
+                nueva_hoja = spreadsheet.add_worksheet(title=nombre_hoja, rows=1000, cols=35, index=0)
                 
                 # Encabezados institucionales y de cabecera específicos para el 20 de Noviembre
                 encabezados_institucionales = [
