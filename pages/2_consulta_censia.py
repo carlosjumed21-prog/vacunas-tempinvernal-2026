@@ -8,6 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
 from utils.logica_censia import procesar_guardado_aplicacion
+from utils.email_sender import enviar_comprobante_correo
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
@@ -185,6 +186,29 @@ def mostrar_modal_comprobante_vacunacion():
         """
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL ---
+        st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
+        correo_destino_input = st.text_input("Correo electrónico del paciente:", placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
+        
+        if st.button("🚀 Enviar Comprobante por Correo", use_container_width=True, key="btn_enviar_mail_modal"):
+            if not correo_destino_input.strip():
+                st.warning("⚠️ Ingrese un correo electrónico válido.")
+            else:
+                exito, mensaje = enviar_comprobante_correo(
+                    destinatario_email=correo_destino_input.strip(),
+                    nombre_paciente=nombre_val,
+                    folio=folio_val,
+                    dosis_str=dosis_val,
+                    lotes_str=lotes_val,
+                    fecha_val=fecha_val
+                )
+                if exito:
+                    st.success(mensaje)
+                else:
+                    st.error(mensaje)
+
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✖ Cerrar Comprobante", use_container_width=True):
             st.session_state.ultimo_comprobante_vacunacion = None
             st.session_state.reiniciar_busqueda = True
@@ -225,11 +249,17 @@ else:
         if "GOOGLE_CREDENTIALS" in st.secrets:
             raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        elif "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
         elif "gpex" in st.secrets:
             creds_dict = dict(st.secrets["gpex"])
         else:
             primera_llave = list(st.secrets.keys())[0]
             creds_dict = dict(st.secrets[primera_llave])
+
+        # Asegurar compatibilidad si se cargó desde la sección de tabla TOML
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
         creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
@@ -459,7 +489,6 @@ else:
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                    # Biológico COVID configurado de forma genérica
                     biologico_covid_elegido = "COVID-19"
                     matches_covid_filtrados = matches_covid
 
