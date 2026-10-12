@@ -142,7 +142,7 @@ else:
                 
                 encabezados_combinados.append(col_str)
 
-            # --- CONSTRUCCIÓN DE FILAS: CASILLA BOOLEANA EN AMBAS FILAS PARA EVITAR CONFLICTO ---
+            # --- CONSTRUCCIÓN DE FILAS Y EVALUACIÓN DE AG-AQ ---
             filas_procesadas = []
             mapeo_indices_pares = []
 
@@ -153,17 +153,30 @@ else:
                 f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
                 f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
-                # Fila 1 del paciente (Lleva booleano False)
-                fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-                # Fila 2 del paciente (Lleva False para mantener tipo bool homogéneo en la columna)
-                fila_v2 = [False] + list(f2_adj[:len(encabezados_combinados)])
+                # --- EVALUAR SI TIENE APLICACIÓN EN RANGO AG-AQ (Columnas de Dosis aprox. índices 32 a 42) ---
+                tiene_aplicacion_ag_aq = False
+                for col_idx in range(32, min(43, len(f1_adj))):
+                    val_celda = str(f1_adj[col_idx]).strip().upper()
+                    if val_celda == "X" or val_celda != "":
+                        # Validar si corresponde a una marca de dosis
+                        if val_celda == "X":
+                            tiene_aplicacion_ag_aq = True
+                            break
+
+                # Indicador visual en texto/emoji para resaltar filas con AG-AQ aplicada
+                estatus_ag_aq = "🟢 AG-AQ Aplicada" if tiene_aplicacion_ag_aq else "⚪ Pendiente"
+
+                # Fila 1 principal del paciente (Incluye checkbox booleano y el estatus AG-AQ)
+                fila_v1 = [False, estatus_ag_aq] + list(f1_adj[:len(encabezados_combinados)])
+                # Fila 2 de CURP (Celda vacía para checkbox y estatus en la fila secundaria)
+                fila_v2 = [False, ""] + list(f2_adj[:len(encabezados_combinados)])
 
                 filas_procesadas.append(fila_v1)
                 filas_procesadas.append(fila_v2)
                 
                 mapeo_indices_pares.append(i)
 
-            columnas_con_check = ["Seleccionar"] + encabezados_combinados
+            columnas_con_check = ["Seleccionar", "Estatus AG-AQ"] + encabezados_combinados
             df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
             # Forzar explícitamente la columna a booleano para habilitar la interactividad del editor
@@ -296,7 +309,7 @@ else:
 
             st.markdown('</div>', unsafe_allow_html=True) # Cierre del contenedor fijo superior
 
-            # --- TABLA EDITABLE CON CASILLAS FUNCIONALES ---
+            # --- TABLA EDITABLE CON CASILLAS Y ESTADO AG-AQ VISUAL ---
             df_editado = st.data_editor(
                 df_tabla_segura,
                 use_container_width=True,
@@ -307,6 +320,10 @@ else:
                         "Seleccionar",
                         help="Marque la casilla para seleccionar este paciente",
                         default=False,
+                    ),
+                    "Estatus AG-AQ": st.column_config.TextColumn(
+                        "Estatus AG-AQ",
+                        help="Indica si cuenta con aplicación de dosis registrada"
                     )
                 }
             )
