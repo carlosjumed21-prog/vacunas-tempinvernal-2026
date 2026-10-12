@@ -11,20 +11,13 @@ def obtener_cliente_gspread():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
-            json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
+            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
         )
     elif "gpex" in st.secrets:
         creds_dict = dict(st.secrets["gpex"])
     else:
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
-
-    # --- CORRECCIÓN CRUCIAL PARA EL PADDING DEL PEM ---
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"]
-        # Limpiar y convertir los saltos de línea escapados a saltos reales
-        pk = pk.replace("\\n", "\n").strip()
-        creds_dict["private_key"] = pk
 
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
