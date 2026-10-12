@@ -112,14 +112,23 @@ def mostrar_modal_comprobante():
                 padding: 12px; border-radius: 10px; color: #161a1d; 
                 box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
             }}
-            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin: 0 0 6px 0; }}
-            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; }}
-            .info-container {{ flex: 1; }}
-            .qr-container {{ width: 110px; text-align: center; }}
+            .watermark-overlay {{
+                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+                pointer-events: none; z-index: 1; overflow: hidden;
+            }}
+            .watermark-row {{
+                display: flex; gap: 15px; white-space: nowrap; font-size: 0.75rem; font-weight: 900;
+                color: rgba(97, 18, 50, 0.12); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
+            }}
+            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin: 0 0 6px 0; z-index: 2; position: relative; }}
+            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
+            .info-container {{ flex: 1; z-index: 2; position: relative; }}
+            .qr-container {{ width: 110px; text-align: center; z-index: 2; position: relative; }}
             .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
-            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; }}
+            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; border: 2px dashed #a57f2c; margin-top: 6px; z-index: 2; position: relative; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-            .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 5px 0 0 0; }}
+            .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
             .btn-container {{ display: flex; gap: 8px; }}
             .btn {{ flex: 1; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; }}
             .btn-wa {{ background-color: #25D366; color: white; }}
@@ -128,6 +137,11 @@ def mostrar_modal_comprobante():
         </head>
         <body>
             <div id="comprobante-captura" class="card-comprobante">
+                <div class="watermark-overlay">
+                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                </div>
                 <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
                 <div class="cuerpo-ticket">
                     <div class="info-container">
@@ -139,7 +153,7 @@ def mostrar_modal_comprobante():
                     <div class="qr-container"><canvas id="qr-canvas"></canvas></div>
                 </div>
                 <div class="folio-grande">Folio: {folio_val}</div>
-                <p class="leyenda-posterior">Posterior a su asistencia se le entregará un comprobante oficial.</p>
+                <p class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
             </div>
             <div class="btn-container">
                 <button class="btn btn-wa" onclick="compartirWhatsApp()">💬 WhatsApp</button>
@@ -172,10 +186,10 @@ def mostrar_modal_comprobante():
         </body>
         </html>
         """
-        components.html(html_comprobante_component, height=330)
+        components.html(html_comprobante_component, height=350)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- ENVÍO DE CORREO AUTOMÁTICO O MANUAL DESDE EL MODAL ---
+        # --- ENVÍO DE CORREO DESDE EL MODAL ---
         st.markdown("##### ✉️ Enviar Comprobante de Folio por Correo")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_capturado, placeholder="correo@ejemplo.com", key="input_correo_registro_modal")
         
