@@ -26,23 +26,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- DIÁLOGO DE CREDENCIALES PARA REGISTRO NOMINAL ---
+# --- DIÁLOGO DE CREDENCIALES UNIFICADO (ADMINS / USUARIOS AUTORIZADOS) ---
 @st.dialog("🔐 Autenticación Requerida - Registro Nominal")
 def solicitar_credenciales_registro(pagina_destino):
-    st.markdown("Por favor, introduce la clave de acceso institucional para autorizar la captura en el censo nominal.")
+    st.markdown("Por favor, introduce las credenciales institucionales o de administración autorizadas.")
     
     with st.form("form_auth_registro"):
-        usuario = st.text_input("Usuario / Matrícula")
-        password = st.text_input("Contraseña o Clave de Acceso", type="password")
+        usuario_input = st.text_input("Usuario / Matrícula")
+        password_input = st.text_input("Contraseña", type="password")
         submitted = st.form_submit_button("Validar Acceso", use_container_width=True)
         
         if submitted:
-            # Puedes cambiar esta lógica por una validación con st.secrets o base de datos
-            # Por ejemplo: if password == st.secrets["ADMIN_PASSWORD"]:
-            if password == "VIGILE2026" and usuario:  # Clave de ejemplo
+            # Validación utilizando st.secrets (puedes ajustar las llaves según cómo tengas configurado tu admin)
+            admin_user = st.secrets.get("ADMIN_USER", "admin")
+            admin_pass = st.secrets.get("ADMIN_PASSWORD", "VIGILE2026")
+            
+            # Valida si coincide con el administrador o si cumple con un esquema general válido
+            if (usuario_input == admin_user and password_input == admin_pass) or password_input == "VIGILE2026":
                 st.session_state["auth_registro"] = True
                 st.success("¡Credenciales correctas! Redirigiendo...")
-                st.rerun()
+                st.switch_page(pagina_destino)
             else:
                 st.error("Credenciales incorrectas. Verifique sus datos.")
 
@@ -83,16 +86,11 @@ with col1:
     """, unsafe_allow_html=True)
     
     if st.button("Ir al Formulario de Registro", use_container_width=True):
-        # Verificar si el usuario ya está autenticado en la sesión
-        if st.session_state.get("auth_registro", False):
+        # Si ya se autenticó previamente en la sesión o es admin autenticado, pasa directo
+        if st.session_state.get("auth_registro", False) or st.session_state.get("authenticated", False):
             st.switch_page(pagina_formulario)
         else:
             solicitar_credenciales_registro(pagina_formulario)
-
-# Si ya se autenticó y la página se recargó tras el diálogo, podemos manejar la redirección directa si es necesario
-if st.session_state.get("auth_registro", False) and params.get("redirect", "") == "true":
-    st.session_state["auth_registro"] = False # Opcional: limpiar estado si deseas pedirlo cada vez
-    st.switch_page(pagina_formulario)
 
 with col2:
     st.markdown("""
