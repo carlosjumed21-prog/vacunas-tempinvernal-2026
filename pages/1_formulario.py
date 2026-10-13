@@ -137,10 +137,10 @@ if "accion_nuevo_registro" not in st.session_state:
     st.session_state.accion_nuevo_registro = False
 
 
-@st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
-def mostrar_modal_comprobante():
+def mostrar_comprobante_principal():
     p = st.session_state.get("ultimo_paciente_registrado")
     if p:
+        st.markdown("### 🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
         curp_mostrar = p.get("curp_con_nacimiento", "CURP")
         nombre_val = p["nombre_completo"]
         folio_val = p["folio"]
@@ -262,7 +262,6 @@ def mostrar_modal_comprobante():
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
-            st.session_state.accion_nuevo_registro = True
             st.session_state.ultimo_paciente_registrado = None
             st.session_state.folio_proyectado_cached = None
             st.session_state.enviando_registro = False
@@ -280,6 +279,7 @@ def mostrar_modal_comprobante():
                     del st.session_state[k]
 
             safe_rerun()
+        st.stop()
 
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
@@ -302,15 +302,16 @@ def mostrar_modal_duplicado():
             st.session_state.paciente_duplicado_info = None
             safe_rerun()
 
-# --- LLAMADAS A MODALES SEGÚN EL ESTADO ---
-if st.session_state.get("ultimo_paciente_registrado") is not None:
-    mostrar_modal_comprobante()
-
+# --- LLAMADA A MODAL DE DUPLICADO SI APLICA ---
 if st.session_state.get("paciente_duplicado_info") is not None:
     mostrar_modal_duplicado()
 
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
+
+# --- SI HAY UN PACIENTE REGISTRADO, MOSTRAMOS SU COMPROBANTE EN LUGAR DEL FORMULARIO ---
+if st.session_state.get("ultimo_paciente_registrado") is not None:
+    mostrar_comprobante_principal()
 
 # --- PANEL DE DATOS SIMULADOS ---
 if es_admin:
@@ -579,7 +580,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                         "fecha_aplicacion": fecha_aplicacion_str,
                     }
                     st.session_state.enviando_registro = False
-                    mostrar_modal_comprobante()
+                    safe_rerun()
 
             except Exception as e:
                 st.session_state.enviando_registro = False
