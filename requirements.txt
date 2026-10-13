@@ -4,6 +4,5 @@ qrcode[pil]>=7.4.2
 pillow>=10.0.0
 numpy
 gspread
-oogle-auth>=2.23.0,<3.0.0
-google-auth-oauthlib>=1.0.0
+oogle-auth
 openpyxl
