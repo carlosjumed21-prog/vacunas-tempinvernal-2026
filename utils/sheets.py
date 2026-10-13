@@ -15,11 +15,9 @@ def obtener_cliente_gspread():
             json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
         )
     else:
-        # Fallback a cualquier otra llave disponible
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
 
-    # Convertir los saltos de línea escapados del JSON original a saltos reales
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
@@ -45,12 +43,12 @@ def guardar_registro_censal(
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
-        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
+        # --- Recuperación robusta de la modalidad (prioriza session_state de la app principal) ---
+        modalidad_texto = str(st.session_state.get("modalidad", datos_paciente.get("modalidad", "INTRAMUROS"))).upper()
         
         if sufijo_js:
             nombre_hoja = f"{sigla_url}_{sufijo_js}"
-        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto:
+        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto or "EXTRAMUROS" in modalidad_texto:
             fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
             nombre_hoja = f"{sigla_url}_EXTRA_{fecha_hoja_str}"
         else:
