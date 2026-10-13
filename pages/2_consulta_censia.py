@@ -1,6 +1,7 @@
 import datetime
 import json
 import urllib.parse
+
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 from google.oauth2 import service_account
 import gspread
@@ -23,16 +24,19 @@ st.markdown(
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
     </style>
-""",
+    """,
     unsafe_allow_html=True,
 )
 
 # ============================================================
-# CONEXIÓN BLINDADA Y CACHÉ OPTIMIZADA
+# CLIENTE DE GOOGLE SHEETS CACHEADO Y ESTABLE
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Conexión limpia y blindada con credenciales de servicio para gspread."""
+    """
+    Crea y cachea el cliente de gspread sin repetir conexión ni autenticación.
+    Se usa service_account_from_dict para mantener compatibilidad con gspread.
+    """
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,14 +47,15 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    creds = service_account.Credentials.from_service_account_info(
-        creds_dict, scopes=GOOGLE_SCOPES
-    )
-    return gspread.authorize(creds)
-    
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+
+
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
-    """Lista las hojas autorizadas para un usuario autenticado de forma cacheada."""
+    """
+    Lista las hojas autorizadas para un usuario autenticado.
+    Se cachea por correo para no volver a consultar Sheets cada rerun.
+    """
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -78,31 +83,44 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     return h_autorizadas
 
 
-@st.cache_data(ttl=120)
-def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
+def obtener_worksheet_activa(hoja_seleccionada: str):
     """
-    Carga los pacientes devolviendo únicamente tipos serializables (listas y diccionarios) 
-    sin almacenar el objeto Worksheet en el caché para evitar errores de Pickle.
+    Devuelve el worksheet activo de la hoja seleccionada.
+    Se obtiene fuera de la caché para evitar serializar objetos gspread.
+    """
+    client = obtener_client_gspread_cacheado()
+    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    return spreadsheet.worksheet(hoja_seleccionada)
+
+
+@st.cache_data(ttl=120)
+def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, cache_version: int = 0):
+    """
+    Carga pacientes con datos serializables.
+    cache_version sirve para forzar refresco solo cuando se guardan cambios.
     """
     try:
-        client = obtener_client_gspread_cacheado()
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-        worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
+        worksheet_activa = obtener_worksheet_activa(hoja_seleccionada)
         all_values = worksheet_activa.get_all_values()
 
         pacientes_cargados = []
         if len(all_values) >= 14:
             for idx, row in enumerate(all_values[13:], start=14):
                 if len(row) > 3 and row[1].strip() and row[2].strip():
-                    ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
-                    pacientes_cargados.append({
-                        "fila": idx,
-                        "folio": row[1].strip(),
-                        "paterno": row[2].strip(),
-                        "materno": row[3].strip() if len(row) > 3 else "",
-                        "nombres": row[4].strip() if len(row) > 4 else "",
-                        "ya_vacunado": ya_vacunado,
-                    })
+                    ya_vacunado = any(
+                        str(row[i]).strip().upper() == "X"
+                        for i in range(32, min(43, len(row)))
+                    )
+                    pacientes_cargados.append(
+                        {
+                            "fila": idx,
+                            "folio": row[1].strip(),
+                            "paterno": row[2].strip(),
+                            "materno": row[3].strip() if len(row) > 3 else "",
+                            "nombres": row[4].strip() if len(row) > 4 else "",
+                            "ya_vacunado": ya_vacunado,
+                        }
+                    )
 
         return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y")
 
@@ -114,7 +132,10 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
 def mostrar_dialogo_cerrar_sesion():
-    st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
+    st.markdown(
+        "<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>",
+        unsafe_allow_html=True,
+    )
     st.markdown("¿Deseas cerrar sesión y regresar al menú principal?")
 
     col_dlg1, col_dlg2 = st.columns(2)
@@ -139,6 +160,7 @@ with col_nav3:
 
 st.markdown("---")
 
+# Inicialización de estado de sesión
 if "lote_influenza_memoria" not in st.session_state:
     st.session_state.lote_influenza_memoria = ""
 if "lote_covid_memoria" not in st.session_state:
@@ -154,6 +176,9 @@ if "ultimo_comprobante_vacunacion" not in st.session_state:
 
 if "reiniciar_busqueda" not in st.session_state:
     st.session_state.reiniciar_busqueda = False
+
+if "cache_ver_pacientes" not in st.session_state:
+    st.session_state.cache_ver_pacientes = 0
 
 if st.session_state.reiniciar_busqueda:
     st.session_state.input_busqueda_lupa = ""
@@ -211,7 +236,6 @@ def mostrar_modal_comprobante_vacunacion():
                 display: flex; gap: 30px; white-space: nowrap; font-size: 0.82rem; font-weight: 900;
                 color: rgba(30, 91, 79, 0.08); text-transform: uppercase; letter-spacing: 2px; transform: rotate(-25deg);
             }}
-
             .btn-container {{ display: flex; gap: 8px; }}
             .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; }}
         </style>
@@ -256,7 +280,12 @@ def mostrar_modal_comprobante_vacunacion():
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
-        correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
+        correo_destino_input = st.text_input(
+            "Correo electrónico del paciente:",
+            value=correo_ax,
+            placeholder="correo@ejemplo.com",
+            key="input_correo_envio_modal",
+        )
 
         if st.button("🚀 Enviar Comprobante por Correo", use_container_width=True, key="btn_enviar_mail_modal"):
             if not correo_destino_input.strip():
@@ -269,7 +298,7 @@ def mostrar_modal_comprobante_vacunacion():
                     dosis_str=dosis_val,
                     lotes_str=lotes_val,
                     fecha_val=fecha_val,
-                    tipo="comprobante"
+                    tipo="comprobante",
                 )
                 if exito:
                     st.success(mensaje)
@@ -335,14 +364,11 @@ else:
 
     if hoja_seleccionada:
         try:
-            # 1. Cargamos datos serializables ultrarrápidos mediante la caché
-            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
-            
-            # 2. Obtenemos de forma limpia el objeto Worksheet por separado (fuera de la caché)
-            client_gsp = obtener_client_gspread_cacheado()
-            spreadsheet_obj = client_gsp.open_by_key(GOOGLE_SHEET_ID)
-            worksheet_activa = spreadsheet_obj.worksheet(hoja_seleccionada)
-
+            cache_ver = st.session_state.get("cache_ver_pacientes", 0)
+            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(
+                hoja_seleccionada, cache_ver
+            )
+            worksheet_activa = obtener_worksheet_activa(hoja_seleccionada)
         except Exception as e:
             pacientes_cargados = []
             todos_los_datos = []
@@ -425,11 +451,13 @@ else:
                         edad_meses_calc = (f_hoy.year - f_nac.year) * 12 + (f_hoy.month - f_nac.month)
                         if f_hoy.day < f_nac.day:
                             edad_meses_calc -= 1
-                    except:
+                    except Exception:
                         edad_meses_calc = 372
 
                     sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-                    curp_actual = todos_los_datos[fila_idx][2].strip() if len(todos_los_datos) > fila_idx and len(todos_los_datos[fila_idx]) > 2 else ""
+
+                    # CURP: toma el valor real de la fila seleccionada, sin saltarse filas
+                    curp_actual = fila_datos[2].strip() if len(fila_datos) > 2 else ""
 
                     vacuna_registrada = "AMBAS"
                     if len(fila_datos) > 47:
@@ -444,6 +472,7 @@ else:
                             vacuna_registrada = "COVID-19"
 
                     lista_riesgos_detectados = []
+
                     def tiene_equis(col_idx):
                         return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
 
@@ -512,7 +541,13 @@ else:
                     st.markdown('<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>', unsafe_allow_html=True)
 
                     antecedente_vacunal = "NO"
-                    matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses_calc, antecedente_vacunal)
+                    matches_inf, matches_covid = obtener_recomendaciones_paciente(
+                        categoria_paciente,
+                        lista_riesgos_detectados,
+                        vacuna_registrada,
+                        edad_meses_calc,
+                        antecedente_vacunal,
+                    )
 
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
@@ -647,8 +682,10 @@ else:
                             todos_los_datos=todos_los_datos,
                             inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
                             cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                            lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                            lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
+                            lote_inf_input=lote_inf_input,
+                            cad_inf_input=cad_inf_input,
+                            lote_cov_input=lote_cov_input,
+                            cad_cov_input=cad_cov_input,
                             biologico_covid_elegido=biologico_covid_elegido,
                             habilitar_edicion=habilitar_edicion,
                             ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
@@ -656,9 +693,12 @@ else:
                             paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
                             fecha_aplicacion_hoja=fecha_aplicacion_hoja
                         )
+
                         if exito:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
-                            # Limpiamos el caché local de pacientes para forzar lectura fresca solo tras guardar cambios
-                            st.cache_data.clear()
+
+                            # REFRESCO CONTROLADO: incrementamos la versión del caché para volver a leer SIN borrar todo
+                            st.session_state.cache_ver_pacientes = st.session_state.get("cache_ver_pacientes", 0) + 1
+
                             st.rerun()
