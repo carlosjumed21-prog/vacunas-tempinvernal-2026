@@ -2,7 +2,7 @@ import datetime
 import json
 import urllib.parse
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
-from google.oauth2 import service_account
+from google.oauth2.service_account import Credentials
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
@@ -30,9 +30,10 @@ st.markdown(
 # ============================================================
 # NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
+
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    # obtener creds_dict igual que hoy...
+    """Cachea el cliente de gspread de forma compatible con google-auth."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,12 +44,8 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # crear explícitamente las credentials (tipo Credentials)
-    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-
-    # pasar las credentials a gspread (NO pasar un AuthorizedSession)
-    client = gspread.authorize(credentials)  # o gspread.Client(auth=credentials)
-    return client
+    creds = Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+    return gspread.authorize(creds)
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
