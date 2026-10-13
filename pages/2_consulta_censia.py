@@ -8,15 +8,20 @@ import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
 from utils.logica_censia import procesar_guardado_aplicacion
+from utils.logica_censia_20_nov import procesar_guardado_aplicacion_20_nov
 from utils.email_sender import enviar_comprobante_correo
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
+
+# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
+SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 # --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS ---
 st.markdown(
     """
     <style>
         header {visibility: hidden;}
+        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
@@ -28,7 +33,7 @@ st.markdown(
 )
 
 # ============================================================
-# CLIENTE GOOGLE SEGURO Y NATIVO (SIN SESIONES OBSOLETAS)
+# CLIENTE GOOGLE SEGURO Y NATIVO
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
@@ -50,27 +55,39 @@ def obtener_client_gspread_cacheado():
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     """
-    Lista las hojas autorizadas para un usuario, pero solo se ejecuta cuando
-    el usuario ya está autenticado y no cada rerun del script.
+    Lista las hojas autorizadas tanto del libro general como del CMN 20 de Noviembre.
     """
+    h_autorizadas = []
+    hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
+
     try:
         client = obtener_client_gspread_cacheado()
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-        todas_las_hojas = spreadsheet.worksheets()
-        h_autorizadas = []
-        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
-
-        if correo_sesion == "carlosju.med21@gmail.com":
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
-                    h_autorizadas.append(h.title)
-        else:
-            for h in todas_las_hojas:
-                if h.title not in hojas_plantillas_excluir:
+        
+        # 1. Revisar Libro General
+        spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
+        for h in spreadsheet_gen.worksheets():
+            if h.title not in hojas_plantillas_excluir:
+                if correo_sesion == "carlosju.med21@gmail.com":
+                    h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                else:
                     try:
                         val_au4 = h.acell("AU4").value
                         if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append(h.title)
+                            h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                    except Exception:
+                        pass
+
+        # 2. Revisar Libro CMN 20 de Noviembre
+        spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
+        for h in spreadsheet_20n.worksheets():
+            if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
+                if correo_sesion == "carlosju.med21@gmail.com":
+                    h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
+                else:
+                    try:
+                        val_au4 = h.acell("AU4").value
+                        if val_au4 and val_au4.strip().lower() == correo_sesion:
+                            h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
                     except Exception:
                         pass
     except Exception as e:
@@ -81,15 +98,13 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 
 
 @st.cache_data(ttl=120)
-def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
+def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str):
     """
-    Carga los pacientes de una hoja sin hacer get_all_values() completa.
-    Se aprovecha la estructura: para las filas de pacientes, la información
-    útil empieza en la fila 14 y el Folio está en la Columna B.
+    Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
     """
     try:
         client = obtener_client_gspread_cacheado()
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        spreadsheet = client.open_by_key(sheet_id_objetivo)
         worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
         all_values = worksheet_activa.get_all_values()
 
@@ -320,25 +335,40 @@ else:
 
     if correo_sesion == "carlosju.med21@gmail.com":
         st.markdown(f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
-        hoja_seleccionada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=h_autorizadas) if h_autorizadas else None
+        opciones_select = [f"{item['titulo']} ({'20N' if item['sheet_id'] == SHEET_ID_20_NOV else 'GEN'})||{item['sheet_id']}" for item in h_autorizadas]
+        seleccion_jornada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=opciones_select) if opciones_select else None
+        
+        if seleccion_jornada:
+            partes_sel = seleccion_jornada.split("||")
+            hoja_seleccionada = partes_sel[0].split(" (")[0]
+            sheet_id_activo = partes_sel[1]
+        else:
+            hoja_seleccionada = None
+            sheet_id_activo = GOOGLE_SHEET_ID
     else:
         st.markdown(f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
         if not h_autorizadas:
             st.warning(f"⚠️ No se encontró ninguna hoja autorizada asociada al correo: **{correo_sesion}**.")
             hoja_seleccionada = None
+            sheet_id_activo = GOOGLE_SHEET_ID
         else:
-            hoja_seleccionada = h_autorizadas[0]
+            hoja_seleccionada = h_autorizadas[0]["titulo"]
+            sheet_id_activo = h_autorizadas[0]["sheet_id"]
             st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
     if correo_sesion != "carlosju.med21@gmail.com":
         params_url = st.query_params
         hoja_enlace = params_url.get("hoja_activa", "")
-        if hoja_enlace and hoja_enlace in h_autorizadas:
-            hoja_seleccionada = hoja_enlace
+        if hoja_enlace:
+            for item in h_autorizadas:
+                if item["titulo"] == hoja_enlace:
+                    hoja_seleccionada = item["titulo"]
+                    sheet_id_activo = item["sheet_id"]
+                    break
 
     if hoja_seleccionada:
         try:
-            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja, worksheet_activa = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
+            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja, worksheet_activa = cargar_pacientes_hoja_cacheada(hoja_seleccionada, sheet_id_activo)
         except Exception as e:
             pacientes_cargados = []
             todos_los_datos = []
@@ -636,21 +666,40 @@ else:
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
-                        exito = procesar_guardado_aplicacion(
-                            worksheet_activa=worksheet_activa,
-                            fila_idx=fila_idx,
-                            todos_los_datos=todos_los_datos,
-                            inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
-                            cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                            lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                            lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
-                            biologico_covid_elegido=biologico_covid_elegido,
-                            habilitar_edicion=habilitar_edicion,
-                            ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
-                            ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
-                            paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
-                            fecha_aplicacion_hoja=fecha_aplicacion_hoja
-                        )
+                        # Seleccionar función de guardado según corresponda al sheet_id activo
+                        if sheet_id_activo == SHEET_ID_20_NOV:
+                            exito = procesar_guardado_aplicacion_20_nov(
+                                worksheet_activa=worksheet_activa,
+                                fila_idx=fila_idx,
+                                todos_los_datos=todos_los_datos,
+                                inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
+                                cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
+                                lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
+                                lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
+                                biologico_covid_elegido=biologico_covid_elegido,
+                                habilitar_edicion=habilitar_edicion,
+                                ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
+                                ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
+                                paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
+                                fecha_aplicacion_hoja=fecha_aplicacion_hoja
+                            )
+                        else:
+                            exito = procesar_guardado_aplicacion(
+                                worksheet_activa=worksheet_activa,
+                                fila_idx=fila_idx,
+                                todos_los_datos=todos_los_datos,
+                                inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
+                                cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
+                                lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
+                                lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
+                                biologico_covid_elegido=biologico_covid_elegido,
+                                habilitar_edicion=habilitar_edicion,
+                                ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
+                                ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
+                                paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
+                                fecha_aplicacion_hoja=fecha_aplicacion_hoja
+                            )
+
                         if exito:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
