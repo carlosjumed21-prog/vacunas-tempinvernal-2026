@@ -2,7 +2,7 @@ import datetime
 import random
 import streamlit as st
 import streamlit.components.v1 as components
-from config import MAPA_SIGLAS_INVERSO, UNIDADES_ISSSTE, aplicar_configuracion_global
+from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global, UNIDADES_ISSSTE
 from utils.sheets import guardar_registro_censal, obtener_cliente_gspread
 from config import GOOGLE_SHEET_ID
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
@@ -34,13 +34,12 @@ def safe_rerun():
     st.session_state["_rerun_toggle"] = not st.session_state.get("_rerun_toggle", False)
 
 
-# --- RECUPERACIÓN DE PARÁMETROS DE URL Y CONFIGURACIÓN ---
+# --- RECUPERACIÓN DE PARÁMETROS DE URL Y CONFIGURACIÓN ORIGINALES ---
 params = st.query_params
 sigla_url = params.get("unidad", "GEN").upper()
 jornada_url = params.get("jornada", "I").upper()
 sufijo_js = params.get("js", "")
 
-# Mapeo oficial o nombre base de la unidad
 nombre_base_unidad = UNIDADES_ISSSTE.get(sigla_url, "UNIDAD MÉDICA ISSSTE")
 if sigla_url == "20N":
     nombre_base_unidad = "CMN 20 DE NOVIEMBRE"
@@ -49,7 +48,6 @@ st.session_state.siglas_unidad = sigla_url
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
 st.session_state.tipo_jornada = jornada_url
 
-# Evaluación dinámica de la modalidad
 if jornada_url == "E":
     modalidad_texto = "EXTRAMUROS"
 elif jornada_url == "M":
@@ -58,8 +56,6 @@ else:
     modalidad_texto = "INTRAMUROS"
 
 st.session_state.modalidad = modalidad_texto
-
-# Comprobación de rol de administración
 es_admin = st.session_state.get("auth_registro", False) or st.session_state.get("authenticated", False)
 
 
@@ -87,7 +83,6 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 
 # --- FECHAS Y ESTADOS INICIALES ---
 fecha_sistema = datetime.date.today()
