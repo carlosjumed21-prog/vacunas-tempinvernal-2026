@@ -80,23 +80,6 @@ if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Por favor abra la vista desde el Módulo Operativo principal.")
     st.stop()
 
-# --------------------
-# Auto-refresh opcional
-# --------------------
-auto_refresh = st.checkbox("🔄 Actualización automática cada 10 s", value=False)
-if auto_refresh:
-    components.html(
-        """
-        <script>
-            const INTERVAL_MS = 10000;
-            setInterval(() => {
-                window.location.reload();
-            }, INTERVAL_MS);
-        </script>
-        """,
-        height=0,
-    )
-
 def build_cache_key(hoja):
     return f"cached_hoja_values::{hoja}"
 
