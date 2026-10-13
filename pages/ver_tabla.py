@@ -249,7 +249,7 @@ for col in encabezados_combinados:
     if col != "Seleccionar":
         column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-# Renderizado con editor de casillas optimizado
+# Renderizado optimizado con editor de casillas
 df_editado = st.data_editor(
     df_estilizado,
     width="stretch",
@@ -259,7 +259,7 @@ df_editado = st.data_editor(
     key="editor_tabla_censo",
 )
 
-# --- ACCIÓN DE ELIMINACIÓN RÁPIDA ---
+# --- ACCIÓN DE ELIMINACIÓN (EJECUTADA SÓLO AL PRESIONAR EL BOTÓN) ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
