@@ -643,21 +643,31 @@ else:
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
-                        exito = procesar_guardado_aplicacion(
-                            worksheet_activa=worksheet_activa,
-                            fila_idx=fila_idx,
-                            todos_los_datos=todos_los_datos,
-                            inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
-                            cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                            lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                            lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
-                            biologico_covid_elegido=biologico_covid_elegido,
-                            habilitar_edicion=habilitar_edicion,
-                            ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
-                            ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
-                            paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
-                            fecha_aplicacion_hoja=fecha_aplicacion_hoja
-                        )
+                        # --- CONTENEDOR DE CARGA VISIBLE (EVITA LA PANTALLA BLANCA) ---
+                        with st.status("⏳ Sincronizando y guardando en Google Sheets...", expanded=True) as status_guardado:
+                            st.write("Verificando datos y columnas...")
+                            
+                            exito = procesar_guardado_aplicacion(
+                                worksheet_activa=worksheet_activa,
+                                fila_idx=fila_idx,
+                                todos_los_datos=todos_los_datos,
+                                inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
+                                cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
+                                lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
+                                lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
+                                biologico_covid_elegido=biologico_covid_elegido,
+                                habilitar_edicion=habilitar_edicion,
+                                ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
+                                ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
+                                paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
+                                fecha_aplicacion_hoja=fecha_aplicacion_hoja
+                            )
+                            
+                            if exito:
+                                status_guardado.update(label="✅ ¡Guardado exitosamente!", state="complete", expanded=False)
+                            else:
+                                status_guardado.update(label="❌ Error al guardar en Google Sheets", state="error", expanded=True)
+
                         if exito:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
