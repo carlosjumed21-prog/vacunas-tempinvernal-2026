@@ -1,8 +1,8 @@
+# pages/2_consulta_censia.py
 import datetime
 import json
 import urllib.parse
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
-from google.oauth2 import service_account
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
@@ -28,14 +28,16 @@ st.markdown(
 )
 
 # ============================================================
-# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
+# CLIENTE GOOGLE SEGURO Y NATIVO (SIN SESIONES OBSOLETAS)
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread utilizando el método nativo para diccionarios."""
+    """Autentica y retorna el cliente de gspread de forma nativa mediante service_account_from_dict."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
     else:
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
@@ -43,7 +45,6 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
     
 @st.cache_data(ttl=180)
@@ -106,7 +107,6 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
                         "ya_vacunado": ya_vacunado,
                     })
 
-        # DEVUELVE también worksheet_activa para que se use después en guardar
         return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y"), worksheet_activa
 
     except Exception as e:
@@ -258,7 +258,6 @@ def mostrar_modal_comprobante_vacunacion():
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL (AUTOCOMPLETADO DESDE AX) ---
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
 
@@ -316,9 +315,6 @@ else:
     st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
 
-    # --------------------------------------------
-    # Bloque modificado: solo se ejecuta después de login
-    # --------------------------------------------
     correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
     h_autorizadas = obtener_hojas_autorizadas_cacheadas(correo_sesion)
 
@@ -410,14 +406,12 @@ else:
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
-                    # Extracción del correo guardado en la columna AX (índice 49)
                     correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                     yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
 
-                    # Cálculo preciso de edad en meses
                     try:
                         d_n_int = int(dd_n)
                         m_n_int = int(mm_n)
@@ -519,11 +513,8 @@ else:
                     mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
                     mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
 
-                    biologico_covid_elegido = "COVID-19"
-                    matches_covid_filtrados = matches_covid
-
                     match_inf_prioritario = matches_inf[0] if matches_inf else None
-                    match_cov_prioritario = matches_covid_filtrados[0] if matches_covid_filtrados else None
+                    match_cov_prioritario = matches_covid[0] if matches_covid else None
 
                     col_card1, col_card2 = st.columns(2)
                     with col_card1:
@@ -638,6 +629,8 @@ else:
                         st.info("🔒 Marque al menos una casilla de COVID-19 para habilitar el lote y la fecha de caducidad.")
 
                     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+                    biologico_covid_elegido = "COVID-19"
 
                     if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
