@@ -110,6 +110,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     filas_procesadas = []
     mapeo_indices_pares = []
+    indices_filas_verdes = set()
 
     total_censo_registros = 0
     total_preregistros = 0
@@ -128,7 +129,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
-        # Métricas sobre filas principales (f1)
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
 
@@ -154,6 +154,10 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+            indices_filas_verdes.add(len(filas_procesadas))
+            indices_filas_verdes.add(len(filas_procesadas) + 1)
+
         fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
         fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
 
@@ -172,14 +176,14 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         "total_simultaneas": total_simultaneas,
     }
 
-    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas
+    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
 
-# --- INTERFAZ FLUIDA CON CONTADORES Y ESTILOS ---
+# --- INTERFAZ FIJA (CONTADORES Y BOTONES) ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
 col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
@@ -192,7 +196,6 @@ with col_btn1:
 
 with col_btn2:
     try:
-        # Exportación local sin errores HTTP 429
         client_dl = obtener_cliente_gspread()
         spreadsheet_dl = client_dl.open_by_key(GOOGLE_SHEET_ID)
         worksheet_dl = spreadsheet_dl.worksheet(hoja_activa_tabla)
@@ -236,25 +239,38 @@ with col_del:
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-column_configs = {
-    "SELECCIONAR": st.column_config.CheckboxColumn(
-        "¿Seleccionar?",
-        help="Marque la casilla para seleccionar este paciente",
-        default=False,
-    )
-}
-for col in encabezados_combinados:
-    column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-# Renderizado ultrarrápido sin .style.apply para que las casillas vuelen al seleccionarse
-df_editado = st.data_editor(
-    df_tabla_segura,
-    width="stretch",
-    height=550,
-    hide_index=True,
-    column_config=column_configs,
-    key="editor_tabla_censo",
-)
+# --- FRAGMENTO AISLADO PARA LA TABLA (Mantiene el color verde y vuela al marcar casillas) ---
+@st.fragment
+def render_tabla_con_estilos():
+    def color_filas_completas(row):
+        if row.name in indices_filas_verdes:
+            return ["background-color: #e2f0d9; color: #111111"] * len(row)
+        return [""] * len(row)
+
+    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+    column_configs = {
+        "SELECCIONAR": st.column_config.CheckboxColumn(
+            "¿Seleccionar?",
+            help="Marque la casilla para seleccionar este paciente",
+            default=False,
+        )
+    }
+    for col in encabezados_combinados:
+        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+    return st.data_editor(
+        df_estilizado,
+        width="stretch",
+        height=550,
+        hide_index=True,
+        column_config=column_configs,
+        key="editor_tabla_censo",
+    )
+
+df_editado = render_tabla_con_estilos()
+
 
 # --- ACCIÓN DE ELIMINACIÓN EJECUTADA SÓLO AL PRESIONAR EL BOTÓN ---
 if btn_eliminar:
@@ -279,10 +295,8 @@ if btn_eliminar:
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # Actualizar memoria local en sesión de inmediato
             st.session_state[key_estado_filas] = filas_actualizadas
 
-            # Sincronizar en Google Sheets
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
             for fila_gs in filas_gs_a_borrar:
                 try:
@@ -290,7 +304,6 @@ if btn_eliminar:
                 except Exception:
                     pass
 
-            # Reordenar contadores de folios en Google Sheets
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
