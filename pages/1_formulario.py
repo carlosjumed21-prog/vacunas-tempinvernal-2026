@@ -63,13 +63,21 @@ st.markdown(
 )
 
 # --- RECUPERACIÓN DE PARÁMETROS DE URL ---
+# Obtener los parámetros directamente de la URL
 params = st.query_params
-sigla_url = params.get("unidad", "20N").upper()
+unidad_url = params.get("unidad", "").upper()
+jornada_url = params.get("jornada", "I").upper()
 
-nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
-sufijo_js = params.get("js", "")
-modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
-es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
+# Evaluar de forma dinámica la modalidad según la letra de la URL
+if jornada_url == "E":
+    modalidad_texto = "EXTRAMUROS"
+elif jornada_url == "M":
+    modalidad_texto = "BRIGADA MÓVIL"
+else:
+    modalidad_texto = "INTRAMUROS"
+
+# Mostrar el encabezado correctamente actualizado
+st.markdown(f"**Unidad: {unidad_url} | Modalidad: {modalidad_texto}**")
 
 st.session_state.siglas_unidad = sigla_url
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
