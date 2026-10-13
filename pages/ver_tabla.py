@@ -46,8 +46,8 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-# --- CARGA OPTIMIZADA CON CACHÉ DE LARGO ALCANCE ---
-@st.cache_data(ttl=60, show_spinner="Cargando censo en alta velocidad...")
+# --- CARGA OPTIMIZADA CON CACHÉ ---
+@st.cache_data(ttl=30, show_spinner="Cargando censo en alta velocidad...")
 def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(spreadsheet_id)
@@ -62,8 +62,10 @@ def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
     filas = data[13:]
     return header1, header2, filas, ws.id
 
+
 key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
 
+# Forzar recarga limpia si se limpió la caché
 if key_estado_filas not in st.session_state:
     header1, header2, filas_tabla, gid_hoja = cargar_y_procesar_hoja(GOOGLE_SHEET_ID, hoja_activa_tabla)
     st.session_state[key_estado_filas] = filas_tabla
@@ -183,7 +185,7 @@ columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
 
-# --- INTERFAZ FIJA (CONTADORES Y BOTONES) ---
+# --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
 col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
@@ -220,7 +222,7 @@ with col_btn2:
 
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
-# 8 Tarjetas de Métricas exactas
+# Métricas
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
 with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
@@ -240,7 +242,7 @@ with col_del:
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO AISLADO PARA LA TABLA (Mantiene el color verde y vuela al marcar casillas) ---
+# --- FRAGMENTO AISLADO PARA LA TABLA (Fluida, con colores verdes) ---
 @st.fragment
 def render_tabla_con_estilos():
     def color_filas_completas(row):
@@ -272,7 +274,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN EJECUTADA SÓLO AL PRESIONAR EL BOTÓN ---
+# --- ACCIÓN DE ELIMINACIÓN ROBUSTA Y DIRECTA ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -286,43 +288,48 @@ if btn_eliminar:
             ws = spreadsheet.worksheet(hoja_activa_tabla)
 
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-            filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
+                    # Las filas en Google Sheets empiezan en 14 y cada paciente usa 2 filas
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
-                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            st.session_state[key_estado_filas] = filas_actualizadas
-
+            # Ordenar de mayor a menor índice para borrar en Google Sheets sin alterar los números de fila superiores
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-            for fila_gs in filas_gs_a_borrar:
-                try:
-                    ws.delete_rows(fila_gs)
-                except Exception:
-                    pass
 
-            datos_actualizados = ws.get_all_values()
-            if len(datos_actualizados) >= 14:
-                filas_actuales = datos_actualizados[13:]
-                contador = 1
-                updates = []
-                for i in range(0, len(filas_actuales), 2):
-                    row = filas_actuales[i]
-                    if len(row) > 0 and row[0].strip() != "":
-                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                        updates.append({"range": a1, "values": [[str(contador)]]})
-                        contador += 1
-                if updates:
+            with st.spinner("🗑️ Eliminando filas y sincronizando Google Sheets..."):
+                for fila_gs in filas_gs_a_borrar:
                     try:
-                        ws.batch_update(updates)
-                    except Exception:
-                        pass
+                        ws.delete_rows(fila_gs)
+                    except Exception as err:
+                        st.error(f"Error borrando fila {fila_gs}: {err}")
 
+                # Reordenar contadores de folios en la columna A
+                datos_actualizados = ws.get_all_values()
+                if len(datos_actualizados) >= 14:
+                    filas_actuales = datos_actualizados[13:]
+                    contador = 1
+                    updates = []
+                    for i in range(0, len(filas_actuales), 2):
+                        row = filas_actuales[i]
+                        if len(row) > 0 and row[0].strip() != "":
+                            a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                            updates.append({"range": a1, "values": [[str(contador)]]})
+                            contador += 1
+                    if updates:
+                        try:
+                            ws.batch_update(updates)
+                        except Exception:
+                            pass
+
+            # Limpiar caché y forzar recarga limpia del servidor
             st.cache_data.clear()
-            st.success("✅ Paciente(s) eliminado(s) y Google Sheets actualizado correctamente.")
+            if key_estado_filas in st.session_state:
+                del st.session_state[key_estado_filas]
+
+            st.success("✅ ¡Paciente(s) eliminado(s) con éxito de Google Sheets!")
             st.rerun()
         except Exception as e:
-            st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+            st.error(f"❌ Ocurrió un error al intentar eliminar en Google Sheets: {e}")
