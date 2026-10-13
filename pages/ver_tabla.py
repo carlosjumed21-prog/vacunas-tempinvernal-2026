@@ -276,5 +276,217 @@ metrics = compute_metrics(filas_tabla)
 # --------------------
 BACKGROUND_RESULTS = {}
 def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_key_local):
-    try:*
-
+    try:
+        # crear cliente directo (no cache_resource) en el thread
+        client_local = obtener_cliente_gspread()
+        spreadsheet_local = client_local.open_by_key(spreadsheet_id)
+        ws_local = spreadsheet_local.worksheet(worksheet_name)
+        filas_sorted = sorted(list(set(filas_gs_a_borrar)), reverse=True)
+        for fila_gs in filas_sorted:
+            try:
+                ws_local.delete_rows(fila_gs)
+            except Exception:
+                pass
+        # reajustar consecutivo en columna A
+        datos_actualizados = ws_local.get_all_values()
+        if len(datos_actualizados) >= 14:
+            filas_actuales = datos_actualizados[13:]
+            contador = 1
+            updates = []
+            for i in range(0, len(filas_actuales), 2):
+                row = filas_actuales[i]
+                if len(row) > 0 and row[0].strip() != "":
+                    a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                    updates.append({'range': a1, 'values': [[str(contador)]]})
+                    contador += 1
+            if updates:
+                try:
+                    ws_local.batch_update(updates)
+                except Exception:
+                    pass
+        # leer nuevamente (no usar cached decorator aquí para forzar frescura)
+        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal(spreadsheet_local, worksheet_name)
+        BACKGROUND_RESULTS[cache_key_local] = {
+            "status": "done",
+            "header1": header1_r,
+            "header2": header2_r,
+            "data_rows": data_rows_r
+        }
+    except Exception as e:
+        BACKGROUND_RESULTS[cache_key_local] = {
+            "status": "error",
+            "error": str(e)
+        }
+
+# --------------------
+# CABECERA FIJA y botones (integrados)
+# --------------------
+st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+with col_tit1:
+    st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+with col_tit2:
+    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
+        # invalidar la vista local y recargar una sola vez (integrado)
+        header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+        st.session_state["visible_rows"] = filas_new
+        st.session_state["header1"] = header1_new
+        st.session_state["header2"] = header2_new
+        st.experimental_rerun()
+with col_tit3:
+    if st.button("📥 Preparar Descarga", key="btn_prepare_download"):
+        with st.spinner("Preparando exportación..."):
+            try:
+                creds = get_creds_from_secrets()
+                if not creds.valid:
+                    from google.auth.transport.requests import Request
+                    creds.refresh(Request())
+                ws_ref = spreadsheet.worksheet(hoja_activa_tabla)
+                gid_hoja = ws_ref.id
+                url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+                req = urllib.request.Request(url_export, headers={'Authorization': f'Bearer {creds.token}'})
+                with urllib.request.urlopen(req) as response:
+                    excel_original_bytes = response.read()
+                st.session_state["_cached_download_bytes"] = excel_original_bytes
+                st.success("Archivo preparado. Usa el botón de descarga a continuación.")
+            except Exception as err:
+                st.error(f"No se pudo preparar el archivo: {err}")
+
+    if st.session_state.get("_cached_download_bytes"):
+        st.download_button(
+            label="📥 Descargar Hoja Excel",
+            data=st.session_state["_cached_download_bytes"],
+            file_name=f"{hoja_activa_tabla}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+st.markdown("</div>", unsafe_allow_html=True)
+
+# métricas visuales
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metrics["total_censo_registros"]}</div></div>', unsafe_allow_html=True, unsafe_allow_html_kwargs={})
+with m2:
+    st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metrics["total_preregistros"]}</div></div>', unsafe_allow_html=True)
+with m3:
+    st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metrics["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
+with m4:
+    st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metrics["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
+with m5:
+    st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metrics["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
+with m6:
+    st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metrics["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
+with m7:
+    st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metrics["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
+with m8:
+    st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metrics["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
+
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+col_btn1, _ = st.columns([2, 5])
+with col_btn1:
+    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --------------------
+# Render tabla interactiva (con coloreado y flujo integrado)
+# --------------------
+@st.fragment
+def render_seccion_tabla_interactiva():
+    # coloreado por filas verdes
+    def color_filas_completas(row):
+        if row.name in indices_filas_verdes:
+            return ['background-color: #e2f0d9; color: #111111'] * len(row)
+        return [''] * len(row)
+
+    # aplicar estilo y pasar al editor
+    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+    column_configs = {
+        "Seleccionar": st.column_config.CheckboxColumn("Seleccionar", help="Marque la casilla para seleccionar este paciente", default=False)
+    }
+    for col in encabezados_combinados:
+        if col != "Seleccionar":
+            column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+    df_editado = st.data_editor(
+        df_estilizado,
+        use_container_width=True,
+        height=550,
+        hide_index=True,
+        column_config=column_configs,
+        key="editor_tabla_censo"
+    )
+
+    # si hay un resultado de background, aplicarlo (sin bloquear)
+    if cache_key in globals() and cache_key in BACKGROUND_RESULTS:
+        res = BACKGROUND_RESULTS.pop(cache_key)
+        if res.get("status") == "done":
+            st.session_state["header1"] = res["header1"]
+            st.session_state["header2"] = res["header2"]
+            st.session_state["visible_rows"] = res["data_rows"]
+            # actualizar la vista local y forzar rerun corto para recargar todo con los datos remotos ya aplicados
+            st.success("✅ Eliminación sincronizada con Google Sheets. Vista actualizada.")
+            st.experimental_rerun()
+        else:
+            st.error(f"❌ Error en sincronización de fondo: {res.get('error')}")
+
+    # botón eliminar: flujo optimista + worker en background (integrado)
+    if btn_eliminar:
+        # obtener índices marcados del editor
+        try:
+            # el editor retorna el DataFrame en session_state bajo la key; leerlo
+            df_state = st.session_state.get("editor_tabla_censo")
+            if df_state is None:
+                # fallback a df_editado
+                df_state = df_editado
+            if isinstance(df_state, pd.DataFrame):
+                df_current = df_state
+            else:
+                df_current = pd.DataFrame(df_state)
+            indices_marcados = df_current[df_current["Seleccionar"] == True].index.tolist()
+            pacientes_a_eliminar = set(idx // 2 for idx in indices_marcados)
+            if not pacientes_a_eliminar:
+                st.warning("⚠️ No ha seleccionado ningún paciente para marcar en las casillas.")
+                return
+
+            # calcular filas físicas a borrar usando mapeo actual
+            mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
+            filas_gs_a_borrar = []
+            for paciente_idx in sorted(pacientes_a_eliminar, reverse=True):
+                if paciente_idx < len(mapeo_indices):
+                    idx_par_real = mapeo_indices[paciente_idx]
+                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
+
+            # actualización optimista local: quitar pares de visible_rows
+            visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
+            for paciente_idx in sorted(pacientes_a_eliminar, reverse=True):
+                if paciente_idx < len(mapeo_indices):
+                    idx_par_real = mapeo_indices[paciente_idx]
+                    if idx_par_real < len(visible_rows):
+                        del visible_rows[idx_par_real: idx_par_real + 2]
+
+            st.session_state["visible_rows"] = visible_rows
+
+            # reconstruir df local inmediatamente para que la UI refleje la eliminación
+            df_nuevo, mapeo_nuevo, indices_verdes_nuevo = preprocess_rows(visible_rows, encabezados_combinados)
+            st.session_state["mapeo_indices_pares"] = mapeo_nuevo
+            # escribir df visible local para que el siguiente run lo use
+            st.session_state["df_visible_local"] = df_nuevo
+
+            # lanzar worker en background para borrar realmente en Google Sheets y recuperar la hoja
+            if "delete_executor" not in st.session_state:
+                st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
+            future = st.session_state["delete_executor"].submit(
+                delete_rows_worker,
+                GOOGLE_SHEET_ID,
+                hoja_activa_tabla,
+                filas_gs_a_borrar,
+                cache_key
+            )
+            st.session_state["delete_future"] = True  # marcador simple
+            st.success("✅ Eliminación aplicada en la vista. Sincronizando con Google Sheets en segundo plano...")
+
+        except Exception as e:
+            st.error(f"❌ Ocurrió un error al procesar la eliminación: {e}")
+
+render_seccion_tabla_interactiva()
