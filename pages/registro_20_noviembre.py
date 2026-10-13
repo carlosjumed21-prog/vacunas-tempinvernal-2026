@@ -526,6 +526,7 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
                 datos_paciente = {
                     "paterno": paterno, "materno": materno, "nombres": nombres,
                     "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
+                    "anos": calc_anos, "meses": calc_meses,  # <--- Agregado para corregir el KeyError
                     "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
                     "correo_paciente": correo_paciente.strip(),
                     "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
