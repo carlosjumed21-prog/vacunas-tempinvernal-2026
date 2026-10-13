@@ -693,6 +693,26 @@ else:
                         )
 
                         if exito:
+                            comprobante_actual = st.session_state.get("ultimo_comprobante_vacunacion", {})
+                            
+                            # ENVÍO AUTOMÁTICO DEL CORREO OFICIAL AL GUARDAR
+                            if correo_ax_val and "@" in correo_ax_val:
+                                enviado_ok, msg_correo = enviar_comprobante_correo(
+                                    destinatario_email=correo_ax_val.strip(),
+                                    nombre_paciente=comprobante_actual.get("nombre", f"{paterno_p} {materno_p}, {nombres_p}"),
+                                    folio=comprobante_actual.get("folio", folio_p),
+                                    dosis_str=comprobante_actual.get("dosis_str", "Vacunación Aplicada"),
+                                    lotes_str=comprobante_actual.get("lotes_str", "N/A"),
+                                    fecha_val=comprobante_actual.get("fecha_aplicacion", fecha_aplicacion_hoja),
+                                    tipo="comprobante"
+                                )
+                                if enviado_ok:
+                                    st.success(f"📧 Comprobante oficial enviado exitosamente a: {correo_ax_val}")
+                                else:
+                                    st.error(f"❌ Error al enviar el correo automático: {msg_correo}")
+                            else:
+                                st.warning("⚠️ El paciente no cuenta con un correo electrónico registrado en la columna AX para el envío automático.")
+
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
                             st.rerun()
