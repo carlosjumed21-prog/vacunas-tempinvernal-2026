@@ -208,11 +208,10 @@ def construir_dataset(filas_tabla, header1, header2):
     filas_procesadas = []
     mapeo_indices_pares = []
     indices_filas_verdes = set()
-    total_rows = len(filas_tabla)
 
-    for i in range(0, total_rows, 2):
-        f1 = filas_tabla[i] if i < total_rows else []
-        f2 = filas_tabla[i + 1] if i + 1 < total_rows else []
+    for i in range(0, len(filas_tabla), 2):
+        f1 = filas_tabla[i] if i < len(filas_tabla) else []
+        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
@@ -290,14 +289,14 @@ except Exception as e:
     st.stop()
 
 header1, header2, filas_tabla = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-if not filas_tabla:
-    st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
-    st.stop()
-
 st.session_state["visible_rows"] = filas_tabla
 st.session_state["header1"] = header1
 st.session_state["header2"] = header2
 st.session_state["active_sheet"] = hoja_activa_tabla
+
+if not filas_tabla:
+    st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
+    st.stop()
 
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes = construir_dataset(filas_tabla, header1, header2)
 columnas_con_check = ["Seleccionar"] + encabezados_combinados
@@ -307,126 +306,124 @@ st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 metricas = calcular_metricas(filas_tabla)
 
 
-@st.fragment
-def render_seccion_tabla_interactiva():
-    st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+# --- RENDERIZADO GENERAL DE LA INTERFAZ (Sin fragmento envolvente global) ---
+st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
-    col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-    with col_tit1:
-        st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+with col_tit1:
+    st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-    with col_tit2:
-        if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
-            try:
-                st.cache_data.clear()
-                header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-                if filas_new:
-                    st.session_state["visible_rows"] = filas_new
-                    st.session_state["header1"] = header1_new
-                    st.session_state["header2"] = header2_new
-                    st.session_state["active_sheet"] = hoja_activa_tabla
-                    if "editor_tabla_censo" in st.session_state:
-                        del st.session_state["editor_tabla_censo"]
-                    safe_rerun(scope="fragment")
-            except Exception as e:
-                st.error(f"Error al recargar: {e}")
-
-    with col_tit3:
+with col_tit2:
+    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         try:
-            creds = get_creds_from_secrets()
-            if not creds.valid:
-                from google.auth.transport.requests import Request
-                creds.refresh(Request())
-
-            gid_hoja = ws.id
-            url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-            req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
-
-            with urllib.request.urlopen(req) as response:
-                excel_original_bytes = response.read()
-
-            st.download_button(
-                label="📥 Descargar Hoja Excel",
-                data=excel_original_bytes,
-                file_name=f"{hoja_activa_tabla}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-        except Exception as err:
-            st.error(f"No se pudo descargar el archivo: {err}")
-
-    st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-    with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
-    with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
-    with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
-    with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
-    with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
-    with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
-    with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
-    with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
-
-    st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-    col_btn1, _ = st.columns([2, 5])
-    with col_btn1:
-        btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    def color_filas_completas(row):
-        if row.name in indices_filas_verdes:
-            return ["background-color: #e2f0d9; color: #111111"] * len(row)
-        return [""] * len(row)
-
-    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
-
-    column_configs = {
-        "Seleccionar": st.column_config.CheckboxColumn(
-            "Seleccionar",
-            help="Marque la casilla para seleccionar este paciente",
-            default=False,
-        )
-    }
-    for col in encabezados_combinados:
-        if col != "Seleccionar":
-            column_configs[col] = st.column_config.TextColumn(col, disabled=True)
-
-    df_editado = st.data_editor(
-        df_estilizado,
-        use_container_width=True,
-        height=550,
-        hide_index=True,
-        column_config=column_configs,
-        key="editor_tabla_censo",
-    )
-
-    if cache_key in BACKGROUND_RESULTS:
-        result = BACKGROUND_RESULTS.pop(cache_key)
-        if result.get("status") == "done":
-            try:
-                st.cache_data.clear()
-                header1_r, header2_r, data_rows_r = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-                st.session_state["visible_rows"] = data_rows_r
-                st.session_state["header1"] = header1_r
-                st.session_state["header2"] = header2_r
+            st.cache_data.clear()
+            header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+            if filas_new:
+                st.session_state["visible_rows"] = filas_new
+                st.session_state["header1"] = header1_new
+                st.session_state["header2"] = header2_new
                 st.session_state["active_sheet"] = hoja_activa_tabla
-                st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
-                safe_rerun(scope="fragment")
-            except Exception as e:
-                st.error(f"Error al recargar tras eliminación: {e}")
-        elif result.get("status") == "error":
-            st.error(f"❌ Error al sincronizar con Google Sheets: {result.get('error')}")
+                if "editor_tabla_censo" in st.session_state:
+                    del st.session_state["editor_tabla_censo"]
+                safe_rerun()
+        except Exception as e:
+            st.error(f"Error al recargar: {e}")
 
-    if btn_eliminar:
-        indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-        pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+with col_tit3:
+    try:
+        creds = get_creds_from_secrets()
+        if not creds.valid:
+            from google.auth.transport.requests import Request
+            creds.refresh(Request())
 
-        if not pacientes_a_eliminar:
-            st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-            return
+        gid_hoja = ws.id
+        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+        req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
+        with urllib.request.urlopen(req) as response:
+            excel_original_bytes = response.read()
+
+        st.download_button(
+            label="📥 Descargar Hoja Excel",
+            data=excel_original_bytes,
+            file_name=f"{hoja_activa_tabla}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    except Exception as err:
+        st.error(f"No se pudo descargar el archivo: {err}")
+
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
+m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
+with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
+with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
+with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
+with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
+with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
+with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
+with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
+
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
+col_btn1, _ = st.columns([2, 5])
+with col_btn1:
+    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+def color_filas_completas(row):
+    if row.name in indices_filas_verdes:
+        return ["background-color: #e2f0d9; color: #111111"] * len(row)
+    return [""] * len(row)
+
+df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+column_configs = {
+    "Seleccionar": st.column_config.CheckboxColumn(
+        "Seleccionar",
+        help="Marque la casilla para seleccionar este paciente",
+        default=False,
+    )
+}
+for col in encabezados_combinados:
+    if col != "Seleccionar":
+        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+df_editado = st.data_editor(
+    df_estilizado,
+    use_container_width=True,
+    height=550,
+    hide_index=True,
+    column_config=column_configs,
+    key="editor_tabla_censo",
+)
+
+if cache_key in BACKGROUND_RESULTS:
+    result = BACKGROUND_RESULTS.pop(cache_key)
+    if result.get("status") == "done":
+        try:
+            st.cache_data.clear()
+            header1_r, header2_r, data_rows_r = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+            st.session_state["visible_rows"] = data_rows_r
+            st.session_state["header1"] = header1_r
+            st.session_state["header2"] = header2_r
+            st.session_state["active_sheet"] = hoja_activa_tabla
+            st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
+            safe_rerun()
+        except Exception as e:
+            st.error(f"Error al recargar tras eliminación: {e}")
+    elif result.get("status") == "error":
+        st.error(f"❌ Error al sincronizar con Google Sheets: {result.get('error')}")
+
+if btn_eliminar:
+    indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
+    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+
+    if not pacientes_a_eliminar:
+        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+    else:
         try:
             mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
             visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
@@ -465,6 +462,3 @@ def render_seccion_tabla_interactiva():
             st.success("✅ Se inició la eliminación. La vista se actualizará cuando termine la sincronización.")
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
-
-
-render_seccion_tabla_interactiva()
