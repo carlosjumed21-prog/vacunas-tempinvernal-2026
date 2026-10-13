@@ -82,6 +82,8 @@ if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
 if "paciente_duplicado_info" not in st.session_state:
     st.session_state.paciente_duplicado_info = None
+if "guardando_jornada" not in st.session_state:
+    st.session_state.guardando_jornada = False
 
 if "ant_cov" not in st.session_state:
     st.session_state.ant_cov = None
@@ -449,84 +451,88 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
-if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
-    if not fecha_nacimiento:
-        st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
-    elif not paterno.strip() or not materno.strip() or not nombres.strip():
-        st.error("⚠️ Complete Apellido Paterno, Materno y Nombre(s).")
-    elif not correo_paciente.strip():
-        st.error("⚠️ Ingrese el correo electrónico para enviarle su comprobante de folio.")
-    elif sexo == "SELECCIONE UNA OPCIÓN":
-        st.error("⚠️ Seleccione una opción en Sexo.")
-    elif vacuna_interes is None:
-        st.error("⚠️ Seleccione la vacuna de su interés.")
-    else:
-        # Spinner de carga fluido que bloquea la interfaz y salta de inmediato al comprobante
-        with st.spinner("🚀 Registrando y generando comprobante..."):
-            try:
-                duplicado, folio_previo = verificar_curp_duplicada(
-                    curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
+# --- BOTÓN DE REGISTRO DIRECTO CON OCULTAMIENTO AUTOMÁTICO ---
+if st.session_state.guardando_jornada:
+    with st.spinner("🚀 Procesando registro, generando folio y mostrando comprobante..."):
+        try:
+            duplicado, folio_previo = verificar_curp_duplicada(
+                curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
+            )
+
+            if duplicado:
+                st.session_state.paciente_duplicado_info = {
+                    "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                    "folio": folio_previo
+                }
+            else:
+                fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
+
+                comorbilidades_dict = {
+                    "personas_embarazadas": personas_embarazadas, "personal_salud_riesgo": personal_salud_riesgo,
+                    "vih": vih, "diabetes": diabetes, "obesidad": obesidad, "cardiopatias": cardiopatias,
+                    "enfermedad_pulmonar": enfermedad_pulmonar, "cancer": cancer, "cardiacas_congenitas": cardiacas_congenitas,
+                    "insuficiencia_renal": insuficiencia_renal, "inmunosupresion": inmunosupresion,
+                    "discapacidades": discapacidades, "fibrosis_quistica": fibrosis_quistica,
+                    "hipertension": hipertension, "otro": otro_riesgo, "texto_otro": texto_otro_riesgo.upper() if otro_riesgo else "",
+                }
+
+                datos_paciente = {
+                    "paterno": paterno, "materno": materno, "nombres": nombres,
+                    "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
+                    "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
+                    "correo_paciente": correo_paciente.strip(),
+                    "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
+                    "estado_residencia": estado_residencia if estado_residencia != "SELECCIONE UN ESTADO" else "CDMX",
+                    "curp_con_nacimiento": curp_con_nacimiento, "cuenta_derechohabiencia": cuenta_derechohabiencia,
+                    "vacuna_interes": vacuna_interes, "antecedente_covid": antecedente_covid,
+                    "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
+                    "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
+                    "modalidad": st.session_state.modalidad,
+                }
+
+                folio_asignado, is_duplicate, existing_folio = guardar_registro_censal(
+                    sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
+                    val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                 )
 
-                if duplicado:
+                st.session_state.pop("submission_id", None)
+
+                if is_duplicate:
                     st.session_state.paciente_duplicado_info = {
                         "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                        "folio": folio_previo
+                        "folio": existing_folio
                     }
                 else:
-                    fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
-
-                    comorbilidades_dict = {
-                        "personas_embarazadas": personas_embarazadas, "personal_salud_riesgo": personal_salud_riesgo,
-                        "vih": vih, "diabetes": diabetes, "obesidad": obesidad, "cardiopatias": cardiopatias,
-                        "enfermedad_pulmonar": enfermedad_pulmonar, "cancer": cancer, "cardiacas_congenitas": cardiacas_congenitas,
-                        "insuficiencia_renal": insuficiencia_renal, "inmunosupresion": inmunosupresion,
-                        "discapacidades": discapacidades, "fibrosis_quistica": fibrosis_quistica,
-                        "hipertension": hipertension, "otro": otro_riesgo, "texto_otro": texto_otro_riesgo.upper() if otro_riesgo else "",
-                    }
-
-                    datos_paciente = {
-                        "paterno": paterno, "materno": materno, "nombres": nombres,
-                        "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
-                        "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
+                    st.session_state.ultimo_paciente_registrado = {
+                        "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                        "curp_con_nacimiento": curp_con_nacimiento,
+                        "vacuna_interes": vacuna_interes,
+                        "grupo_objetivo": grupo_sugerido,
+                        "folio": folio_asignado,
                         "correo_paciente": correo_paciente.strip(),
-                        "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
-                        "estado_residencia": estado_residencia if estado_residencia != "SELECCIONE UN ESTADO" else "CDMX",
-                        "curp_con_nacimiento": curp_con_nacimiento, "cuenta_derechohabiencia": cuenta_derechohabiencia,
-                        "vacuna_interes": vacuna_interes, "antecedente_covid": antecedente_covid,
-                        "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
-                        "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
-                        "modalidad": st.session_state.modalidad,
+                        "fecha_aplicacion": fecha_aplicacion_str,
                     }
 
-                    folio_asignado, is_duplicate, existing_folio = guardar_registro_censal(
-                        sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
-                        val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
-                    )
-
-                    st.session_state.pop("submission_id", None)
-
-                    if is_duplicate:
-                        st.session_state.paciente_duplicado_info = {
-                            "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                            "folio": existing_folio
-                        }
-                    else:
-                        st.session_state.ultimo_paciente_registrado = {
-                            "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                            "curp_con_nacimiento": curp_con_nacimiento,
-                            "vacuna_interes": vacuna_interes,
-                            "grupo_objetivo": grupo_sugerido,
-                            "folio": folio_asignado,
-                            "correo_paciente": correo_paciente.strip(),
-                            "fecha_aplicacion": fecha_aplicacion_str,
-                        }
-
-            except Exception as e:
-                st.session_state.pop("submission_id", None)
-                st.error("⚠️ Error general al procesar el registro en Google Sheets:")
-                st.exception(e)
+        except Exception as e:
+            st.session_state.pop("submission_id", None)
+            st.error("⚠️ Error general al procesar el registro en Google Sheets:")
+            st.exception(e)
         
-        # Forzamos la recarga limpia FUERA del spinner para pintar el comprobante de inmediato
+        st.session_state.guardando_jornada = False
         safe_rerun()
+
+else:
+    if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
+        if not fecha_nacimiento:
+            st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
+        elif not paterno.strip() or not materno.strip() or not nombres.strip():
+            st.error("⚠️ Complete Apellido Paterno, Materno y Nombre(s).")
+        elif not correo_paciente.strip():
+            st.error("⚠️ Ingrese el correo electrónico para enviarle su comprobante de folio.")
+        elif sexo == "SELECCIONE UNA OPCIÓN":
+            st.error("⚠️ Seleccione una opción en Sexo.")
+        elif vacuna_interes is None:
+            st.error("⚠️ Seleccione la vacuna de su interés.")
+        else:
+            st.session_state.guardando_jornada = True
+            safe_rerun()
