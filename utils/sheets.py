@@ -111,10 +111,19 @@ def guardar_registro_censal(
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
         
+        # Validación de Antecedente Vacunal (AR y AS)
+        ant_inf_val = p.get("antecedente_influenza", "")
+        ant_inf_str = str(ant_inf_val).upper().strip() if ant_inf_val else ""
+        val_ant_inf = ant_inf_str if ant_inf_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
+
+        ant_cov_val = p.get("antecedente_covid", "")
+        ant_cov_str = str(ant_cov_val).upper().strip() if ant_cov_val else ""
+        val_ant_cov = ant_cov_str if ant_cov_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
+
+        # Validación de Vacuna de Interés (AT, AU, AV)
         vacuna_interes = p.get("vacuna_interes", "")
         vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""
 
-        # Lógica exclusiva: solo se marca una "X" en la celda correspondiente a la opción elegida
         marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
         marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
         marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
@@ -159,8 +168,8 @@ def guardar_registro_censal(
             check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
             com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
             "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
-            p.get("antecedente_influenza", "") if p.get("antecedente_influenza") in ["SÍ", "NO", "LO DESCONOCE"] else "", # AR (42) - ANTECEDENTE INFLUENZA
-            p.get("antecedente_covid", "") if p.get("antecedente_covid") in ["SÍ", "NO", "LO DESCONOCE"] else "",         # AS (43) - ANTECEDENTE COVID
+            val_ant_inf,                                                                    # AR (42) - ANTECEDENTE INFLUENZA (SÍ/NO/LO DESCONOCE)
+            val_ant_cov,                                                                    # AS (43) - ANTECEDENTE COVID (SÍ/NO/LO DESCONOCE)
             marca_inf,                                                                      # AT (44) - INFLUENZA
             marca_cov,                                                                      # AU (45) - COVID
             marca_amb,                                                                      # AV (46) - AMBAS
