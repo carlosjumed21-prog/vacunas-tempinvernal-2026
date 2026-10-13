@@ -2,7 +2,7 @@ import datetime
 import random
 import streamlit as st
 import streamlit.components.v1 as components
-from config import MAPA_SIGLAS_INVERSO, aplicar_configuracion_global
+from config import MAPA_SIGLAS_INVERSO, UNIDADES_ISSSTE, aplicar_configuracion_global
 from utils.sheets import guardar_registro_censal, obtener_cliente_gspread
 from config import GOOGLE_SHEET_ID
 from aviso_privacidad import mostrar_aviso_privacidad_si_necesario
@@ -19,22 +19,48 @@ aplicar_configuracion_global("Censo Nominal - Registro", "💉")
 def safe_rerun():
     """Rerun compatible con distintas versiones de Streamlit."""
     try:
-        # Streamlit 1.21+ tiene st.rerun()
         st.rerun()
         return
     except Exception:
         pass
 
     try:
-        # Compatibilidad con versiones que aún exponen experimental_rerun
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
             return
     except Exception:
         pass
 
-    # Último recurso: toggle en session_state para forzar re-render
     st.session_state["_rerun_toggle"] = not st.session_state.get("_rerun_toggle", False)
+
+
+# --- RECUPERACIÓN DE PARÁMETROS DE URL Y CONFIGURACIÓN ---
+params = st.query_params
+sigla_url = params.get("unidad", "GEN").upper()
+jornada_url = params.get("jornada", "I").upper()
+sufijo_js = params.get("js", "")
+
+# Mapeo oficial o nombre base de la unidad
+nombre_base_unidad = UNIDADES_ISSSTE.get(sigla_url, "UNIDAD MÉDICA ISSSTE")
+if sigla_url == "20N":
+    nombre_base_unidad = "CMN 20 DE NOVIEMBRE"
+
+st.session_state.siglas_unidad = sigla_url
+st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
+st.session_state.tipo_jornada = jornada_url
+
+# Evaluación dinámica de la modalidad
+if jornada_url == "E":
+    modalidad_texto = "EXTRAMUROS"
+elif jornada_url == "M":
+    modalidad_texto = "BRIGADA MÓVIL"
+else:
+    modalidad_texto = "INTRAMUROS"
+
+st.session_state.modalidad = modalidad_texto
+
+# Comprobación de rol de administración
+es_admin = st.session_state.get("auth_registro", False) or st.session_state.get("authenticated", False)
 
 
 # --- LLAMADA A LA VENTANA EMERGENTE (MODAL) DEL AVISO DE PRIVACIDAD ---
@@ -62,27 +88,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- RECUPERACIÓN DE PARÁMETROS DE URL ---
-# Obtener los parámetros directamente de la URL
-params = st.query_params
-unidad_url = params.get("unidad", "").upper()
-jornada_url = params.get("jornada", "I").upper()
-
-# Evaluar de forma dinámica la modalidad según la letra de la URL
-if jornada_url == "E":
-    modalidad_texto = "EXTRAMUROS"
-elif jornada_url == "M":
-    modalidad_texto = "BRIGADA MÓVIL"
-else:
-    modalidad_texto = "INTRAMUROS"
-
-# Mostrar el encabezado correctamente actualizado
-st.markdown(f"**Unidad: {unidad_url} | Modalidad: {modalidad_texto}**")
-
-st.session_state.siglas_unidad = sigla_url
-st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
-st.session_state.tipo_jornada = params.get("jornada", "I")
-st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
 # --- FECHAS Y ESTADOS INICIALES ---
 fecha_sistema = datetime.date.today()
@@ -140,7 +145,6 @@ def limpiar_paciente_duplicado():
 def procesar_registro_callback():
     """Procesa el registro: valida, verifica duplicado y guarda en Sheets."""
     try:
-        # Leer campos desde session_state (vienen de widgets)
         paterno = st.session_state.get("input_paterno", "") or ""
         materno = st.session_state.get("input_materno", "") or ""
         nombres = st.session_state.get("input_nombres", "") or ""
@@ -159,7 +163,6 @@ def procesar_registro_callback():
         digitos_faltantes = st.session_state.get("input_digitos", "") or ""
         personas_gestantes = st.session_state.get("chk_gestante", "NO") if st.session_state.get("input_sexo","") == "MUJER" else "NO"
 
-        # Comorbilidades (booleans)
         personas_embarazadas = st.session_state.get("chk_personas_embarazadas", False)
         personal_salud_riesgo = st.session_state.get("chk_personal_salud_riesgo", False)
         vih = st.session_state.get("chk_vih", False)
@@ -178,13 +181,11 @@ def procesar_registro_callback():
         texto_otro_riesgo = st.session_state.get("txt_otro_riesgo", "") or ""
 
         vacuna_interes = st.session_state.get("input_vacuna", None)
-        # Fecha de aplicación y unidad
         sigla = sigla_url
         sufijo = sufijo_js
         tipo_jornada = st.session_state.get("tipo_jornada", "I")
         fecha_aplicacion = val_fecha_app
 
-        # Validaciones
         if dia_sel == "Día" or mes_sel == "Mes" or anio_sel == "Año":
             st.session_state["_registro_error"] = "⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento."
             safe_rerun()
@@ -210,7 +211,6 @@ def procesar_registro_callback():
             safe_rerun()
             return
 
-        # Construir fecha_nacimiento
         try:
             fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
         except Exception:
@@ -218,11 +218,9 @@ def procesar_registro_callback():
             safe_rerun()
             return
 
-        # Calcular edad
         calc_anos, calc_meses, _ = calcular_edad_detallada(fecha_nacimiento, fecha_aplicacion)
         edad_total_meses = (calc_anos * 12) + calc_meses
 
-        # Generar CURP algorítmica
         curp_alg = generar_curp_algoritmica(paterno, materno, nombres, fecha_nacimiento, sexo, estado_nacimiento, digitos_faltantes)
         curp_con_nacimiento = f"{curp_alg}/{estado_nacimiento.upper()}" if estado_nacimiento != "SELECCIONE UN ESTADO" and "COMPLETA" not in curp_alg else curp_alg
 
@@ -241,7 +239,6 @@ def procesar_registro_callback():
             tiene_comorbilidades
         ) if vacuna_interes else "SIN DATO"
 
-        # Verificar duplicado por CURP
         try:
             duplicado_local, folio_previo = verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, fecha_aplicacion)
         except Exception as e:
@@ -257,7 +254,6 @@ def procesar_registro_callback():
             safe_rerun()
             return
 
-        # Preparar dict de comorbilidades y datos del paciente
         comorbilidades_dict = {
             "personas_embarazadas": personas_gestantes, "personal_salud_riesgo": "SÍ" if personal_salud_riesgo else "NO",
             "vih": "SÍ" if vih else "NO", "diabetes": "SÍ" if diabetes else "NO", "obesidad": "SÍ" if obesidad else "NO",
@@ -282,7 +278,6 @@ def procesar_registro_callback():
             "modalidad": st.session_state.get("modalidad"),
         }
 
-        # Guardar en Google Sheets
         try:
             folio_asignado, is_duplicate, existing_folio = guardar_registro_censal(
                 sigla_url=sigla, sufijo_js=sufijo, tipo_jornada=tipo_jornada,
@@ -293,7 +288,6 @@ def procesar_registro_callback():
             safe_rerun()
             return
 
-        # Responder según el resultado del guardado
         if is_duplicate:
             st.session_state.paciente_duplicado_info = {
                 "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
@@ -312,7 +306,6 @@ def procesar_registro_callback():
                 "correo_paciente": correo_paciente,
                 "fecha_aplicacion": fecha_aplicacion_str,
             }
-            # Borrar errores previos si existían
             st.session_state.pop("_registro_error", None)
             st.session_state.pop("_registro_exception", None)
             safe_rerun()
@@ -341,18 +334,16 @@ def mostrar_modal_duplicado():
             """,
             unsafe_allow_html=True
         )
-        # Usar on_click para evitar doble-clic y ejecutar limpieza en la misma petición
         st.button("Entendido (Reiniciar)", use_container_width=True, key="btn_entendido_duplicado", on_click=limpiar_paciente_duplicado)
 
 
-# --- LLAMADA A MODAL DE DUPLICADO SI APLICA (COMPROBACIÓN FUERA) ---
 if st.session_state.get("paciente_duplicado_info") is not None:
     mostrar_modal_duplicado()
 
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
 
-# --- SI HAY UN PACIENTE REGISTRADO, MOSTRAMOS SU COMPROBANTE EN LUGAR DEL FORMULARIO ---
+
 def mostrar_comprobante_principal():
     p = st.session_state.get("ultimo_paciente_registrado")
     if p:
@@ -477,12 +468,10 @@ def mostrar_comprobante_principal():
                     st.error(mensaje)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        # Usar on_click para limpiar en la misma petición
         st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal", on_click=limpiar_nuevo_registro)
         st.stop()
 
 
-# Si hay registro mostrado, salir para que se vea el comprobante
 if st.session_state.get("ultimo_paciente_registrado") is not None:
     mostrar_comprobante_principal()
 
@@ -661,17 +650,9 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# Mostrar errores/exception si quedaron en session_state (desde callbacks)
 if "_registro_error" in st.session_state:
     st.error(st.session_state.get("_registro_error"))
 if "_registro_exception" in st.session_state:
     st.error(st.session_state.get("_registro_exception"))
 
-# --- BOTÓN DE REGISTRO (ahora usa callback para ejecutar en un solo clic) ---
 st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada", on_click=procesar_registro_callback)
-
-# Nota: la lógica de procesamiento se ejecuta en procesar_registro_callback.
-# El callback hace safe_rerun() y actualiza st.session_state con el resultado (duplicado o ultimo_paciente_registrado).
-
-# Si quieres limpiar estado de registro anterior (manual) puedes exponer otro botón:
-# if st.button("
