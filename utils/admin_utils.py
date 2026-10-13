@@ -1,3 +1,5 @@
+
+# utils/admin_utils.py
 import datetime
 import io
 import json
@@ -21,7 +23,7 @@ def autenticar_administrador(correo, password):
     return False, ""
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando los secretos de Streamlit."""
+    """Autentica y retorna el cliente de gspread usando los secretos de Streamlit de forma nativa y segura."""
     scope = GOOGLE_SCOPES
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -32,8 +34,10 @@ def obtener_cliente_gspread():
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
 
-    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=scope)
-    return gspread.authorize(creds)
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    return gspread.service_account_from_dict(creds_dict, scopes=scope)
 
 def verificar_hojas_existentes(siglas_unidad, config_jornadas):
     """Verifica si las hojas de cálculo ya existen en Google Sheets para evitar duplicados."""
