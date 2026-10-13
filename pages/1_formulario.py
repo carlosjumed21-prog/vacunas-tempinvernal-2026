@@ -465,23 +465,19 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        # Usamos st.status o st.spinner para asegurar que Streamlit pinte el estado de carga
-        with st.status("🚀 Procesando registro en el servidor...", expanded=True) as status:
+        with st.spinner("🚀 Registrando y generando comprobante..."):
             try:
-                st.write("Verificando registros previos...")
                 duplicado, folio_previo = verificar_curp_duplicada(
                     curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
                 )
 
                 if duplicado:
-                    status.update(label="⚠️ ¡Paciente ya registrado!", state="error", expanded=True)
                     st.session_state.paciente_duplicado_info = {
                         "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                         "folio": folio_previo
                     }
                     safe_rerun()
                 else:
-                    st.write("Guardando datos en Google Sheets...")
                     fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                     comorbilidades_dict = {
@@ -512,7 +508,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                         val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                     )
 
-                    status.update(label="✅ ¡Registro exitoso!", state="complete", expanded=False)
                     st.session_state.pop("submission_id", None)
 
                     if is_duplicate:
@@ -520,8 +515,8 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "folio": existing_folio
                         }
-                        safe_rerun()
                     else:
+                        # 1. Guardamos el estado del paciente registrado
                         st.session_state.ultimo_paciente_registrado = {
                             "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "curp_con_nacimiento": curp_con_nacimiento,
@@ -531,10 +526,11 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "correo_paciente": correo_paciente.strip(),
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
-                        safe_rerun()
+                    
+                    # 2. Forzamos la recarga inmediata para que caiga directo en la vista del comprobante
+                    safe_rerun()
 
             except Exception as e:
-                status.update(label="❌ Error en el proceso", state="error", expanded=True)
                 st.session_state.pop("submission_id", None)
                 st.error("⚠️ Error general al procesar el registro en Google Sheets:")
                 st.exception(e)
