@@ -5,40 +5,12 @@ import json
 import datetime
 import urllib.request
 from google.oauth2 import service_account
-from utils.sheets import obtener_cliente_gspread
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 
+# Aplicar configuración global unificada
+aplicar_configuracion_global("Vista Detallada de Censo", "📊")
 
-# --------------------
-# Helper seguro para rerun
-# --------------------
-def safe_rerun(scope=None):
-    try:
-        if scope and hasattr(st, "rerun"):
-            st.rerun(scope=scope)
-            return
-    except Exception:
-        pass
-
-    try:
-        if hasattr(st, "experimental_rerun"):
-            st.experimental_rerun()
-            return
-    except Exception:
-        pass
-
-    try:
-        st.rerun()
-        return
-    except Exception:
-        pass
-
-    st.session_state["_needs_rerun"] = True
-
-
-# --- CONFIGURACIÓN DE PANTALLA ANCHA ---
-st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
-
+# --- OCULTAR LA BARRA SUPERIOR Y ESTILOS ---
 st.markdown(
     """
     <style>
@@ -57,12 +29,6 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
         .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
-
-        .stStatusWidget, div[role="status"], .stSpinner, .stLoading,
-        [data-testid="stAppViewContainer"] > div[role="status"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -78,6 +44,27 @@ hoja_activa_tabla = params.get("hoja", "").strip()
 if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Por favor abra la vista desde el Módulo Operativo principal.")
     st.stop()
+
+
+# ============================================================
+# CLIENTE GOOGLE UNIFICADO (IDÉNTICO A 2_CONSULTA_CENSIA)
+# ============================================================
+@st.cache_resource
+def obtener_client_gspread_cacheado():
+    """Autentica y retorna el cliente de gspread de forma nativa mediante service_account_from_dict."""
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
 
 def get_creds_from_secrets():
@@ -97,10 +84,10 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-@st.cache_data(ttl=3, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        client_c = obtener_cliente_gspread()
+        client_c = obtener_client_gspread_cacheado()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         col_b = worksheet.col_values(2)
@@ -233,9 +220,9 @@ def calcular_metricas(filas_tabla):
     }
 
 
-# --- CONEXIÓN Y CARGA DE DATOS EN TIEMPO REAL ---
+# --- CONEXIÓN Y CARGA DE DATOS ---
 try:
-    client = obtener_cliente_gspread()
+    client = obtener_client_gspread_cacheado()
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
     ws = spreadsheet.worksheet(hoja_activa_tabla)
 except Exception as e:
@@ -254,7 +241,7 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 metricas = calcular_metricas(filas_tabla)
 
 
-# --- INTERFAZ FLUIDA ---
+# --- INTERFAZ VISUAL ---
 st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
 col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
@@ -264,7 +251,7 @@ with col_tit1:
 with col_tit2:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         st.cache_data.clear()
-        safe_rerun()
+        st.rerun()
 
 with col_tit3:
     try:
@@ -337,7 +324,7 @@ df_editado = st.data_editor(
     key="editor_tabla_censo",
 )
 
-# --- ACCIÓN DE ELIMINACIÓN DIRECTA Y SINCRONIZADA EN TIEMPO REAL ---
+# --- ACCIÓN DE ELIMINACIÓN SÍNCRONA EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -362,7 +349,7 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-                # Reordenar folios o contadores en la hoja si aplica
+                # Reordenar contadores en la hoja
                 datos_actualizados = ws.get_all_values()
                 if len(datos_actualizados) >= 14:
                     filas_actuales = datos_actualizados[13:]
@@ -381,7 +368,7 @@ if btn_eliminar:
                             pass
 
             st.cache_data.clear()
-            st.success("✅ Paciente(s) eliminado(s) y Google Sheets actualizado en tiempo real.")
-            safe_rerun()
+            st.success("✅ Paciente(s) eliminado(s) y Google Sheets actualizado correctamente.")
+            st.rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
