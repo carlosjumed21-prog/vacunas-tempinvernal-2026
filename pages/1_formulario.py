@@ -462,7 +462,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        # Usamos st.spinner para bloquear la interfaz con animación limpia y pasar de inmediato al comprobante
+        # Spinner de carga fluido que bloquea la interfaz y salta de inmediato al comprobante
         with st.spinner("🚀 Registrando y generando comprobante..."):
             try:
                 duplicado, folio_previo = verificar_curp_duplicada(
@@ -474,7 +474,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                         "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                         "folio": folio_previo
                     }
-                    safe_rerun()
                 else:
                     fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
@@ -523,10 +522,11 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "correo_paciente": correo_paciente.strip(),
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
-                    
-                    safe_rerun()
 
             except Exception as e:
                 st.session_state.pop("submission_id", None)
                 st.error("⚠️ Error general al procesar el registro en Google Sheets:")
                 st.exception(e)
+        
+        # Forzamos la recarga limpia FUERA del spinner para pintar el comprobante de inmediato
+        safe_rerun()
