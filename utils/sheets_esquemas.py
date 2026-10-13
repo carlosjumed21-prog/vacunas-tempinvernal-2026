@@ -1,7 +1,6 @@
 # utils/sheets_esquemas.py
 import json
 import datetime
-from google.oauth2 import service_account
 import gspread
 import streamlit as st
 from config import GOOGLE_SCOPES
@@ -9,12 +8,11 @@ from config import GOOGLE_SCOPES
 @st.cache_data(ttl=600)
 def cargar_guias_censia():
     """Conecta con el documento CENSIA en la nube y extrae de forma limpia
-    las guías de Influenza y COVID, propagando valores en celdas combinadas (Columnas A a H).
+    las guías de Influenza y COVID de manera 100% nativa.
     """
     guia_influenza_registros = []
     guia_covid_registros = []
     try:
-        scope = GOOGLE_SCOPES
         if "GOOGLE_CREDENTIALS" in st.secrets:
             raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -27,7 +25,7 @@ def cargar_guias_censia():
         if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-        client = gspread.service_account_from_dict(creds_dict, scopes=scope)
+        client = gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
@@ -112,7 +110,7 @@ def obtener_recomendaciones_paciente(
     categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses=0, antecedente_vacunal="NO"
 ):
     """Cruza los datos del paciente con las guías CENSIA evaluando con precisión
-    la edad en meses, antecedentes, comorbilidades y restricciones de biológicos (Pfizer >= 12 años).
+    la edad en meses, antecedentes, comorbilidades y restricciones de biológicos.
     """
     try:
         guia_inf, guia_cov = cargar_guias_censia()
@@ -179,7 +177,6 @@ def obtener_recomendaciones_paciente(
 
                 es_match = False
 
-                # Restricción estricta CENSIA: Pfizer es exclusivamente para >= 12 años (144 meses)
                 if "PFIZER" in vac_tipo and edad_meses < 144:
                     continue
 
