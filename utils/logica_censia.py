@@ -6,6 +6,7 @@ import streamlit as st
 from utils.sheets import obtener_token_acceso
 from config import GOOGLE_SHEET_ID
 
+
 def procesar_guardado_aplicacion(
     worksheet_activa,
     fila_idx,
@@ -21,6 +22,10 @@ def procesar_guardado_aplicacion(
     paterno_p, materno_p, nombres_p,
     fecha_aplicacion_hoja
 ):
+    """
+    Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
+    utilizando directamente la API REST oficial de Google Sheets.
+    """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
 
@@ -114,18 +119,55 @@ def procesar_guardado_aplicacion(
             updates_data.append({"range": f"{nombre_hoja}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
         token = obtener_token_acceso()
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
-        body = {
+
+        # 1. Petición para actualizar los valores de texto/casillas
+        url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
+        body_values = {
             "valueInputOption": "USER_ENTERED",
             "data": updates_data
         }
-        resp = requests.post(url, headers=headers, json=body)
-        if resp.status_code != 200:
-            raise Exception(resp.text)
+        resp_val = requests.post(url_values, headers=headers, json=body_values)
+        if resp_val.status_code != 200:
+            raise Exception(resp_val.text)
+
+        # 2. Petición para aplicar el formato de color de fondo verde en la fila guardada
+        url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}:batchUpdate"
+        body_format = {
+            "requests": [
+                {
+                    "updateCells": {
+                        "range": {
+                            "sheetId": worksheet_activa.id,
+                            "startRowIndex": f_actual - 1,
+                            "endRowIndex": f_siguiente,
+                            "startColumnIndex": 0,
+                            "endColumnIndex": 50
+                        },
+                        "rows": [
+                            {
+                                "values": [
+                                    {
+                                        "userEnteredFormat": {
+                                            "backgroundColor": {
+                                                "red": 0.831,
+                                                "green": 0.929,
+                                                "blue": 0.855
+                                            }
+                                        }
+                                    } for _ in range(50)
+                                ]
+                            } for _ in range(2)
+                        ],
+                        "fields": "userEnteredFormat.backgroundColor"
+                    }
+                }
+            ]
+        }
+        requests.post(url_spreadsheet, headers=headers, json=body_format)
 
         st.cache_data.clear()
 
