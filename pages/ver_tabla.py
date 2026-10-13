@@ -208,10 +208,11 @@ def construir_dataset(filas_tabla, header1, header2):
     filas_procesadas = []
     mapeo_indices_pares = []
     indices_filas_verdes = set()
+    total_rows = len(filas_tabla)
 
-    for i in range(0, len(filas_tabla), 2):
-        f1 = filas_tabla[i] if i < len(filas_tabla) else []
-        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
+    for i in range(0, total_rows, 2):
+        f1 = filas_tabla[i] if i < total_rows else []
+        f2 = filas_tabla[i + 1] if i + 1 < total_rows else []
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
@@ -289,14 +290,14 @@ except Exception as e:
     st.stop()
 
 header1, header2, filas_tabla = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+if not filas_tabla:
+    st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
+    st.stop()
+
 st.session_state["visible_rows"] = filas_tabla
 st.session_state["header1"] = header1
 st.session_state["header2"] = header2
 st.session_state["active_sheet"] = hoja_activa_tabla
-
-if not filas_tabla:
-    st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
-    st.stop()
 
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes = construir_dataset(filas_tabla, header1, header2)
 columnas_con_check = ["Seleccionar"] + encabezados_combinados
