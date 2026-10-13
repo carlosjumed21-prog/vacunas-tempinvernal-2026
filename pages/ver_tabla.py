@@ -304,7 +304,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN CON BORRADO OPTIMISTA INSTANTÁNEO ---
+# --- ACCIÓN DE ELIMINACIÓN: VISTA PREVIA Y GOOGLE SHEETS EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -315,16 +315,50 @@ if btn_eliminar:
         try:
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
             filas_actualizadas = list(filas_tabla)
+            filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
+                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # Actualización inmediata en sesión y recarga instantánea de vista previa (cero pausas)
+            # 1. Actualizar el estado en sesión inmediatamente para que desaparezca de la vista previa al instante
             st.session_state[key_estado_filas] = filas_actualizadas
-            st.success("⚡ ¡Eliminado de la vista previa al instante!")
+
+            # 2. Conectar y eliminar las filas en Google Sheets de forma ordenada
+            client = obtener_cliente_gspread()
+            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            ws = spreadsheet.worksheet(hoja_activa_tabla)
+
+            filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
+            for fila_gs in filas_gs_a_borrar:
+                try:
+                    ws.delete_rows(fila_gs)
+                except Exception:
+                    pass
+
+            # 3. Reordenar los contadores de folios en la hoja
+            datos_actualizados = ws.get_all_values()
+            if len(datos_actualizados) >= 14:
+                filas_actuales = datos_actualizados[13:]
+                contador = 1
+                updates = []
+                for i in range(0, len(filas_actuales), 2):
+                    row = filas_actuales[i]
+                    if len(row) > 0 and row[0].strip() != "":
+                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                        updates.append({"range": a1, "values": [[str(contador)]]})
+                        contador += 1
+                if updates:
+                    try:
+                        ws.batch_update(updates)
+                    except Exception:
+                        pass
+
+            # 4. Refrescar la pantalla de inmediato para mostrar el resultado limpio
+            st.success("✅ ¡Eliminado de la vista previa y de Google Sheets con éxito!")
             st.rerun()
-            
+
         except Exception as e:
-            st.error(f"❌ Ocurrió un error al actualizar la vista previa: {e}")
+            st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
