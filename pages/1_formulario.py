@@ -440,17 +440,25 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
+# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC (LECTURA DIRECTA DE SESSION_STATE) ---
 if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
+    # Capturamos directamente desde st.session_state para evitar el retraso del doble clic
+    val_paterno = st.session_state.get("input_paterno", "").strip()
+    val_materno = st.session_state.get("input_materno", "").strip()
+    val_nombres = st.session_state.get("input_nombres", "").strip()
+    val_correo = st.session_state.get("input_correo_paciente", "").strip()
+    val_sexo = st.session_state.get("input_sexo", "SELECCIONE UNA OPCIÓN")
+    val_vacuna = st.session_state.get("input_vacuna", None)
+
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
-    elif not paterno.strip() or not materno.strip() or not nombres.strip():
+    elif not val_paterno or not val_materno or not val_nombres:
         st.error("⚠️ Complete Apellido Paterno, Materno y Nombre(s).")
-    elif not correo_paciente.strip():
+    elif not val_correo:
         st.error("⚠️ Ingrese el correo electrónico para enviarle su comprobante de folio.")
-    elif sexo == "SELECCIONE UNA OPCIÓN":
+    elif val_sexo == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Sexo.")
-    elif vacuna_interes is None:
+    elif val_vacuna is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
         with st.spinner("🚀 Procesando registro y conectando con el servidor..."):
@@ -460,7 +468,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
 
             if duplicado:
                 st.session_state.paciente_duplicado_info = {
-                    "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                    "nombre": f"{val_paterno.upper()} {val_materno.upper()} {val_nombres.upper()}",
                     "folio": folio_previo
                 }
                 safe_rerun()
@@ -478,14 +486,14 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                     }
 
                     datos_paciente = {
-                        "paterno": paterno, "materno": materno, "nombres": nombres,
+                        "paterno": val_paterno, "materno": val_materno, "nombres": val_nombres,
                         "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
-                        "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
-                        "correo_paciente": correo_paciente.strip(),
+                        "sexo": val_sexo, "calle": calle, "numero": numero, "colonia": colonia,
+                        "correo_paciente": val_correo,
                         "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
                         "estado_residencia": estado_residencia if estado_residencia != "SELECCIONE UN ESTADO" else "CDMX",
                         "curp_con_nacimiento": curp_con_nacimiento, "cuenta_derechohabiencia": cuenta_derechohabiencia,
-                        "vacuna_interes": vacuna_interes, "antecedente_covid": antecedente_covid,
+                        "vacuna_interes": val_vacuna, "antecedente_covid": antecedente_covid,
                         "antecedente_influenza": antecedente_influenza, "grupo_sugerido": grupo_sugerido,
                         "ocupacion": ocupacion, "comorbilidades": comorbilidades_dict,
                         "modalidad": st.session_state.modalidad,
@@ -502,18 +510,18 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                     if is_duplicate:
                         st.warning(f"⚠️ Ya existe un registro para este paciente. Folio existente: {existing_folio}")
                         st.session_state.paciente_duplicado_info = {
-                            "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                            "nombre": f"{val_paterno.upper()} {val_materno.upper()} {val_nombres.upper()}",
                             "folio": existing_folio
                         }
                         mostrar_modal_duplicado()
                     else:
                         st.session_state.ultimo_paciente_registrado = {
-                            "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                            "nombre_completo": f"{val_paterno.upper()} {val_materno.upper()} {val_nombres.upper()}",
                             "curp_con_nacimiento": curp_con_nacimiento,
-                            "vacuna_interes": vacuna_interes,
+                            "vacuna_interes": val_vacuna,
                             "grupo_objetivo": grupo_sugerido,
                             "folio": folio_asignado,
-                            "correo_paciente": correo_paciente.strip(),
+                            "correo_paciente": val_correo,
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
                         safe_rerun()
