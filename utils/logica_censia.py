@@ -114,30 +114,17 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        peticion_formato_celdas = {
-            "repeatCell": {
-                "range": {
-                    "sheetId": worksheet_activa.id,
-                    "startRowIndex": f_actual - 1, 
-                    "endRowIndex": f_siguiente,        
-                    "startColumnIndex": 0,            
-                    "endColumnIndex": 50            # <- Cambiado a 50 para que abarque hasta la columna AX
-                },
-                "cell": {
-                    "userEnteredFormat": {
-                        "backgroundColor": {
-                            "red": 0.831,
-                            "green": 0.929,
-                            "blue": 0.855
-                        }
-                    }
-                },
-                "fields": "userEnteredFormat.backgroundColor"
-            }
-        }
-
+        # Ejecutamos la actualización de valores en las celdas
         worksheet_activa.batch_update(datos_a_actualizar)
-        worksheet_activa.spreadsheet.batch_update({"requests": [peticion_formato_celdas]})
+
+        # Aplicamos el formato de color de manera nativa y segura para evitar errores de sesión
+        worksheet_activa.format(f"A{f_actual}:AX{f_siguiente}", {
+            "backgroundColor": {
+                "red": 0.831,
+                "green": 0.929,
+                "blue": 0.855
+            }
+        })
 
         # Invalidar la caché de Streamlit para forzar la lectura fresca de Google Sheets
         st.cache_data.clear()
