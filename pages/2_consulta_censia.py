@@ -22,13 +22,6 @@ st.markdown(
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
-
-        /* Ocultar pantallas translúcidas y widgets de carga molestos */
-        .stStatusWidget, div[role="status"], .stSpinner, .stLoading,
-        [data-testid="stAppViewContainer"] > div[role="status"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
     </style>
 """,
     unsafe_allow_html=True,
