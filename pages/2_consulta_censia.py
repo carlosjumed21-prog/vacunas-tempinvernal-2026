@@ -335,16 +335,12 @@ else:
 
     if correo_sesion == "carlosju.med21@gmail.com":
         st.markdown(f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
-        opciones_select = [f"{item['titulo']}||{item['sheet_id']}" for item in h_autorizadas]
-        seleccion_jornada = st.selectbox(
-            "Seleccione la Hoja / Jornada a Operar:", 
-            options=opciones_select, 
-            format_func=lambda x: x.split("||")[0]
-        ) if opciones_select else None
+        opciones_select = [f"{item['titulo']} ({'20N' if item['sheet_id'] == SHEET_ID_20_NOV else 'GEN'})||{item['sheet_id']}" for item in h_autorizadas]
+        seleccion_jornada = st.selectbox("Seleccione la Hoja / Jornada a Operar:", options=opciones_select) if opciones_select else None
         
         if seleccion_jornada:
             partes_sel = seleccion_jornada.split("||")
-            hoja_seleccionada = partes_sel[0]
+            hoja_seleccionada = partes_sel[0].split(" (")[0]
             sheet_id_activo = partes_sel[1]
         else:
             hoja_seleccionada = None
