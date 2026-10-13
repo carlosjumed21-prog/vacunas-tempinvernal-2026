@@ -28,7 +28,7 @@ st.markdown(
 )
 
 # ============================================================
-# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
+# CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
@@ -43,15 +43,11 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
-    """
-    Lista las hojas autorizadas para un usuario, pero solo se ejecuta cuando
-    el usuario ya está autenticado y no cada rerun del script.
-    """
+    """Lista las hojas autorizadas para un usuario de forma cacheada."""
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -81,11 +77,7 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 
 @st.cache_data(ttl=120)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
-    """
-    Carga los pacientes de una hoja sin hacer get_all_values() completa.
-    Se aprovecha la estructura: para las filas de pacientes, la información
-    útil empieza en la fila 14 y el Folio está en la Columna B.
-    """
+    """Carga los pacientes optimizando la lectura desde la fila 14."""
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -106,7 +98,6 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
                         "ya_vacunado": ya_vacunado,
                     })
 
-        # DEVUELVE también worksheet_activa para que se use después en guardar
         return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y"), worksheet_activa
 
     except Exception as e:
@@ -142,19 +133,17 @@ with col_nav3:
 
 st.markdown("---")
 
+# Inicialización de variables de estado
 if "lote_influenza_memoria" not in st.session_state:
     st.session_state.lote_influenza_memoria = ""
 if "lote_covid_memoria" not in st.session_state:
     st.session_state.lote_covid_memoria = ""
-
 if "autenticado_consulta" not in st.session_state:
     st.session_state.autenticado_consulta = False
 if "correo_operativo_asignado" not in st.session_state:
     st.session_state.correo_operativo_asignado = ""
-
 if "ultimo_comprobante_vacunacion" not in st.session_state:
     st.session_state.ultimo_comprobante_vacunacion = None
-
 if "reiniciar_busqueda" not in st.session_state:
     st.session_state.reiniciar_busqueda = False
 
@@ -214,7 +203,6 @@ def mostrar_modal_comprobante_vacunacion():
                 display: flex; gap: 30px; white-space: nowrap; font-size: 0.82rem; font-weight: 900;
                 color: rgba(30, 91, 79, 0.08); text-transform: uppercase; letter-spacing: 2px; transform: rotate(-25deg);
             }}
-
             .btn-container {{ display: flex; gap: 8px; }}
             .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; }}
         </style>
@@ -258,7 +246,6 @@ def mostrar_modal_comprobante_vacunacion():
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL (AUTOCOMPLETADO DESDE AX) ---
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
 
@@ -290,6 +277,7 @@ def mostrar_modal_comprobante_vacunacion():
 if st.session_state.get("ultimo_comprobante_vacunacion") is not None:
     mostrar_modal_comprobante_vacunacion()
 
+# --- CONTROL DE ACCESO ---
 if not st.session_state.get("autenticado_consulta", False):
     st.markdown('<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>', unsafe_allow_html=True)
@@ -316,9 +304,6 @@ else:
     st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
 
-    # --------------------------------------------
-    # Bloque modificado: solo se ejecuta después de login
-    # --------------------------------------------
     correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
     h_autorizadas = obtener_hojas_autorizadas_cacheadas(correo_sesion)
 
@@ -410,14 +395,12 @@ else:
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
-                    # Extracción del correo guardado en la columna AX (índice 49)
                     correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                     yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
 
-                    # Cálculo preciso de edad en meses
                     try:
                         d_n_int = int(dd_n)
                         m_n_int = int(mm_n)
@@ -427,7 +410,7 @@ else:
                         edad_meses_calc = (f_hoy.year - f_nac.year) * 12 + (f_hoy.month - f_nac.month)
                         if f_hoy.day < f_nac.day:
                             edad_meses_calc -= 1
-                    except:
+                    except Exception:
                         edad_meses_calc = 372
 
                     sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
