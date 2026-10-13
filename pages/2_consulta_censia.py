@@ -8,7 +8,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 from utils.sheets_esquemas import obtener_recomendaciones_paciente
 from utils.logica_censia import procesar_guardado_aplicacion
-from utils.logica_censia_20_nov import procesar_guardado_aplicacion_20_nov
 from utils.email_sender import enviar_comprobante_correo
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
@@ -670,39 +669,23 @@ else:
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
-                        # Seleccionar función de guardado según corresponda al sheet_id activo
-                        if sheet_id_activo == SHEET_ID_20_NOV:
-                            exito = procesar_guardado_aplicacion_20_nov(
-                                worksheet_activa=worksheet_activa,
-                                fila_idx=fila_idx,
-                                todos_los_datos=todos_los_datos,
-                                inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
-                                cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                                lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                                lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
-                                biologico_covid_elegido=biologico_covid_elegido,
-                                habilitar_edicion=habilitar_edicion,
-                                ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
-                                ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
-                                paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
-                                fecha_aplicacion_hoja=fecha_aplicacion_hoja
-                            )
-                        else:
-                            exito = procesar_guardado_aplicacion(
-                                worksheet_activa=worksheet_activa,
-                                fila_idx=fila_idx,
-                                todos_los_datos=todos_los_datos,
-                                inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
-                                cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                                lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                                lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
-                                biologico_covid_elegido=biologico_covid_elegido,
-                                habilitar_edicion=habilitar_edicion,
-                                ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
-                                ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
-                                paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
-                                fecha_aplicacion_hoja=fecha_aplicacion_hoja
-                            )
+                        # Llamada unificada pasando el sheet_id_activo correspondiente
+                        exito = procesar_guardado_aplicacion(
+                            worksheet_activa=worksheet_activa,
+                            fila_idx=fila_idx,
+                            todos_los_datos=todos_los_datos,
+                            inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
+                            cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
+                            lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
+                            lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
+                            biologico_covid_elegido=biologico_covid_elegido,
+                            habilitar_edicion=habilitar_edicion,
+                            ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
+                            ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
+                            paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
+                            fecha_aplicacion_hoja=fecha_aplicacion_hoja,
+                            sheet_id_objetivo=sheet_id_activo
+                        )
 
                         if exito:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
