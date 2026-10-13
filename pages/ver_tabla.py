@@ -65,7 +65,7 @@ st.markdown(
             display: none !important;
         }
     </style>
-""",
+ """,
     unsafe_allow_html=True,
 )
 
@@ -109,13 +109,13 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         col_b = worksheet.col_values(2)
 
         if len(col_b) < 14:
-            return [], [], [], worksheet
+            return [], [], []
 
         last_idx = len(col_b)
         while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
             last_idx -= 1
         if last_idx < 14:
-            return [], [], [], worksheet
+            return [], [], []
 
         filas_data_count = last_idx - 13
         if filas_data_count % 2 != 0:
@@ -131,11 +131,11 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
 
         header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
         header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
-        return header1, header2, data_rows or [], worksheet
+        return header1, header2, data_rows or []
 
     except Exception as e:
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
-        return [], [], [], None
+        return [], [], []
 
 # --------------------
 # Worker de eliminación en segundo plano
@@ -144,6 +144,7 @@ BACKGROUND_RESULTS = {}
 
 def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_key_local):
     try:
+        # Operaciones únicamente con gspread — NO llamar a st.* ni a funciones cacheadas desde el hilo de fondo.
         client_local = obtener_cliente_gspread()
         spreadsheet_local = client_local.open_by_key(spreadsheet_id)
         ws_local = spreadsheet_local.worksheet(worksheet_name)
@@ -155,6 +156,7 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
             except Exception:
                 pass
 
+        # Reenumerar la columna A (folios) de forma segura usando los valores ya presentes en la hoja.
         datos_actualizados = ws_local.get_all_values()
         if len(datos_actualizados) >= 14:
             filas_actuales = datos_actualizados[13:]
@@ -172,13 +174,9 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 except Exception:
                     pass
 
-        st.cache_data.clear()
-        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal_cached(spreadsheet_id, worksheet_name)
+        # Notificar al hilo principal que terminó — NO tocar caché ni llamar a load_sheet_minimal_cached aquí.
         BACKGROUND_RESULTS[cache_key_local] = {
-            "status": "done",
-            "header1": header1_r,
-            "header2": header2_r,
-            "data_rows": data_rows_r
+            "status": "done"
         }
 
     except Exception as e:
@@ -198,7 +196,7 @@ except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
     st.stop()
 
-header1, header2, filas_tabla, ws = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+header1, header2, filas_tabla = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
 st.session_state["visible_rows"] = filas_tabla
 st.session_state["header1"] = header1
 st.session_state["header2"] = header2
@@ -315,8 +313,19 @@ def render_seccion_tabla_interactiva():
         if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
             try:
                 st.cache_data.clear()
-                header1_new, header2_new, filas_new, ws_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+                header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
                 if filas_new:
+                    # Actualizamos también la referencia a la hoja para que el gid sea correcto
+                    try:
+                        client_tmp = obtener_cliente_gspread()
+                        spreadsheet_tmp = client_tmp.open_by_key(GOOGLE_SHEET_ID)
+                        ws_tmp = spreadsheet_tmp.worksheet(hoja_activa_tabla)
+                        # reasignamos la referencia global ws
+                        global ws
+                        ws = ws_tmp
+                    except Exception:
+                        pass
+
                     st.session_state["visible_rows"] = filas_new
                     st.session_state["header1"] = header1_new
                     st.session_state["header2"] = header2_new
@@ -402,12 +411,17 @@ def render_seccion_tabla_interactiva():
     if cache_key in BACKGROUND_RESULTS:
         result = BACKGROUND_RESULTS.pop(cache_key)
         if result.get("status") == "done":
-            st.cache_data.clear()
-            st.session_state["visible_rows"] = result["data_rows"]
-            st.session_state["header1"] = result["header1"]
-            st.session_state["header2"] = result["header2"]
-            st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
-            safe_rerun(scope="fragment")
+            # Ahora el hilo principal se encarga de limpiar la caché y recargar los datos de forma segura.
+            try:
+                st.cache_data.clear()
+                header1_r, header2_r, data_rows_r = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+                st.session_state["visible_rows"] = data_rows_r
+                st.session_state["header1"] = header1_r
+                st.session_state["header2"] = header2_r
+                st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
+                safe_rerun(scope="fragment")
+            except Exception as e:
+                st.error(f"Error al recargar tras eliminación: {e}")
         elif result.get("status") == "error":
             st.error(f"❌ Error al sincronizar con Google Sheets: {result.get('error')}")
 
@@ -447,6 +461,7 @@ def render_seccion_tabla_interactiva():
                 if "delete_executor" not in st.session_state:
                     st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
 
+                # Ejecutar la eliminación en segundo plano — el worker NO llamará a funciones de Streamlit.
                 st.session_state["delete_executor"].submit(
                     delete_rows_worker,
                     GOOGLE_SHEET_ID,
@@ -455,7 +470,7 @@ def render_seccion_tabla_interactiva():
                     cache_key
                 )
 
-                st.success(f"✅ Se eliminaron correctamente los registros seleccionados.")
+                st.success(f"✅ Se iniciaron la(s) eliminación(es) en segundo plano. Los cambios se aplicarán en breve.")
                 safe_rerun(scope="fragment")
 
             except Exception as e:
