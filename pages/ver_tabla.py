@@ -4,12 +4,11 @@ import gspread
 import json
 import datetime
 import urllib.request
-import urllib.parse
-import streamlit.components.v1 as components
 from google.oauth2 import service_account
 from utils.sheets import obtener_cliente_gspread
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 from concurrent.futures import ThreadPoolExecutor
+
 
 # --------------------
 # Helper seguro para rerun
@@ -36,6 +35,7 @@ def safe_rerun(scope=None):
         pass
 
     st.session_state["_needs_rerun"] = True
+
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA ---
 st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
@@ -102,7 +102,6 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-# --- LECTURA CACHEADA DE ALTA VELOCIDAD (TTL DE 3 SEGUNDOS) ---
 @st.cache_data(ttl=3, show_spinner=False)
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
@@ -141,20 +140,17 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         return [], [], []
 
 
-# --------------------
-# Worker de eliminación en segundo plano
-# --------------------
 BACKGROUND_RESULTS = {}
 
 
 def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_key_local):
-    """Worker seguro: NO usa Streamlit ni st.cache_data ni st.rerun."""
+    """No debe usar Streamlit ni session_state."""
     try:
         client_local = obtener_cliente_gspread()
         spreadsheet_local = client_local.open_by_key(spreadsheet_id)
         ws_local = spreadsheet_local.worksheet(worksheet_name)
 
-        filas_sorted = sorted(list(set(filas_gs_a_borrar)), reverse=True)
+        filas_sorted = sorted(set(filas_gs_a_borrar), reverse=True)
         for fila_gs in filas_sorted:
             try:
                 ws_local.delete_rows(fila_gs)
@@ -179,9 +175,106 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                     pass
 
         BACKGROUND_RESULTS[cache_key_local] = {"status": "done"}
-
     except Exception as e:
         BACKGROUND_RESULTS[cache_key_local] = {"status": "error", "error": str(e)}
+
+
+def construir_dataset(filas_tabla, header1, header2):
+    encabezados_combinados = []
+    conteo_nombres = {}
+    max_cols = max(len(header1), len(header2))
+
+    for idx in range(max_cols):
+        val1 = header1[idx].strip() if idx < len(header1) else ""
+        val2 = header2[idx].strip() if idx < len(header2) else ""
+
+        if val1 and val2 and val1 != val2:
+            col_str = f"{val1} - {val2}"
+        elif val2:
+            col_str = val2
+        elif val1:
+            col_str = val1
+        else:
+            col_str = f"Col_{idx+1}"
+
+        if col_str in conteo_nombres:
+            conteo_nombres[col_str] += 1
+            col_str = f"{col_str}_{conteo_nombres[col_str]}"
+        else:
+            conteo_nombres[col_str] = 0
+
+        encabezados_combinados.append(col_str)
+
+    filas_procesadas = []
+    mapeo_indices_pares = []
+    indices_filas_verdes = set()
+
+    for i in range(0, len(filas_tabla), 2):
+        f1 = filas_tabla[i] if i < len(filas_tabla) else []
+        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
+        f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
+        f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
+
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+            indices_filas_verdes.add(len(filas_procesadas))
+            indices_filas_verdes.add(len(filas_procesadas) + 1)
+
+        fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
+        fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
+
+        filas_procesadas.append(fila_v1)
+        filas_procesadas.append(fila_v2)
+        mapeo_indices_pares.append(i)
+
+    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes
+
+
+def calcular_metricas(filas_tabla):
+    filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
+    total_censo_registros = sum(1 for row in filas_principales if len(row) > 0 and str(row[0]).strip() != "")
+
+    total_preregistros = 0
+    registros_nuevos_hoy = 0
+    total_aplicaciones = 0
+    total_sin_aplicar = 0
+    total_dosis_influenza = 0
+    total_dosis_covid = 0
+    total_simultaneas = 0
+    fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
+
+    for row in filas_principales:
+        fecha_fila = row[48].strip() if len(row) > 48 else ""
+        if fecha_fila == fecha_hoy_str:
+            registros_nuevos_hoy += 1
+        else:
+            total_preregistros += 1
+
+        tiene_aplicacion = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
+        if tiene_aplicacion:
+            total_aplicaciones += 1
+        else:
+            total_sin_aplicar += 1
+
+        tiene_influenza = any(str(row[i]).strip().upper() == "X" for i in range(32, min(35, len(row))))
+        tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row)))) if len(row) > 37 else False
+
+        if tiene_influenza and not tiene_covid:
+            total_dosis_influenza += 1
+        elif tiene_covid and not tiene_influenza:
+            total_dosis_covid += 1
+        elif tiene_influenza and tiene_covid:
+            total_simultaneas += 1
+
+    return {
+        "total_censo_registros": total_censo_registros,
+        "total_preregistros": total_preregistros,
+        "registros_nuevos_hoy": registros_nuevos_hoy,
+        "total_aplicaciones": total_aplicaciones,
+        "total_sin_aplicar": total_sin_aplicar,
+        "total_dosis_influenza": total_dosis_influenza,
+        "total_dosis_covid": total_dosis_covid,
+        "total_simultaneas": total_simultaneas,
+    }
 
 
 # --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA ---
@@ -205,110 +298,22 @@ if not filas_tabla:
     st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
     st.stop()
 
-# --- CONSTRUCCIÓN DE ENCABEZADOS COMBINADOS ---
-fila_cabecera_1 = header1
-fila_cabecera_2 = header2
-
-encabezados_combinados = []
-conteo_nombres = {}
-max_cols = max(len(fila_cabecera_1), len(fila_cabecera_2))
-for idx in range(max_cols):
-    val1 = fila_cabecera_1[idx].strip() if idx < len(fila_cabecera_1) else ""
-    val2 = fila_cabecera_2[idx].strip() if idx < len(fila_cabecera_2) else ""
-    if val1 and val2 and val1 != val2:
-        col_str = f"{val1} - {val2}"
-    elif val2:
-        col_str = val2
-    elif val1:
-        col_str = val1
-    else:
-        col_str = f"Col_{idx+1}"
-    if col_str in conteo_nombres:
-        conteo_nombres[col_str] += 1
-        col_str = f"{col_str}_{conteo_nombres[col_str]}"
-    else:
-        conteo_nombres[col_str] = 0
-    encabezados_combinados.append(col_str)
-
-# --- PROCESAMIENTO DE FILAS ---
-filas_procesadas = []
-mapeo_indices_pares = []
-indices_filas_verdes = []
-contador_df_idx = 0
-
-for i in range(0, len(filas_tabla), 2):
-    f1 = filas_tabla[i] if i < len(filas_tabla) else []
-    f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
-    f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
-    f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
-
-    tiene_aplicacion_ag_aq = False
-    for col_idx in range(32, min(43, len(f1_adj))):
-        if str(f1_adj[col_idx]).strip().upper() == "X":
-            tiene_aplicacion_ag_aq = True
-            break
-    if tiene_aplicacion_ag_aq:
-        indices_filas_verdes.extend([contador_df_idx, contador_df_idx + 1])
-
-    fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-    fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
-
-    filas_procesadas.append(fila_v1)
-    filas_procesadas.append(fila_v2)
-
-    mapeo_indices_pares.append(i)
-    contador_df_idx += 2
-
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes = construir_dataset(filas_tabla, header1, header2)
 columnas_con_check = ["Seleccionar"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
+
 st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
-
-# --- CÁLCULO DE MÉTRICAS ---
-filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
-total_censo_registros = sum(1 for row in filas_principales if len(row) > 0 and str(row[0]).strip() != "")
-
-total_preregistros = 0
-registros_nuevos_hoy = 0
-total_aplicaciones = 0
-total_sin_aplicar = 0
-total_dosis_influenza = 0
-total_dosis_covid = 0
-total_simultaneas = 0
-fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
-
-for row in filas_principales:
-    fecha_fila = row[48].strip() if len(row) > 48 else ""
-    if fecha_fila == fecha_hoy_str:
-        registros_nuevos_hoy += 1
-    else:
-        total_preregistros += 1
-
-    tiene_aplicacion = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
-    if tiene_aplicacion:
-        total_aplicaciones += 1
-    else:
-        total_sin_aplicar += 1
-
-    tiene_influenza = any(str(row[i]).strip().upper() == "X" for i in range(32, min(35, len(row))))
-    tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row)))) if len(row) > 37 else False
-
-    if tiene_influenza and not tiene_covid:
-        total_dosis_influenza += 1
-    elif tiene_covid and not tiene_influenza:
-        total_dosis_covid += 1
-    elif tiene_influenza and tiene_covid:
-        total_simultaneas += 1
+metricas = calcular_metricas(filas_tabla)
 
 
-# --- FRAGMENTO AISLADO PARA LA ZONA SUPERIOR, TABLA Y ACCIONES ---
 @st.fragment
 def render_seccion_tabla_interactiva():
-    # --- ZONA FIJA SUPERIOR ---
     st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
     col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
     with col_tit1:
         st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+
     with col_tit2:
         if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
             try:
@@ -352,14 +357,14 @@ def render_seccion_tabla_interactiva():
     st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
     m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-    with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
-    with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
-    with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
-    with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
-    with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
-    with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
-    with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
-    with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
+    with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
+    with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
+    with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
+    with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
+    with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
+    with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
+    with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
+    with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
@@ -369,7 +374,6 @@ def render_seccion_tabla_interactiva():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- TABLA Y ESTILOS ---
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
             return ["background-color: #e2f0d9; color: #111111"] * len(row)
@@ -397,7 +401,6 @@ def render_seccion_tabla_interactiva():
         key="editor_tabla_censo",
     )
 
-    # Procesar fin de eliminación en segundo plano.
     if cache_key in BACKGROUND_RESULTS:
         result = BACKGROUND_RESULTS.pop(cache_key)
         if result.get("status") == "done":
@@ -417,53 +420,50 @@ def render_seccion_tabla_interactiva():
 
     if btn_eliminar:
         indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-        pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
+        pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
 
         if not pacientes_a_eliminar:
             st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-        else:
-            try:
-                mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
-                visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
-                pacientes_sorted = sorted(list(pacientes_a_eliminar), reverse=True)
+            return
 
-                # Actualización optimizada de UI local para entregar retroalimentación inmediata
-                for paciente_idx in pacientes_sorted:
-                    if paciente_idx < len(mapeo_indices):
-                        idx_par_real = mapeo_indices[paciente_idx]
-                        if idx_par_real < len(visible_rows):
-                            del visible_rows[idx_par_real:idx_par_real + 2]
+        try:
+            mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
+            visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
+            pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
 
-                st.session_state["visible_rows"] = visible_rows
-                st.session_state["header1"] = header1
-                st.session_state["header2"] = header2
-                st.session_state["active_sheet"] = hoja_activa_tabla
+            for paciente_idx in pacientes_sorted:
+                if paciente_idx < len(mapeo_indices):
+                    idx_par_real = mapeo_indices[paciente_idx]
+                    if idx_par_real < len(visible_rows):
+                        del visible_rows[idx_par_real:idx_par_real + 2]
 
-                filas_gs_a_borrar = []
-                for paciente_idx in pacientes_sorted:
-                    if paciente_idx < len(mapeo_indices):
-                        idx_par_real = mapeo_indices[paciente_idx]
-                        fila_fisica_1 = idx_par_real + 14
-                        fila_fisica_2 = idx_par_real + 15
-                        filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
+            st.session_state["visible_rows"] = visible_rows
+            st.session_state["header1"] = header1
+            st.session_state["header2"] = header2
+            st.session_state["active_sheet"] = hoja_activa_tabla
 
-                filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
+            filas_gs_a_borrar = []
+            for paciente_idx in pacientes_sorted:
+                if paciente_idx < len(mapeo_indices):
+                    idx_par_real = mapeo_indices[paciente_idx]
+                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
 
-                if "delete_executor" not in st.session_state:
-                    st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
+            filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
 
-                st.session_state["delete_executor"].submit(
-                    delete_rows_worker,
-                    GOOGLE_SHEET_ID,
-                    hoja_activa_tabla,
-                    filas_gs_a_borrar,
-                    cache_key,
-                )
+            if "delete_executor" not in st.session_state:
+                st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
 
-                st.success("✅ Se inició la eliminación y la vista se actualizará en cuanto termine la sincronización.")
+            st.session_state["delete_executor"].submit(
+                delete_rows_worker,
+                GOOGLE_SHEET_ID,
+                hoja_activa_tabla,
+                filas_gs_a_borrar,
+                cache_key,
+            )
 
-            except Exception as e:
-                st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+            st.success("✅ Se inició la eliminación. La vista se actualizará cuando termine la sincronización.")
+        except Exception as e:
+            st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
 
 
 render_seccion_tabla_interactiva()
