@@ -28,11 +28,11 @@ st.markdown(
 )
 
 # ============================================================
-# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
+# CONEXIÓN BLINDADA Y CACHÉ OPTIMIZADA
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread utilizando el método nativo para diccionarios."""
+    """Conexión limpia y blindada con credenciales de servicio para gspread."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,15 +43,14 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=GOOGLE_SCOPES
+    )
+    return gspread.authorize(creds)
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
-    """
-    Lista las hojas autorizadas para un usuario, pero solo se ejecuta cuando
-    el usuario ya está autenticado y no cada rerun del script.
-    """
+    """Lista las hojas autorizadas para un usuario autenticado de forma cacheada."""
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -82,9 +81,8 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 @st.cache_data(ttl=120)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
     """
-    Carga los pacientes de una hoja sin hacer get_all_values() completa.
-    Se aprovecha la estructura: para las filas de pacientes, la información
-    útil empieza en la fila 14 y el Folio está en la Columna B.
+    Carga los pacientes devolviendo únicamente tipos serializables (listas y diccionarios) 
+    sin almacenar el objeto Worksheet en el caché para evitar errores de Pickle.
     """
     try:
         client = obtener_client_gspread_cacheado()
@@ -106,12 +104,11 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
                         "ya_vacunado": ya_vacunado,
                     })
 
-        # DEVUELVE también worksheet_activa para que se use después en guardar
-        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y"), worksheet_activa
+        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y")
 
     except Exception as e:
         st.error(f"Error al leer la hoja {hoja_seleccionada}: {e}")
-        return [], [], datetime.datetime.now().strftime("%d/%m/%Y"), None
+        return [], [], datetime.datetime.now().strftime("%d/%m/%Y")
 
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
@@ -258,7 +255,6 @@ def mostrar_modal_comprobante_vacunacion():
         components.html(html_comprobante_component, height=330)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL (AUTOCOMPLETADO DESDE AX) ---
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
 
@@ -316,9 +312,6 @@ else:
     st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
 
-    # --------------------------------------------
-    # Bloque modificado: solo se ejecuta después de login
-    # --------------------------------------------
     correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
     h_autorizadas = obtener_hojas_autorizadas_cacheadas(correo_sesion)
 
@@ -342,7 +335,14 @@ else:
 
     if hoja_seleccionada:
         try:
-            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja, worksheet_activa = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
+            # 1. Cargamos datos serializables ultrarrápidos mediante la caché
+            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
+            
+            # 2. Obtenemos de forma limpia el objeto Worksheet por separado (fuera de la caché)
+            client_gsp = obtener_client_gspread_cacheado()
+            spreadsheet_obj = client_gsp.open_by_key(GOOGLE_SHEET_ID)
+            worksheet_activa = spreadsheet_obj.worksheet(hoja_seleccionada)
+
         except Exception as e:
             pacientes_cargados = []
             todos_los_datos = []
@@ -410,14 +410,12 @@ else:
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
-                    # Extracción del correo guardado en la columna AX (índice 49)
                     correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
                     yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
 
-                    # Cálculo preciso de edad en meses
                     try:
                         d_n_int = int(dd_n)
                         m_n_int = int(mm_n)
@@ -661,4 +659,8 @@ else:
                         if exito:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
+                            # Limpiamos el caché local de pacientes para forzar lectura fresca solo tras guardar cambios
+                            st.cache_data.clear()
                             st.rerun()
+
+¿Te ha quedado claro o necesitas ajustar algo más en el flujo de guardado?
