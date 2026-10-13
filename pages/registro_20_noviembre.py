@@ -63,7 +63,7 @@ modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
 es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
 
 st.session_state.siglas_unidad = sigla_url
-st.session_state.sufijo_js = sufijo_js  # Necesario para el mapeo correcto en sheets_20_nov
+st.session_state.sufijo_js = sufijo_js
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
@@ -463,9 +463,9 @@ with col_r2:
 st.markdown('<div class="section-title">6. Antecedente Vacunal y 8. Vacuna de Interés</div>', unsafe_allow_html=True)
 col_av1, col_av2 = st.columns(2)
 with col_av1:
-    antecedente_covid = st.radio("¿Cuenta con dosis previa de COVID-19? *", options=["SÍ", "NO", "LO DESCONOCE"], index=None, horizontal=True, key="ant_cov")
-with col_av2:
     antecedente_influenza = st.radio("¿Cuenta con dosis previa de Influenza? *", options=["SÍ", "NO", "LO DESCONOCE"], index=None, horizontal=True, key="ant_inf")
+with col_av2:
+    antecedente_covid = st.radio("¿Cuenta con dosis previa de COVID-19? *", options=["SÍ", "NO", "LO DESCONOCE"], index=None, horizontal=True, key="ant_cov")
 
 vacuna_interes = st.radio("Seleccione la vacuna de su interés: *", options=["AMBAS", "COVID-19", "INFLUENZA"], index=None, horizontal=True, key="input_vacuna")
 
@@ -495,6 +495,10 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
         st.error("⚠️ Seleccione una opción en Sexo.")
     elif ocupacion == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Ocupación.")
+    elif antecedente_influenza is None:
+        st.error("⚠️ Seleccione el antecedente de Influenza.")
+    elif antecedente_covid is None:
+        st.error("⚠️ Seleccione el antecedente de COVID-19.")
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
