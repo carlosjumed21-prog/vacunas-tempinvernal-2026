@@ -5,6 +5,7 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
+import uuid
 import streamlit.components.v1 as components
 from google.oauth2 import service_account
 from utils.sheets import obtener_cliente_gspread
@@ -31,7 +32,7 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
         .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
-        
+
         /* Ocultar elementos de carga nativos de Streamlit */
         .stStatusWidget {visibility: hidden; display: none;}
         [data-testid="stDecoration"] {display: none;}
@@ -52,7 +53,7 @@ if not hoja_activa_tabla:
     st.stop()
 
 # --------------------
-# Auto-refresh opcional
+# Auto-refresh opcional (solo si lo activas, no es por defecto)
 # --------------------
 auto_refresh = st.checkbox("🔄 Actualización automática cada 10 s", value=False)
 if auto_refresh:
@@ -306,22 +307,22 @@ with m8:
     st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-col_btn1, _ = st.columns([2, 5])
-with col_btn1:
-    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------
 # Render tabla interactiva aislada en fragmento
 # --------------------
 @st.fragment
 def render_seccion_tabla_interactiva():
+    # Función auxiliar para resaltar filas verdes
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
             return ['background-color: #e2f0d9; color: #111111'] * len(row)
         return [''] * len(row)
 
-    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+    # Evita Styler: no funciona bien con data_editor
+    # Debes mantener la tabla como DataFrame plano
+    key_token = st.session_state.get("table_refresh_token", 0)
+    editor_key = f"editor_tabla_censo_{len(df_tabla_segura)}_{key_token}"
 
     column_configs = {
         "Seleccionar": st.column_config.CheckboxColumn("Seleccionar", help="Marque la casilla para seleccionar este paciente", default=False)
@@ -330,27 +331,31 @@ def render_seccion_tabla_interactiva():
         if col != "Seleccionar":
             column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-    # Clave dinámica basada en la longitud para forzar el redibujo automático inmediato al eliminar filas
-    clave_editor = f"editor_tabla_censo_{len(df_tabla_segura)}"
-
     df_editado = st.data_editor(
-        df_estilizado,
+        df_tabla_segura,
         use_container_width=True,
         height=550,
         hide_index=True,
         column_config=column_configs,
-        key=clave_editor
+        key=editor_key
     )
 
-    if btn_eliminar:
-        indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-        pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
-        
-        if not pacientes_a_eliminar:
-            st.warning("⚠️ No ha seleccionado ningún paciente para eliminar en las casillas.")
-            return
-
+    # Botón de eliminación SIN rerun manual
+    if st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True):
         try:
+            # Leer lo editado desde el valor guardado del editor
+            if editor_key in st.session_state:
+                df_actual = st.session_state[editor_key]
+            else:
+                df_actual = df_editado
+
+            indices_marcados = df_actual[df_actual["Seleccionar"] == True].index.tolist()
+            pacientes_a_eliminar = set(idx // 2 for idx in indices_marcados)
+
+            if not pacientes_a_eliminar:
+                st.warning("⚠️ No ha seleccionado ningún paciente para eliminar en las casillas.")
+                return
+
             mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
             filas_gs_a_borrar = []
             for paciente_idx in pacientes_a_eliminar:
@@ -360,12 +365,11 @@ def render_seccion_tabla_interactiva():
                     fila_fisica_2 = idx_par_real + 15
                     filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
-            # Ordenar de mayor a menor para que el borrado múltiple en Sheets no afecte los índices previos
             filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
             for fila_gs in filas_gs_a_borrar:
                 ws.delete_rows(fila_gs)
 
-            # Reorganizar / actualizar el consecutivo en la columna A tras el borrado
+            # Actualizar índices de consecutivos en la columna A
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
@@ -380,13 +384,26 @@ def render_seccion_tabla_interactiva():
                 if updates:
                     ws.batch_update(updates)
 
-            # Invalidar la caché de forma forzosa para que lea los datos limpios de Google Sheets
+            # Actualizar el cache local para que la app muestre nueva data en este mismo rerun
+            # sin hacer st.rerun() extra
             if cache_key in st.session_state:
-                del st.session_state[cache_key]
-            st.session_state["force_reload"] = True
+                data_rows = list(st.session_state[cache_key]["data_rows"])
+                pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
+                for p in pacientes_sorted:
+                    if p < len(mapeo_indices):
+                        pos = mapeo_indices[p]
+                        if pos < len(data_rows):
+                            data_rows.pop(pos)
+                        if pos < len(data_rows):
+                            data_rows.pop(pos)
+                st.session_state[cache_key]["data_rows"] = data_rows
+                st.session_state[cache_key]["loaded_at"] = datetime.datetime.now().isoformat()
 
-            st.success("✅ Registros eliminados y tabla actualizada automáticamente.")
-            st.rerun()
+            # Forzar token para que el editor se recoja con la nueva data al siguiente rerun
+            st.session_state["table_refresh_token"] = st.session_state.get("table_refresh_token", 0) + 1
+
+            # Importante: NO hacer st.rerun() aqui
+            st.success("✅ Registros eliminados y tabla actualizada.")
 
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
