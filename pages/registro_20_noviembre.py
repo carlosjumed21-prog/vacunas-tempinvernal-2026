@@ -311,7 +311,7 @@ with col_f2:
 
 # --- DERECHOHABIENCIA Y ADSCRIPCIÓN LABORAL ---
 st.markdown('<div class="section-title">1.1 Derechohabiencia y Adscripción Laboral</div>', unsafe_allow_html=True)
-cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "NO", "SÍ"], key="input_derecho")
+cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "NO", "SÍ"], index=0, key="input_derecho")
 
 tipo_dh = "NO APLICA"
 trabaja_cmn = "NO"
@@ -325,26 +325,26 @@ turno_val = "NO APLICA"
 if cuenta_derechohabiencia == "SÍ":
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE"] + opt_tipo_dh, key="input_tipo_dh")
+        tipo_dh = st.selectbox("Tipo de DH *", options=["SELECCIONE"] + opt_tipo_dh, index=0, key="input_tipo_dh")
     with col_d2:
-        trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], horizontal=True, key="input_trabaja_cmn")
+        trabaja_cmn = st.radio("¿Trabaja en CMN 20 de Noviembre?", options=["NO", "SÍ"], index=None, horizontal=True, key="input_trabaja_cmn")
 
     if trabaja_cmn == "SÍ":
         num_trabajador = st.text_input("Número de Trabajador", key="input_num_trabajador")
         
-        personal_salud_radio = st.radio("¿Es usted Personal de Salud?", options=["NO", "SÍ"], horizontal=True, key="input_pers_salud_radio")
-        personal_salud_val = personal_salud_radio
+        personal_salud_radio = st.radio("¿Es usted Personal de Salud?", options=["NO", "SÍ"], index=None, horizontal=True, key="input_pers_salud_radio")
+        personal_salud_val = personal_salud_radio if personal_salud_radio else "NO"
 
         if personal_salud_val == "SÍ":
             col_lab1, col_lab2, col_lab3, col_lab4 = st.columns(4)
             with col_lab1:
-                categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, key="input_categoria")
+                categoria = st.selectbox("Categoría", options=["SELECCIONE"] + opt_categoria, index=0, key="input_categoria")
             with col_lab2:
-                servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, key="input_servicio")
+                servicio = st.selectbox("Servicio", options=["SELECCIONE"] + opt_servicio, index=0, key="input_servicio")
             with col_lab3:
-                coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, key="input_coordinacion")
+                coordinacion = st.selectbox("Coordinación", options=["SELECCIONE"] + opt_coordinacion, index=0, key="input_coordinacion")
             with col_lab4:
-                turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, key="input_turno")
+                turno_full = st.selectbox("Turno", options=["SELECCIONE"] + opt_turno, index=0, key="input_turno")
 
             turno_map = {"MATUTINO": "M", "VESPERTINO": "V", "NOCTURNO": "N", "JORNADA ACUMULADA": "JA"}
             turno_val = turno_map.get(turno_full.upper(), turno_full[:1] if turno_full != "SELECCIONE" else "")
@@ -358,9 +358,9 @@ with col_n3: nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
 st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
 col_d, col_m, col_a = st.columns(3)
-with col_d: dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], key="sel_dia", label_visibility="collapsed")
-with col_m: mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), key="sel_mes", label_visibility="collapsed")
-with col_a: anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], key="sel_anio", label_visibility="collapsed")
+with col_d: dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], index=0, key="sel_dia", label_visibility="collapsed")
+with col_m: mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), index=0, key="sel_mes", label_visibility="collapsed")
+with col_a: anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], index=0, key="sel_anio", label_visibility="collapsed")
 
 fecha_nacimiento = None
 if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
@@ -371,13 +371,13 @@ if fecha_nacimiento:
     st.markdown(f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;"><span style="font-size: 1.1rem; font-weight: 800; color: #1e5b4f;">✅ Fecha Seleccionada: {fecha_nacimiento.strftime("%d/%m/%Y")}</span></div>', unsafe_allow_html=True)
 
 col_fn1, col_fn2, col_fn3 = st.columns(3)
-with col_fn1: sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="input_sexo")
-with col_fn2: estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, key="input_estnac")
+with col_fn1: sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], index=0, key="input_sexo")
+with col_fn2: estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, index=0, key="input_estnac")
 
 lista_municipios = municipios_por_estado.get(estado_nacimiento, ["OTRO (ESPECIFIQUE)"])
 with col_fn3:
     if estado_nacimiento in municipios_por_estado:
-        muni_nac = st.selectbox("Municipio / Alcaldía *", options=lista_municipios, key="input_muninac_sel")
+        muni_nac = st.selectbox("Municipio / Alcaldía *", options=["SELECCIONE"] + lista_municipios, index=0, key="input_muninac_sel")
     else:
         muni_nac = st.text_input("Municipio / Alcaldía *", key="input_muninac_txt")
 
@@ -411,7 +411,7 @@ st.markdown(f'<div class="card-rfc">📋 RFC Generado: {rfc_generado}</div>', un
 
 # --- DOMICILIO Y CORREO ---
 st.markdown('<div class="section-title">3. Domicilio y Correo Electrónico</div>', unsafe_allow_html=True)
-estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="input_estres")
+estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, index=0, key="input_estres")
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
 with col_dom1: calle = st.text_input("Calle *", key="input_calle")
 with col_dom2: numero = st.text_input("No. (Ext / Int) *", key="input_num")
@@ -426,7 +426,7 @@ if fecha_nacimiento and edad_total_meses < 59:
     st.session_state.input_ocupacion = "NO APLICA"
     ocupacion = st.selectbox("Seleccione su Ocupación *", options=lista_ocupaciones, index=lista_ocupaciones.index("NO APLICA"), key="input_ocupacion", disabled=True)
 else:
-    ocupacion = st.selectbox("Seleccione su Ocupación *", options=lista_ocupaciones, key="input_ocupacion")
+    ocupacion = st.selectbox("Seleccione su Ocupación *", options=["SELECCIONE UNA OPCIÓN"] + lista_ocupaciones, index=0, key="input_ocupacion")
 
 # --- COMORBILIDADES ---
 st.markdown('<div class="section-title">5. Grupos de Riesgo y Comorbilidades</div>', unsafe_allow_html=True)
@@ -440,22 +440,22 @@ elif sexo != "MUJER" or personas_gestantes != "SÍ":
 
 col_r1, col_r2 = st.columns(2)
 with col_r1:
-    personas_embarazadas = st.checkbox("EMBARAZADAS", disabled=es_embarazada_activa, key="chk_personas_embarazadas")
-    vih = st.checkbox("VIH/sida", key="chk_vih")
-    diabetes = st.checkbox("DIABETES MELLITUS", key="chk_diabetes")
-    obesidad = st.checkbox("OBESIDAD MÓRBIDA", key="chk_obesidad")
-    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", key="chk_cardiopatias")
-    enfermedad_pulmonar = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA, INCLUYE EPOC Y ASMA", key="chk_enfermedad_pulmonar")
+    personas_embarazadas = st.checkbox("EMBARAZADAS", value=False, disabled=es_embarazada_activa, key="chk_personas_embarazadas")
+    vih = st.checkbox("VIH/sida", value=False, key="chk_vih")
+    diabetes = st.checkbox("DIABETES MELLITUS", value=False, key="chk_diabetes")
+    obesidad = st.checkbox("OBESIDAD MÓRBIDA", value=False, key="chk_obesidad")
+    cardiopatias = st.checkbox("CARDIOPATÍAS AGUDAS O CRÓNICAS", value=False, key="chk_cardiopatias")
+    enfermedad_pulmonar = st.checkbox("ENFERMEDAD PULMONAR CRÓNICA, INCLUYE EPOC Y ASMA", value=False, key="chk_enfermedad_pulmonar")
 
 with col_r2:
-    cancer = st.checkbox("CÁNCER", key="chk_cancer")
-    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS", key="chk_cardiacas_congenitas")
-    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", key="chk_insufren")
-    inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA", key="chk_inmunosupresion")
-    discapacidades = st.checkbox("DISCAPACIDADES", key="chk_discapacidad")
-    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", key="chk_fibrosis")
-    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", key="chk_hipertension")
-    otro_riesgo = st.checkbox("OTRO", key="chk_otro")
+    cancer = st.checkbox("CÁNCER", value=False, key="chk_cancer")
+    cardiacas_congenitas = st.checkbox("ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS U OTROS PADECIMIENTOS", value=False, key="chk_cardiacas_congenitas")
+    insuficiencia_renal = st.checkbox("INSUFICIENCIA RENAL", value=False, key="chk_insufren")
+    inmunosupresion = st.checkbox("INMUNOSUPRESIÓN ADQUIRIDA", value=False, key="chk_inmunosupresion")
+    discapacidades = st.checkbox("DISCAPACIDADES", value=False, key="chk_discapacidad")
+    fibrosis_quistica = st.checkbox("FIBROSIS QUÍSTICA", value=False, key="chk_fibrosis")
+    hipertension = st.checkbox("HIPERTENSIÓN ARTERIAL", value=False, key="chk_hipertension")
+    otro_riesgo = st.checkbox("OTRO", value=False, key="chk_otro")
     texto_otro_riesgo = st.text_input("Especifique otro grupo de riesgo:", key="txt_otro_riesgo") if otro_riesgo else ""
 
 # --- ANTECEDENTE Y VACUNA ---
@@ -492,6 +492,8 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
         st.error("⚠️ Seleccione el Tipo de Derechohabiencia.")
     elif sexo == "SELECCIONE UNA OPCIÓN":
         st.error("⚠️ Seleccione una opción en Sexo.")
+    elif ocupacion == "SELECCIONE UNA OPCIÓN":
+        st.error("⚠️ Seleccione una opción en Ocupación.")
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
