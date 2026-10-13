@@ -1,91 +1,205 @@
 import smtplib
-import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import urllib.parse
 import streamlit as st
+import urllib.parse
 
-def enviar_correo_ticket(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
+def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
+    """
+    Envía por correo el Ticket Digital de Registro (para formulario) o el Comprobante Oficial (para consulta),
+    respetando exactamente el diseño visual, marcas de agua y estructura de la tarjeta gráfica.
+    """
     try:
-        smtp_server = st.secrets["SMTP_SERVER"]
-        smtp_port = int(st.secrets["SMTP_PORT"])
+        smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("SMTP_PORT", 465))
         remitente_email = st.secrets["SMTP_USER"]
         remitente_password = st.secrets["SMTP_PASSWORD"]
-    except Exception as e:
-        return False, f"Falta configuración SMTP en secrets: {e}"
-
-    if not destinatario_email or "@" not in destinatario_email:
-        return False, "Correo inválido"
-
+    except KeyError as e:
+        return False, f"Falta configurar la credencial de correo en los secretos: {e}"
+    
+    msg = MIMEMultipart('alternative')
+    msg['From'] = remitente_email
+    msg['To'] = destinatario_email
+    
+    # Textos y estilos diferenciados según el tipo de correo
     if tipo == "comprobante":
-        subject = "COMPROBANTE DE VACUNACIÓN OFICIAL - VIGILE"
-        titulo = "COMPROBANTE DE VACUNACIÓN OFICIAL"
-        texto_qr = (
-            "ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
-            f"FOLIO: {folio}\n"
-            f"PACIENTE: {nombre_paciente}\n"
-            f"VACUNA: {dosis_str}\n"
-            f"GRUPO/LOTES: {lotes_str}\n"
-            f"FECHA APLICACIÓN: {fecha_val}\n"
-            "ESTADO: REGISTRADO"
-        )
+        msg['Subject'] = "COMPROBANTE DE VACUNACIÓN OFICIAL - VIGILE"
+        titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
+        texto_marca_agua = "COMPROBANTE OFICIAL VIGILE"
+        texto_qr_header = "ISSSTE - COMPROBANTE OFICIAL VIGILE"
+        leyenda_inferior = ""
+        color_borde = "#1e5b4f"
+        color_marca = "rgba(30, 91, 79, 0.08)"
     else:
-        subject = "TICKET DIGITAL DE REGISTRO - VIGILE"
-        titulo = "FOLIO DE VACUNACION REGISTRADO"
-        texto_qr = (
-            "ISSSTE - REGISTRO DE FOLIO VIGILE\n"
-            f"FOLIO: {folio}\n"
-            f"PACIENTE: {nombre_paciente}\n"
-            f"VACUNA: {dosis_str}\n"
-            f"GRUPO/LOTES: {lotes_str}\n"
-            f"FECHA APLICACIÓN: {fecha_val}\n"
-            "ESTADO: REGISTRADO"
-        )
+        msg['Subject'] = "TICKET DIGITAL DE REGISTRO - VIGILE"
+        titulo_tarjeta = "FOLIO DE VACUNACION REGISTRADO"
+        texto_marca_agua = "NO ES UN COMPROBANTE OFICIAL"
+        texto_qr_header = "ISSSTE - REGISTRO DE FOLIO VIGILE"
+        leyenda_inferior = "Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial."
+        color_borde = "#1e5b4f"
+        color_marca = "rgba(97, 18, 50, 0.12)"
 
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(texto_qr)}"
+    # Texto estructurado para el código QR
+    texto_qr = (
+        f"{texto_qr_header}\n"
+        f"FOLIO: {folio}\n"
+        f"PACIENTE: {nombre_paciente}\n"
+        f"VACUNA: {dosis_str}\n"
+        f"GRUPO/LOTES: {lotes_str}\n"
+        f"FECHA APLICACIÓN: {fecha_val}\n"
+        f"ESTADO: REGISTRADO"
+    )
+    url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(texto_qr)}"
 
-    html = f"""
+    # HTML idéntico al componente visual del ticket digital
+    html_cuerpo = f"""
     <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial, sans-serif; background:#f7f9f8; padding:20px;">
-      <div style="max-width:460px; margin:0 auto; background:#fff; border:3px solid #1e5b4f; border-radius:10px; padding:20px;">
-        <h2 style="text-align:center; color:#1e5b4f;">{titulo}</h2>
-        <p><b>Paciente:</b> {nombre_paciente}</p>
-        <p><b>Vacuna:</b> {dosis_str}</p>
-        <p><b>Grupo/Lotes:</b> {lotes_str}</p>
-        <p><b>Fecha:</b> {fecha_val}</p>
-
-        <div style="text-align:center;">
-          <img src="{qr_url}" alt="QR" width="110">
+    <head>
+    <meta charset="utf-8">
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f7f9f8;
+            padding: 20px;
+            margin: 0;
+        }}
+        .card-comprobante {{ 
+            position: relative;
+            background-color: #ffffff;
+            border: 3px solid {color_borde};
+            padding: 20px;
+            border-radius: 10px;
+            color: #161a1d;
+            max-width: 460px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin: 0 auto;
+            overflow: hidden;
+        }}
+        .watermark-overlay {{
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            align-items: center;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }}
+        .watermark-row {{
+            display: flex;
+            gap: 20px;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            font-weight: 900;
+            color: {color_marca};
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transform: rotate(-25deg);
+        }}
+        .titulo-ticket {{
+            font-size: 0.95rem;
+            font-weight: 900;
+            color: #1e5b4f;
+            text-align: center;
+            margin: 0 0 12px 0;
+            z-index: 2;
+            position: relative;
+            letter-spacing: 0.5px;
+        }}
+        .cuerpo-ticket {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            z-index: 2;
+            position: relative;
+        }}
+        .info-container {{
+            flex: 1;
+            z-index: 2;
+            position: relative;
+        }}
+        .qr-container {{
+            width: 115px;
+            text-align: center;
+            z-index: 2;
+            position: relative;
+        }}
+        .qr-container img {{
+            width: 110px;
+            height: 110px;
+            border: 2px solid #a57f2c;
+            border-radius: 6px;
+            padding: 4px;
+            background: white;
+            display: block;
+        }}
+        .folio-grande {{
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: #611232;
+            text-align: center;
+            background-color: #f7f4eb;
+            padding: 8px;
+            border-radius: 6px;
+            border: 2px dashed #a57f2c;
+            margin-top: 14px;
+            z-index: 2;
+            position: relative;
+        }}
+        .info-text {{
+            margin: 5px 0;
+            font-size: 0.85rem;
+            color: #161a1d;
+        }}
+        .leyenda-posterior {{
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #611232;
+            text-align: center;
+            margin-top: 10px;
+            z-index: 2;
+            position: relative;
+            line-height: 1.2;
+        }}
+    </style>
+    </head>
+    <body>
+        <div class="card-comprobante">
+            <div class="watermark-overlay">
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
+            </div>
+            <div class="titulo-ticket">{titulo_tarjeta}</div>
+            <div class="cuerpo-ticket">
+                <div class="info-container">
+                    <p class="info-text"><b>Paciente:</b> {nombre_paciente}</p>
+                    <p class="info-text"><b>Vacuna:</b> {dosis_str}</p>
+                    <p class="info-text"><b>Grupo:</b> {lotes_str}</p>
+                    <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
+                </div>
+                <div class="qr-container">
+                    <img src="{url_qr_api}" alt="Código QR Ticket Digital">
+                </div>
+            </div>
+            <div class="folio-grande">Folio: {folio}</div>
+            {"<div class='leyenda-posterior'>" + leyenda_inferior + "</div>" if leyenda_inferior else ""}
         </div>
-
-        <div style="background:#f7f4eb; padding:8px; text-align:center; font-weight:bold; color:#611232; margin-top:10px;">
-          Folio: {folio}
-        </div>
-      </div>
     </body>
     </html>
     """
-
-    msg = MIMEMultipart("alternative")
-    msg["From"] = remitente_email
-    msg["To"] = destinatario_email.strip()
-    msg["Subject"] = subject
-    msg.attach(MIMEText(html, "html"))
-
+    
+    msg.attach(MIMEText(html_cuerpo, 'html'))
+        
     try:
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=ssl.create_default_context(), timeout=20) as server:
-                server.login(remitente_email, remitente_password)
-                server.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port, timeout=20) as server:
-                server.ehlo()
-                server.starttls(context=ssl.create_default_context())
-                server.ehlo()
-                server.login(remitente_email, remitente_password)
-                server.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-
-        return True, "¡Correo enviado exitosamente!"
+        servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        servidor.login(remitente_email, remitente_password)
+        servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
+        servidor.quit()
+        return True, "¡Comprobante visual enviado por correo exitosamente!"
     except Exception as e:
-        return False, f"Error SMTP: {e}"
+        return False, f"Error al conectar con el servidor de correo: {e}"
