@@ -110,7 +110,7 @@ def guardar_registro_censal(
 
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
-        vacuna_interes = p.get("vacuna_interes", "").upper()
+        vacuna_interes = p.get("vacuna_interes", "")
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
@@ -151,16 +151,15 @@ def guardar_registro_censal(
             check_activo(com.get("fibrosis_quistica")),                                     # AD (29) - FIBROSIS QUÍSTICA
             check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
             com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
-            "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
-            p.get("antecedente_influenza", "") if p.get("antecedente_influenza") in ["SÍ", "NO", "LO DESCONOCE"] else "", # AR (42) - ANTECEDENTE INFLUENZA
-            p.get("antecedente_covid", "") if p.get("antecedente_covid") in ["SÍ", "NO", "LO DESCONOCE"] else "",         # AS (43) - ANTECEDENTE COVID
-            vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""  # Lógica exclusiva: solo se marca una "X" en la celda correspondiente a la opción elegida
-            marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
-            marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
-            marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
-            p.get("cuenta_derechohabiencia", ""),                                           # AW (47)
-            fecha_registro_actual,                                                          # AX (48)
-            correo_paciente_val,                                                            # AY (49)
+            "", "", "", "", "", "", "", "", "", "",                                         # AG a AP (Espacios vacíos intermedios si aplican)
+            p.get("cuenta_derechohabiencia", "NO"),
+            p.get("antecedente_influenza", "NO"),
+            p.get("antecedente_covid", "NO"),
+            "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else "",
+            "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",
+            "X" if vacuna_interes == "AMBAS" else "",
+            fecha_registro_actual,
+            correo_paciente_val,
         ]
 
         curp_val = p.get("curp_con_nacimiento", "").upper()
