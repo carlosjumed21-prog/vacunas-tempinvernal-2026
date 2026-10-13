@@ -20,7 +20,8 @@ def procesar_guardado_aplicacion(
     ed_paterno, ed_materno, ed_nombres,
     ed_d, ed_m, ed_y, ed_sexo, ed_curp,
     paterno_p, materno_p, nombres_p,
-    fecha_aplicacion_hoja
+    fecha_aplicacion_hoja,
+    sheet_id_objetivo=GOOGLE_SHEET_ID
 ):
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
@@ -124,8 +125,8 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores de texto/casillas
-        url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
+        # 1. Petición para actualizar los valores de texto/casillas usando el ID dinámico
+        url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
             "data": updates_data
@@ -134,8 +135,8 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. Petición para aplicar el formato de color de fondo verde en la fila guardada
-        url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}:batchUpdate"
+        # 2. Petición para aplicar el formato de color de fondo verde en la fila guardada usando el ID dinámico
+        url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
                 {
