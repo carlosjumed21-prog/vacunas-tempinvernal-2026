@@ -56,45 +56,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------- NUEVA FUNCIÓN: obtener_folio_proyectado (lazy + cacheada) ----------
-@st.cache_data(ttl=60)
-def obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, modalidad):
-    """
-    Calcula el folio proyectado consultando únicamente la columna B (folios)
-    para localizar la primera fila libre y así evitar leer toda la hoja.
-    Cacheada por (sigla_url, sufijo_js, val_fecha_app, modalidad) durante TTL.
-    """
-    try:
-        client_temp = obtener_cliente_gspread()
-        spreadsheet_temp = client_temp.open_by_key(GOOGLE_SHEET_ID)
-        nombre_hoja_temp = f"{sigla_url}_{sufijo_js}" if sufijo_js else sigla_url
-        ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
-
-        col_b = ws_temp.col_values(2)
-        fila_dest_temp = 14
-        if len(col_b) >= 14:
-            idx_t = 13
-            while idx_t < len(col_b):
-                if not col_b[idx_t].strip():
-                    fila_dest_temp = idx_t + 1
-                    break
-                idx_t += 2
-            else:
-                fila_dest_temp = len(col_b) + 1
-                if (fila_dest_temp - 14) % 2 != 0:
-                    fila_dest_temp += 1
-
-        consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
-        f_str = val_fecha_app.strftime("%Y%m%d")
-        m_str = "INT" if modalidad == "INTRAMUROS" else "EXT"
-        s_3 = (sigla_url[:3].upper()).ljust(3, "X")
-        folio_proyectado = f"{f_str}-{m_str}-{s_3}-{str(consecutivo_temp).zfill(4)}"
-        return folio_proyectado
-    except Exception:
-        return f"{val_fecha_app.strftime('%Y%m%d')}-INT-{sigla_url[:3].upper().ljust(3, 'X')}-0001"
-
-# ---------------------------------------------------------------------------
-
 # --- RECUPERACIÓN DE PARÁMETROS DE URL ---
 params = st.query_params
 sigla_url = params.get("unidad", "20N").upper()
@@ -109,16 +70,13 @@ st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" i
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
-# --- FECHAS Y CÁLCULO SEGURO DEL SIGUIENTE FOLIO DESDE GOOGLE SHEETS ---
+# --- FECHAS Y ESTADOS INICIALES ---
 fecha_sistema = datetime.date.today()
 fecha_url_str = params.get("fecha", fecha_sistema.strftime("%Y-%m-%d"))
 try:
     val_fecha_app = datetime.datetime.strptime(fecha_url_str, "%Y-%m-%d").date()
 except:
     val_fecha_app = fecha_sistema
-
-if "folio_proyectado_cached" not in st.session_state:
-    st.session_state["folio_proyectado_cached"] = None
 
 if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
@@ -133,8 +91,6 @@ if "ant_inf" not in st.session_state:
     st.session_state.ant_inf = None
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
-if "accion_nuevo_registro" not in st.session_state:
-    st.session_state.accion_nuevo_registro = False
 
 
 def mostrar_comprobante_principal():
@@ -263,7 +219,6 @@ def mostrar_comprobante_principal():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.ultimo_paciente_registrado = None
-            st.session_state.folio_proyectado_cached = None
             st.session_state.enviando_registro = False
             
             keys_a_limpiar = [
@@ -339,24 +294,13 @@ if es_admin:
                 st.session_state.chk_gestante = random.choice(["NO", "SÍ"])
             safe_rerun()
 
-# --- APARTADO 1: FECHAS Y FOLIO ---
-st.markdown('<div class="section-title">1. Control de Fechas y Folio</div>', unsafe_allow_html=True)
-col_f1, col_f2, col_f3 = st.columns(3)
+# --- APARTADO 1: CONTROL DE FECHAS ---
+st.markdown('<div class="section-title">1. Control de Fechas</div>', unsafe_allow_html=True)
+col_f1, col_f2 = st.columns(2)
 with col_f1:
     st.markdown(f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 with col_f2:
     st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
-with col_f3:
-    folio_cached = st.session_state.get("folio_proyectado_cached")
-    if folio_cached:
-        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_cached}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>— (Pulse calcular)</b></div>', unsafe_allow_html=True)
-        if st.button("Calcular folio proyectado", key="btn_calcular_folio"):
-            with st.spinner("Calculando folio proyectado desde Google Sheets..."):
-                folio_calculado = obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, st.session_state.modalidad)
-                st.session_state["folio_proyectado_cached"] = folio_calculado
-            safe_rerun()
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
