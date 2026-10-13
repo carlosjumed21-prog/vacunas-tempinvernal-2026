@@ -68,13 +68,22 @@ sigla_url = params.get("unidad", "20N").upper()
 
 nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
 sufijo_js = params.get("js", "")
-modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
+
+# Evaluación dinámica de la modalidad según la letra de la jornada en la URL
+jornada_url = params.get("jornada", "I").upper()
+if jornada_url == "E":
+    modalidad_texto = "EXTRAMUROS"
+elif jornada_url == "M":
+    modalidad_texto = "BRIGADA MÓVIL"
+else:
+    modalidad_texto = "INTRAMUROS"
+
 es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
 
 st.session_state.siglas_unidad = sigla_url
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
-st.session_state.tipo_jornada = params.get("jornada", "I")
-st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
+st.session_state.tipo_jornada = jornada_url
+st.session_state.modalidad = modalidad_texto
 
 # --- FECHAS Y ESTADOS INICIALES ---
 fecha_sistema = datetime.date.today()
@@ -661,9 +670,3 @@ if "_registro_exception" in st.session_state:
 
 # --- BOTÓN DE REGISTRO (ahora usa callback para ejecutar en un solo clic) ---
 st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada", on_click=procesar_registro_callback)
-
-# Nota: la lógica de procesamiento se ejecuta en procesar_registro_callback.
-# El callback hace safe_rerun() y actualiza st.session_state con el resultado (duplicado o ultimo_paciente_registrado).
-
-# Si quieres limpiar estado de registro anterior (manual) puedes exponer otro botón:
-# if st.button("
