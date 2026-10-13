@@ -6,8 +6,8 @@ import urllib.parse
 
 def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
     """
-    Envía por correo el Folio de Registro (para formulario) o el Comprobante Oficial (para consulta),
-    respetando el asunto original y el diseño visual de la tarjeta gráfica.
+    Envía por correo el Folio de Registro o el Comprobante Oficial,
+    con manejo de errores detallado para depuración.
     """
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
@@ -15,7 +15,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         remitente_email = st.secrets["SMTP_USER"]
         remitente_password = st.secrets["SMTP_PASSWORD"]
     except KeyError as e:
-        return False, f"Falta configurar la credencial de correo en los secretos: {e}"
+        return False, f"Falta configurar la credencial de correo en los secretos (secrets.toml): {e}"
     
     msg = MIMEMultipart('alternative')
     msg['From'] = remitente_email
@@ -39,7 +39,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         color_borde = "#1e5b4f"
         color_marca = "rgba(97, 18, 50, 0.10)"
 
-    # Texto estructurado para el código QR con las etiquetas completas
+    # Texto estructurado para el código QR
     texto_qr = (
         f"{texto_qr_header}\n"
         f"FOLIO: {folio}\n"
@@ -50,10 +50,9 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         f"ESTADO: REGISTRADO"
     )
     
-    # Tamaño de QR optimizado para compatibilidad y nitidez en correos
     url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={urllib.parse.quote(texto_qr)}"
 
-    # HTML limpio y estructurado
+    # HTML del correo
     html_cuerpo = f"""
     <!DOCTYPE html>
     <html>
@@ -194,12 +193,23 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     """
     
     msg.attach(MIMEText(html_cuerpo, 'html'))
-        
+    
+    # Intento de envío con manejo robusto
     try:
-        servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        servidor.login(remitente_email, remitente_password)
-        servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
-        servidor.quit()
+        if smtp_port == 465:
+            # Conexión SSL directa
+            servidor = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10)
+            servidor.login(remitente_email, remitente_password)
+            servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
+            servidor.quit()
+        else:
+            # Conexión TLS estándar (Puerto 587)
+            servidor = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+            servidor.starttls()
+            servidor.login(remitente_email, remitente_password)
+            servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
+            servidor.quit()
+            
         return True, "¡Correo enviado exitosamente!"
     except Exception as e:
-        return False, f"Error al conectar con el servidor de correo: {e}"
+        return False, f"Error detallado de envío SMTP: {str(e)}"
