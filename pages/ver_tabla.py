@@ -101,7 +101,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     filas_procesadas = []
     mapeo_indices_pares = []
-    indices_filas_verdes = set()
 
     total_censo_registros = 0
     total_preregistros = 0
@@ -120,7 +119,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
-        # Métricas sobre filas principales (f1)
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
 
@@ -146,13 +144,8 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
-        # Detección de filas verdes (vacunadas)
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
-            indices_filas_verdes.add(len(filas_procesadas))
-            indices_filas_verdes.add(len(filas_procesadas) + 1)
-
-        fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-        fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
+        fila_v1 = list(f1_adj[:len(encabezados_combinados)])
+        fila_v2 = list(f2_adj[:len(encabezados_combinados)])
 
         filas_procesadas.append(fila_v1)
         filas_procesadas.append(fila_v2)
@@ -169,14 +162,13 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         "total_simultaneas": total_simultaneas,
     }
 
-    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
+    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas
 
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
-columnas_con_check = ["Seleccionar"] + encabezados_combinados
-df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+df_tabla_segura = pd.DataFrame(filas_procesadas, columns=encabezados_combinados)
 
 
-# --- INTERFAZ FLUIDA CON CONTADORES Y ESTILOS ---
+# --- INTERFAZ FLUIDA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
 col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
@@ -211,7 +203,7 @@ with col_btn2:
 
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
-# 8 Tarjetas de Métricas exactas
+# Métricas
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
 with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
@@ -230,42 +222,27 @@ with col_del:
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-# Estilizado de filas verdes en bloque para velocidad
-def color_filas_completas(row):
-    if row.name in indices_filas_verdes:
-        return ["background-color: #e2f0d9; color: #111111"] * len(row)
-    return [""] * len(row)
-
-df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
-
-column_configs = {
-    "Seleccionar": st.column_config.CheckboxColumn(
-        "Seleccionar",
-        help="Marque la casilla para seleccionar este paciente",
-        default=False,
-    )
-}
-for col in encabezados_combinados:
-    if col != "Seleccionar":
-        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
-
-# Renderizado optimizado con editor de casillas
-df_editado = st.data_editor(
-    df_estilizado,
+# --- VISUALIZACIÓN ULTRA RÁPIDA CON SELECCIÓN NATIVA DE FILAS ---
+# st.dataframe permite seleccionar filas haciendo clic de forma instantánea y sin pausas de editor
+evento_seleccion = st.dataframe(
+    df_tabla_segura,
     width="stretch",
     height=550,
     hide_index=True,
-    column_config=column_configs,
-    key="editor_tabla_censo",
+    selection_mode="multi-row",
+    on_select="rerun",
+    key="tabla_seleccion_censo"
 )
 
-# --- ACCIÓN DE ELIMINACIÓN (EJECUTADA SÓLO AL PRESIONAR EL BOTÓN) ---
+# --- ACCIÓN DE ELIMINACIÓN EJECUTADA SÓLO AL PRESIONAR EL BOTÓN ---
 if btn_eliminar:
-    indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
-    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+    filas_seleccionadas = evento_seleccion.get("selection", {}).get("rows", [])
+    
+    # Cada paciente ocupa 2 filas en la matriz original
+    pacientes_a_eliminar = {idx // 2 for idx in filas_seleccionadas}
 
     if not pacientes_a_eliminar:
-        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+        st.warning("⚠️ No ha seleccionado ningún paciente (haga clic en las filas de la tabla para seleccionarlas).")
     else:
         try:
             client = obtener_cliente_gspread()
