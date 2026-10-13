@@ -93,14 +93,11 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
         worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
-        # Leemos solo la hoja completa para mantener compatibilidad y evitar errores
-        # de lectura parcial. Pero se reduce al máximo el número de operaciones.
         all_values = worksheet_activa.get_all_values()
 
         pacientes_cargados = []
         if len(all_values) >= 14:
             for idx, row in enumerate(all_values[13:], start=14):
-                # Aseguramos que exista folio y nombre
                 if len(row) > 3 and row[1].strip() and row[2].strip():
                     ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
                     pacientes_cargados.append({
@@ -111,10 +108,13 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
                         "nombres": row[4].strip() if len(row) > 4 else "",
                         "ya_vacunado": ya_vacunado,
                     })
-        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y")
+
+        # DEVUELVE también worksheet_activa para que se use después en guardar
+        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y"), worksheet_activa
+
     except Exception as e:
         st.error(f"Error al leer la hoja {hoja_seleccionada}: {e}")
-        return [], [], datetime.datetime.now().strftime("%d/%m/%Y")
+        return [], [], datetime.datetime.now().strftime("%d/%m/%Y"), None
 
 
 # --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
@@ -345,13 +345,11 @@ else:
 
     if hoja_seleccionada:
         try:
-            # Carga de pacientes usando cache con hoja seleccionada
-            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
-            # (se mantiene la lógica posterior casi igual)
-            # no se hace ninguna lectura repetida a la hoja desde aquí
+            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja, worksheet_activa = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
         except Exception as e:
             pacientes_cargados = []
             todos_los_datos = []
+            worksheet_activa = None
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
         hoja_actual = hoja_seleccionada if hoja_seleccionada else ""
@@ -645,7 +643,6 @@ else:
                     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
                     if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
-                        # Guardamos el correo en el diccionario del comprobante antes de invocar el guardado para asegurarnos de tenerlo a la mano
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
@@ -665,7 +662,6 @@ else:
                             fecha_aplicacion_hoja=fecha_aplicacion_hoja
                         )
                         if exito:
-                            # Actualizamos el estado con el correo extraído de la columna AX
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
                             st.rerun()
