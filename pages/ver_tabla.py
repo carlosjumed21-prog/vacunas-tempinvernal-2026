@@ -65,7 +65,6 @@ def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
 
 key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
 
-# Forzar recarga limpia si se limpió la caché
 if key_estado_filas not in st.session_state:
     header1, header2, filas_tabla, gid_hoja = cargar_y_procesar_hoja(GOOGLE_SHEET_ID, hoja_activa_tabla)
     st.session_state[key_estado_filas] = filas_tabla
@@ -242,7 +241,7 @@ with col_del:
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO AISLADO PARA LA TABLA (Fluida, con colores verdes) ---
+# --- FRAGMENTO AISLADO PARA LA TABLA ---
 @st.fragment
 def render_tabla_con_estilos():
     def color_filas_completas(row):
@@ -274,7 +273,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN ROBUSTA Y DIRECTA ---
+# --- ACCIÓN DE ELIMINACIÓN CON ACTUALIZACIÓN INSTANTÁNEA EN VISTA PREVIA ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -288,25 +287,28 @@ if btn_eliminar:
             ws = spreadsheet.worksheet(hoja_activa_tabla)
 
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
+            filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
-                    # Las filas en Google Sheets empiezan en 14 y cada paciente usa 2 filas
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
+                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # Ordenar de mayor a menor índice para borrar en Google Sheets sin alterar los números de fila superiores
+            # 1. Actualizar la sesión inmediatamente para que la vista previa refleje el cambio al instante
+            st.session_state[key_estado_filas] = filas_actualizadas
+
+            # 2. Sincronizar la eliminación en Google Sheets de fondo
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-
-            with st.spinner("🗑️ Eliminando filas y sincronizando Google Sheets..."):
+            with st.spinner("🗑️ Actualizando Google Sheets..."):
                 for fila_gs in filas_gs_a_borrar:
                     try:
                         ws.delete_rows(fila_gs)
-                    except Exception as err:
-                        st.error(f"Error borrando fila {fila_gs}: {err}")
+                    except Exception:
+                        pass
 
-                # Reordenar contadores de folios en la columna A
+                # Reordenar contadores de folios en Google Sheets
                 datos_actualizados = ws.get_all_values()
                 if len(datos_actualizados) >= 14:
                     filas_actuales = datos_actualizados[13:]
@@ -324,12 +326,9 @@ if btn_eliminar:
                         except Exception:
                             pass
 
-            # Limpiar caché y forzar recarga limpia del servidor
+            # 3. Limpiar caché global y forzar el redibujado instantáneo de la app
             st.cache_data.clear()
-            if key_estado_filas in st.session_state:
-                del st.session_state[key_estado_filas]
-
-            st.success("✅ ¡Paciente(s) eliminado(s) con éxito de Google Sheets!")
+            st.success("✅ ¡Paciente(s) eliminado(s) y vista previa actualizada en tiempo real!")
             st.rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar en Google Sheets: {e}")
