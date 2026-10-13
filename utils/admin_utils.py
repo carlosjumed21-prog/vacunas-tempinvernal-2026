@@ -1,4 +1,3 @@
-
 # utils/admin_utils.py
 import datetime
 import io
@@ -132,7 +131,7 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
         return [], str(e)
 
 def sincronizar_historial_universal():
-    """Escanea los libros maestros en Google Sheets para extraer todas las jornadas activas."""
+    """Escanea los libros maestros en Google Sheets para extraer todas las jornadas activas con sus metadatos reales."""
     try:
         client = obtener_cliente_gspread()
         ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
@@ -157,10 +156,45 @@ def sincronizar_historial_universal():
                             link_op_leido = ws.acell("AU7").value
                         except:
                             link_op_leido = ""
+                        try:
+                            unidad_leida = ws.acell("D9").value
+                        except:
+                            unidad_leida = ""
+                        try:
+                            fecha_leida_str = ws.acell("AB9").value
+                        except:
+                            fecha_leida_str = ""
 
+                        # Determinar siglas y modalidad de forma robusta
                         siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
-                        tipo_letra_h = "I" if "INTRA" in titulo_w else "E"
                         
+                        # Evaluar si es extra, intra o móvil según el título de la hoja
+                        titulo_upper = titulo_w.upper()
+                        if "EXTRA" in titulo_upper:
+                            tipo_letra_h = "E"
+                            jornada_texto = "Extramuros E"
+                        elif "INTRA" in titulo_upper:
+                            tipo_letra_h = "I"
+                            jornada_texto = "Intramuros I"
+                        elif "MOVIL" in titulo_upper or "MÓVIL" in titulo_upper:
+                            tipo_letra_h = "M"
+                            jornada_texto = "Brigada Móvil M"
+                        else:
+                            tipo_letra_h = "I"
+                            jornada_texto = "Intramuros I"
+
+                        # Parsear la fecha leída de la celda AB9 o asignar fecha actual por defecto
+                        fecha_obj = datetime.date.today()
+                        if fecha_leida_str:
+                            try:
+                                fecha_obj = datetime.datetime.strptime(fecha_leida_str.strip(), "%d/%m/%Y").date()
+                            except:
+                                pass
+
+                        # Nombre de unidad legible
+                        if not unidad_leida:
+                            unidad_leida = "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica"
+
                         if not link_form_leido or not link_form_leido.startswith("http"):
                             ruta_form = "registro_20_noviembre" if siglas_h == "20N" else "formulario"
                             link_form_leido = f"{base_url}/{ruta_form}?unidad={siglas_h}&jornada={tipo_letra_h}"
@@ -171,13 +205,13 @@ def sincronizar_historial_universal():
                         hojas_encontradas.append({
                             "nombre": titulo_w,
                             "gid": str(ws.id),
-                            "unidad": "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica",
+                            "unidad": unidad_leida,
                             "siglas_unidad": siglas_h,
-                            "tipo_jornada": "Intramuros I" if tipo_letra_h == "I" else "Extramuros E",
+                            "tipo_jornada": jornada_texto,
                             "tipo_jornada_letra": tipo_letra_h,
                             "responsable": "PERSONAL OPERATIVO",
                             "correo": val_au4.strip().lower() if val_au4 else "No asignado",
-                            "fecha": datetime.date.today(),
+                            "fecha": fecha_obj,
                             "sheet_id": sheet_id_item,
                             "link_formulario": link_form_leido,
                             "link_operativo": link_op_leido
