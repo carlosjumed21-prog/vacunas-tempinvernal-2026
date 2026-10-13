@@ -63,6 +63,7 @@ modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
 es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
 
 st.session_state.siglas_unidad = sigla_url
+st.session_state.sufijo_js = sufijo_js  # Necesario para el mapeo correcto en sheets_20_nov
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
@@ -526,7 +527,7 @@ if st.button("Registrarme para la jornada (20 de Noviembre)", use_container_widt
                 datos_paciente = {
                     "paterno": paterno, "materno": materno, "nombres": nombres,
                     "fecha_nacimiento": fecha_nacimiento, "calc_anos": calc_anos, "calc_meses": calc_meses,
-                    "anos": calc_anos, "meses": calc_meses,  # <--- Agregado para corregir el KeyError
+                    "anos": calc_anos, "meses": calc_meses,
                     "sexo": sexo, "calle": calle, "numero": numero, "colonia": colonia,
                     "correo_paciente": correo_paciente.strip(),
                     "estado_nacimiento": estado_nacimiento if estado_nacimiento != "SELECCIONE UN ESTADO" else "CDMX",
