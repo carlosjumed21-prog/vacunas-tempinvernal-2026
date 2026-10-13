@@ -1,9 +1,10 @@
 # utils/logica_censia.py
 import datetime
 import urllib.parse
+import requests
 import streamlit as st
-from utils.sheets_esquemas import obtener_recomendaciones_paciente
-
+from utils.sheets import obtener_token_acceso
+from config import GOOGLE_SHEET_ID
 
 def procesar_guardado_aplicacion(
     worksheet_activa,
@@ -20,10 +21,6 @@ def procesar_guardado_aplicacion(
     paterno_p, materno_p, nombres_p,
     fecha_aplicacion_hoja
 ):
-    """
-    Ejecuta las validaciones y actualiza los datos en Google Sheets mediante .update() 
-    individuales para garantizar compatibilidad absoluta.
-    """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
 
@@ -63,63 +60,73 @@ def procesar_guardado_aplicacion(
         fila_curp_idx = fila_idx  
 
         dosis_aplicadas_lista = []
-        datos_a_actualizar = []
+        updates_data = []
 
         cad_i_str = cad_inf_input.strip()
         cad_c_str = cad_cov_input.strip()
+        nombre_hoja = worksheet_activa.title
 
         if habilitar_edicion:
-            datos_a_actualizar.extend([
-                {"range": f"C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
-                {"range": f"D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
-                {"range": f"E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
-                {"range": f"F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
-                {"range": f"G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
-                {"range": f"H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
-                {"range": f"K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                {"range": f"C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+            updates_data.extend([
+                {"range": f"{nombre_hoja}!C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                {"range": f"{nombre_hoja}!D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                {"range": f"{nombre_hoja}!E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                {"range": f"{nombre_hoja}!F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                {"range": f"{nombre_hoja}!G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                {"range": f"{nombre_hoja}!H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                {"range": f"{nombre_hoja}!K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                {"range": f"{nombre_hoja}!C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
             ])
             nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
         if inf_1ra:
-            datos_a_actualizar.append({"range": f"AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
         if inf_2da:
-            datos_a_actualizar.append({"range": f"AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (2da Dosis)")
         if inf_anual:
-            datos_a_actualizar.append({"range": f"AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
         if lote_inf_input:
             lote_i = lote_inf_input.upper()
-            datos_a_actualizar.append({"range": f"AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+            updates_data.append({"range": f"{nombre_hoja}!AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
         if cad_inf_input:
-            datos_a_actualizar.append({"range": f"AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+            updates_data.append({"range": f"{nombre_hoja}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
         if cov_1ra:
-            datos_a_actualizar.append({"range": f"AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
         if cov_2da:
-            datos_a_actualizar.append({"range": f"AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (2da Dosis)")
         if cov_anual:
-            datos_a_actualizar.append({"range": f"AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja}!AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (Dosis Anual)")
 
         if lote_cov_input:
             lote_c = lote_cov_input.upper()
-            datos_a_actualizar.append({"range": f"AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+            updates_data.append({"range": f"{nombre_hoja}!AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
         if cad_cov_input:
-            datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+            updates_data.append({"range": f"{nombre_hoja}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # --- ACTUALIZACIÓN SEGURA MEDIANTE .update() INDIVIDUALES ---
-        for item in datos_a_actualizar:
-            worksheet_activa.update(range_name=item["range"], values=item["values"])
+        token = obtener_token_acceso()
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "valueInputOption": "USER_ENTERED",
+            "data": updates_data
+        }
+        resp = requests.post(url, headers=headers, json=body)
+        if resp.status_code != 200:
+            raise Exception(resp.text)
 
-        # Invalidar caché de Streamlit
         st.cache_data.clear()
 
         lote_final_partes = []
