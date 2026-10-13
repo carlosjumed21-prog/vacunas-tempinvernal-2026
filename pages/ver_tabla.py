@@ -59,7 +59,6 @@ def get_creds_from_secrets():
         raw = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw) if isinstance(raw, str) else raw
     else:
-        # fallback a otra entrada
         for k in st.secrets:
             if k != "GOOGLE_SHEET_ID":
                 creds_dict = dict(st.secrets[k])
@@ -74,31 +73,25 @@ def get_creds_from_secrets():
 def load_sheet_minimal(spreadsheet, worksheet_name):
     """
     Lee cabeceras (filas 12-13) y el bloque de datos desde la primera fila de datos (14)
-    hasta la última fila con folio en la columna B. Usa llamadas a la worksheet en lugar
-    de spreadsheet.batch_get para evitar errores de transporte en algunas versiones de gspread.
+    hasta la última fila con folio en la columna B.
     """
     try:
         worksheet = spreadsheet.worksheet(worksheet_name)
-
-        # Leer columna B para ubicar último folio
         col_b = worksheet.col_values(2)
 
         if len(col_b) < 14:
-            return [], [], [], worksheet  # sin pacientes
+            return [], [], [], worksheet
 
-        # Encontrar última fila con contenido en col_b (empezando en 1)
         last_idx = len(col_b)
         while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
             last_idx -= 1
         if last_idx < 14:
             return [], [], [], worksheet
 
-        # Rango hasta last_idx (inclusive)
         range_headers_1 = f"A12:AX12"
         range_headers_2 = f"A13:AX13"
         range_data = f"A14:AX{last_idx}"
 
-        # Usar worksheet.get para leer cada bloque (más compatible)
         header1_rows = worksheet.get(range_headers_1)
         header2_rows = worksheet.get(range_headers_2)
         data_rows = worksheet.get(range_data)
@@ -108,7 +101,6 @@ def load_sheet_minimal(spreadsheet, worksheet_name):
         return header1, header2, data_rows or [], worksheet
 
     except Exception as e:
-        # Mostrar la excepción completa en la interfaz para depuración (o loguear)
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
         st.exception(e)
         return [], [], [], None
@@ -129,9 +121,14 @@ if cache_key in st.session_state:
     header1, header2, filas_tabla, ws = cached["header1"], cached["header2"], cached["data_rows"], cached["worksheet"]
 else:
     header1, header2, filas_tabla, ws = load_sheet_minimal(spreadsheet, hoja_activa_tabla)
-    st.session_state[cache_key] = {"header1": header1, "header2": header2, "data_rows": filas_tabla, "worksheet": ws, "loaded_at": datetime.datetime.now().isoformat()}
+    st.session_state[cache_key] = {
+        "header1": header1,
+        "header2": header2,
+        "data_rows": filas_tabla,
+        "worksheet": ws,
+        "loaded_at": datetime.datetime.now().isoformat()
+    }
 
-# Si no hay datos suficientes:
 if not filas_tabla:
     st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
     st.stop()
@@ -171,11 +168,9 @@ mapeo_indices_pares = []
 indices_filas_verdes = []
 contador_df_idx = 0
 
-# filas_tabla corresponde a las filas desde A14..AXlast_idx
 for i in range(0, len(filas_tabla), 2):
     f1 = filas_tabla[i] if i < len(filas_tabla) else []
-    f2 = filas_tabla[i+1] if i+1 < len(filas_tabla) else []
-    # Asegurar longitud suficiente llenando con ''
+    f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
     f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
     f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
 
@@ -201,7 +196,7 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 
 # --------------------
-# Métricas (operar sobre filas principales: cada par inicia en índice 0,2,4... en filas_tabla)
+# Métricas
 # --------------------
 filas_principales = [filas_tabla[i] for i in range(0, len(filas_tabla), 2)]
 total_censo_registros = sum(1 for row in filas_principales if len(row) > 0 and str(row[0]).strip() != "")
@@ -221,13 +216,16 @@ for row in filas_principales:
         registros_nuevos_hoy += 1
     else:
         total_preregistros += 1
+
     tiene_aplicacion = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
     if tiene_aplicacion:
         total_aplicaciones += 1
     else:
         total_sin_aplicar += 1
+
     tiene_influenza = any(str(row[i]).strip().upper() == "X" for i in range(32, min(35, len(row))))
     tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row))))
+
     if tiene_influenza and not tiene_covid:
         total_dosis_influenza += 1
     elif tiene_covid and not tiene_influenza:
@@ -247,15 +245,12 @@ with col_tit2:
         if cache_key in st.session_state:
             del st.session_state[cache_key]
         st.rerun()
-
 with col_tit3:
     try:
         creds = get_creds_from_secrets()
-        # refresh token if needed
         if not creds.valid:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
-        # obtener gid de la hoja
         gid_hoja = ws.id
         url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
         req = urllib.request.Request(url_export, headers={'Authorization': f'Bearer {creds.token}'})
@@ -274,14 +269,22 @@ with col_tit3:
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
-with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
-with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
-with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
-with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
-with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
+with m1:
+    st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
+with m2:
+    st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
+with m3:
+    st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
+with m4:
+    st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
+with m5:
+    st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
+with m6:
+    st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+with m7:
+    st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+with m8:
+    st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 col_btn1, _ = st.columns([2, 5])
@@ -290,7 +293,7 @@ with col_btn1:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------
-# Render tabla interactiva (fragment)
+# Render tabla interactiva
 # --------------------
 @st.fragment
 def render_seccion_tabla_interactiva():
@@ -301,12 +304,20 @@ def render_seccion_tabla_interactiva():
 
     df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
 
-    column_configs = {"Seleccionar": st.column_config.CheckboxColumn("Seleccionar", help="Marque la casilla para seleccionar este paciente", default=False)}
+    column_configs = {
+        "Seleccionar": st.column_config.CheckboxColumn("Seleccionar", help="Marque la casilla para seleccionar este paciente", default=False)
+    }
     for col in encabezados_combinados:
         if col != "Seleccionar":
             column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-    df_editado = st.data_editor(df_estilizado, use_container_width=True, height=550, hide_index=True, column_config=column_configs)
+    df_editado = st.data_editor(
+        df_estilizado,
+        use_container_width=True,
+        height=550,
+        hide_index=True,
+        column_config=column_configs
+    )
 
     if btn_eliminar:
         indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
@@ -329,8 +340,8 @@ def render_seccion_tabla_interactiva():
             for fila_gs in filas_gs_a_borrar:
                 ws.delete_rows(fila_gs)
 
-            # Renumerar consecutivo en batch (leer solo filas actuales)
-            datos_actualizados = ws.get_all_values()  # solo aquí hacemos full read tras borrar para renumerar
+            # Renumerar consecutivo en batch
+            datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
                 contador = 1
@@ -344,14 +355,13 @@ def render_seccion_tabla_interactiva():
                 if updates:
                     ws.batch_update(updates)
 
-            # Invalidar cache y recargar optimizado
             if cache_key in st.session_state:
                 del st.session_state[cache_key]
-            st.success(f"✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
+
+            st.success("✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
             st.rerun()
 
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
 
-# Ejecutar fragmento
 render_seccion_tabla_interactiva()
