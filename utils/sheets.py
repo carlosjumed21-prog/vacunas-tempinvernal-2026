@@ -110,7 +110,7 @@ def guardar_registro_censal(
 
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
-        vacuna_interes = p.get("vacuna_interes", "")
+        vacuna_interes = p.get("vacuna_interes", "").upper()
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
@@ -151,15 +151,15 @@ def guardar_registro_censal(
             check_activo(com.get("fibrosis_quistica")),                                     # AD (29) - FIBROSIS QUÍSTICA
             check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
             com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
-            "", "", "", "", "", "", "", "", "", "",                                         # AG a AP (Espacios vacíos intermedios si aplican)
-            p.get("cuenta_derechohabiencia", "NO"),
-            p.get("antecedente_influenza", "NO"),
-            p.get("antecedente_covid", "NO"),
-            "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else "",
-            "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",
-            "X" if vacuna_interes == "AMBAS" else "",
-            fecha_registro_actual,
-            correo_paciente_val,
+            "", "", "", "", "", "", "", "", "", "",                                         # AG a AS (Espacios intermedios)
+            "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else "",                        # AT (42) - INFLUENZA
+            "X" if vacuna_interes in ["COVID-19", "COVID", "AMBAS"] else "",                # AU (43) - COVID
+            "X" if vacuna_interes == "AMBAS" else "",                                       # AV (44) - AMBAS
+            p.get("cuenta_derechohabiencia", "NO"),                                         # AW (45)
+            p.get("antecedente_influenza", "NO"),                                           # AX (46)
+            p.get("antecedente_covid", "NO"),                                               # AY (47)
+            fecha_registro_actual,                                                          # AZ (48)
+            correo_paciente_val,                                                            # BA (49)
         ]
 
         curp_val = p.get("curp_con_nacimiento", "").upper()
