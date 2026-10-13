@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 import json
+import io
 import datetime
 import urllib.request
 from google.oauth2 import service_account
@@ -45,7 +46,7 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-# --- CARGA OPTIMIZADA CON CACHÉ ---
+# --- CARGA OPTIMIZADA CON CACHÉ DE LARGO ALCANCE ---
 @st.cache_data(ttl=60, show_spinner="Cargando censo en alta velocidad...")
 def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
     client = obtener_cliente_gspread()
@@ -109,7 +110,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     filas_procesadas = []
     mapeo_indices_pares = []
-    indices_filas_verdes = set()
 
     total_censo_registros = 0
     total_preregistros = 0
@@ -154,11 +154,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
-        # Detección de filas verdes (vacunadas)
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
-            indices_filas_verdes.add(len(filas_procesadas))
-            indices_filas_verdes.add(len(filas_procesadas) + 1)
-
         fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
         fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
 
@@ -177,9 +172,9 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         "total_simultaneas": total_simultaneas,
     }
 
-    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
+    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas
 
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
@@ -197,17 +192,18 @@ with col_btn1:
 
 with col_btn2:
     try:
-        creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"]) if isinstance(st.secrets["GOOGLE_CREDENTIALS"], str) else st.secrets["GOOGLE_CREDENTIALS"]
-        creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-        if not creds.valid:
-            from google.auth.transport.requests import Request
-            creds.refresh(Request())
+        # Exportación local sin errores HTTP 429
+        client_dl = obtener_cliente_gspread()
+        spreadsheet_dl = client_dl.open_by_key(GOOGLE_SHEET_ID)
+        worksheet_dl = spreadsheet_dl.worksheet(hoja_activa_tabla)
+        
+        data_completa = worksheet_dl.get_all_values()
+        df_excel_export = pd.DataFrame(data_completa)
 
-        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-        req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
-
-        with urllib.request.urlopen(req) as response:
-            excel_bytes = response.read()
+        output_excel = io.BytesIO()
+        with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
+            df_excel_export.to_excel(writer, index=False, header=False, sheet_name=hoja_activa_tabla[:30])
+        excel_bytes = output_excel.getvalue()
 
         st.download_button(
             label="📥 Descargar Hoja Excel",
@@ -240,14 +236,6 @@ with col_del:
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-# Estilizado para conservar el color verde en las filas de pacientes vacunados
-def color_filas_completas(row):
-    if row.name in indices_filas_verdes:
-        return ["background-color: #e2f0d9; color: #111111"] * len(row)
-    return [""] * len(row)
-
-df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
-
 column_configs = {
     "SELECCIONAR": st.column_config.CheckboxColumn(
         "¿Seleccionar?",
@@ -258,9 +246,9 @@ column_configs = {
 for col in encabezados_combinados:
     column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-# Renderizado con la columna SELECCIONAR interactiva y el resto deshabilitado (muy fluido)
+# Renderizado ultrarrápido sin .style.apply para que las casillas vuelen al seleccionarse
 df_editado = st.data_editor(
-    df_estilizado,
+    df_tabla_segura,
     width="stretch",
     height=550,
     hide_index=True,
