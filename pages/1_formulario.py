@@ -263,7 +263,23 @@ def mostrar_modal_comprobante():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.accion_nuevo_registro = True
-            st.rerun()
+            st.session_state.ultimo_paciente_registrado = None
+            st.session_state.folio_proyectado_cached = None
+            st.session_state.enviando_registro = False
+            
+            keys_a_limpiar = [
+                "input_paterno", "input_materno", "input_nombres", 
+                "sel_dia", "sel_mes", "sel_anio", "input_sexo", 
+                "input_estnac", "input_estres", "input_calle", 
+                "input_num", "input_col", "input_correo_paciente", 
+                "input_derecho", "input_ocupacion", "input_digitos",
+                "ant_cov", "ant_inf", "input_vacuna", "chk_gestante"
+            ]
+            for k in keys_a_limpiar:
+                if k in st.session_state:
+                    del st.session_state[k]
+
+            safe_rerun()
 
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
