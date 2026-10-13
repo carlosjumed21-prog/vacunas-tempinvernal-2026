@@ -47,18 +47,8 @@ def obtener_client_gspread_cacheado():
         creds_dict, scopes=GOOGLE_SCOPES
     )
 
-    # Intentamos crear una AuthorizedSession (requests) y asignarla al cliente gspread.
-    # Esto evita mezclas donde alguna librería espera AuthorizedHttp/httplib2 y otra AuthorizedSession.
-    try:
-        from google.auth.transport.requests import AuthorizedSession
-
-        session = AuthorizedSession(creds)
-        client = gspread.Client(auth=creds)
-        client.session = session
-        return client
-    except Exception:
-        # Fallback al método tradicional si por alguna razón la creación de la sesión falla.
-        return gspread.authorize(creds)
+    # Inicialización limpia y estándar compatible con gspread y google-auth
+    return gspread.authorize(creds)
 
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
