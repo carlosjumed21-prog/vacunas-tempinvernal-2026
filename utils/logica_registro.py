@@ -2,7 +2,9 @@
 import datetime
 import random
 import unicodedata
+import json
 import streamlit as st
+import gspread
 
 estados_curp = {
     "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
@@ -40,6 +42,27 @@ meses_dict = {
     "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
     "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
 }
+
+
+def obtener_cliente_gspread_seguro():
+    """Función unificada y segura para autenticarse con gspread sin errores de sesión."""
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    return gspread.service_account_from_dict(creds_dict, scopes=scopes)
 
 
 def calcular_edad_detallada(fecha_nac, fecha_ref):
@@ -122,19 +145,7 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
 @st.cache_data(ttl=600)
 def obtener_recomendaciones_sheets(biologico):
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
-        else:
-            gc = gspread.oauth()
+        gc = obtener_cliente_gspread_seguro()
         sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
         nombre_hoja = "COVID" if biologico and biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
         worksheet = sh.worksheet(nombre_hoja)
@@ -232,31 +243,13 @@ def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_an
 
 
 def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
-    """
-    Formato solicitado con guiones: Fecha YYYYMMDD - INT/EXT - 3 letras de unidad - 4 dígitos consecutivos (iniciando en 0001)
-    Ejemplo: 20261011-INT-20N-0001
-    Lee directamente los valores de la Columna B (columna 2) de la hoja de Google Sheets para respetar la continuidad real.
-    """
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
     siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
     
     consecutivo_num = 1
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
-        else:
-            gc = gspread.oauth()
-            
+        gc = obtener_cliente_gspread_seguro()
         sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
         nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
         
@@ -264,11 +257,9 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
         try:
             worksheet = sh.worksheet(nombre_tabla)
         except Exception:
-            # Si no encuentra la pestaña por fecha, toma la primera pestaña activa del libro
             worksheet = sh.get_worksheet(0)
 
         if worksheet:
-            # Extraer toda la Columna B (columna 2) para evaluar los folios existentes de forma directa
             columna_b = worksheet.col_values(2)
             max_consecutivo = 0
             
@@ -288,55 +279,9 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
             if max_consecutivo > 0:
                 consecutivo_num = max_consecutivo + 1
             else:
-                # Si la columna B tiene datos pero no guiones, usamos el conteo de filas menos la cabecera
                 total_filas = len(columna_b)
                 consecutivo_num = max(1, total_filas)
     except Exception:
         consecutivo_num = 1
     
-    secuencial_str = str(consecutivo_num).zfill(4)
-    return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
-
-
-@st.cache_data(ttl=300)
-def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
-        else:
-            gc = gspread.oauth()
-            
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
-        if sufijo_js:
-            nombre_tabla += f"_{sufijo_js}"
-            
-        worksheet = sh.worksheet(nombre_tabla)
-        return worksheet.get_all_records()
-    except Exception:
-        return []
-
-
-def verificar_curp_duplicada(curp_actual, sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
-    if not curp_actual or len(curp_actual) < 10 or "COMPLETA" in curp_actual:
-        return False, None
-        
-    prefijo_actual = curp_actual[:10].upper()
-    registros = obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app)
-    
-    for reg in registros:
-        curp_registrada = str(reg.get("CURP", reg.get("curp_con_nacimiento", ""))).upper()
-        if curp_registrada and curp_registrada[:10] == prefijo_actual:
-            folio_existente = reg.get("Folio", reg.get("folio", "DESCONOCIDO"))
-            return True, folio_existente
-            
-    return False, None
+    secuencial_str = str(con
