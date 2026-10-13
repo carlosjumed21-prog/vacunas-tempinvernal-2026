@@ -110,7 +110,14 @@ def guardar_registro_censal(
 
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
-        vacuna_interes = p.get("vacuna_interes", "").upper()
+        
+        vacuna_interes = p.get("vacuna_interes", "")
+        vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""
+
+        # Lógica exclusiva: solo se marca una "X" en la celda correspondiente a la opción elegida
+        marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
+        marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
+        marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
@@ -154,10 +161,9 @@ def guardar_registro_censal(
             "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
             p.get("antecedente_influenza", "") if p.get("antecedente_influenza") in ["SÍ", "NO", "LO DESCONOCE"] else "", # AR (42) - ANTECEDENTE INFLUENZA
             p.get("antecedente_covid", "") if p.get("antecedente_covid") in ["SÍ", "NO", "LO DESCONOCE"] else "",         # AS (43) - ANTECEDENTE COVID
-            vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""  # Lógica exclusiva: solo se marca una "X" en la celda correspondiente a la opción elegida
-            marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
-            marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
-            marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
+            marca_inf,                                                                      # AT (44) - INFLUENZA
+            marca_cov,                                                                      # AU (45) - COVID
+            marca_amb,                                                                      # AV (46) - AMBAS
             p.get("cuenta_derechohabiencia", ""),                                           # AW (47)
             fecha_registro_actual,                                                          # AX (48)
             correo_paciente_val,                                                            # AY (49)
