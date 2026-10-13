@@ -46,14 +46,14 @@ st.markdown(
         header {visibility: hidden;}
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
         [data-testid="stSidebar"] {display: none;}
-        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
-        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; } 
-        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; } 
+        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
@@ -65,7 +65,7 @@ st.markdown(
             display: none !important;
         }
     </style>
- """,
+    """,
     unsafe_allow_html=True,
 )
 
@@ -80,8 +80,10 @@ if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Por favor abra la vista desde el Módulo Operativo principal.")
     st.stop()
 
+
 def build_cache_key(hoja):
     return f"cached_hoja_values::{hoja}"
+
 
 def get_creds_from_secrets():
     creds_dict = None
@@ -98,6 +100,7 @@ def get_creds_from_secrets():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+
 
 # --- LECTURA CACHEADA DE ALTA VELOCIDAD (TTL DE 3 SEGUNDOS) ---
 @st.cache_data(ttl=3, show_spinner=False)
@@ -137,14 +140,16 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
         return [], [], []
 
+
 # --------------------
 # Worker de eliminación en segundo plano
 # --------------------
 BACKGROUND_RESULTS = {}
 
+
 def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_key_local):
+    """Worker seguro: NO usa Streamlit ni st.cache_data ni st.rerun."""
     try:
-        # Operaciones únicamente con gspread — NO llamar a st.* ni a funciones cacheadas desde el hilo de fondo.
         client_local = obtener_cliente_gspread()
         spreadsheet_local = client_local.open_by_key(spreadsheet_id)
         ws_local = spreadsheet_local.worksheet(worksheet_name)
@@ -156,7 +161,6 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
             except Exception:
                 pass
 
-        # Reenumerar la columna A (folios) de forma segura usando los valores ya presentes en la hoja.
         datos_actualizados = ws_local.get_all_values()
         if len(datos_actualizados) >= 14:
             filas_actuales = datos_actualizados[13:]
@@ -166,7 +170,7 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 row = filas_actuales[i]
                 if len(row) > 0 and row[0].strip() != "":
                     a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                    updates.append({'range': a1, 'values': [[str(contador)]]})
+                    updates.append({"range": a1, "values": [[str(contador)]]})
                     contador += 1
             if updates:
                 try:
@@ -174,16 +178,11 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 except Exception:
                     pass
 
-        # Notificar al hilo principal que terminó — NO tocar caché ni llamar a load_sheet_minimal_cached aquí.
-        BACKGROUND_RESULTS[cache_key_local] = {
-            "status": "done"
-        }
+        BACKGROUND_RESULTS[cache_key_local] = {"status": "done"}
 
     except Exception as e:
-        BACKGROUND_RESULTS[cache_key_local] = {
-            "status": "error",
-            "error": str(e)
-        }
+        BACKGROUND_RESULTS[cache_key_local] = {"status": "error", "error": str(e)}
+
 
 # --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA ---
 cache_key = build_cache_key(hoja_activa_tabla)
@@ -240,8 +239,8 @@ contador_df_idx = 0
 for i in range(0, len(filas_tabla), 2):
     f1 = filas_tabla[i] if i < len(filas_tabla) else []
     f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
-    f1_adj = f1 + [''] * max(0, len(encabezados_combinados) - len(f1))
-    f2_adj = f2 + [''] * max(0, len(encabezados_combinados) - len(f2))
+    f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
+    f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
     tiene_aplicacion_ag_aq = False
     for col_idx in range(32, min(43, len(f1_adj))):
@@ -300,6 +299,7 @@ for row in filas_principales:
     elif tiene_influenza and tiene_covid:
         total_simultaneas += 1
 
+
 # --- FRAGMENTO AISLADO PARA LA ZONA SUPERIOR, TABLA Y ACCIONES ---
 @st.fragment
 def render_seccion_tabla_interactiva():
@@ -315,24 +315,13 @@ def render_seccion_tabla_interactiva():
                 st.cache_data.clear()
                 header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
                 if filas_new:
-                    # Actualizamos también la referencia a la hoja para que el gid sea correcto
-                    try:
-                        client_tmp = obtener_cliente_gspread()
-                        spreadsheet_tmp = client_tmp.open_by_key(GOOGLE_SHEET_ID)
-                        ws_tmp = spreadsheet_tmp.worksheet(hoja_activa_tabla)
-                        # reasignamos la referencia global ws
-                        global ws
-                        ws = ws_tmp
-                    except Exception:
-                        pass
-
                     st.session_state["visible_rows"] = filas_new
                     st.session_state["header1"] = header1_new
                     st.session_state["header2"] = header2_new
                     st.session_state["active_sheet"] = hoja_activa_tabla
                     if "editor_tabla_censo" in st.session_state:
                         del st.session_state["editor_tabla_censo"]
-                    safe_rerun()
+                    safe_rerun(scope="fragment")
             except Exception as e:
                 st.error(f"Error al recargar: {e}")
 
@@ -345,7 +334,7 @@ def render_seccion_tabla_interactiva():
 
             gid_hoja = ws.id
             url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-            req = urllib.request.Request(url_export, headers={'Authorization': f'Bearer {creds.token}'})
+            req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
             with urllib.request.urlopen(req) as response:
                 excel_original_bytes = response.read()
@@ -355,7 +344,7 @@ def render_seccion_tabla_interactiva():
                 data=excel_original_bytes,
                 file_name=f"{hoja_activa_tabla}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                use_container_width=True,
             )
         except Exception as err:
             st.error(f"No se pudo descargar el archivo: {err}")
@@ -378,13 +367,13 @@ def render_seccion_tabla_interactiva():
     with col_btn1:
         btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # --- TABLA Y ESTILOS ---
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
-            return ['background-color: #e2f0d9; color: #111111'] * len(row)
-        return [''] * len(row)
+            return ["background-color: #e2f0d9; color: #111111"] * len(row)
+        return [""] * len(row)
 
     df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
 
@@ -405,19 +394,20 @@ def render_seccion_tabla_interactiva():
         height=550,
         hide_index=True,
         column_config=column_configs,
-        key="editor_tabla_censo"
+        key="editor_tabla_censo",
     )
 
+    # Procesar fin de eliminación en segundo plano.
     if cache_key in BACKGROUND_RESULTS:
         result = BACKGROUND_RESULTS.pop(cache_key)
         if result.get("status") == "done":
-            # Ahora el hilo principal se encarga de limpiar la caché y recargar los datos de forma segura.
             try:
                 st.cache_data.clear()
                 header1_r, header2_r, data_rows_r = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
                 st.session_state["visible_rows"] = data_rows_r
                 st.session_state["header1"] = header1_r
                 st.session_state["header2"] = header2_r
+                st.session_state["active_sheet"] = hoja_activa_tabla
                 st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
                 safe_rerun(scope="fragment")
             except Exception as e:
@@ -437,6 +427,7 @@ def render_seccion_tabla_interactiva():
                 visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
                 pacientes_sorted = sorted(list(pacientes_a_eliminar), reverse=True)
 
+                # Actualización optimizada de UI local para entregar retroalimentación inmediata
                 for paciente_idx in pacientes_sorted:
                     if paciente_idx < len(mapeo_indices):
                         idx_par_real = mapeo_indices[paciente_idx]
@@ -461,19 +452,18 @@ def render_seccion_tabla_interactiva():
                 if "delete_executor" not in st.session_state:
                     st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
 
-                # Ejecutar la eliminación en segundo plano — el worker NO llamará a funciones de Streamlit.
                 st.session_state["delete_executor"].submit(
                     delete_rows_worker,
                     GOOGLE_SHEET_ID,
                     hoja_activa_tabla,
                     filas_gs_a_borrar,
-                    cache_key
+                    cache_key,
                 )
 
-                st.success(f"✅ Se iniciaron la(s) eliminación(es) en segundo plano. Los cambios se aplicarán en breve.")
-                safe_rerun(scope="fragment")
+                st.success("✅ Se inició la eliminación y la vista se actualizará en cuanto termine la sincronización.")
 
             except Exception as e:
                 st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
+
 
 render_seccion_tabla_interactiva()
