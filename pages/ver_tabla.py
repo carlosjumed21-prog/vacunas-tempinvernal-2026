@@ -7,7 +7,6 @@ import urllib.request
 from google.oauth2 import service_account
 from utils.sheets import obtener_cliente_gspread
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
-from concurrent.futures import ThreadPoolExecutor
 
 
 # --------------------
@@ -81,10 +80,6 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-def build_cache_key(hoja):
-    return f"cached_hoja_values::{hoja}"
-
-
 def get_creds_from_secrets():
     creds_dict = None
     if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -138,45 +133,6 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     except Exception as e:
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
         return [], [], []
-
-
-BACKGROUND_RESULTS = {}
-
-
-def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_key_local):
-    """No debe usar Streamlit ni session_state."""
-    try:
-        client_local = obtener_cliente_gspread()
-        spreadsheet_local = client_local.open_by_key(spreadsheet_id)
-        ws_local = spreadsheet_local.worksheet(worksheet_name)
-
-        filas_sorted = sorted(set(filas_gs_a_borrar), reverse=True)
-        for fila_gs in filas_sorted:
-            try:
-                ws_local.delete_rows(fila_gs)
-            except Exception:
-                pass
-
-        datos_actualizados = ws_local.get_all_values()
-        if len(datos_actualizados) >= 14:
-            filas_actuales = datos_actualizados[13:]
-            contador = 1
-            updates = []
-            for i in range(0, len(filas_actuales), 2):
-                row = filas_actuales[i]
-                if len(row) > 0 and row[0].strip() != "":
-                    a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                    updates.append({"range": a1, "values": [[str(contador)]]})
-                    contador += 1
-            if updates:
-                try:
-                    ws_local.batch_update(updates)
-                except Exception:
-                    pass
-
-        BACKGROUND_RESULTS[cache_key_local] = {"status": "done"}
-    except Exception as e:
-        BACKGROUND_RESULTS[cache_key_local] = {"status": "error", "error": str(e)}
 
 
 def construir_dataset(filas_tabla, header1, header2):
@@ -277,9 +233,7 @@ def calcular_metricas(filas_tabla):
     }
 
 
-# --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA ---
-cache_key = build_cache_key(hoja_activa_tabla)
-
+# --- CONEXIÓN Y CARGA DE DATOS EN TIEMPO REAL ---
 try:
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -289,10 +243,6 @@ except Exception as e:
     st.stop()
 
 header1, header2, filas_tabla = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-st.session_state["visible_rows"] = filas_tabla
-st.session_state["header1"] = header1
-st.session_state["header2"] = header2
-st.session_state["active_sheet"] = hoja_activa_tabla
 
 if not filas_tabla:
     st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
@@ -301,12 +251,10 @@ if not filas_tabla:
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes = construir_dataset(filas_tabla, header1, header2)
 columnas_con_check = ["Seleccionar"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
-
-st.session_state["mapeo_indices_pares"] = mapeo_indices_pares
 metricas = calcular_metricas(filas_tabla)
 
 
-# --- RENDERIZADO GENERAL DE LA INTERFAZ (Sin fragmento envolvente global) ---
+# --- INTERFAZ FLUIDA ---
 st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
 
 col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
@@ -315,19 +263,8 @@ with col_tit1:
 
 with col_tit2:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
-        try:
-            st.cache_data.clear()
-            header1_new, header2_new, filas_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-            if filas_new:
-                st.session_state["visible_rows"] = filas_new
-                st.session_state["header1"] = header1_new
-                st.session_state["header2"] = header2_new
-                st.session_state["active_sheet"] = hoja_activa_tabla
-                if "editor_tabla_censo" in st.session_state:
-                    del st.session_state["editor_tabla_censo"]
-                safe_rerun()
-        except Exception as e:
-            st.error(f"Error al recargar: {e}")
+        st.cache_data.clear()
+        safe_rerun()
 
 with col_tit3:
     try:
@@ -400,23 +337,7 @@ df_editado = st.data_editor(
     key="editor_tabla_censo",
 )
 
-if cache_key in BACKGROUND_RESULTS:
-    result = BACKGROUND_RESULTS.pop(cache_key)
-    if result.get("status") == "done":
-        try:
-            st.cache_data.clear()
-            header1_r, header2_r, data_rows_r = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-            st.session_state["visible_rows"] = data_rows_r
-            st.session_state["header1"] = header1_r
-            st.session_state["header2"] = header2_r
-            st.session_state["active_sheet"] = hoja_activa_tabla
-            st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
-            safe_rerun()
-        except Exception as e:
-            st.error(f"Error al recargar tras eliminación: {e}")
-    elif result.get("status") == "error":
-        st.error(f"❌ Error al sincronizar con Google Sheets: {result.get('error')}")
-
+# --- ACCIÓN DE ELIMINACIÓN DIRECTA Y SINCRONIZADA EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -425,40 +346,42 @@ if btn_eliminar:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            mapeo_indices = st.session_state.get("mapeo_indices_pares", [])
-            visible_rows = list(st.session_state.get("visible_rows", filas_tabla))
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-
-            for paciente_idx in pacientes_sorted:
-                if paciente_idx < len(mapeo_indices):
-                    idx_par_real = mapeo_indices[paciente_idx]
-                    if idx_par_real < len(visible_rows):
-                        del visible_rows[idx_par_real:idx_par_real + 2]
-
-            st.session_state["visible_rows"] = visible_rows
-            st.session_state["header1"] = header1
-            st.session_state["header2"] = header2
-            st.session_state["active_sheet"] = hoja_activa_tabla
-
             filas_gs_a_borrar = []
             for paciente_idx in pacientes_sorted:
-                if paciente_idx < len(mapeo_indices):
-                    idx_par_real = mapeo_indices[paciente_idx]
+                if paciente_idx < len(mapeo_indices_pares):
+                    idx_par_real = mapeo_indices_pares[paciente_idx]
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
 
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
 
-            if "delete_executor" not in st.session_state:
-                st.session_state["delete_executor"] = ThreadPoolExecutor(max_workers=1)
+            with st.spinner("🗑️ Sincronizando eliminación con Google Sheets..."):
+                for fila_gs in filas_gs_a_borrar:
+                    try:
+                        ws.delete_rows(fila_gs)
+                    except Exception:
+                        pass
 
-            st.session_state["delete_executor"].submit(
-                delete_rows_worker,
-                GOOGLE_SHEET_ID,
-                hoja_activa_tabla,
-                filas_gs_a_borrar,
-                cache_key,
-            )
+                # Reordenar folios o contadores en la hoja si aplica
+                datos_actualizados = ws.get_all_values()
+                if len(datos_actualizados) >= 14:
+                    filas_actuales = datos_actualizados[13:]
+                    contador = 1
+                    updates = []
+                    for i in range(0, len(filas_actuales), 2):
+                        row = filas_actuales[i]
+                        if len(row) > 0 and row[0].strip() != "":
+                            a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                            updates.append({"range": a1, "values": [[str(contador)]]})
+                            contador += 1
+                    if updates:
+                        try:
+                            ws.batch_update(updates)
+                        except Exception:
+                            pass
 
-            st.success("✅ Se inició la eliminación. La vista se actualizará cuando termine la sincronización.")
+            st.cache_data.clear()
+            st.success("✅ Paciente(s) eliminado(s) y Google Sheets actualizado en tiempo real.")
+            safe_rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
