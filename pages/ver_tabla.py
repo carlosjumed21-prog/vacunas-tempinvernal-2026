@@ -45,49 +45,42 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-# --- CARGA ULTRA RÁPIDA CACHEADA ---
-@st.cache_data(ttl=120, show_spinner=False)
-def cargar_datos_hoja(spreadsheet_id, worksheet_name):
+# --- CARGA OPTIMIZADA CON CACHÉ DE LARGO ALCANCE ---
+@st.cache_data(ttl=60, show_spinner="Cargando censo en alta velocidad...")
+def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(spreadsheet_id)
     ws = spreadsheet.worksheet(worksheet_name)
+    
     data = ws.get_all_values()
     if len(data) < 14:
         return [], [], [], ws.id
-    return data[11], data[12], data[13:], ws.id
 
+    header1 = data[11] if len(data) > 11 else []
+    header2 = data[12] if len(data) > 12 else []
+    filas = data[13:]
+    return header1, header2, filas, ws.id
 
-# Gestionar estado local en sesión para evitar recálculos pesados al marcar casillas
-key_estado_filas = f"filas_cargadas_{hoja_activa_tabla}"
-
-if key_estado_filas not in st.session_state:
-    header1, header2, filas_tabla, gid_hoja = cargar_datos_hoja(GOOGLE_SHEET_ID, hoja_activa_tabla)
-    st.session_state[key_estado_filas] = filas_tabla
-    st.session_state[f"header1_{hoja_activa_tabla}"] = header1
-    st.session_state[f"header2_{hoja_activa_tabla}"] = header2
-    st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
-else:
-    header1 = st.session_state[f"header1_{hoja_activa_tabla}"]
-    header2 = st.session_state[f"header2_{hoja_activa_tabla}"]
-    filas_tabla = st.session_state[key_estado_filas]
-    gid_hoja = st.session_state[f"gid_{hoja_activa_tabla}"]
+try:
+    header1, header2, filas_tabla, gid_hoja = cargar_y_procesar_hoja(GOOGLE_SHEET_ID, hoja_activa_tabla)
+except Exception as e:
+    st.error(f"Error al conectar con Google Sheets: {e}")
+    st.stop()
 
 if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes.")
     st.stop()
 
 
-# --- PROCESAMIENTO VECTORIZADO Y MÉTRICAS (CACHEADO) ---
-@st.cache_data(show_spinner=False)
-py_cache_key = lambda f: len(f) # Hash rápido
-def procesar_dataset_cacheado(filas_tuple, h1_tuple, h2_tuple):
+# --- CONSTRUCCIÓN DEL DATASET Y MÉTRICAS VECTORIZADAS ---
+def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
-    max_cols = max(len(h1_tuple), len(h2_tuple), 50)
+    max_cols = max(len(header1), len(header2), 50)
 
     for idx in range(max_cols):
-        val1 = h1_tuple[idx].strip() if idx < len(h1_tuple) else ""
-        val2 = h2_tuple[idx].strip() if idx < len(h2_tuple) else ""
+        val1 = header1[idx].strip() if idx < len(header1) else ""
+        val2 = header2[idx].strip() if idx < len(header2) else ""
 
         if val1 and val2 and val1 != val2:
             col_str = f"{val1} - {val2}"
@@ -120,15 +113,17 @@ def procesar_dataset_cacheado(filas_tuple, h1_tuple, h2_tuple):
     total_simultaneas = 0
     fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
-    for i in range(0, len(filas_tuple), 2):
-        f1 = filas_tuple[i] if i < len(filas_tuple) else []
-        f2 = filas_tuple[i + 1] if i + 1 < len(filas_tuple) else []
+    for i in range(0, len(filas_tabla), 2):
+        f1 = filas_tabla[i] if i < len(filas_tabla) else []
+        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
         
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
+        # Métricas sobre filas principales (f1)
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
+
             fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else ""
             if fecha_fila == fecha_hoy_str:
                 registros_nuevos_hoy += 1
@@ -151,6 +146,7 @@ def procesar_dataset_cacheado(filas_tuple, h1_tuple, h2_tuple):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
+        # Detección de filas verdes (vacunadas)
         if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
@@ -175,26 +171,18 @@ def procesar_dataset_cacheado(filas_tuple, h1_tuple, h2_tuple):
 
     return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
-
-# Convertir a tuplas para permitir caché eficiente de procesamiento
-filas_tuple = tuple(tuple(row) for row in filas_tabla)
-h1_tuple = tuple(header1)
-h2_tuple = tuple(header2)
-
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = procesar_dataset_cacheado(filas_tuple, h1_tuple, h2_tuple)
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["Seleccionar"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
 
-# --- INTERFAZ FLUIDA ---
+# --- INTERFAZ FLUIDA CON CONTADORES Y ESTILOS ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
 col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
 with col_btn1:
     if st.button("🔄 Actualizar Datos", width="stretch", key="btn_reload_header"):
         st.cache_data.clear()
-        if key_estado_filas in st.session_state:
-            del st.session_state[key_estado_filas]
         st.rerun()
 
 with col_btn2:
@@ -223,7 +211,7 @@ with col_btn2:
 
 st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
-# Métricas
+# 8 Tarjetas de Métricas exactas
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
 with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
@@ -242,7 +230,7 @@ with col_del:
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-# Estilizado rápido
+# Estilizado de filas verdes en bloque para velocidad
 def color_filas_completas(row):
     if row.name in indices_filas_verdes:
         return ["background-color: #e2f0d9; color: #111111"] * len(row)
@@ -261,7 +249,7 @@ for col in encabezados_combinados:
     if col != "Seleccionar":
         column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-# El editor ahora vuela al marcar casillas gracias al aislamiento de estado
+# Renderizado con editor de casillas optimizado
 df_editado = st.data_editor(
     df_estilizado,
     width="stretch",
@@ -271,7 +259,7 @@ df_editado = st.data_editor(
     key="editor_tabla_censo",
 )
 
-# --- ACCIÓN DE ELIMINACIÓN ---
+# --- ACCIÓN DE ELIMINACIÓN RÁPIDA ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -280,49 +268,46 @@ if btn_eliminar:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
+            client = obtener_cliente_gspread()
+            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            ws = spreadsheet.worksheet(hoja_activa_tabla)
+
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-            filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
-            
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
-                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # Actualizar memoria de sesión instantáneamente
-            st.session_state[key_estado_filas] = filas_actualizadas
-
-            # Sincronizar en Google Sheets
-            client = obtener_cliente_gspread()
-            ws = client.open_by_key(GOOGLE_SHEET_ID).worksheet(hoja_activa_tabla)
-            
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-            for fila_gs in filas_gs_a_borrar:
-                try:
-                    ws.delete_rows(fila_gs)
-                except Exception:
-                    pass
 
-            # Reordenar contadores en Google Sheets
-            datos_actuales_gs = ws.get_all_values()
-            if len(datos_actuales_gs) >= 14:
-                filas_s = datos_actuales_gs[13:]
-                contador = 1
-                updates = []
-                for i in range(0, len(filas_s), 2):
-                    row = filas_s[i]
-                    if len(row) > 0 and row[0].strip() != "":
-                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                        updates.append({"range": a1, "values": [[str(contador)]]})
-                        contador += 1
-                if updates:
+            with st.spinner("🗑️ Sincronizando eliminación con Google Sheets..."):
+                for fila_gs in filas_gs_a_borrar:
                     try:
-                        ws.batch_update(updates)
+                        ws.delete_rows(fila_gs)
                     except Exception:
                         pass
 
-            st.success("⚡ ¡Eliminado en vivo y sincronizado!")
+                # Reordenar contadores de folios
+                datos_actualizados = ws.get_all_values()
+                if len(datos_actualizados) >= 14:
+                    filas_actuales = datos_actualizados[13:]
+                    contador = 1
+                    updates = []
+                    for i in range(0, len(filas_actuales), 2):
+                        row = filas_actuales[i]
+                        if len(row) > 0 and row[0].strip() != "":
+                            a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                            updates.append({"range": a1, "values": [[str(contador)]]})
+                            contador += 1
+                    if updates:
+                        try:
+                            ws.batch_update(updates)
+                        except Exception:
+                            pass
+
+            st.cache_data.clear()
+            st.success("✅ Paciente(s) eliminado(s) y Google Sheets actualizado correctamente.")
             st.rerun()
         except Exception as e:
-            st.error(f"❌ Error al eliminar en Google Sheets: {e}")
+            st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
