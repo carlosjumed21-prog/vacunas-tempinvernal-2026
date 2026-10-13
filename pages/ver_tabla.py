@@ -46,15 +46,14 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS (Adiós a la lentitud) ---
-@st.cache_data(ttl=120, show_spinner="Sincronizando con Google Sheets...")
+# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS ---
+@st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        # Leer solo la columna B para detectar la última fila activa al instante
         col_b = worksheet.col_values(2)
 
         if len(col_b) < 14:
@@ -70,7 +69,6 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         if filas_data_count % 2 != 0:
             last_idx += 1
 
-        # Descargar únicamente el rango necesario (A12 hasta AX con la última fila activa)
         range_headers_1 = "A12:AX12"
         range_headers_2 = "A13:AX13"
         range_data = f"A14:AX{last_idx}"
@@ -107,7 +105,7 @@ if not filas_tabla:
     st.stop()
 
 
-# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO DE COLUMNAS A-L / AG-AQ ---
+# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO A-L / AG-AQ ---
 def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
@@ -184,7 +182,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-        # Rango A-L (0 al 11) y AG-AQ (32 al 42)
         indices_deseados = list(range(0, 12)) + list(range(32, 43))
 
         f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
@@ -307,7 +304,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN ---
+# --- ACCIÓN DE ELIMINACIÓN CON BORRADO OPTIMISTA INSTANTÁNEO ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -316,10 +313,6 @@ if btn_eliminar:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            client = obtener_cliente_gspread()
-            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-            ws = spreadsheet.worksheet(hoja_activa_tabla)
-
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
             filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
@@ -330,38 +323,41 @@ if btn_eliminar:
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
+            # 1. Actualizar la sesión al instante para quitar las filas de la vista previa de inmediato
             st.session_state[key_estado_filas] = filas_actualizadas
 
+            # 2. Sincronizar Google Sheets en segundo plano (de forma silenciosa o rápida)
+            client = obtener_cliente_gspread()
+            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            ws = spreadsheet.worksheet(hoja_activa_tabla)
+
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-            with st.spinner("🗑️ Actualizando Google Sheets..."):
-                for fila_gs in filas_gs_a_borrar:
+            for fila_gs in filas_gs_a_borrar:
+                try:
+                    ws.delete_rows(fila_gs)
+                except Exception:
+                    pass
+
+            # Reordenar contadores de folios en Google Sheets
+            datos_actualizados = ws.get_all_values()
+            if len(datos_actualizados) >= 14:
+                filas_actuales = datos_actualizados[13:]
+                contador = 1
+                updates = []
+                for i in range(0, len(filas_actuales), 2):
+                    row = filas_actuales[i]
+                    if len(row) > 0 and row[0].strip() != "":
+                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                        updates.append({"range": a1, "values": [[str(contador)]]})
+                        contador += 1
+                if updates:
                     try:
-                        ws.delete_rows(fila_gs)
+                        ws.batch_update(updates)
                     except Exception:
                         pass
 
-                datos_actualizados = ws.get_all_values()
-                if len(datos_actualizados) >= 14:
-                    filas_actuales = datos_actualizados[13:]
-                    contador = 1
-                    updates = []
-                    for i in range(0, len(filas_actuales), 2):
-                        row = filas_actuales[i]
-                        if len(row) > 0 and row[0].strip() != "":
-                            a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                            updates.append({"range": a1, "values": [[str(contador)]]})
-                            contador += 1
-                    if updates:
-                        try:
-                            ws.batch_update(updates)
-                        except Exception:
-                            pass
-
-            st.cache_data.clear()
-            if key_estado_filas in st.session_state:
-                del st.session_state[key_estado_filas]
-
-            st.success("✅ ¡Paciente(s) eliminado(s) y vista previa actualizada en tiempo real!")
+            # 3. Refrescar la interfaz al instante mostrando los cambios ya hechos
+            st.success("⚡ ¡Eliminado de la vista previa y sincronizado con Google Sheets!")
             st.rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar en Google Sheets: {e}")
