@@ -139,6 +139,9 @@ def procesar_guardado_aplicacion(
         worksheet_activa.batch_update(datos_a_actualizar)
         worksheet_activa.spreadsheet.batch_update({"requests": [peticion_formato_celdas]})
 
+        # Invalidar la caché de Streamlit para forzar la lectura fresca de Google Sheets
+        st.cache_data.clear()
+
         lote_final_partes = []
         if lote_inf_input:
             lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_i_str})")
