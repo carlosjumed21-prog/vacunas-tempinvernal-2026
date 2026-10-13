@@ -121,7 +121,7 @@ def procesar_guardado_aplicacion(
                     "startRowIndex": f_actual - 1, 
                     "endRowIndex": f_siguiente,        
                     "startColumnIndex": 0,            
-                    "endColumnIndex": 50            # <- Abarca hasta la columna AX
+                    "endColumnIndex": 50            # <- Cambiado a 50 para que abarque hasta la columna AX
                 },
                 "cell": {
                     "userEnteredFormat": {
@@ -136,11 +136,7 @@ def procesar_guardado_aplicacion(
             }
         }
 
-        # Aplicación corregida mediante values_batch_update nativo de gspread/Google API
-        worksheet_activa.spreadsheet.values_batch_update({
-            "valueInputOption": "USER_ENTERED",
-            "data": datos_a_actualizar
-        })
+        worksheet_activa.batch_update(datos_a_actualizar)
         worksheet_activa.spreadsheet.batch_update({"requests": [peticion_formato_celdas]})
 
         lote_final_partes = []
