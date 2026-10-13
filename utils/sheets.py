@@ -21,7 +21,6 @@ def obtener_cliente_gspread():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # Utiliza el método oficial de gspread para evitar cualquier error de AuthorizedSession
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
 
@@ -34,9 +33,8 @@ def guardar_registro_censal(
     datos_paciente,
 ):
     """
-    Versión altamente optimizada: lee la columna B una sola vez y utiliza
-    batch_update para escribir tanto la fila principal como la complementaria
-    en una sola solicitud HTTP, eliminando el lag.
+    Versión optimizada: utiliza actualizaciones directas por rangos (.update) 
+    para evitar conflictos internos con la sesión de gspread.
     """
     try:
         client = obtener_cliente_gspread()
@@ -147,22 +145,10 @@ def guardar_registro_censal(
         curp_val = p.get("curp_con_nacimiento", "").upper()
         fila_curp = fila_destino + 1
 
-        data_a_actualizar = [
-            {
-                'range': f"A{fila_destino}:AX{fila_destino}",
-                'values': [fila_registro_principal]
-            },
-            {
-                'range': f"C{fila_curp}",
-                'values': [[curp_val]]
-            },
-            {
-                'range': f"AW{fila_curp}",
-                'values': [[fecha_registro_actual]]
-            }
-        ]
-
-        ws.batch_update(data_a_actualizar)
+        # Actualizaciones directas mediante .update() para evitar AuthorizedSession
+        ws.update(range_name=f"A{fila_destino}:AX{fila_destino}", values=[fila_registro_principal])
+        ws.update(range_name=f"C{fila_curp}", values=[[curp_val]])
+        ws.update(range_name=f"AW{fila_curp}", values=[[fecha_registro_actual]])
 
         return folio_asignado, False, None
 
