@@ -28,11 +28,11 @@ st.markdown(
 )
 
 # ============================================================
-# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
+# NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY (ACTUALIZADO)
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Conexión limpia con credenciales de servicio para gspread."""
+    """Conexión limpia y blindada con credenciales de servicio para gspread."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,7 +43,12 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    # SOLUCIÓN AL ERROR _auth_request: Generar credenciales explícitas y autorizar gspread
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=GOOGLE_SCOPES
+    )
+    
+    return gspread.authorize(creds)
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
