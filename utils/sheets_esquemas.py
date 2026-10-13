@@ -1,342 +1,218 @@
-# utils/logica_registro.py
+# utils/sheets_esquemas.py
+import json
 import datetime
-import random
-import unicodedata
+from google.oauth2 import service_account
+import gspread
 import streamlit as st
-
-estados_curp = {
-    "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
-    "CAMPECHE": "CC", "CHIAPAS": "CS", "CHIHUAHUA": "CH", "CIUDAD DE MÉXICO": "DF",
-    "COAHUILA": "CL", "COLIMA": "CM", "DURANGO": "DG", "ESTADO DE MÉXICO": "MC",
-    "GUANAJUATO": "GT", "GUERRERO": "GR", "HIDALGO": "HG", "JALISCO": "JC",
-    "MICHOACÁN": "MN", "MORELOS": "MS", "NAYARIT": "NT", "NUEVO LEÓN": "NL",
-    "OAXACA": "OC", "PUEBLA": "PL", "QUERÉTARO": "QT", "QUINTANA ROO": "QR",
-    "SAN LUIS POTOSÍ": "SP", "SINALOA": "SL", "SONORA": "SR", "TABASCO": "TC",
-    "TAMAULIPAS": "TS", "TLAXCALA": "TL", "VERACRUZ": "VZ", "YUCATÁN": "YN",
-    "ZACATECAS": "ZS",
-}
-
-estados_mexico = [
-    "SELECCIONE UN ESTADO", "AGUASCALIENTES", "BAJA CALIFORNIA", "BAJA CALIFORNIA SUR",
-    "CAMPECHE", "CHIAPAS", "CHIHUAHUA", "CIUDAD DE MÉXICO", "COAHUILA", "COLIMA",
-    "DURANGO", "ESTADO DE MÉXICO", "GUANAJUATO", "GUERRERO", "HIDALGO", "JALISCO",
-    "MICHOACÁN", "MORELOS", "NAYARIT", "NUEVO LEÓN", "OAXACA", "PUEBLA",
-    "QUERÉTARO", "QUINTANA ROO", "SAN LUIS POTOSÍ", "SINALOA", "SONORA",
-    "TABASCO", "TAMAULIPAS", "TLAXCALA", "VERACRUZ", "YUCATÁN", "ZACATECAS",
-]
-
-lista_ocupaciones = [
-    "SELECCIONE UNA OPCIÓN", "NO APLICA",
-    "PERSONAL DE SALUD (INCLUYE: PARAMÉDICO / PERSONAL SUPERVISOR Y ADMINISTRATIVO EN ÁREAS CLÍNICAS Y FARMACIAS)",
-    "ESTUDIANTE (PREESCOLAR, PRIMARIA, SECUNDARIA, BACHILLERATO/PREPARATORIA)",
-    "JUBILADO/A", "MAESTRO/A", "ADMINISTRATIVO/A", "TRABAJO EN GUARDERÍA",
-    "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
-    "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES", "PERSONAL MILITAR",
-    "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)", "OTRAS PROFESIONES"
-]
-
-meses_dict = {
-    "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
-    "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
-    "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
-}
-
-
-def calcular_edad_detallada(fecha_nac, fecha_ref):
-    if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
-        return 0, 0, 0
-    anos = fecha_ref.year - fecha_nac.year
-    meses = fecha_ref.month - fecha_nac.month
-    dias = fecha_ref.day - fecha_nac.day
-    if dias < 0:
-        meses -= 1
-        mes_anterior = fecha_ref.month - 1 if fecha_ref.month > 1 else 12
-        anio_anterior = fecha_ref.year if fecha_ref.month > 1 else fecha_ref.year - 1
-        dias_mes_anterior = (datetime.date(anio_anterior, mes_anterior + 1, 1) - datetime.timedelta(days=1)).day
-        dias += dias_mes_anterior
-    if meses < 0:
-        anos -= 1
-        meses += 12
-    return max(0, anos), max(0, meses), max(0, dias)
-
-
-def limpiar_texto(texto):
-    if not texto:
-        return ""
-    nfkd = unicodedata.normalize("NFKD", str(texto))
-    return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
-
-
-def obtener_primera_vocal_interna(palabra):
-    for letra in palabra[1:]:
-        if letra in "AEIOU":
-            return letra
-    return "X"
-
-
-def obtener_primera_consonante_interna(palabra):
-    for letra in palabra[1:]:
-        if letra in "BCDFGHJKLMNPQRSTVWXYZ":
-            return letra
-    return "X"
-
-
-def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""):
-    p = limpiar_texto(paterno)
-    m = limpiar_texto(materno) if materno else ""
-    n = limpiar_texto(nombres)
-    
-    if not p or not n or not fecha_nac or sexo == "SELECCIONE UNA OPCIÓN" or est_nac == "SELECCIONE UN ESTADO":
-        return "COMPLETA DATOS, SEXO Y ESTADO"
-        
-    nombres_lista = n.split()
-    primer_nombre = nombres_lista[0] if nombres_lista else "X"
-    if len(nombres_lista) > 1 and primer_nombre in ["JOSE", "MARIA", "MA.", "J."]:
-        primer_nombre = nombres_lista[1]
-        
-    c1 = p[0] if p else "X"
-    c2 = obtener_primera_vocal_interna(p)
-    c3 = m[0] if m else "X"
-    c4 = primer_nombre[0] if primer_nombre else "X"
-    
-    yy = str(fecha_nac.year)[-2:]
-    mm = str(fecha_nac.month).zfill(2)
-    dd = str(fecha_nac.day).zfill(2)
-    fec_part = f"{yy}{mm}{dd}"
-    
-    sexo_part = "H" if sexo == "HOMBRE" else ("M" if sexo == "MUJER" else "X")
-    est_part = estados_curp.get(est_nac, "NE")
-    
-    c14 = obtener_primera_consonante_interna(p)
-    c15 = obtener_primera_consonante_interna(m) if m else "X"
-    c16 = obtener_primera_consonante_interna(primer_nombre)
-    
-    curp_16 = f"{c1}{c2}{c3}{c4}{fec_part}{sexo_part}{est_part}{c14}{c15}{c16}"
-    
-    extra_limpio = limpiar_texto(digitos_extra)
-    sufijo = extra_limpio[:2] if len(extra_limpio) >= 2 else "00"
-    
-    return f"{curp_16}{sufijo}"
-
+from config import GOOGLE_SCOPES
 
 @st.cache_data(ttl=600)
-def obtener_recomendaciones_sheets(biologico):
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
-        else:
-            gc = gspread.oauth()
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_hoja = "COVID" if biologico and biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
-        worksheet = sh.worksheet(nombre_hoja)
-        return worksheet.get_all_records()
-    except Exception:
-        return []
-
-
-def determinar_grupo_desde_sheets(biologico, edad_meses, edad_anos, gestante, ocupacion, comorbilidades_activas):
-    biologico_a_consultar = "Influenza" if biologico and biologico in ["INFLUENZA", "AMBAS"] else "COVID"
-    filas_sheets = obtener_recomendaciones_sheets(biologico_a_consultar)
-
-    if not filas_sheets:
-        return determinar_grupo_sugerido_fallback(biologico, edad_meses, edad_anos, gestante, ocupacion, comorbilidades_activas)
-
-    for fila in filas_sheets:
-        grupo_blanco = str(fila.get("Grupos blancos de la intervención", ""))
-        categoria = str(fila.get("Categoria", ""))
-        gb_lower = grupo_blanco.lower()
-
-        if gestante == "SÍ" and ("gestante" in gb_lower or "embarazo" in gb_lower):
-            return f"{grupo_blanco} ({categoria})"
-
-        if "meses" in gb_lower:
-            if "6 a 18 meses" in gb_lower and 6 <= edad_meses <= 18:
-                return f"{grupo_blanco} ({categoria})"
-            elif "19 a 59 meses" in gb_lower and 19 <= edad_meses <= 59:
-                return f"{grupo_blanco} ({categoria})"
-            elif "6 a 59 meses" in gb_lower and 6 <= edad_meses <= 59:
-                return f"{grupo_blanco} ({categoria})"
-
-        if "años" in gb_lower or "mas" in gb_lower or "y mas" in gb_lower:
-            if ("60" in gb_lower or "mas" in gb_lower) and edad_anos >= 60 and "comorbilidades" not in gb_lower:
-                return f"{grupo_blanco} ({categoria})"
-
-        if "personal de salud" in gb_lower and ("PERSONAL DE SALUD" in ocupacion.upper()):
-            return f"{grupo_blanco} ({categoria})"
-
-        if comorbilidades_activas and "comorbilidades" in gb_lower:
-            if "5 a 8 años" in gb_lower and 5 <= edad_anos <= 8:
-                return f"{grupo_blanco} ({categoria})"
-            elif "9 a 59 años" in gb_lower and 9 <= edad_anos <= 59:
-                return f"{grupo_blanco} ({categoria})"
-            elif "6 meses a 59 años" in gb_lower and 0.5 <= edad_anos <= 59:
-                return f"{grupo_blanco} ({categoria})"
-
-    return determinar_grupo_sugerido_fallback(biologico, edad_meses, edad_anos, gestante, ocupacion, comorbilidades_activas)
-
-
-def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_anos, personas_gestantes, ocupacion, tiene_comorbilidades):
-    is_personal_salud = "PERSONAL DE SALUD" in ocupacion.upper()
-    is_colectivo_riesgo = is_personal_salud or ocupacion in [
-        "PERSONAL DE GUARDERÍAS, CENDI O ESTANCIAS INFANTILES",
-        "RESIDENTES Y PERSONAL DE CENTROS DE ASISTENCIA SOCIAL (CENTROS DE RECLUSIÓN Y/O READAPTACIÓN SOCIAL)",
-        "PERSONAL MILITAR", "TRABAJADORES ACTIVOS DE PLATAFORMAS MARÍTIMAS Y REFINERÍAS (PEMEX)",
-    ]
-
-    if 6 <= edad_total_meses <= 18:
-        rango_grupo_blanco = "6 a 18 meses"
-    elif 19 <= edad_total_meses <= 59:
-        rango_grupo_blanco = "19 a 59 meses"
-    elif calc_anos >= 60:
-        rango_grupo_blanco = "60 años y mas"
-    else:
-        rango_grupo_blanco = "Población General"
-
-    if vacuna_interes in ["COVID-19", "AMBAS"]:
-        if 6 <= edad_total_meses <= 59:
-            return "6 A 59 MESES (VACUNACIÓN RUTINARIA / PRIMARIO) [Población Objetivo]"
-        elif personas_gestantes == "SÍ":
-            return "PERSONAS GESTANTES [Población de Riesgo]"
-        elif calc_anos >= 60:
-            return f"{rango_grupo_blanco} (Población Objetivo)"
-        elif is_personal_salud:
-            return "PERSONAL DE SALUD [Población de Riesgo]"
-        elif tiene_comorbilidades:
-            return "COMORBILIDADES DE RIESGO (6 MESES A 59 AÑOS) [Población de Riesgo]"
-        else:
-            return f"{rango_grupo_blanco} (Población Objetivo)"
-    else:
-        if 6 <= edad_total_meses <= 59:
-            return "POBLACIÓN PEDIÁTRICA (6 A 59 MESES) [Población Objetivo]"
-        elif personas_gestantes == "SÍ":
-            return "PERSONAS GESTANTES [Población de Riesgo]"
-        elif is_personal_salud:
-            return "PERSONAL DE SALUD [Población de Riesgo]"
-        elif is_colectivo_riesgo:
-            return f"{ocupacion} [Población de Riesgo]"
-        elif calc_anos >= 60:
-            return f"{rango_grupo_blanco} (Población Objetivo)"
-        elif tiene_comorbilidades:
-            return "POBLACIÓN CON COMORBILIDADES (5 A 59 AÑOS) [Población de Riesgo]"
-        else:
-            return f"{rango_grupo_blanco} (Población Objetivo)"
-
-
-def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
+def cargar_guias_censia():
+    """Conecta con el documento CENSIA en la nube y extrae de forma limpia
+    las guías de Influenza y COVID, propagando valores en celdas combinadas (Columnas A a H).
     """
-    Formato solicitado con guiones: Fecha YYYYMMDD - INT/EXT - 3 letras de unidad - 4 dígitos consecutivos (iniciando en 0001)
-    Ejemplo: 20261011-INT-20N-0001
-    Lee directamente los valores de la Columna B (columna 2) de la hoja de Google Sheets para respetar la continuidad real.
-    """
-    fecha_str = val_fecha_app.strftime("%Y%m%d")
-    mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
-    siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
-    
-    consecutivo_num = 1
+    guia_influenza_registros = []
+    guia_covid_registros = []
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
+        scope = GOOGLE_SCOPES
+        if "GOOGLE_CREDENTIALS" in st.secrets:
+            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+        elif "gpex" in st.secrets:
+            creds_dict = dict(st.secrets["gpex"])
         else:
-            gc = gspread.oauth()
-            
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
-        
-        worksheet = None
+            primera_llave = list(st.secrets.keys())[0]
+            creds_dict = dict(st.secrets[primera_llave])
+
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict, scopes=scope
+        )
+        client = gspread.authorize(creds)
+
+        sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
+        doc_censia = client.open_by_key(sheet_censia_id)
+
+        # --- Hoja 1: Influenza ---
         try:
-            worksheet = sh.worksheet(nombre_tabla)
+            ws_inf = doc_censia.worksheet("Influenza")
+            filas_inf = ws_inf.get_all_values()
+            v_vac, v_cat, v_esq, v_dos, v_int, v_rec, v_sim = ("", "", "", "", "", "", "")
+            for row in filas_inf[1:]:
+                if len(row) >= 8:
+                    if row[0].strip():
+                        v_vac = row[0].strip()
+                    if row[1].strip():
+                        v_cat = row[1].strip()
+                    if row[3].strip():
+                        v_esq = row[3].strip()
+                    if row[4].strip():
+                        v_dos = row[4].strip()
+                    if row[5].strip():
+                        v_int = row[5].strip()
+                    if row[6].strip():
+                        v_rec = row[6].strip()
+                    if row[7].strip():
+                        v_sim = row[7].strip()
+
+                    guia_influenza_registros.append({
+                        "vacuna": v_vac,
+                        "categoria": v_cat,
+                        "grupos_blancos": row[2].strip(),
+                        "esquema": v_esq,
+                        "dosis": v_dos,
+                        "intervalo": v_int,
+                        "recomendacion": v_rec,
+                        "aplicacion_simultanea": v_sim,
+                    })
         except Exception:
-            # Si no encuentra la pestaña por fecha, toma la primera pestaña activa del libro
-            worksheet = sh.get_worksheet(0)
+            pass
 
-        if worksheet:
-            # Extraer toda la Columna B (columna 2) para evaluar los folios existentes de forma directa
-            columna_b = worksheet.col_values(2)
-            max_consecutivo = 0
-            
-            for valor in columna_b:
-                folio_existente = str(valor).strip()
-                if "-" in folio_existente:
-                    try:
-                        partes = folio_existente.split("-")
-                        num_str = "".join([c for c in partes[-1] if c.isdigit()])
-                        if num_str:
-                            num_actual = int(num_str)
-                            if num_actual > max_consecutivo:
-                                max_consecutivo = num_actual
-                    except ValueError:
-                        pass
-            
-            if max_consecutivo > 0:
-                consecutivo_num = max_consecutivo + 1
-            else:
-                # Si la columna B tiene datos pero no guiones, usamos el conteo de filas menos la cabecera
-                total_filas = len(columna_b)
-                consecutivo_num = max(1, total_filas)
-    except Exception:
-        consecutivo_num = 1
-    
-    secuencial_str = str(consecutivo_num).zfill(4)
-    return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
+        # --- Hoja 2: COVID ---
+        try:
+            ws_cov = doc_censia.worksheet("COVID")
+            filas_cov = ws_cov.get_all_values()
+            c_vac, c_cat, c_esq, c_dos, c_int, c_rec, c_sim = ("", "", "", "", "", "", "")
+            for row in filas_cov[1:]:
+                if len(row) >= 8:
+                    if row[0].strip():
+                        c_vac = row[0].strip()
+                    if row[1].strip():
+                        c_cat = row[1].strip()
+                    if row[3].strip():
+                        c_esq = row[3].strip()
+                    if row[4].strip():
+                        c_dos = row[4].strip()
+                    if row[5].strip():
+                        c_int = row[5].strip()
+                    if row[6].strip():
+                        c_rec = row[6].strip()
+                    if row[7].strip():
+                        c_sim = row[7].strip()
+
+                    guia_covid_registros.append({
+                        "tipo_vacuna": c_vac,
+                        "categoria": c_cat,
+                        "grupos_blancos": row[2].strip(),
+                        "esquema": c_esq,
+                        "dosis": c_dos,
+                        "intervalo": c_int,
+                        "recomendacion": c_rec,
+                        "aplicacion_simultanea": c_sim,
+                    })
+        except Exception:
+            pass
+
+    except Exception as e:
+        st.error(f"Error al conectar con las guías CENSIA: {e}")
+
+    return guia_influenza_registros, guia_covid_registros
 
 
-@st.cache_data(ttl=300)
-def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
+def obtener_recomendaciones_paciente(
+    categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses=0, antecedente_vacunal="NO"
+):
+    """Cruza los datos del paciente con las guías CENSIA evaluando con precisión
+    la edad en meses, antecedentes, comorbilidades y restricciones de biológicos (Pfizer >= 12 años).
+    """
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        if "gcp_service_account" in st.secrets:
-            credentials = Credentials.from_service_account_info(
-                dict(st.secrets["gcp_service_account"]), scopes=scopes
-            )
-            gc = gspread.authorize(credentials)
-        else:
-            gc = gspread.oauth()
-            
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
-        if sufijo_js:
-            nombre_tabla += f"_{sufijo_js}"
-            
-        worksheet = sh.worksheet(nombre_tabla)
-        return worksheet.get_all_records()
-    except Exception:
-        return []
+        guia_inf, guia_cov = cargar_guias_censia()
 
+        matches_inf = []
+        matches_cov = []
 
-def verificar_curp_duplicada(curp_actual, sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
-    if not curp_actual or len(curp_actual) < 10 or "COMPLETA" in curp_actual:
-        return False, None
-        
-    prefijo_actual = curp_actual[:10].upper()
-    registros = obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app)
-    
-    for reg in registros:
-        curp_registrada = str(reg.get("CURP", reg.get("curp_con_nacimiento", ""))).upper()
-        if curp_registrada and curp_registrada[:10] == prefijo_actual:
-            folio_existente = reg.get("Folio", reg.get("folio", "DESCONOCIDO"))
-            return True, folio_existente
-            
-    return False, None
+        mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
+        mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
+
+        riesgos_up = [r.upper() for r in lista_riesgos_detectados]
+        es_embarazada = any("EMBARAZ" in r for r in riesgos_up)
+        es_personal_salud = any("SALUD" in r for r in riesgos_up)
+        tiene_vih = any("VIH" in r for r in riesgos_up)
+        tiene_comorbilidades = len(riesgos_up) > 0
+
+        # ==========================================
+        # 1. FILTRADO INFLUENZA
+        # ==========================================
+        if mostrar_influenza:
+            for item in guia_inf:
+                cat = item["categoria"].strip().upper()
+                gb = item["grupos_blancos"].strip().upper()
+                dosis = item["dosis"].strip().upper()
+                
+                es_match = False
+
+                if "POBLACIÓN OBJETIVO" in cat:
+                    if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
+                        if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                            es_match = True
+                        elif antecedente_vacunal == "SI" and ("ANUAL" in dosis or "SEGUNDA" in dosis):
+                            es_match = True
+                    elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
+                        if antecedente_vacunal == "NO" and "PRIMERA" in dosis:
+                            es_match = True
+                        elif antecedente_vacunal == "SI" and ("ANUAL" in dosis or "SEGUNDA" in dosis):
+                            es_match = True
+                    elif edad_meses >= 720 and "60 AÑOS Y MAS" in gb:
+                        es_match = True
+
+                elif "POBLACIÓN DE RIESGO" in cat:
+                    if es_embarazada and "GESTANTES" in gb:
+                        es_match = True
+                    elif es_personal_salud and "PERSONAL DE SALUD" in gb:
+                        es_match = True
+                    elif tiene_comorbilidades or tiene_vih:
+                        if (9 <= edad_meses < 720) and "9 A 59 AÑOS" in gb:
+                            es_match = True
+                        elif (5 <= edad_meses < 9) and "5 A 8 AÑOS" in gb:
+                            es_match = True
+
+                if es_match and item not in matches_inf:
+                    matches_inf.append(item)
+
+        # ==========================================
+        # 2. FILTRADO COVID-19 (Moderna y Pfizer)
+        # ==========================================
+        if mostrar_covid:
+            for item in guia_cov:
+                vac_tipo = item["tipo_vacuna"].strip().upper()
+                cat = item["categoria"].strip().upper()
+                gb = item["grupos_blancos"].strip().upper()
+
+                es_match = False
+
+                # Restricción estricta CENSIA: Pfizer es exclusivamente para >= 12 años (144 meses)
+                if "PFIZER" in vac_tipo and edad_meses < 144:
+                    continue
+
+                if "POBLACIÓN OBJETIVO" in cat:
+                    if "MODERNA" in vac_tipo:
+                        if 6 <= edad_meses <= 18 and "6 A 18 MESES" in gb:
+                            es_match = True
+                        elif 19 <= edad_meses <= 59 and "19 A 59 MESES" in gb:
+                            es_match = True
+                        elif 60 <= edad_meses <= 131 and "5 A 11 AÑOS" in gb:
+                            es_match = True
+                        elif edad_meses >= 144 and "12 AÑOS" in gb:
+                            es_match = True
+                    elif "PFIZER" in vac_tipo:
+                        if edad_meses >= 144 and "12 AÑOS" in gb:
+                            es_match = True
+
+                elif "POBLACIÓN DE RIESGO" in cat:
+                    if es_embarazada and "GESTANTES" in gb:
+                        es_match = True
+                    elif es_personal_salud and "PERSONAL DE SALUD" in gb:
+                        es_match = True
+                    elif edad_meses >= 720 and "60 AÑOS O MÁS" in gb:
+                        es_match = True
+                    elif (tiene_comorbilidades or tiene_vih) and "COMORBILIDADES" in gb:
+                        if 6 <= edad_meses < 720:
+                            es_match = True
+
+                if es_match and item not in matches_cov:
+                    matches_cov.append(item)
+
+        return matches_inf, matches_cov
+
+    except Exception as e:
+        st.error(f"Error al procesar recomendaciones: {e}")
+        return [], []
