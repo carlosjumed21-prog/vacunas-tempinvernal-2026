@@ -304,7 +304,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN: DINÁMICA, RÁPIDA Y SINCRONIZADA ---
+# --- ACCIÓN DE ELIMINACIÓN: VISTA PREVIA Y GOOGLE SHEETS EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -323,10 +323,10 @@ if btn_eliminar:
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # 1. Actualizar de inmediato la sesión para que la vista previa se limpie al instante
+            # 1. Actualizar el estado en sesión inmediatamente para que desaparezca de la vista previa al instante
             st.session_state[key_estado_filas] = filas_actualizadas
 
-            # 2. Sincronización rápida con Google Sheets por detrás
+            # 2. Conectar y eliminar las filas en Google Sheets de forma ordenada
             client = obtener_cliente_gspread()
             spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
             ws = spreadsheet.worksheet(hoja_activa_tabla)
@@ -338,7 +338,7 @@ if btn_eliminar:
                 except Exception:
                     pass
 
-            # Reordenar contadores de folios de forma eficiente
+            # 3. Reordenar los contadores de folios en la hoja
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
@@ -356,7 +356,8 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-            # 3. Refresco dinámico instantáneo
+            # 4. Refrescar la pantalla de inmediato para mostrar el resultado limpio
+            st.success("✅ ¡Eliminado de la vista previa y de Google Sheets con éxito!")
             st.rerun()
 
         except Exception as e:
