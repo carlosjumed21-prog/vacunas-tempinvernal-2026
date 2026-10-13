@@ -121,7 +121,7 @@ def procesar_guardado_aplicacion(
                     "startRowIndex": f_actual - 1, 
                     "endRowIndex": f_siguiente,        
                     "startColumnIndex": 0,            
-                    "endColumnIndex": 43              
+                    "endColumnIndex": 50            # <- Cambiado a 50 para que abarque hasta la columna AX
                 },
                 "cell": {
                     "userEnteredFormat": {
