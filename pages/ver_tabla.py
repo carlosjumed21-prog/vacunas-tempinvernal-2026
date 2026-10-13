@@ -325,7 +325,9 @@ def render_seccion_tabla_interactiva():
                     st.session_state["header1"] = header1_new
                     st.session_state["header2"] = header2_new
                     st.session_state["active_sheet"] = hoja_activa_tabla
-                    safe_rerun(scope="fragment")
+                    if "editor_tabla_censo" in st.session_state:
+                        del st.session_state["editor_tabla_censo"]
+                    safe_rerun()
             except Exception as e:
                 st.error(f"Error al recargar: {e}")
 
