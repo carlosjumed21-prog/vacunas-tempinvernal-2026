@@ -22,6 +22,13 @@ st.markdown(
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
         label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
         input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
+
+        /* Ocultar pantallas translúcidas y widgets de carga molestos */
+        .stStatusWidget, div[role="status"], .stSpinner, .stLoading,
+        [data-testid="stAppViewContainer"] > div[role="status"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -32,7 +39,7 @@ st.markdown(
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread utilizando el método nativo para diccionarios."""
+    """Cachea el cliente de gspread utilizando autenticación segura por credenciales de servicio."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,8 +50,8 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+    return gspread.authorize(credentials)
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
