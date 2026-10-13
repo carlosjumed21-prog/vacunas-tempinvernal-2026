@@ -103,14 +103,12 @@ def load_sheet_minimal(spreadsheet, worksheet_name):
         if last_idx < 14:
             return [], [], [], worksheet
 
-        # Asegurar que la cantidad de filas de datos a partir de la 14 sea par 
-        # (ya que cada paciente ocupa exactamente 2 filas: 1 par de filas).
         filas_data_count = last_idx - 13
         if filas_data_count % 2 != 0:
             last_idx += 1
 
-        range_headers_1 = f"A12:AX12"
-        range_headers_2 = f"A13:AX13"
+        range_headers_1 = "A12:AX12"
+        range_headers_2 = "A13:AX13"
         range_data = f"A14:AX{last_idx}"
 
         header1_rows = worksheet.get(range_headers_1)
@@ -394,4 +392,3 @@ def render_seccion_tabla_interactiva():
             st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
 
 render_seccion_tabla_interactiva()
-```[cite: 1]
