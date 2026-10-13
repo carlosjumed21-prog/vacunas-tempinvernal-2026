@@ -7,8 +7,8 @@ import urllib.parse
 
 def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
     """
-    Envía por correo el Ticket Digital de Registro o el Comprobante Oficial,
-    con manejo robusto de excepciones y soporte SMTP seguro.
+    Envía por correo el Ticket Digital de Registro (tipo='folio') o el Comprobante Oficial (tipo='comprobante'),
+    unificando ambas versiones en una sola función reutilizable.
     """
     if not destinatario_email or "@" not in destinatario_email:
         return False, "⚠️ El correo electrónico del destinatario no es válido o está vacío."
@@ -25,7 +25,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg['From'] = remitente_email
     msg['To'] = destinatario_email.strip()
     
-    # Textos y estilos diferenciados según el tipo de correo
+    # Configuración dinámica según el tipo solicitado
     if tipo == "comprobante":
         msg['Subject'] = "COMPROBANTE DE VACUNACIÓN OFICIAL - VIGILE"
         titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
@@ -34,7 +34,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         leyenda_inferior = ""
         color_borde = "#1e5b4f"
         color_marca = "rgba(30, 91, 79, 0.08)"
-    else:
+    else:  # Por defecto actúa como el ticket del formulario ("folio")
         msg['Subject'] = "TICKET DIGITAL DE REGISTRO - VIGILE"
         titulo_tarjeta = "FOLIO DE VACUNACION REGISTRADO"
         texto_marca_agua = "NO ES UN COMPROBANTE OFICIAL"
@@ -55,7 +55,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     )
     url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(texto_qr)}"
 
-    # HTML idéntico al componente visual del ticket digital
+    # HTML unificado adaptativo
     html_cuerpo = f"""
     <!DOCTYPE html>
     <html>
@@ -183,11 +183,11 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
                 <div class="info-container">
                     <p class="info-text"><b>Paciente:</b> {nombre_paciente}</p>
                     <p class="info-text"><b>Vacuna:</b> {dosis_str}</p>
-                    <p class="info-text"><b>Grupo:</b> {lotes_str}</p>
+                    <p class="info-text"><b>Grupo/Lotes:</b> {lotes_str}</p>
                     <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
                 </div>
                 <div class="qr-container">
-                    <img src="{url_qr_api}" alt="Código QR Ticket Digital">
+                    <img src="{url_qr_api}" alt="Código QR Comprobante">
                 </div>
             </div>
             <div class="folio-grande">Folio: {folio}</div>
@@ -200,20 +200,18 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg.attach(MIMEText(html_cuerpo, 'html'))
         
     try:
-        # Intento de envío por SSL (Puerto 465 por defecto)
         if smtp_port == 465:
             servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
             servidor.login(remitente_email, remitente_password)
             servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
             servidor.quit()
         else:
-            # Intento de envío por TLS (Puerto 587 por defecto)
             servidor = smtplib.SMTP(smtp_server, smtp_port)
             servidor.starttls()
             servidor.login(remitente_email, remitente_password)
             servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
             servidor.quit()
 
-        return True, "¡Comprobante visual enviado por correo exitosamente!"
+        return True, "¡Correo enviado exitosamente!"
     except Exception as e:
         return False, f"Error en el servidor SMTP: {str(e)}"
