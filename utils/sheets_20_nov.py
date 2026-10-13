@@ -172,7 +172,7 @@ def guardar_registro_censal(
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
     en la hoja nominal duplicada y en la hoja de censo correspondiente,
-    mapeando todos los campos laborales, de derechohabiencia y comorbilidades.
+    mapeando todos los campos laborales, derechohabiencia, comorbilidades y antecedentes.
     """
     try:
         client = obtener_cliente_gspread()
@@ -222,6 +222,12 @@ def guardar_registro_censal_20_nov(datos_paciente):
         folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(num_nom).zfill(3)}"
 
         comorb = datos_paciente.get("comorbilidades", {})
+        
+        # Extracción de antecedentes vacunales y vacuna de interés
+        ant_inf_val = datos_paciente.get("antecedente_influenza", "")
+        ant_cov_val = datos_paciente.get("antecedente_covid", "")
+        vacuna_int = datos_paciente.get("vacuna_interes", "").upper()
+
         updates_hoja1 = [
             {"range": "D7", "values": [["CDMX"]]},
             {"range": "M7", "values": [["ISSSTE"]]},
@@ -245,9 +251,23 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"N{fila_nom}:N{fila_nom+1}", "values": [[datos_paciente.get('numero','').upper()], [datos_paciente.get('numero','').upper()]]},
             {"range": f"O{fila_nom}:O{fila_nom+1}", "values": [[datos_paciente.get('colonia','').upper()], [datos_paciente.get('colonia','').upper()]]},
             {"range": f"C{fila_nom+1}", "values": [[datos_paciente.get('curp_con_nacimiento','')]]},
-            {"range": f"AN{fila_nom}:AN{fila_nom+1}", "values": [[datos_paciente.get('cuenta_derechohabiencia', 'SÍ')], [datos_paciente.get('cuenta_derechohabiencia', 'SÍ')]]},
+            
+            # --- Mapeos solicitados (AQ, AR, AS, AT, AU, AV, AW, AX) ---
+            {"range": f"AQ{fila_nom}:AQ{fila_nom+1}", "values": [[datos_paciente.get('cuenta_derechohabiencia', 'SÍ')], [datos_paciente.get('cuenta_derechohabiencia', 'SÍ')]]},
+            {"range": f"AR{fila_nom}:AR{fila_nom+1}", "values": [[ant_inf_val], [ant_inf_val]]},
+            {"range": f"AS{fila_nom}:AS{fila_nom+1}", "values": [[ant_cov_val], [ant_cov_val]]},
+            {"range": f"AW{fila_nom}:AW{fila_nom+1}", "values": [[datetime.date.today().strftime("%d/%m/%Y")], [datetime.date.today().strftime("%d/%m/%Y")]]},
+            {"range": f"AX{fila_nom}:AX{fila_nom+1}", "values": [[datos_paciente.get('correo_paciente', '')], [datos_paciente.get('correo_paciente', '')]]},
         ]
         
+        # Mapeo condicional para Vacuna de Interés (AT, AU, AV)
+        if vacuna_int in ["INFLUENZA", "AMBAS"]:
+            updates_hoja1.append({"range": f"AT{fila_nom}:AT{fila_nom+1}", "values": [["X"], ["X"]]})
+        if vacuna_int in ["COVID-19", "AMBAS"]:
+            updates_hoja1.append({"range": f"AU{fila_nom}:AU{fila_nom+1}", "values": [["X"], ["X"]]})
+        if vacuna_int == "AMBAS":
+            updates_hoja1.append({"range": f"AV{fila_nom}:AV{fila_nom+1}", "values": [["X"], ["X"]]})
+
         if int(datos_paciente['anos']) < 5:
             updates_hoja1.append({"range": f"P{fila_nom}:P{fila_nom+1}", "values": [["X"], ["X"]]})
         elif int(datos_paciente['anos']) >= 60:
