@@ -82,7 +82,7 @@ if not filas_tabla:
     st.stop()
 
 
-# --- CONSTRUCCIÓN DEL DATASET Y MÉTRICAS VECTORIZADAS ---
+# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO DE COLUMNAS A-L / AG-AQ ---
 def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
@@ -130,6 +130,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
+        # Métricas calculadas con la fila completa (por detrás)
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
 
@@ -159,12 +160,22 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-        fila_v1 = [False] + list(f1_adj[:len(encabezados_combinados)])
-        fila_v2 = [None] + list(f2_adj[:len(encabezados_combinados)])
+        # DEFINIR LAS COLUMNAS A MOSTRAR: A-L (0 al 11) y AG-AQ (32 al 42)
+        indices_deseados = list(range(0, 12)) + list(range(32, 43))
+
+        f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
+        f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
+
+        fila_v1 = [False] + f1_filtrado
+        fila_v2 = [None] + f2_filtrado
 
         filas_procesadas.append(fila_v1)
         filas_procesadas.append(fila_v2)
         mapeo_indices_pares.append(i)
+
+    # Filtrar también los encabezados combinados para la vista
+    indices_deseados = list(range(0, 12)) + list(range(32, 43))
+    encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
 
     metricas = {
         "total_censo_registros": total_censo_registros,
@@ -177,7 +188,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         "total_simultaneas": total_simultaneas,
     }
 
-    return encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
+    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
@@ -241,7 +252,7 @@ with col_del:
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO AISLADO PARA LA TABLA ---
+# --- FRAGMENTO AISLADO PARA LA TABLA (Más ligera al mostrar solo columnas seleccionadas) ---
 @st.fragment
 def render_tabla_con_estilos():
     def color_filas_completas(row):
@@ -273,7 +284,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN CON ACTUALIZACIÓN INSTANTÁNEA EN VISTA PREVIA ---
+# --- ACCIÓN DE ELIMINACIÓN ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -296,10 +307,8 @@ if btn_eliminar:
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # 1. Actualizar la sesión inmediatamente para que la vista previa refleje el cambio al instante
             st.session_state[key_estado_filas] = filas_actualizadas
 
-            # 2. Sincronizar la eliminación en Google Sheets de fondo
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
             with st.spinner("🗑️ Actualizando Google Sheets..."):
                 for fila_gs in filas_gs_a_borrar:
@@ -308,7 +317,6 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-                # Reordenar contadores de folios en Google Sheets
                 datos_actualizados = ws.get_all_values()
                 if len(datos_actualizados) >= 14:
                     filas_actuales = datos_actualizados[13:]
@@ -326,8 +334,10 @@ if btn_eliminar:
                         except Exception:
                             pass
 
-            # 3. Limpiar caché global y forzar el redibujado instantáneo de la app
             st.cache_data.clear()
+            if key_estado_filas in st.session_state:
+                del st.session_state[key_estado_filas]
+
             st.success("✅ ¡Paciente(s) eliminado(s) y vista previa actualizada en tiempo real!")
             st.rerun()
         except Exception as e:
