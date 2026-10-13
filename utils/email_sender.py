@@ -1,14 +1,18 @@
-# utils/email_sender.py
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 import streamlit as st
 import urllib.parse
 import traceback
 
-def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", folio="S/F", dosis_str="VACUNA", lotes_str="S/N", fecha_val="", tipo="folio"):
+def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", folio="S/F",
+                             dosis_str="VACUNA", lotes_str="S/N", fecha_val="", tipo="folio",
+                             debug=False):
     """
-    Envía por correo el Ticket Digital o Comprobante Oficial con captura total de errores SMTP.
+    Envía por correo el Ticket Digital o Comprobante Oficial con registro extendido de errores.
+    Devuelve (bool, mensaje). En caso de error el segundo valor incluye detalle.
     """
     if not destinatario_email or "@" not in destinatario_email:
         return False, f"⚠️ Correo inválido: '{destinatario_email}'"
@@ -28,27 +32,23 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", fo
         error_msg = f"⚠️ Falta configurar la credencial de correo en los secretos (KeyError: {e})."
         st.error(error_msg)
         return False, error_msg
-    
+
     msg = MIMEMultipart('alternative')
-    msg['From'] = remitente_email
-    msg['To'] = destinatario_email.strip()
-    
+    msg['From'] = formataddr(("Vigile", remitente_email))
+    # Si hay múltiples destinatarios separados por coma, soportarlos:
+    destinatarios = [d.strip() for d in destinatario_email.split(",") if d.strip()]
+    msg['To'] = ", ".join(destinatarios)
+
     if tipo == "comprobante":
         msg['Subject'] = "COMPROBANTE DE VACUNACIÓN OFICIAL - VIGILE"
         titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
-        texto_marca_agua = "COMPROBANTE OFICIAL VIGILE"
         texto_qr_header = "ISSSTE - COMPROBANTE OFICIAL VIGILE"
-        leyenda_inferior = ""
         color_borde = "#1e5b4f"
-        color_marca = "rgba(30, 91, 79, 0.08)"
     else:
         msg['Subject'] = "TICKET DIGITAL DE REGISTRO - VIGILE"
         titulo_tarjeta = "FOLIO DE VACUNACION REGISTRADO"
-        texto_marca_agua = "NO ES UN COMPROBANTE OFICIAL"
         texto_qr_header = "ISSSTE - REGISTRO DE FOLIO VIGILE"
-        leyenda_inferior = "Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial."
         color_borde = "#1e5b4f"
-        color_marca = "rgba(97, 18, 50, 0.12)"
 
     texto_qr = (
         f"{texto_qr_header}\n"
@@ -78,25 +78,41 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", fo
     </body>
     </html>
     """
-    
     msg.attach(MIMEText(html_cuerpo, 'html'))
-        
-    try:
-        print(f"DEBUG: Intentando conectar a {smtp_server}:{smtp_port} con usuario {remitente_email}...")
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port) as servidor:
-                servidor.login(remitente_email, remitente_password)
-                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port) as servidor:
-                servidor.starttls()
-                servidor.login(remitente_email, remitente_password)
-                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
 
-        print("DEBUG: ¡Correo enviado con éxito!")
+    context = ssl.create_default_context()
+
+    try:
+        if debug:
+            print(f"DEBUG: Intentando conectar a {smtp_server}:{smtp_port} con usuario {remitente_email}...")
+        # Manejo explícito para 465 (SSL) y 587 (STARTTLS). Otros puertos intentan SSL por defecto.
+        if smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=15) as servidor:
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatarios, msg.as_string())
+        else:
+            # Usa STARTTLS (puerto típico 587). Ehlo/starttls/ehlo pattern.
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as servidor:
+                servidor.ehlo()
+                try:
+                    servidor.starttls(context=context)
+                    servidor.ehlo()
+                except Exception as tls_err:
+                    # Si starttls falla, capturarlo y devolver detalle.
+                    raise RuntimeError(f"Fallo STARTTLS: {tls_err}")
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatarios, msg.as_string())
+
+        if debug:
+            print("DEBUG: ¡Correo enviado con éxito!")
         return True, "¡Correo enviado exitosamente!"
+    except smtplib.SMTPAuthenticationError as auth_err:
+        detalle = traceback.format_exc()
+        st.error("❌ Error de autenticación SMTP. Verifica usuario/contraseña (usa App Password si corresponde).")
+        return False, f"SMTPAuthenticationError: {auth_err}\n{detalle}"
     except Exception as e:
         detalle_error = traceback.format_exc()
-        print(f"ERROR CRÍTICO SMTP:\n{detalle_error}")
+        if debug:
+            print(f"ERROR CRÍTICO SMTP:\n{detalle_error}")
         st.error(f"❌ Error detallado al enviar correo: {str(e)}")
-        return False, f"Error SMTP: {str(e)}"
+        return False, f"Error SMTP: {str(e)}\n{detalle_error}"
