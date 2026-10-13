@@ -1,12 +1,12 @@
-# utils/sheets_20_nov.py
 import datetime
 import json
+from google.oauth2 import service_account
 import gspread
 import streamlit as st
 from config import GOOGLE_SCOPES
 
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread utilizando los secretos del proyecto de forma nativa y segura."""
+    """Autentica y retorna el cliente de gspread utilizando los secretos del proyecto."""
     scope = GOOGLE_SCOPES
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -19,10 +19,10 @@ def obtener_cliente_gspread():
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
-    return gspread.service_account_from_dict(creds_dict, scopes=scope)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=scope
+    )
+    return gspread.authorize(creds)
 
 def guardar_registro_censal(
     sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
@@ -171,7 +171,8 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja nominal duplicada y en la hoja de censo correspondiente.
+    en la hoja nominal duplicada y en la hoja de censo correspondiente,
+    mapeando todos los campos laborales, de derechohabiencia y comorbilidades.
     """
     try:
         client = obtener_cliente_gspread()
@@ -183,7 +184,9 @@ def guardar_registro_censal_20_nov(datos_paciente):
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
         tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
         
-        nombre_hoja_nominal = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_NOMINAL"
+        siglas_unidad = st.session_state.get("siglas_unidad", "20N")
+        sufijo_js = st.session_state.get("sufijo_js", "")
+        nombre_hoja_nominal = f"{siglas_unidad}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}_NOMINAL"
 
         # --- 1. ESCRITURA EN LA HOJA NOMINAL DINÁMICA (DUPLICADA) ---
         try:
@@ -195,7 +198,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
                 plantilla_1 = spreadsheet.worksheet("CENSO")
             ws_nominal = spreadsheet.duplicate_sheet(
                 plantilla_1.id, 
-                insert_sheet_index=0, 
+                insert_sheet_index=len(spreadsheet.worksheets()), 
                 new_sheet_name=nombre_hoja_nominal
             )
 
@@ -215,7 +218,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         num_nom = ((fila_nom - 14) // 2) + 1
         aammmdd = val_fecha_app.strftime("%y%m%d")
-        siglas_unidad = st.session_state.get("siglas_unidad", "20N")
         sigla_url = siglas_unidad
         folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(num_nom).zfill(3)}"
 
@@ -269,7 +271,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         ws_nominal.batch_update(updates_hoja1)
 
         # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR ---
-        nombre_hoja_censo = f"20N_{tipo_texto_jornada}_{fecha_str_hoja}_CENSO"
+        nombre_hoja_censo = f"{siglas_unidad}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}_CENSO"
         try:
             ws_censo = spreadsheet.worksheet(nombre_hoja_censo)
         except:
@@ -282,7 +284,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
                     plantilla_censo = ws_nominal
                 ws_censo = spreadsheet.duplicate_sheet(
                     plantilla_censo.id, 
-                    insert_sheet_index=1, 
+                    insert_sheet_index=len(spreadsheet.worksheets()), 
                     new_sheet_name=nombre_hoja_censo
                 )
 
@@ -298,27 +300,27 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         consecutivo_censo = fila_censo - 13
 
-        ps_val = "SI" if comorb.get("personal_salud_riesgo", False) else "NO"
-        emb_val = "SI" if comorb.get("personas_embarazadas", False) else "NO"
+        ps_val = "SÍ" if datos_paciente.get("personal_salud") == "SÍ" else "NO"
+        emb_val = "SÍ" if datos_paciente.get("embarazo") == "SÍ" else "NO"
 
         updates_censo = [
             {"range": f"A{fila_censo}", "values": [[consecutivo_censo]]},
             {"range": f"B{fila_censo}", "values": [[folio_asignado]]},
             {"range": f"C{fila_censo}", "values": [[datos_paciente.get("rfc", "")]]},
             {"range": f"D{fila_censo}", "values": [[datos_paciente.get("cuenta_derechohabiencia", "SÍ")]]},
-            {"range": f"E{fila_censo}", "values": [["TRABAJADOR"]]},
-            {"range": f"F{fila_censo}", "values": [["SÍ"]]},
-            {"range": f"G{fila_censo}", "values": [[""]]},
+            {"range": f"E{fila_censo}", "values": [[datos_paciente.get("tipo_dh", "TRABAJADOR")]]},
+            {"range": f"F{fila_censo}", "values": [[datos_paciente.get("trabaja_cmn", "SÍ")]]},
+            {"range": f"G{fila_censo}", "values": [[datos_paciente.get("num_trabajador", "")]]},
             {"range": f"H{fila_censo}", "values": [[ps_val]]},
-            {"range": f"I{fila_censo}", "values": [[datos_paciente.get("ocupacion", "")]]},
-            {"range": f"J{fila_censo}", "values": [[""]]},
-            {"range": f"K{fila_censo}", "values": [[""]]},
-            {"range": f"L{fila_censo}", "values": [["M"]]},
+            {"range": f"I{fila_censo}", "values": [[datos_paciente.get("categoria", "")]]},
+            {"range": f"J{fila_censo}", "values": [[datos_paciente.get("servicio", "")]]},
+            {"range": f"K{fila_censo}", "values": [[datos_paciente.get("coordinacion", "")]]},
+            {"range": f"L{fila_censo}", "values": [[datos_paciente.get("turno", "")]]},
             {"range": f"M{fila_censo}", "values": [[datos_paciente["nombres"].upper()]]},
             {"range": f"N{fila_censo}", "values": [[datos_paciente["paterno"].upper()]]},
             {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente.get("materno") else ""]] },
             {"range": f"P{fila_censo}", "values": [[datos_paciente.get("estado_nacimiento", "CDMX")]]},
-            {"range": f"Q{fila_censo}", "values": [["CDMX"]]},
+            {"range": f"Q{fila_censo}", "values": [[datos_paciente.get("muni_nac", "CDMX")]]},
             {"range": f"R{fila_censo}", "values": [[datos_paciente["fn_dia"]]]},
             {"range": f"S{fila_censo}", "values": [[datos_paciente["fn_mes"]]]},
             {"range": f"T{fila_censo}", "values": [[datos_paciente["fn_ano"]]]},
