@@ -10,7 +10,7 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 # Aplicar configuración global unificada
 aplicar_configuracion_global("Vista Detallada de Censo", "📊")
 
-# --- OCULTAR LA BARRA SUPERIOR Y ESTILOS ---
+# --- ESTILOS LIMPIOS SIN SOLAPAMIENTOS ---
 st.markdown(
     """
     <style>
@@ -27,8 +27,7 @@ st.markdown(
         .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; }
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
-        .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
-        .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+        .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -47,11 +46,10 @@ if not hoja_activa_tabla:
 
 
 # ============================================================
-# CLIENTE GOOGLE UNIFICADO (IDÉNTICO A 2_CONSULTA_CENSIA)
+# CLIENTE GOOGLE UNIFICADO
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Autentica y retorna el cliente de gspread de forma nativa mediante service_account_from_dict."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -241,19 +239,17 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 metricas = calcular_metricas(filas_tabla)
 
 
-# --- INTERFAZ VISUAL ---
-st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+# --- INTERFAZ VISUAL ORDENADA (SIN SOLAPAMIENTOS) ---
+st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-with col_tit1:
-    st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-
-with col_tit2:
+# Botones de acción organizados con espacio suficiente para evitar cortes
+col_btn_acc1, col_btn_acc2, _ = st.columns([1.2, 1.2, 2.6])
+with col_btn_acc1:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         st.cache_data.clear()
         st.rerun()
 
-with col_tit3:
+with col_btn_acc2:
     try:
         creds = get_creds_from_secrets()
         if not creds.valid:
@@ -277,8 +273,9 @@ with col_tit3:
     except Exception as err:
         st.error(f"No se pudo descargar el archivo: {err}")
 
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
+# Métricas generales
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
 with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
@@ -289,13 +286,13 @@ with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Infl
 with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
 with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
 
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-col_btn1, _ = st.columns([2, 5])
-with col_btn1:
+col_del_btn, _ = st.columns([2, 5])
+with col_del_btn:
     btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 def color_filas_completas(row):
     if row.name in indices_filas_verdes:
