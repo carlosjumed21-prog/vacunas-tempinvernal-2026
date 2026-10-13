@@ -30,6 +30,22 @@ st.markdown(
 # ============================================================
 # NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
+@st.cache_resource
+def obtener_client_gspread_cacheado():
+    """Cachea el cliente de gspread utilizando el método nativo para diccionarios."""
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     """
@@ -61,6 +77,7 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
         return []
 
     return h_autorizadas
+
 
 @st.cache_data(ttl=120)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
