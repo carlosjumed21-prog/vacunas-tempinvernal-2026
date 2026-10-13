@@ -601,23 +601,43 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     "modalidad": st.session_state.modalidad,
                 }
 
-                folio_asignado = guardar_registro_censal(
-                    sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
-                    val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
-                )
+                # --- después de guardar en Sheets (reemplazar la sección de éxito) ---
+folio_asignado, is_duplicate, existing_folio = guardar_registro_censal(
+    sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
+    val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
+)
 
-                st.session_state["folio_proyectado_cached"] = None
+# Limpiamos token de envío en sesión
+st.session_state.pop("submission_id", None)
 
-                st.session_state.ultimo_paciente_registrado = {
-                    "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                    "curp_con_nacimiento": curp_con_nacimiento, "vacuna_interes": vacuna_interes,
-                    "grupo_objetivo": grupo_sugerido, "folio": folio_asignado,
-                    "correo_paciente": correo_paciente.strip(),
-                    "fecha_aplicacion": fecha_aplicacion_str,
-                }
-                st.session_state.enviando_registro = False
-                safe_rerun()
-            except Exception as e:
-                st.session_state.enviando_registro = False
-                st.error("⚠️ Error general al procesar el registro en Google Sheets:")
-                st.exception(e)
+fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
+
+if is_duplicate:
+    # Si guardar_registro_censal detectó que ya existía el registro (idempotencia/dedupe)
+    st.session_state.enviando_registro = False
+    st.warning(f"⚠️ Ya existe un registro para este paciente. Folio existente: {existing_folio}")
+    st.session_state.paciente_duplicado_info = {
+        "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+        "folio": existing_folio
+    }
+    # Mostrar modal de duplicado inmediatamente
+    mostrar_modal_duplicado()
+else:
+    # Éxito normal: guardamos en session_state el paciente reciente y mostramos el comprobante en esta misma ejecución
+    st.session_state.ultimo_paciente_registrado = {
+        "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+        "curp_con_nacimiento": curp_con_nacimiento,
+        "vacuna_interes": vacuna_interes,
+        "grupo_objetivo": grupo_sugerido,
+        "folio": folio_asignado,
+        "correo_paciente": correo_paciente.strip(),
+        "fecha_aplicacion": fecha_aplicacion_str,
+    }
+
+    # Liberamos el lock para permitir acciones dentro del modal (ej. enviar correo)
+    st.session_state.enviando_registro = False
+
+    # Mostrar el modal del comprobante en la misma ejecución para que el usuario lo vea inmediatamente
+    mostrar_modal_comprobante()
+
+# No forzar un rerun aquí; los botones del modal controlan el reinicio (el botón "Nuevo Registro" ya llama a safe_rerun()).
