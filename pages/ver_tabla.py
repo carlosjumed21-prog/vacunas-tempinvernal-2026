@@ -31,9 +31,20 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
         .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
-        
-        /* Ocultar la pantalla translúcida / barra de carga global molesta en recargas */
-        .stStatusWidget {visibility: hidden; display: none;}
+
+        /* Ocultar la pantalla translúcida / carga global al hacer rerun o interacciones */
+        .stStatusWidget, div[role="status"], .stSpinner, .stLoading {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        .overlay, .stApp, .main {
+            pointer-events: auto !important;
+        }
+
+        /* Evitar que el contenido se vea "parpadeante" al recargar */
+        .stMainBlockContainer {
+            transition: opacity 0.15s ease;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -72,6 +83,10 @@ if auto_refresh:
 # --------------------
 def build_cache_key(hoja):
     return f"cached_hoja_values::{hoja}"
+
+@st.cache_resource
+def get_client_cached():
+    return obtener_cliente_gspread()
 
 def get_creds_from_secrets():
     creds_dict = None
@@ -120,29 +135,39 @@ def load_sheet_minimal(spreadsheet, worksheet_name):
         st.exception(e)
         return [], [], [], None
 
+@st.cache_data(ttl=30)
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
+    client = get_client_cached()
+    spreadsheet = client.open_by_key(spreadsheet_id)
+    header1, header2, data_rows, _ = load_sheet_minimal(spreadsheet, worksheet_name)
+    return header1, header2, data_rows
+
 # --------------------
 # Carga y cache
 # --------------------
 cache_key = build_cache_key(hoja_activa_tabla)
 try:
-    client = obtener_cliente_gspread()
+    client = get_client_cached()
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
     st.stop()
 
+ws = spreadsheet.worksheet(hoja_activa_tabla)
+
 if cache_key in st.session_state:
     cached = st.session_state[cache_key]
-    header1, header2, filas_tabla, ws = cached["header1"], cached["header2"], cached["data_rows"], cached["worksheet"]
+    header1, header2, filas_tabla, ws = cached["header1"], cached["header2"], cached["data_rows"], spreadsheet.worksheet(hoja_activa_tabla)
 else:
-    header1, header2, filas_tabla, ws = load_sheet_minimal(spreadsheet, hoja_activa_tabla)
+    header1, header2, filas_tabla = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
     st.session_state[cache_key] = {
         "header1": header1,
         "header2": header2,
         "data_rows": filas_tabla,
-        "worksheet": ws,
+        "worksheet": spreadsheet.worksheet(hoja_activa_tabla),
         "loaded_at": datetime.datetime.now().isoformat()
     }
+    ws = spreadsheet.worksheet(hoja_activa_tabla)
 
 if not filas_tabla:
     st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
