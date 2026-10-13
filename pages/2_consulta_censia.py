@@ -27,7 +27,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ============================================================
 # NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
@@ -207,7 +206,7 @@ def mostrar_modal_comprobante_vacunacion():
             .info-container {{ flex: 1; z-index: 2; position: relative; }}
             .qr-container {{ text-align: center; z-index: 2; position: relative; }}
             .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
-            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; margin-top: 8px; }}
+            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; }}
             .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
             .watermark-overlay {{
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -265,7 +264,7 @@ def mostrar_modal_comprobante_vacunacion():
         # --- WIDGET DE CORREO ELECTRÓNICO DENTRO DEL MODAL (AUTOCOMPLETADO DESDE AX) ---
         st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
-        
+
         if st.button("🚀 Enviar Comprobante por Correo", use_container_width=True, key="btn_enviar_mail_modal"):
             if not correo_destino_input.strip():
                 st.warning("⚠️ Ingrese un correo electrónico válido.")
@@ -370,7 +369,7 @@ else:
         )
 
         st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>', unsafe_allow_html=True)
-        
+
         col_busq1, col_busq2 = st.columns([4, 1])
         with col_busq1:
             query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...", key="input_busqueda_lupa")
@@ -406,10 +405,6 @@ else:
                 if seleccion_paciente and not seleccion_paciente.startswith("Seleccione un paciente"):
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
-                    # resto de la lógica del archivo no se modifica
-                    # aquí puedes dejar el código que ya tenías en la versión original
-                    # sin volver a abrir Sheets ni consultar la hoja completa
-                    pass
 
                     esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
@@ -419,7 +414,7 @@ else:
                     paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
-                    
+
                     # Extracción del correo guardado en la columna AX (índice 49)
                     correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
 
@@ -438,7 +433,7 @@ else:
                         if f_hoy.day < f_nac.day:
                             edad_meses_calc -= 1
                     except:
-                        edad_meses_calc = 372 # Adulto por defecto (31 años)
+                        edad_meses_calc = 372
 
                     sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
                     curp_actual = todos_los_datos[fila_idx][2].strip() if len(todos_los_datos) > fila_idx and len(todos_los_datos[fila_idx]) > 2 else ""
@@ -466,7 +461,22 @@ else:
                     else:
                         categoria_paciente = "POBLACIÓN DE RIESGO"
 
-                    comorb_map = {17: "EMBARAZADAS", 18: "PERSONAL DE SALUD", 19: "VIH", 20: "DIABETES", 21: "OBESIDAD", 22: "CARDIOPATÍAS", 23: "ENFERMEDAD PULMONAR", 24: "CÁNCER", 25: "CONGÉNITAS", 26: "RENAL", 27: "INMUNOSUPRESIÓN", 28: "DISCAPACIDADES", 29: "FIBROSIS", 30: "HIPERTENSIÓN"}
+                    comorb_map = {
+                        17: "EMBARAZADAS",
+                        18: "PERSONAL DE SALUD",
+                        19: "VIH",
+                        20: "DIABETES",
+                        21: "OBESIDAD",
+                        22: "CARDIOPATÍAS",
+                        23: "ENFERMEDAD PULMONAR",
+                        24: "CÁNCER",
+                        25: "CONGÉNITAS",
+                        26: "INSUFICIENCIA RENAL",
+                        27: "INMUNOSUPRESIÓN",
+                        28: "DISCAPACIDAD",
+                        29: "FIBROSIS QUÍSTICA",
+                        30: "HIPERTENSIÓN",
+                    }
                     for idx_c, nom_c in comorb_map.items():
                         if tiene_equis(idx_c):
                             lista_riesgos_detectados.append(nom_c)
@@ -483,7 +493,7 @@ else:
                     grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
 
                     st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
-                    
+
                     habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición en vivo", key=f"chk_edit_{fila_idx}")
 
                     c_ed1, c_ed2, c_ed3 = st.columns(3)
@@ -558,7 +568,11 @@ else:
                     st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
 
                     meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-                    meses_dict_num = {"Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04", "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08", "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"}
+                    meses_dict_num = {
+                        "Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04",
+                        "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08",
+                        "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"
+                    }
 
                     st.markdown("##### 💉 INFLUENZA")
                     c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
