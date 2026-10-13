@@ -46,27 +46,52 @@ if not hoja_activa_tabla:
     st.stop()
 
 
-# --- CARGA OPTIMIZADA CON CACHÉ ---
-@st.cache_data(ttl=30, show_spinner="Cargando censo en alta velocidad...")
-def cargar_y_procesar_hoja(spreadsheet_id, worksheet_name):
-    client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(spreadsheet_id)
-    ws = spreadsheet.worksheet(worksheet_name)
-    
-    data = ws.get_all_values()
-    if len(data) < 14:
-        return [], [], [], ws.id
+# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS (Adiós a la lentitud) ---
+@st.cache_data(ttl=120, show_spinner="Sincronizando con Google Sheets...")
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
+    try:
+        client_c = obtener_cliente_gspread()
+        spreadsheet_c = client_c.open_by_key(spreadsheet_id)
+        worksheet = spreadsheet_c.worksheet(worksheet_name)
+        
+        # Leer solo la columna B para detectar la última fila activa al instante
+        col_b = worksheet.col_values(2)
 
-    header1 = data[11] if len(data) > 11 else []
-    header2 = data[12] if len(data) > 12 else []
-    filas = data[13:]
-    return header1, header2, filas, ws.id
+        if len(col_b) < 14:
+            return [], [], [], worksheet.id
+
+        last_idx = len(col_b)
+        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
+            last_idx -= 1
+        if last_idx < 14:
+            return [], [], [], worksheet.id
+
+        filas_data_count = last_idx - 13
+        if filas_data_count % 2 != 0:
+            last_idx += 1
+
+        # Descargar únicamente el rango necesario (A12 hasta AX con la última fila activa)
+        range_headers_1 = "A12:AX12"
+        range_headers_2 = "A13:AX13"
+        range_data = f"A14:AX{last_idx}"
+
+        header1_rows = worksheet.get(range_headers_1)
+        header2_rows = worksheet.get(range_headers_2)
+        data_rows = worksheet.get(range_data)
+
+        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
+        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
+        return header1, header2, data_rows or [], worksheet.id
+
+    except Exception as e:
+        st.error(f"Error al leer la hoja {worksheet_name}: {e}")
+        return [], [], [], None
 
 
 key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
 
 if key_estado_filas not in st.session_state:
-    header1, header2, filas_tabla, gid_hoja = cargar_y_procesar_hoja(GOOGLE_SHEET_ID, hoja_activa_tabla)
+    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
     st.session_state[key_estado_filas] = filas_tabla
     st.session_state[f"header1_{hoja_activa_tabla}"] = header1
     st.session_state[f"header2_{hoja_activa_tabla}"] = header2
@@ -130,7 +155,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
-        # Métricas calculadas con la fila completa (por detrás)
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
 
@@ -160,7 +184,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-        # DEFINIR LAS COLUMNAS A MOSTRAR: A-L (0 al 11) y AG-AQ (32 al 42)
+        # Rango A-L (0 al 11) y AG-AQ (32 al 42)
         indices_deseados = list(range(0, 12)) + list(range(32, 43))
 
         f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
@@ -173,7 +197,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         filas_procesadas.append(fila_v2)
         mapeo_indices_pares.append(i)
 
-    # Filtrar también los encabezados combinados para la vista
     indices_deseados = list(range(0, 12)) + list(range(32, 43))
     encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
 
@@ -252,7 +275,7 @@ with col_del:
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO AISLADO PARA LA TABLA (Más ligera al mostrar solo columnas seleccionadas) ---
+# --- FRAGMENTO AISLADO PARA LA TABLA ---
 @st.fragment
 def render_tabla_con_estilos():
     def color_filas_completas(row):
