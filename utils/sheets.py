@@ -48,7 +48,19 @@ def guardar_registro_censal(
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        nombre_hoja = sigla_url if not sufijo_js else f"{sigla_url}_{sufijo_js}"
+        # --- CORRECCIÓN: Construcción dinámica del nombre de la hoja según modalidad y fecha ---
+        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
+        
+        if sufijo_js:
+            nombre_hoja = f"{sigla_url}_{sufijo_js}"
+        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto:
+            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
+            nombre_hoja = f"{sigla_url}_EXTRA_{fecha_hoja_str}"
+        else:
+            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
+            nombre_hoja = f"{sigla_url}_INTRA_{fecha_hoja_str}" if tipo_jornada.upper() == "I" else sigla_url
+        # -------------------------------------------------------------------------------------
+
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
         except Exception:
@@ -77,7 +89,6 @@ def guardar_registro_censal(
         consecutivo = ((fila_destino - 14) // 2) + 1
 
         fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
-        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
         siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
         secuencial_str = str(consecutivo).zfill(4)
