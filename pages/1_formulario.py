@@ -218,8 +218,6 @@ def mostrar_comprobante_principal():
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.ultimo_paciente_registrado = None
             
-            # En lugar de usar 'del st.session_state[k]', reiniciamos los valores 
-            # a sus estados vacíos/por defecto para que el widget reconozca el cambio de inmediato.
             st.session_state.input_paterno = ""
             st.session_state.input_materno = ""
             st.session_state.input_nombres = ""
@@ -241,7 +239,7 @@ def mostrar_comprobante_principal():
             st.session_state.input_vacuna = None
             st.session_state.chk_gestante = None
 
-            st.rerun()
+            safe_rerun()
         st.stop()
 
 
@@ -452,7 +450,6 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 st.markdown("---")
 
 # --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
-# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
 if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
@@ -465,7 +462,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        with st.spinner("🚀 Registrando y generando comprobante..."):
+        with st.spinner("🚀 Procesando registro y conectando con el servidor..."):
             try:
                 duplicado, folio_previo = verificar_curp_duplicada(
                     curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
@@ -515,8 +512,8 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "folio": existing_folio
                         }
+                        safe_rerun()
                     else:
-                        # 1. Guardamos el estado del paciente registrado
                         st.session_state.ultimo_paciente_registrado = {
                             "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "curp_con_nacimiento": curp_con_nacimiento,
@@ -526,9 +523,8 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "correo_paciente": correo_paciente.strip(),
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
-                    
-                    # 2. Forzamos la recarga inmediata para que caiga directo en la vista del comprobante
-                    safe_rerun()
+                        # Forzamos la recarga inmediata para que caiga directo en la vista del comprobante
+                        safe_rerun()
 
             except Exception as e:
                 st.session_state.pop("submission_id", None)
