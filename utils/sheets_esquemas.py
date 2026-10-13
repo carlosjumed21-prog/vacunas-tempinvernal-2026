@@ -24,10 +24,10 @@ def cargar_guias_censia():
             primera_llave = list(st.secrets.keys())[0]
             creds_dict = dict(st.secrets[primera_llave])
 
-        creds = service_account.Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
-        client = gspread.authorize(creds)
+        if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+        client = gspread.service_account_from_dict(creds_dict, scopes=scope)
 
         sheet_censia_id = "1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k"
         doc_censia = client.open_by_key(sheet_censia_id)
