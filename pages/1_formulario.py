@@ -62,12 +62,19 @@ sigla_url = params.get("unidad", "20N").upper()
 
 nombre_base_unidad = MAPA_SIGLAS_INVERSO.get(sigla_url, "20 DE NOVIEMBRE")
 sufijo_js = params.get("js", "")
-modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
+
+# Capturamos la jornada y determinamos la modalidad automáticamente si es 'E' (Extramuros)
+tipo_jornada_url = params.get("jornada", "I").upper()
+if tipo_jornada_url == "E":
+    modalidad_url = "EXTRAMUROS"
+else:
+    modalidad_url = params.get("modalidad", "INTRAMUROS").upper()
+
 es_admin = params.get("admin", "").lower() in ["true", "1", "si", "yes"] or params.get("rol", "").lower() == "admin"
 
 st.session_state.siglas_unidad = sigla_url
 st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" if sufijo_js else nombre_base_unidad
-st.session_state.tipo_jornada = params.get("jornada", "I")
+st.session_state.tipo_jornada = tipo_jornada_url
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
 # --- FECHAS Y ESTADOS INICIALES ---
