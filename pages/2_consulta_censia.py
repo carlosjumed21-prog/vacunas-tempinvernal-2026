@@ -30,10 +30,9 @@ st.markdown(
 # ============================================================
 # NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
-
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread de forma compatible con google-auth."""
+    """Cachea el cliente de gspread utilizando credenciales explícitas (Credentials)."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -44,8 +43,14 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    creds = Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-    return gspread.authorize(creds)
+    # Crear un objeto Credentials explícito (este es el tipo que gspread espera)
+    credentials = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+
+    # Crear y devolver el cliente de gspread usando las credentials (NO una AuthorizedSession)
+    # gspread.authorize o gspread.Client(auth=...) funcionan; uso gspread.Client por claridad.
+    client = gspread.Client(auth=credentials)
+    client.session = client.session  # no-op para dejar claro que no sustituimos la sesión
+    return client
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
