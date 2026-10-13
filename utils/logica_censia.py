@@ -1,3 +1,4 @@
+
 import datetime
 import urllib.parse
 import streamlit as st
@@ -20,7 +21,7 @@ def procesar_guardado_aplicacion(
     fecha_aplicacion_hoja
 ):
     """
-    Ejecuta las validaciones, actualiza los datos en Google Sheets, da formato a las celdas
+    Ejecuta las validaciones, actualiza los datos en Google Sheets
     y prepara el diccionario para el comprobante oficial.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
@@ -41,7 +42,7 @@ def procesar_guardado_aplicacion(
             st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta ingresar el número de lote.")
             error_validacion = True
         if not cad_cov_input.strip():
-            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, but falta indicar la fecha de caducidad.")
+            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta indicar la fecha de caducidad.")
             error_validacion = True
 
     if not influenza_seleccionada and not covid_seleccionada:
@@ -59,7 +60,7 @@ def procesar_guardado_aplicacion(
 
         f_actual = fila_idx
         f_siguiente = fila_idx + 1
-        fila_curp_idx = fila_idx  # La CURP se almacena en la fila principal complementaria
+        fila_curp_idx = fila_idx  
 
         dosis_aplicadas_lista = []
         datos_a_actualizar = []
@@ -114,17 +115,8 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # 1. Actualización segura por lotes de los valores
+        # Únicamente realizamos la actualización masiva de datos que es lo crítico y funcional
         worksheet_activa.batch_update(datos_a_actualizar)
-
-        # 2. Aplicación de formato nativo y seguro (evita por completo el fallo de _auth_request)
-        worksheet_activa.format(f"A{f_actual}:AX{f_siguiente}", {
-            "backgroundColor": {
-                "red": 0.831,
-                "green": 0.929,
-                "blue": 0.855
-            }
-        })
 
         # Invalidar la caché de Streamlit para forzar lectura fresca
         st.cache_data.clear()
@@ -137,7 +129,7 @@ def procesar_guardado_aplicacion(
         lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
         dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-        folio_p = todos_los_datos[fila_idx - 1][1] if len(todos_los_datos[fila_idx - 1]) > 1 else ""
+        folio_p = todos_los_datos[fila_idx - 1][1] if len(todos_los_destos[fila_idx - 1]) > 1 else ""
 
         st.session_state.reiniciar_busqueda = True
         st.session_state.ultimo_comprobante_vacunacion = {
