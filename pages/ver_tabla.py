@@ -31,6 +31,9 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
         .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+        
+        /* Ocultar la pantalla translúcida / barra de carga global molesta en recargas */
+        .stStatusWidget {visibility: hidden; display: none;}
     </style>
 """,
     unsafe_allow_html=True,
@@ -71,7 +74,6 @@ def build_cache_key(hoja):
     return f"cached_hoja_values::{hoja}"
 
 def get_creds_from_secrets():
-    """Construir credenciales service_account para descargar XLSX (token)."""
     creds_dict = None
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw = st.secrets["GOOGLE_CREDENTIALS"]
@@ -88,10 +90,6 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 def load_sheet_minimal(spreadsheet, worksheet_name):
-    """
-    Lee cabeceras (filas 12-13) y el bloque de datos desde la primera fila de datos (14)
-    hasta la última fila con folio en la columna B.
-    """
     try:
         worksheet = spreadsheet.worksheet(worksheet_name)
         col_b = worksheet.col_values(2)
@@ -241,7 +239,10 @@ for row in filas_principales:
         total_sin_aplicar += 1
 
     tiene_influenza = any(str(row[i]).strip().upper() == "X" for i in range(32, min(35, len(row))))
-    tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row))))
+    if len(row) > 37:
+        tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row))))
+    else:
+        tiene_covid = False
 
     if tiene_influenza and not tiene_covid:
         total_dosis_influenza += 1
@@ -333,14 +334,17 @@ def render_seccion_tabla_interactiva():
         use_container_width=True,
         height=550,
         hide_index=True,
-        column_config=column_configs
+        column_config=column_configs,
+        key="editor_tabla_censo"
     )
 
+    # Procesar eliminación usando directamente el estado devuelto por el editor dentro del fragmento
     if btn_eliminar:
         indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
         pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
+        
         if not pacientes_a_eliminar:
-            st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+            st.warning("⚠️ No ha seleccionado ningún paciente para marcar en las casillas.")
             return
 
         try:
@@ -353,10 +357,12 @@ def render_seccion_tabla_interactiva():
                     fila_fisica_2 = idx_par_real + 15
                     filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
+            # Ordenar de mayor a menor para que al borrar en Google Sheets no se corran los índices pendientes
             filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
             for fila_gs in filas_gs_a_borrar:
                 ws.delete_rows(fila_gs)
 
+            # Reorganizar / actualizar el consecutivo en la columna A tras el borrado
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
@@ -371,6 +377,7 @@ def render_seccion_tabla_interactiva():
                 if updates:
                     ws.batch_update(updates)
 
+            # Limpiar la caché inmediatamente para forzar la recarga de datos nuevos
             if cache_key in st.session_state:
                 del st.session_state[cache_key]
 
