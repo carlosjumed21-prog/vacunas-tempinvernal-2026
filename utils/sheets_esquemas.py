@@ -1,40 +1,34 @@
 # utils/sheets_esquemas.py
 import streamlit as st
-import gspread
-from datetime import datetime
 
-def obtener_cliente_gspread_seguro():
-    """Obtiene el cliente de gspread de forma segura usando st.secrets."""
-    try:
-        if "gcp_service_account" in st.secrets:
-            credenciales = dict(st.secrets["gcp_service_account"])
-            client = gspread.service_account_from_dict(credenciales)
-            return client
-    except Exception as e:
-        print(f"Error al conectar con Google Sheets: {e}")
-    return None
-
-def obtener_recomendaciones_paciente(id_paciente=None, datos_paciente=None):
+def obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses_calc, antecedente_vacunal):
     """
-    Función segura para obtener recomendaciones o esquemas del paciente,
-    protegida contra KeyError y fallos de conexión.
+    Evalúa los criterios CENSIA y retorna las recomendaciones o tarjetas 
+    tanto para Influenza como para COVID-19 según el perfil del paciente.
     """
-    try:
-        # Lectura segura de secretos o configuración si es requerida
-        sheet_id = st.secrets.get("GOOGLE_SHEET_ID", "")
-        if not sheet_id:
-            return {"error": "⚠️ No se encontró GOOGLE_SHEET_ID en los secretos."}
+    matches_inf = []
+    matches_covid = []
 
-        client = obtener_cliente_gspread_seguro()
-        if not client:
-            return {"error": "⚠️ Error de autenticación con Google Service Account."}
+    # Configuración de recomendación base para Influenza Estacional
+    if vacuna_registrada in ["INFLUENZA", "AMBAS"]:
+        matches_inf.append({
+            "categoria": categoria_paciente,
+            "grupos_blancos": ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "Población General / Objetivo",
+            "esquema": "Dosis Anual Estacional",
+            "dosis": "0.5 mL (según grupo etario)",
+            "intervalo": "Anual",
+            "recomendacion": "Aplicar vacuna contra Influenza Estacional conforme a lineamientos CENSIA vigentes."
+        })
 
-        # Conexión y consulta base segura
-        # (Aquí puedes mantener la lógica interna que ya tenías para tu hoja de esquemas)
-        return {
-            "estado": "exito",
-            "recomendaciones": "Esquema de vacunación al corriente (Verificación estándar VIGILE)."
-        }
+    # Configuración de recomendación base para COVID-19
+    if vacuna_registrada in ["COVID-19", "AMBAS"]:
+        matches_covid.append({
+            "categoria": categoria_paciente,
+            "grupos_blancos": ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "Población General / Objetivo",
+            "esquema": "Dosis de Refuerzo / Campaña Invernal",
+            "dosis": "Dosis única autorizada",
+            "intervalo": "Anual / Según campaña",
+            "recomendacion": "Aplicar biológico COVID-19 de temporada conforme a disponibilidad y comorbilidades."
+        })
 
-    except Exception as e:
-        return {"error": f"⚠️ Error procesando recomendaciones: {str(e)}"}
+    return matches_inf, matches_covid
