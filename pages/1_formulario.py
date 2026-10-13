@@ -231,7 +231,6 @@ def mostrar_comprobante_principal():
                     del st.session_state[k]
 
             safe_rerun()
-        st.stop()
 
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
@@ -261,9 +260,12 @@ if st.session_state.get("paciente_duplicado_info") is not None:
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
 
-# --- SI HAY UN PACIENTE REGISTRADO, MOSTRAMOS SU COMPROBANTE EN LUGAR DEL FORMULARIO ---
+# =========================================================================
+# 🚀 MEJORA DE FLUIDEZ: VERIFICACIÓN AL INICIO Y CORTE INMEDIATO (st.stop())
+# =========================================================================
 if st.session_state.get("ultimo_paciente_registrado") is not None:
     mostrar_comprobante_principal()
+    st.stop()  # <--- Evita renderizar todo el formulario y asegura fluidez de un solo clic
 
 # --- PANEL DE DATOS SIMULADOS ---
 if es_admin:
