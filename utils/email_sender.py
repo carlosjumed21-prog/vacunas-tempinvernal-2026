@@ -6,8 +6,8 @@ import urllib.parse
 
 def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
     """
-    Envía por correo el Ticket Digital de Registro (para formulario) o el Comprobante Oficial (para consulta),
-    respetando exactamente el diseño visual, marcas de agua y estructura de la tarjeta gráfica.
+    Envía por correo el Folio de Registro (para formulario) o el Comprobante Oficial (para consulta),
+    respetando el asunto original y el diseño visual de la tarjeta gráfica.
     """
     try:
         smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
@@ -21,9 +21,9 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg['From'] = remitente_email
     msg['To'] = destinatario_email
     
-    # Textos y estilos diferenciados según el tipo de correo
+    # Asuntos y contenidos originales diferenciados según el tipo de correo
     if tipo == "comprobante":
-        msg['Subject'] = "COMPROBANTE DE VACUNACIÓN OFICIAL - VIGILE"
+        msg['Subject'] = "COMPROBANTE DE VACUNACIÓN - GRACIAS POR CUIDAR DE SU SALUD"
         titulo_tarjeta = "COMPROBANTE DE VACUNACIÓN OFICIAL"
         texto_marca_agua = "COMPROBANTE OFICIAL VIGILE"
         texto_qr_header = "ISSSTE - COMPROBANTE OFICIAL VIGILE"
@@ -31,27 +31,29 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         color_borde = "#1e5b4f"
         color_marca = "rgba(30, 91, 79, 0.08)"
     else:
-        msg['Subject'] = "TICKET DIGITAL DE REGISTRO - VIGILE"
+        msg['Subject'] = "FOLIO DE REGISTRO - NO ES UN COMPROBANTE"
         titulo_tarjeta = "FOLIO DE VACUNACION REGISTRADO"
         texto_marca_agua = "NO ES UN COMPROBANTE OFICIAL"
         texto_qr_header = "ISSSTE - REGISTRO DE FOLIO VIGILE"
         leyenda_inferior = "Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial."
         color_borde = "#1e5b4f"
-        color_marca = "rgba(97, 18, 50, 0.12)"
+        color_marca = "rgba(97, 18, 50, 0.10)"
 
-    # Texto estructurado para el código QR
+    # Texto estructurado para el código QR con las etiquetas completas
     texto_qr = (
         f"{texto_qr_header}\n"
         f"FOLIO: {folio}\n"
         f"PACIENTE: {nombre_paciente}\n"
-        f"VACUNA: {dosis_str}\n"
-        f"GRUPO/LOTES: {lotes_str}\n"
+        f"DOSIS/VACUNA: {dosis_str}\n"
+        f"LOTES/GRUPO: {lotes_str}\n"
         f"FECHA APLICACIÓN: {fecha_val}\n"
         f"ESTADO: REGISTRADO"
     )
-    url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(texto_qr)}"
+    
+    # Tamaño de QR optimizado para compatibilidad y nitidez en correos
+    url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={urllib.parse.quote(texto_qr)}"
 
-    # HTML idéntico al componente visual del ticket digital
+    # HTML limpio y estructurado
     html_cuerpo = f"""
     <!DOCTYPE html>
     <html>
@@ -60,7 +62,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f7f9f8;
+            background-color: #f4f4f4;
             padding: 20px;
             margin: 0;
         }}
@@ -68,11 +70,11 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             position: relative;
             background-color: #ffffff;
             border: 3px solid {color_borde};
-            padding: 20px;
+            padding: 18px;
             border-radius: 10px;
             color: #161a1d;
-            max-width: 460px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            max-width: 480px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             margin: 0 auto;
             overflow: hidden;
         }}
@@ -89,7 +91,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         }}
         .watermark-row {{
             display: flex;
-            gap: 20px;
+            gap: 15px;
             white-space: nowrap;
             font-size: 0.75rem;
             font-weight: 900;
@@ -103,10 +105,9 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             font-weight: 900;
             color: #1e5b4f;
             text-align: center;
-            margin: 0 0 12px 0;
+            margin: 0 0 10px 0;
             z-index: 2;
             position: relative;
-            letter-spacing: 0.5px;
         }}
         .cuerpo-ticket {{
             display: flex;
@@ -122,7 +123,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             position: relative;
         }}
         .qr-container {{
-            width: 115px;
+            width: 110px;
             text-align: center;
             z-index: 2;
             position: relative;
@@ -132,7 +133,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             height: 110px;
             border: 2px solid #a57f2c;
             border-radius: 6px;
-            padding: 4px;
+            padding: 3px;
             background: white;
             display: block;
         }}
@@ -145,13 +146,13 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             padding: 8px;
             border-radius: 6px;
             border: 2px dashed #a57f2c;
-            margin-top: 14px;
+            margin-top: 12px;
             z-index: 2;
             position: relative;
         }}
         .info-text {{
-            margin: 5px 0;
-            font-size: 0.85rem;
+            margin: 4px 0;
+            font-size: 0.82rem;
             color: #161a1d;
         }}
         .leyenda-posterior {{
@@ -159,7 +160,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
             font-weight: 700;
             color: #611232;
             text-align: center;
-            margin-top: 10px;
+            margin-top: 8px;
             z-index: 2;
             position: relative;
             line-height: 1.2;
@@ -172,18 +173,17 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
                 <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
                 <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
                 <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
-                <div class="watermark-row"><span>{texto_marca_agua}</span><span>{texto_marca_agua}</span></div>
             </div>
             <div class="titulo-ticket">{titulo_tarjeta}</div>
             <div class="cuerpo-ticket">
                 <div class="info-container">
                     <p class="info-text"><b>Paciente:</b> {nombre_paciente}</p>
-                    <p class="info-text"><b>Vacuna:</b> {dosis_str}</p>
-                    <p class="info-text"><b>Grupo:</b> {lotes_str}</p>
+                    <p class="info-text"><b>Dosis/Vacuna:</b> {dosis_str}</p>
+                    <p class="info-text"><b>Lotes/Grupo:</b> {lotes_str}</p>
                     <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
                 </div>
                 <div class="qr-container">
-                    <img src="{url_qr_api}" alt="Código QR Ticket Digital">
+                    <img src="{url_qr_api}" alt="Código QR Comprobante">
                 </div>
             </div>
             <div class="folio-grande">Folio: {folio}</div>
@@ -200,6 +200,6 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         servidor.login(remitente_email, remitente_password)
         servidor.sendmail(remitente_email, destinatario_email, msg.as_string())
         servidor.quit()
-        return True, "¡Comprobante visual enviado por correo exitosamente!"
+        return True, "¡Correo enviado exitosamente!"
     except Exception as e:
         return False, f"Error al conectar con el servidor de correo: {e}"
