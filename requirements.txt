@@ -3,6 +3,11 @@ pandas>=2.0.0
 qrcode[pil]>=7.4.2
 pillow>=10.0.0
 numpy
-gspread
-google-auth
+# Pinned for compatibility with gspread and Google auth internals
+# Fixes: 'AuthorizedSession' object has no attribute '_auth_request'
+gspread==5.12.4
+google-auth==2.22.0
+google-auth-httplib2==0.1.0
+google-auth-oauthlib==0.4.6
+requests==2.31.0
 openpyxl
