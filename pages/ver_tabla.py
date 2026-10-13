@@ -5,6 +5,7 @@ import json
 import datetime
 import urllib.request
 import urllib.parse
+import streamlit.components.v1 as components
 from google.oauth2 import service_account
 from utils.sheets import obtener_cliente_gspread
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
@@ -47,6 +48,23 @@ if not hoja_activa_tabla:
     st.stop()
 
 # --------------------
+# Auto-refresh opcional
+# --------------------
+auto_refresh = st.checkbox("🔄 Actualización automática cada 10 s", value=False)
+if auto_refresh:
+    components.html(
+        """
+        <script>
+            const INTERVAL_MS = 10000;
+            setInterval(() => {
+                window.location.reload();
+            }, INTERVAL_MS);
+        </script>
+        """,
+        height=0,
+    )
+
+# --------------------
 # Helpers de lectura eficiente
 # --------------------
 def build_cache_key(hoja):
@@ -67,8 +85,7 @@ def get_creds_from_secrets():
         raise KeyError("No se encontraron credenciales de servicio válidas en st.secrets.")
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-    return creds
+    return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 def load_sheet_minimal(spreadsheet, worksheet_name):
     """
@@ -134,7 +151,7 @@ if not filas_tabla:
     st.stop()
 
 # --------------------
-# Construir encabezados combinados igual que antes
+# Construir encabezados combinados
 # --------------------
 fila_cabecera_1 = header1
 fila_cabecera_2 = header2
@@ -340,7 +357,6 @@ def render_seccion_tabla_interactiva():
             for fila_gs in filas_gs_a_borrar:
                 ws.delete_rows(fila_gs)
 
-            # Renumerar consecutivo en batch
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
