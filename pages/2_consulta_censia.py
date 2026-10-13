@@ -662,5 +662,3 @@ else:
                             # Limpiamos el caché local de pacientes para forzar lectura fresca solo tras guardar cambios
                             st.cache_data.clear()
                             st.rerun()
-
-¿Te ha quedado claro o necesitas ajustar algo más en el flujo de guardado?
