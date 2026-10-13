@@ -14,7 +14,14 @@ from concurrent.futures import ThreadPoolExecutor
 # --------------------
 # Helper seguro para rerun
 # --------------------
-def safe_rerun():
+def safe_rerun(scope=None):
+    try:
+        if scope and hasattr(st, "rerun"):
+            st.rerun(scope=scope)
+            return
+    except Exception:
+        pass
+
     try:
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
@@ -109,9 +116,13 @@ def get_creds_from_secrets():
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-def load_sheet_minimal(spreadsheet, worksheet_name):
+# --- LECTURA CACHEADA PARA OPTIMIZAR TIEMPOS ---
+@st.cache_data(ttl=30, show_spinner=False)
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        worksheet = spreadsheet.worksheet(worksheet_name)
+        client_c = obtener_cliente_gspread()
+        spreadsheet_c = client_c.open_by_key(spreadsheet_id)
+        worksheet = spreadsheet_c.worksheet(worksheet_name)
         col_b = worksheet.col_values(2)
 
         if len(col_b) < 14:
@@ -178,7 +189,8 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 except Exception:
                     pass
 
-        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal(spreadsheet_local, worksheet_name)
+        st.cache_data.clear() # Limpiar caché local para reflejar cambios inmediatos
+        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal_cached(spreadsheet_id, worksheet_name)
         BACKGROUND_RESULTS[cache_key_local] = {
             "status": "done",
             "header1": header1_r,
@@ -192,12 +204,13 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
             "error": str(e)
         }
 
-# --- CARGA DE DATOS ---
+# --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA ---
 cache_key = build_cache_key(hoja_activa_tabla)
 
 try:
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    ws = spreadsheet.worksheet(hoja_activa_tabla)
 except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
     st.stop()
@@ -206,9 +219,8 @@ if "visible_rows" in st.session_state and st.session_state.get("active_sheet") =
     filas_tabla = st.session_state["visible_rows"]
     header1 = st.session_state.get("header1", [])
     header2 = st.session_state.get("header2", [])
-    ws = spreadsheet.worksheet(hoja_activa_tabla)
 else:
-    header1, header2, filas_tabla, ws = load_sheet_minimal(spreadsheet, hoja_activa_tabla)
+    header1, header2, filas_tabla, ws = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
     st.session_state["visible_rows"] = filas_tabla
     st.session_state["header1"] = header1
     st.session_state["header2"] = header2
@@ -312,72 +324,74 @@ for row in filas_principales:
     elif tiene_influenza and tiene_covid:
         total_simultaneas += 1
 
-# --- ZONA FIJA SUPERIOR ---
-st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
-
-col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
-with col_tit1:
-    st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
-with col_tit2:
-    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
-        try:
-            header1_new, header2_new, filas_new, ws_new = load_sheet_minimal(spreadsheet, hoja_activa_tabla)
-            if filas_new:
-                st.session_state["visible_rows"] = filas_new
-                st.session_state["header1"] = header1_new
-                st.session_state["header2"] = header2_new
-                st.session_state["active_sheet"] = hoja_activa_tabla
-                safe_rerun()
-        except Exception as e:
-            st.error(f"Error al recargar: {e}")
-
-with col_tit3:
-    try:
-        creds = get_creds_from_secrets()
-        if not creds.valid:
-            from google.auth.transport.requests import Request
-            creds.refresh(Request())
-
-        gid_hoja = ws.id
-        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
-        req = urllib.request.Request(url_export, headers={'Authorization': f'Bearer {creds.token}'})
-
-        with urllib.request.urlopen(req) as response:
-            excel_original_bytes = response.read()
-
-        st.download_button(
-            label="📥 Descargar Hoja Excel",
-            data=excel_original_bytes,
-            file_name=f"{hoja_activa_tabla}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    except Exception as err:
-        st.error(f"No se pudo descargar el archivo: {err}")
-
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
-with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
-with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
-with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
-with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
-with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
-
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-col_btn1, _ = st.columns([2, 5])
-with col_btn1:
-    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# --- FRAGMENTO AISLADO PARA LA TABLA Y ELIMINACIÓN ---
+# --- FRAGMENTO AISLADO PARA LA ZONA SUPERIOR, TABLA Y ACCIONES ---
 @st.fragment
 def render_seccion_tabla_interactiva():
+    # --- ZONA FIJA SUPERIOR ---
+    st.markdown('<div class="fixed-top-container">', unsafe_allow_html=True)
+
+    col_tit1, col_tit2, col_tit3 = st.columns([3, 1, 1])
+    with col_tit1:
+        st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+    with col_tit2:
+        if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
+            try:
+                st.cache_data.clear()
+                header1_new, header2_new, filas_new, ws_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+                if filas_new:
+                    st.session_state["visible_rows"] = filas_new
+                    st.session_state["header1"] = header1_new
+                    st.session_state["header2"] = header2_new
+                    st.session_state["active_sheet"] = hoja_activa_tabla
+                    safe_rerun(scope="fragment")
+            except Exception as e:
+                st.error(f"Error al recargar: {e}")
+
+    with col_tit3:
+        try:
+            creds = get_creds_from_secrets()
+            if not creds.valid:
+                from google.auth.transport.requests import Request
+                creds.refresh(Request())
+
+            gid_hoja = ws.id
+            url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+            req = urllib.request.Request(url_export, headers={'Authorization': f'Bearer {creds.token}'})
+
+            with urllib.request.urlopen(req) as response:
+                excel_original_bytes = response.read()
+
+            st.download_button(
+                label="📥 Descargar Hoja Excel",
+                data=excel_original_bytes,
+                file_name=f"{hoja_activa_tabla}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        except Exception as err:
+            st.error(f"No se pudo descargar el archivo: {err}")
+
+    st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
+    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+    with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{total_censo_registros}</div></div>', unsafe_allow_html=True)
+    with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{total_preregistros}</div></div>', unsafe_allow_html=True)
+    with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{registros_nuevos_hoy}</div></div>', unsafe_allow_html=True)
+    with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{total_aplicaciones}</div></div>', unsafe_allow_html=True)
+    with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{total_sin_aplicar}</div></div>', unsafe_allow_html=True)
+    with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{total_dosis_influenza}</div></div>', unsafe_allow_html=True)
+    with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{total_dosis_covid}</div></div>', unsafe_allow_html=True)
+    with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{total_simultaneas}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
+    col_btn1, _ = st.columns([2, 5])
+    with col_btn1:
+        btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- TABLA Y ESTILOS ---
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
             return ['background-color: #e2f0d9; color: #111111'] * len(row)
@@ -412,7 +426,7 @@ def render_seccion_tabla_interactiva():
             st.session_state["header1"] = result["header1"]
             st.session_state["header2"] = result["header2"]
             st.success("✅ Eliminación sincronizada correctamente con Google Sheets.")
-            safe_rerun()
+            safe_rerun(scope="fragment")
         elif result.get("status") == "error":
             st.error(f"❌ Error al sincronizar con Google Sheets: {result.get('error')}")
 
@@ -461,7 +475,7 @@ def render_seccion_tabla_interactiva():
                 )
 
                 st.success(f"✅ Se eliminaron correctamente los registros seleccionados.")
-                safe_rerun()
+                safe_rerun(scope="fragment")
 
             except Exception as e:
                 st.error(f"❌ Ocurrió un error al intentar eliminar las filas en Google Sheets: {e}")
