@@ -28,7 +28,7 @@ st.markdown(
 )
 
 # ============================================================
-# CLIENTE GOOGLE Y CONEXIÓN BLINDADA
+# CONEXIÓN BLINDADA Y CACHÉ OPTIMIZADA (SIN CONFLICTO DE PICKLE)
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
@@ -50,7 +50,7 @@ def obtener_client_gspread_cacheado():
     
 @st.cache_data(ttl=180)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
-    """Lista las hojas autorizadas para un usuario autenticado."""
+    """Lista las hojas autorizadas para un usuario de forma cacheada."""
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
@@ -81,8 +81,8 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 @st.cache_data(ttl=120)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
     """
-    Carga los pacientes de una hoja devolviendo ÚNICAMENTE tipos serializables
-    (listas y diccionarios), evitando meter objetos de gspread al caché.
+    Carga los pacientes devolviendo únicamente tipos serializables 
+    (listas y diccionarios) para evitar errores con st.cache_data.
     """
     try:
         client = obtener_client_gspread_cacheado()
@@ -335,10 +335,10 @@ else:
 
     if hoja_seleccionada:
         try:
-            # 1. Cargamos datos serializables desde la caché
+            # 1. Cargamos datos serializables mediante la caché optimizada
             pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja = cargar_pacientes_hoja_cacheada(hoja_seleccionada)
             
-            # 2. Obtenemos el objeto de la hoja de trabajo por separado (fuera del caché de datos)
+            # 2. Obtenemos el objeto de la hoja de trabajo por separado fuera del caché
             client_gsp = obtener_client_gspread_cacheado()
             spreadsheet_obj = client_gsp.open_by_key(GOOGLE_SHEET_ID)
             worksheet_activa = spreadsheet_obj.worksheet(hoja_seleccionada)
@@ -403,7 +403,7 @@ else:
 
                     esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
-                        st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de sua vacuna en el censo.")
+                        st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
 
                     folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
                     paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
