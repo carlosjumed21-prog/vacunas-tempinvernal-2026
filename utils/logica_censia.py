@@ -1,3 +1,4 @@
+# utils/logica_censia.py
 import datetime
 import urllib.parse
 import streamlit as st
@@ -20,7 +21,7 @@ def procesar_guardado_aplicacion(
     fecha_aplicacion_hoja
 ):
     """
-    Ejecuta las validaciones, actualiza los datos en Google Sheets
+    Ejecuta las validaciones, actualiza los datos en Google Sheets de forma segura
     y prepara el diccionario para el comprobante oficial.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
@@ -114,7 +115,7 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # Únicamente realizamos la actualización masiva de datos que es lo crítico y funcional
+        # --- ACTUALIZACIÓN MASIVA SEGURA (SIN LLAMADAS A .format) ---
         worksheet_activa.batch_update(datos_a_actualizar)
 
         # Invalidar la caché de Streamlit para forzar lectura fresca
@@ -128,8 +129,6 @@ def procesar_guardado_aplicacion(
         lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
         dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-        
-        # Corrección aplicada aquí (todos_los_datos en lugar de todos_los_destos)
         folio_p = todos_los_datos[fila_idx - 1][1] if len(todos_los_datos[fila_idx - 1]) > 1 else ""
 
         st.session_state.reiniciar_busqueda = True
