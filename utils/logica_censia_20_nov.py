@@ -1,18 +1,37 @@
-
 # utils/logica_censia_20_nov.py
 import datetime
+import json
 import urllib.parse
 import requests
 import streamlit as st
+from google.oauth2 import service_account
 from utils.sheets_20_nov import obtener_cliente_gspread
+from config import GOOGLE_SCOPES
 
 # ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def obtener_token_acceso_20_nov():
-    """Obtiene el token de acceso OAuth2 para las peticiones REST en la hoja del 20 de Noviembre."""
-    client = obtener_cliente_gspread()
-    return client.auth.token
+    """Obtiene de forma segura el token de acceso OAuth2 usando los secretos de Streamlit."""
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=GOOGLE_SCOPES
+    )
+    if not creds.valid:
+        from google.auth.transport.requests import Request
+        creds.refresh(Request())
+    return creds.token
 
 def procesar_guardado_aplicacion_20_nov(
     worksheet_activa,
