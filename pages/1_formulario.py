@@ -134,6 +134,50 @@ if "ant_inf" not in st.session_state:
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
+# --- PROCESAR ACCIÓN: Nuevo Registro solicitada desde el modal ---
+if st.session_state.get("accion_nuevo_registro", False):
+    keys_a_limpiar = [
+        "input_paterno", "input_materno", "input_nombres", "sel_dia", "sel_mes", "sel_anio",
+        "input_sexo", "input_estnac", "input_estres", "input_calle", "input_num", "input_col",
+        "input_derecho", "input_ocupacion", "input_digitos", "input_vacuna", "ant_cov", "ant_inf",
+        "input_correo_paciente",
+        "chk_personas_embarazadas", "chk_personal_salud_riesgo", "chk_vih", "chk_diabetes", "chk_obesidad",
+        "chk_cardiopatias", "chk_enfermedad_pulmonar", "chk_cancer", "chk_cardiacas_congenitas",
+        "chk_insufren", "chk_inmunosupresion", "chk_discapacidad", "chk_fibrosis", "chk_hipertension",
+        "chk_otro", "txt_otro_riesgo", "chk_gestante",
+        "folio_proyectado_cached", "submission_id", "enviando_registro", "ultimo_paciente_registrado", "paciente_duplicado_info"
+    ]
+
+    for k in keys_a_limpiar:
+        if k in st.session_state:
+            if k.startswith("chk_"):
+                st.session_state[k] = False
+            elif k.startswith("sel_"):
+                if k == "sel_dia":
+                    st.session_state[k] = "Día"
+                elif k == "sel_mes":
+                    st.session_state[k] = "Mes"
+                elif k == "sel_anio":
+                    st.session_state[k] = "Año"
+                else:
+                    st.session_state[k] = ""
+            elif k in ["input_sexo", "input_derecho", "input_estnac", "input_estres", "input_ocupacion"]:
+                st.session_state[k] = "SELECCIONE UNA OPCIÓN"
+            elif k in ["ant_cov", "ant_inf", "input_vacuna", "submission_id"]:
+                st.session_state[k] = None
+            else:
+                st.session_state[k] = ""
+
+    st.session_state["ultimo_paciente_registrado"] = None
+    st.session_state["paciente_duplicado_info"] = None
+
+    try:
+        st.experimental_set_query_params()
+    except Exception:
+        pass
+
+    st.session_state["accion_nuevo_registro"] = False
+
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -195,28 +239,28 @@ def mostrar_modal_comprobante():
         </style>
         </head>
         <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark-overlay">
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+            <div id=\"comprobante-captura\" class=\"card-comprobante\">
+                <div class=\"watermark-overlay\">
+                    <div class=\"watermark-row\"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                    <div class=\"watermark-row\"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                    <div class=\"watermark-row\"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
                 </div>
-                <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
-                <div class="cuerpo-ticket">
-                    <div class="info-container">
-                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
-                        <p class="info-text"><b>CURP:</b> {curp_mostrar}</p>
-                        <p class="info-text"><b>Vacuna:</b> {vacuna_val}</p>
-                        <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
-                        <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
+                <div class=\"titulo-ticket\">FOLIO DE VACUNACION REGISTRADO</div>
+                <div class=\"cuerpo-ticket\">
+                    <div class=\"info-container\">
+                        <p class=\"info-text\"><b>Paciente:</b> {nombre_val}</p>
+                        <p class=\"info-text\"><b>CURP:</b> {curp_mostrar}</p>
+                        <p class=\"info-text\"><b>Vacuna:</b> {vacuna_val}</p>
+                        <p class=\"info-text\"><b>Grupo:</b> {grupo_val}</p>
+                        <p class=\"info-text\"><b>Fecha Aplicación:</b> {fecha_val}</p>
                     </div>
-                    <div class="qr-container"><canvas id="qr-canvas"></canvas></div>
+                    <div class=\"qr-container\"><canvas id=\"qr-canvas\"></canvas></div>
                 </div>
-                <div class="folio-grande">Folio: {folio_val}</div>
-                <p class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
+                <div class=\"folio-grande\">Folio: {folio_val}</div>
+                <p class=\"leyenda-posterior\">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
             </div>
-            <div class="btn-container">
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
+            <div class=\"btn-container\">
+                <button class=\"btn btn-img\" onclick=\"descargarCaptura()\">📸 Descargar Comprobante</button>
             </div>
             <script>
                 window.addEventListener('DOMContentLoaded', () => {{
@@ -237,6 +281,7 @@ def mostrar_modal_comprobante():
         components.html(html_comprobante_component, height=360)
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # --- ENVÍO DE CORREO DESDE EL MODAL ---
         st.markdown("##### ✉️ Enviar Comprobante de Folio por Correo")
         correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_capturado, placeholder="correo@ejemplo.com", key="input_correo_registro_modal")
 
@@ -260,34 +305,7 @@ def mostrar_modal_comprobante():
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
-            st.session_state.ultimo_paciente_registrado = None
-            keys_a_limpiar = [
-                "input_paterno", "input_materno", "input_nombres", "sel_dia", "sel_mes", "sel_anio",
-                "input_sexo", "input_estnac", "input_estres", "input_calle", "input_num", "input_col",
-                "input_derecho", "input_ocupacion", "input_digitos", "input_vacuna", "ant_cov", "ant_inf",
-                "input_correo_paciente",
-                "chk_personas_embarazadas", "chk_personal_salud_riesgo", "chk_vih", "chk_diabetes", "chk_obesidad",
-                "chk_cardiopatias", "chk_enfermedad_pulmonar", "chk_cancer", "chk_cardiacas_congenitas",
-                "chk_insufren", "chk_inmunosupresion", "chk_discapacidad", "chk_fibrosis", "chk_hipertension",
-                "chk_otro", "txt_otro_riesgo", "chk_gestante"
-            ]
-            for k in keys_a_limpiar:
-                if k in st.session_state:
-                    if "chk_" in k:
-                        st.session_state[k] = False
-                    elif "sel_" in k:
-                        if k == "sel_dia":
-                            st.session_state[k] = "Día"
-                        elif k == "sel_mes":
-                            st.session_state[k] = "Mes"
-                        elif k == "sel_anio":
-                            st.session_state[k] = "Año"
-                    elif k in ["input_sexo", "input_derecho", "input_estnac", "input_estres", "input_ocupacion"]:
-                        st.session_state[k] = "SELECCIONE UNA OPCIÓN"
-                    elif "ant_" in k or "input_vacuna" in k:
-                        st.session_state[k] = None
-                    else:
-                        st.session_state[k] = ""
+            st.session_state["accion_nuevo_registro"] = True
             safe_rerun()
 
 
@@ -332,7 +350,7 @@ if es_admin:
             st.session_state.sel_mes = random.choice(list(meses_dict.keys()))
             st.session_state.sel_anio = str(random.randint(1975, 2010))
             st.session_state.input_sexo = random.choice(["HOMBRE", "MUJER"])
-            st.session_state.input_estnac = random.choice(estados_mexio[1:])
+            st.session_state.input_estnac = random.choice(estados_mexico[1:])
             st.session_state.input_estres = st.session_state.input_estnac
             st.session_state.input_calle = "AV. REVOLUCIÓN"
             st.session_state.input_num = str(random.randint(100, 999))
@@ -351,80 +369,36 @@ if es_admin:
 st.markdown('<div class="section-title">1. Control de Fechas y Folio</div>', unsafe_allow_html=True)
 col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
-    st.markdown(
-        f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>',
-        unsafe_allow_html=True
-    )
+    st.markdown(f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 with col_f2:
-    st.markdown(
-        f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>',
-        unsafe_allow_html=True
-    )
+    st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 with col_f3:
-    # Para el formulario público NO mostramos ni calculamos el folio antes del registro.
-    # Mostramos un placeholder indicando que el folio se asignará al finalizar el registro.
-    # Si es un administrador (es_admin), dejamos un botón para calcular folio proyectado (solo para pruebas/operación).
-    if es_admin:
-        folio_cached = st.session_state.get("folio_proyectado_cached")
-        if folio_cached:
-            st.markdown(f'<div class="card-info-header">🔖 Folio de Registro (Proyectado)<br><b>{folio_cached}</b></div>', unsafe_allow_html=True)
-            if st.button("🧾 Borrar folio proyectado (limpiar cache)", key="btn_clear_folio"):
-                st.session_state["folio_proyectado_cached"] = None
-                safe_rerun()
-        else:
-            st.markdown(f'<div class="card-info-header">🔖 Folio de Registro (Proyección solo para administración)<br><b>— (Pulse calcular)</b></div>', unsafe_allow_html=True)
-            if st.button("Calcular folio proyectado (Admin)", key="btn_calcular_folio_admin"):
-                with st.spinner("Calculando folio proyectado desde Google Sheets..."):
-                    folio_calculado = obtener_folio_proyectado(sigla_url, sufijo_js, val_fecha_app, st.session_state.modalidad)
-                    st.session_state["folio_proyectado_cached"] = folio_calculado
-                safe_rerun()
-    else:
-        # Texto para usuarios públicos: se asignará un folio al finalizar el registro
-        st.markdown(
-            f'<div class="card-info-header">🔖 Folio de Registro<br><b>— (Se asignará al finalizar el registro)</b></div>',
-            unsafe_allow_html=True
-        )
+    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_proyectado}</b></div>', unsafe_allow_html=True)
 
 # --- IDENTIFICACIÓN DEL PACIENTE ---
 st.markdown('<div class="section-title">2. Identificación del Paciente</div>', unsafe_allow_html=True)
 col_n1, col_n2, col_n3 = st.columns(3)
-with col_n1:
-    paterno = st.text_input("Apellido Paterno *", key="input_paterno")
-with col_n2:
-    materno = st.text_input("Apellido Materno *", key="input_materno")
-with col_n3:
-    nombres = st.text_input("Nombre(s) *", key="input_nombres")
+with col_n1: paterno = st.text_input("Apellido Paterno *", key="input_paterno")
+with col_n2: materno = st.text_input("Apellido Materno *", key="input_materno")
+with col_n3: nombres = st.text_input("Nombre(s) *", key="input_nombres")
 
 st.markdown("<label style='font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important;'>Fecha de Nacimiento *</label>", unsafe_allow_html=True)
 col_d, col_m, col_a = st.columns(3)
-with col_d:
-    dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], key="sel_dia", label_visibility="collapsed")
-with col_m:
-    mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), key="sel_mes", label_visibility="collapsed")
-with col_a:
-    anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], key="sel_anio", label_visibility="collapsed")
+with col_d: dia_sel = st.selectbox("Día", options=["Día"] + [str(d).zfill(2) for d in range(1, 32)], key="sel_dia", label_visibility="collapsed")
+with col_m: mes_sel = st.selectbox("Mes", options=["Mes"] + list(meses_dict.keys()), key="sel_mes", label_visibility="collapsed")
+with col_a: anio_sel = st.selectbox("Año", options=["Año"] + [str(a) for a in range(datetime.date.today().year, 1919, -1)], key="sel_anio", label_visibility="collapsed")
 
 fecha_nacimiento = None
 if dia_sel != "Día" and mes_sel != "Mes" and anio_sel != "Año":
-    try:
-        fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
-    except ValueError:
-        st.error("⚠️ La combinación de fecha seleccionada no es válida.")
+    try: fecha_nacimiento = datetime.date(int(anio_sel), meses_dict[mes_sel], int(dia_sel))
+    except ValueError: st.error("⚠️ La combinación de fecha seleccionada no es válida.")
 
 if fecha_nacimiento:
-    st.markdown(
-        f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;">'
-        f'<span style="font-size: 1.1rem; font-weight: 700; color: #611232;">Fecha de Nacimiento seleccionada:</span><br>'
-        f'<b>{fecha_nacimiento.strftime("%d/%m/%Y")}</b>'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown(f'<div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px;"><span style="font-size: 1.1rem; font-weight: 700; color: #611232;">Fecha de Nacimiento seleccionada:</span><br><b>{fecha_nacimiento.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
 
 col_fn2, col_fn3 = st.columns(2)
-with col_fn2:
-    sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="input_sexo")
-with col_fn3:
-    estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, key="input_estnac")
+with col_fn2: sexo = st.selectbox("Sexo *", options=["SELECCIONE UNA OPCIÓN", "HOMBRE", "MUJER"], key="input_sexo")
+with col_fn3: estado_nacimiento = st.selectbox("Estado de Nacimiento *", options=estados_mexico, key="input_estnac")
 
 personas_gestantes = "NO"
 if sexo == "MUJER":
@@ -440,10 +414,8 @@ edad_total_meses = (calc_anos * 12) + calc_meses
 st.markdown("<br>", unsafe_allow_html=True)
 col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
 with col_img2:
-    try:
-        st.image("assets/INE.png", width=350, caption="📌 Ubicación del Dígito Verificador")
-    except:
-        pass
+    try: st.image("assets/INE.png", width=350, caption="📌 Ubicación del Dígito Verificador")
+    except: pass
 st.markdown("<br>", unsafe_allow_html=True)
 
 digitos_faltantes = st.text_input("Dígito Verificador (Opcional - Últimos caracteres)", max_chars=2, key="input_digitos")
@@ -456,12 +428,9 @@ st.markdown(f'<div class="card-curp">🆔 CURP / RFC Generada: {curp_con_nacimie
 st.markdown('<div class="section-title">3. Domicilio, Correo y Afiliación</div>', unsafe_allow_html=True)
 estado_residencia = st.selectbox("Estado de Residencia *", options=estados_mexico, key="input_estres")
 col_dom1, col_dom2, col_dom3 = st.columns([2, 1, 1])
-with col_dom1:
-    calle = st.text_input("Calle *", key="input_calle")
-with col_dom2:
-    numero = st.text_input("No. (Ext / Int) *", key="input_num")
-with col_dom3:
-    colonia = st.text_input("Colonia *", key="input_col")
+with col_dom1: calle = st.text_input("Calle *", key="input_calle")
+with col_dom2: numero = st.text_input("No. (Ext / Int) *", key="input_num")
+with col_dom3: colonia = st.text_input("Colonia *", key="input_col")
 
 col_corr1, col_corr2 = st.columns(2)
 with col_corr1:
@@ -601,50 +570,23 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     "modalidad": st.session_state.modalidad,
                 }
 
-                # Llamada al guardado (espera que guardar_registro_censal devuelva: folio, is_duplicate, existing_folio)
-                folio_asignado, is_duplicate, existing_folio = guardar_registro_censal(
+                folio_asignado = guardar_registro_censal(
                     sigla_url=sigla_url, sufijo_js=sufijo_js, tipo_jornada=st.session_state.tipo_jornada,
                     val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                 )
 
-                # Limpiamos token de envío en sesión (si lo usas)
-                st.session_state.pop("submission_id", None)
-
-                # Fecha de aplicación (ya calculada arriba)
-                fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
-
-                if is_duplicate:
-                    # Si guardar_registro_censal detectó que ya existía el registro (idempotencia/dedupe)
-                    st.session_state.enviando_registro = False
-                    st.warning(f"⚠️ Ya existe un registro para este paciente. Folio existente: {existing_folio}")
-                    st.session_state.paciente_duplicado_info = {
-                        "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                        "folio": existing_folio
-                    }
-                    # Mostrar modal de duplicado inmediatamente
-                    mostrar_modal_duplicado()
-                else:
-                    # Éxito normal: guardamos en session_state el paciente reciente y mostramos el comprobante en esta misma ejecución
-                    st.session_state.ultimo_paciente_registrado = {
-                        "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                        "curp_con_nacimiento": curp_con_nacimiento,
-                        "vacuna_interes": vacuna_interes,
-                        "grupo_objetivo": grupo_sugerido,
-                        "folio": folio_asignado,
-                        "correo_paciente": correo_paciente.strip(),
-                        "fecha_aplicacion": fecha_aplicacion_str,
-                    }
-
-                    # Liberamos el lock para permitir acciones dentro del modal (ej. enviar correo)
-                    st.session_state.enviando_registro = False
-
-                    # Mostrar el modal del comprobante en la misma ejecución para que el usuario lo vea inmediatamente
-                    mostrar_modal_comprobante()
-
+                st.session_state.ultimo_paciente_registrado = {
+                    "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                    "curp_con_nacimiento": curp_con_nacimiento,
+                    "vacuna_interes": vacuna_interes,
+                    "grupo_objetivo": grupo_sugerido,
+                    "folio": folio_asignado,
+                    "correo_paciente": correo_paciente.strip(),
+                    "fecha_aplicacion": fecha_aplicacion_str,
+                }
+                st.session_state.enviando_registro = False
+                mostrar_modal_comprobante()
             except Exception as e:
                 st.session_state.enviando_registro = False
-                # Aseguramos que el token se borre aunque haya error
-                st.session_state.pop("submission_id", None)
                 st.error("⚠️ Error general al procesar el registro en Google Sheets:")
                 st.exception(e)
-                
