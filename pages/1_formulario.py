@@ -82,8 +82,6 @@ if "ultimo_paciente_registrado" not in st.session_state:
     st.session_state.ultimo_paciente_registrado = None
 if "paciente_duplicado_info" not in st.session_state:
     st.session_state.paciente_duplicado_info = None
-if "enviando_registro" not in st.session_state:
-    st.session_state.enviando_registro = False
 
 if "ant_cov" not in st.session_state:
     st.session_state.ant_cov = None
@@ -219,7 +217,6 @@ def mostrar_comprobante_principal():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.ultimo_paciente_registrado = None
-            st.session_state.enviando_registro = False
             
             keys_a_limpiar = [
                 "input_paterno", "input_materno", "input_nombres", 
@@ -443,9 +440,8 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 
 st.markdown("---")
 
-# --- BOTÓN DE REGISTRO PROTEGIDO CONTRA CLICS MÚLTIPLES ---
-btn_disabled = st.session_state.enviando_registro
-if st.button("Registrarme para la jornada", use_container_width=True, disabled=btn_disabled, key="btn_registrar_jornada"):
+# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
+if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
     elif not paterno.strip() or not materno.strip() or not nombres.strip():
@@ -457,15 +453,12 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        st.session_state.enviando_registro = True
-
         with st.spinner("🚀 Procesando registro y conectando con el servidor..."):
             duplicado, folio_previo = verificar_curp_duplicada(
                 curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
             )
 
             if duplicado:
-                st.session_state.enviando_registro = False
                 st.session_state.paciente_duplicado_info = {
                     "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                     "folio": folio_previo
@@ -507,7 +500,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                     fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                     if is_duplicate:
-                        st.session_state.enviando_registro = False
                         st.warning(f"⚠️ Ya existe un registro para este paciente. Folio existente: {existing_folio}")
                         st.session_state.paciente_duplicado_info = {
                             "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
@@ -524,11 +516,9 @@ if st.button("Registrarme para la jornada", use_container_width=True, disabled=b
                             "correo_paciente": correo_paciente.strip(),
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
-                        st.session_state.enviando_registro = False
                         safe_rerun()
 
                 except Exception as e:
-                    st.session_state.enviando_registro = False
                     st.session_state.pop("submission_id", None)
                     st.error("⚠️ Error general al procesar el registro en Google Sheets:")
                     st.exception(e)
