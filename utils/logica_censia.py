@@ -21,8 +21,7 @@ def procesar_guardado_aplicacion(
     fecha_aplicacion_hoja
 ):
     """
-    Ejecuta las validaciones, actualiza los datos en Google Sheets de forma segura
-    y prepara el diccionario para el comprobante oficial.
+    Ejecuta las validaciones y actualiza los datos en Google Sheets de forma completamente segura.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -115,10 +114,10 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # --- ACTUALIZACIÓN MASIVA SEGURA (SIN LLAMADAS A .format) ---
+        # --- EJECUCIÓN DIRECTA DE BATCH_UPDATE SIN LLAMADAS A .format ---
         worksheet_activa.batch_update(datos_a_actualizar)
 
-        # Invalidar la caché de Streamlit para forzar lectura fresca
+        # Invalidar caché de Streamlit
         st.cache_data.clear()
 
         lote_final_partes = []
