@@ -5,7 +5,7 @@ pillow>=10.0.0
 numpy
 # Pinned for compatibility with gspread and Google auth internals
 # Fixes: 'AuthorizedSession' object has no attribute '_auth_request'
-gspread==5.12.4
+gspread>=6.0.0
 google-auth==2.22.0
 google-auth-httplib2==0.1.0
 google-auth-oauthlib==0.4.6
