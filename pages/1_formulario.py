@@ -91,158 +91,158 @@ if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
 
 
-def mostrar_comprobante_principal():
+@st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!", width="large")
+def mostrar_modal_comprobante():
     p = st.session_state.get("ultimo_paciente_registrado")
-    if p:
-        st.markdown("### 🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
-        curp_mostrar = p.get("curp_con_nacimiento", "CURP")
-        nombre_val = p["nombre_completo"]
-        folio_val = p["folio"]
-        vacuna_val = p.get("vacuna_interes", "AMBAS")
-        grupo_val = p["grupo_objetivo"]
-        correo_capturado = p.get("correo_paciente", "")
-        fecha_val = p.get("fecha_aplicacion", val_fecha_app.strftime("%d/%m/%Y"))
+    if not p:
+        safe_rerun()
+        return
 
-        texto_qr = (
-            f"ISSSTE - REGISTRO DE FOLIO VIGILE\n"
-            f"FOLIO: {folio_val}\n"
-            f"PACIENTE: {nombre_val}\n"
-            f"CURP: {curp_mostrar}\n"
-            f"VACUNA: {vacuna_val}\n"
-            f"GRUPO: {grupo_val}\n"
-            f"FECHA APLICACIÓN: {fecha_val}\n"
-            f"ESTADO: REGISTRADO"
-        )
+    curp_mostrar = p.get("curp_con_nacimiento", "CURP")
+    nombre_val = p["nombre_completo"]
+    folio_val = p["folio"]
+    vacuna_val = p.get("vacuna_interes", "AMBAS")
+    grupo_val = p["grupo_objetivo"]
+    correo_capturado = p.get("correo_paciente", "")
+    fecha_val = p.get("fecha_aplicacion", val_fecha_app.strftime("%d/%m/%Y"))
 
-        html_comprobante_component = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-        <style>
-            body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ 
-                position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; 
-                padding: 12px; border-radius: 10px; color: #161a1d; 
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
-            }}
-            .watermark-overlay {{
-                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
-                pointer-events: none; z-index: 1; overflow: hidden;
-            }}
-            .watermark-row {{
-                display: flex; gap: 15px; white-space: nowrap; font-size: 0.75rem; font-weight: 900;
-                color: rgba(97, 18, 50, 0.12); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
-            }}
-            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin: 0 0 6px 0; z-index: 2; position: relative; }}
-            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
-            .info-container {{ flex: 1; z-index: 2; position: relative; }}
-            .qr-container {{ width: 110px; text-align: center; z-index: 2; position: relative; }}
-            .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
-            .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; }}
-            .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-            .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
-            .btn-container {{ display: flex; gap: 8px; }}
-            .btn {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; }}
-            .btn-img {{ background-color: #1e5b4f; color: white; }}
-        </style>
-        </head>
-        <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark-overlay">
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                    <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
-                </div>
-                <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
-                <div class="cuerpo-ticket">
-                    <div class="info-container">
-                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
-                        <p class="info-text"><b>CURP:</b> {curp_mostrar}</p>
-                        <p class="info-text"><b>Vacuna:</b> {vacuna_val}</p>
-                        <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
-                        <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
-                    </div>
-                    <div class="qr-container"><canvas id="qr-canvas"></canvas></div>
-                </div>
-                <div class="folio-grande">Folio: {folio_val}</div>
-                <p class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
+    texto_qr = (
+        f"ISSSTE - REGISTRO DE FOLIO VIGILE\n"
+        f"FOLIO: {folio_val}\n"
+        f"PACIENTE: {nombre_val}\n"
+        f"CURP: {curp_mostrar}\n"
+        f"VACUNA: {vacuna_val}\n"
+        f"GRUPO: {grupo_val}\n"
+        f"FECHA APLICACIÓN: {fecha_val}\n"
+        f"ESTADO: REGISTRADO"
+    )
+
+    html_comprobante_component = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <style>
+        body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
+        .card-comprobante {{ 
+            position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; 
+            padding: 12px; border-radius: 10px; color: #161a1d; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
+        }}
+        .watermark-overlay {{
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+            pointer-events: none; z-index: 1; overflow: hidden;
+        }}
+        .watermark-row {{
+            display: flex; gap: 15px; white-space: nowrap; font-size: 0.75rem; font-weight: 900;
+            color: rgba(97, 18, 50, 0.12); text-transform: uppercase; letter-spacing: 1px; transform: rotate(-25deg);
+        }}
+        .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin: 0 0 6px 0; z-index: 2; position: relative; }}
+        .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
+        .info-container {{ flex: 1; z-index: 2; position: relative; }}
+        .qr-container {{ width: 110px; text-align: center; z-index: 2; position: relative; }}
+        .qr-container canvas {{ width: 100% !important; height: auto !important; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; display: block; }}
+        .folio-grande {{ font-size: 1.10rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; }}
+        .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
+        .leyenda-posterior {{ font-size: 0.68rem !important; font-weight: 700 !important; color: #611232 !important; text-align: center; margin: 6px 0 0 0; z-index: 2; position: relative; }}
+        .btn-container {{ display: flex; gap: 8px; }}
+        .btn {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; }}
+        .btn-img {{ background-color: #1e5b4f; color: white; }}
+    </style>
+    </head>
+    <body>
+        <div id="comprobante-captura" class="card-comprobante">
+            <div class="watermark-overlay">
+                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
+                <div class="watermark-row"><span>NO ES UN COMPROBANTE OFICIAL</span><span>NO ES UN COMPROBANTE OFICIAL</span></div>
             </div>
-            <div class="btn-container">
-                <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
+            <div class="titulo-ticket">FOLIO DE VACUNACION REGISTRADO</div>
+            <div class="cuerpo-ticket">
+                <div class="info-container">
+                    <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
+                    <p class="info-text"><b>CURP:</b> {curp_mostrar}</p>
+                    <p class="info-text"><b>Vacuna:</b> {vacuna_val}</p>
+                    <p class="info-text"><b>Grupo:</b> {grupo_val}</p>
+                    <p class="info-text"><b>Fecha Aplicación:</b> {fecha_val}</p>
+                </div>
+                <div class="qr-container"><canvas id="qr-canvas"></canvas></div>
             </div>
-            <script>
-                window.addEventListener('DOMContentLoaded', () => {{
-                    new QRious({{ element: document.getElementById('qr-canvas'), value: {repr(texto_qr)}, size: 250 }});
+            <div class="folio-grande">Folio: {folio_val}</div>
+            <p class="leyenda-posterior">Posterior a la asistencia de la aplicación de la vacuna se le entregará un comprobante oficial.</p>
+        </div>
+        <div class="btn-container">
+            <button class="btn btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
+        </div>
+        <script>
+            window.addEventListener('DOMContentLoaded', () => {{
+                new QRious({{ element: document.getElementById('qr-canvas'), value: {repr(texto_qr)}, size: 250 }});
+            }});
+            function descargarCaptura() {{
+                html2canvas(document.getElementById('comprobante-captura'), {{ scale: 2, useCORS: true }}).then(canvas => {{
+                    const enlace = document.createElement('a');
+                    enlace.download = 'Folio_{folio_val}.png';
+                    enlace.href = canvas.toDataURL('image/png');
+                    enlace.click();
                 }});
-                function descargarCaptura() {{
-                    html2canvas(document.getElementById('comprobante-captura'), {{ scale: 2, useCORS: true }}).then(canvas => {{
-                        const enlace = document.createElement('a');
-                        enlace.download = 'Folio_{folio_val}.png';
-                        enlace.href = canvas.toDataURL('image/png');
-                        enlace.click();
-                    }});
-                }}
-            </script>
-        </body>
-        </html>
-        """
-        components.html(html_comprobante_component, height=360)
-        st.markdown("<br>", unsafe_allow_html=True)
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    components.html(html_comprobante_component, height=360)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown("##### ✉️ Enviar Comprobante de Folio por Correo")
-        correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_capturado, placeholder="correo@ejemplo.com", key="input_correo_registro_modal")
+    st.markdown("##### ✉️ Enviar Comprobante de Folio por Correo")
+    correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_capturado, placeholder="correo@ejemplo.com", key="input_correo_registro_modal")
 
-        if st.button("🚀 Enviar Folio por Correo", use_container_width=True, key="btn_enviar_mail_reg"):
-            if not correo_destino_input.strip():
-                st.warning("⚠️ Ingrese un correo electrónico válido.")
+    if st.button("🚀 Enviar Folio por Correo", use_container_width=True, key="btn_enviar_mail_reg"):
+        if not correo_destino_input.strip():
+            st.warning("⚠️ Ingrese un correo electrónico válido.")
+        else:
+            exito, mensaje = enviar_comprobante_correo(
+                destinatario_email=correo_destino_input.strip(),
+                nombre_paciente=nombre_val,
+                folio=folio_val,
+                dosis_str=vacuna_val,
+                lotes_str=f"Grupo: {grupo_val}",
+                fecha_val=fecha_val,
+                tipo="folio"
+            )
+            if exito:
+                st.success(mensaje)
             else:
-                exito, mensaje = enviar_comprobante_correo(
-                    destinatario_email=correo_destino_input.strip(),
-                    nombre_paciente=nombre_val,
-                    folio=folio_val,
-                    dosis_str=vacuna_val,
-                    lotes_str=f"Grupo: {grupo_val}",
-                    fecha_val=fecha_val,
-                    tipo="folio"
-                )
-                if exito:
-                    st.success(mensaje)
-                else:
-                    st.error(mensaje)
+                st.error(mensaje)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
-            st.session_state.ultimo_paciente_registrado = None
-            
-            # En lugar de usar 'del st.session_state[k]', reiniciamos los valores 
-            # a sus estados vacíos/por defecto para que el widget reconozca el cambio de inmediato.
-            st.session_state.input_paterno = ""
-            st.session_state.input_materno = ""
-            st.session_state.input_nombres = ""
-            st.session_state.sel_dia = "Día"
-            st.session_state.sel_mes = "Mes"
-            st.session_state.sel_anio = "Año"
-            st.session_state.input_sexo = "SELECCIONE UNA OPCIÓN"
-            st.session_state.input_estnac = states_mexico[0] if "states_mexico" in globals() else "SELECCIONE UN ESTADO"
-            st.session_state.input_estres = st.session_state.input_estnac
-            st.session_state.input_calle = ""
-            st.session_state.input_num = ""
-            st.session_state.input_colonia = ""
-            st.session_state.input_correo_paciente = ""
-            st.session_state.input_derecho = "SELECCIONE UNA OPCIÓN"
-            st.session_state.input_ocupacion = lista_ocupaciones[0] if "lista_ocupaciones" in globals() else "NO APLICA"
-            st.session_state.input_digitos = ""
-            st.session_state.ant_cov = None
-            st.session_state.ant_inf = None
-            st.session_state.input_vacuna = None
-            st.session_state.chk_gestante = None
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
+        st.session_state.ultimo_paciente_registrado = None
+        
+        st.session_state.input_paterno = ""
+        st.session_state.input_materno = ""
+        st.session_state.input_nombres = ""
+        st.session_state.sel_dia = "Día"
+        st.session_state.sel_mes = "Mes"
+        st.session_state.sel_anio = "Año"
+        st.session_state.input_sexo = "SELECCIONE UNA OPCIÓN"
+        st.session_state.input_estnac = states_mexico[0] if "states_mexico" in globals() else "SELECCIONE UN ESTADO"
+        st.session_state.input_estres = st.session_state.input_estnac
+        st.session_state.input_calle = ""
+        st.session_state.input_num = ""
+        st.session_state.input_colonia = ""
+        st.session_state.input_correo_paciente = ""
+        st.session_state.input_derecho = "SELECCIONE UNA OPCIÓN"
+        st.session_state.input_ocupacion = lista_ocupaciones[0] if "lista_ocupaciones" in globals() else "NO APLICA"
+        st.session_state.input_digitos = ""
+        st.session_state.ant_cov = None
+        st.session_state.ant_inf = None
+        st.session_state.input_vacuna = None
+        st.session_state.chk_gestante = None
 
-            st.rerun()
-        st.stop()
+        safe_rerun()
 
 
 @st.dialog("⚠️ ¡PACIENTE YA REGISTRADO!")
@@ -265,16 +265,15 @@ def mostrar_modal_duplicado():
             st.session_state.paciente_duplicado_info = None
             safe_rerun()
 
-# --- LLAMADA A MODAL DE DUPLICADO SI APLICA ---
+# --- LLAMADA A MODALES SI APLICAN ---
 if st.session_state.get("paciente_duplicado_info") is not None:
     mostrar_modal_duplicado()
 
+if st.session_state.get("ultimo_paciente_registrado") is not None:
+    mostrar_modal_comprobante()
+
 st.markdown('<p class="main-header">Sistema de Registro Nominal de Vacunación</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">Unidad: <b>{st.session_state.nombre_unidad}</b> | Modalidad: <b>{st.session_state.modalidad}</b></p>', unsafe_allow_html=True)
-
-# --- SI HAY UN PACIENTE REGISTRADO, MOSTRAMOS SU COMPROBANTE EN LUGAR DEL FORMULARIO ---
-if st.session_state.get("ultimo_paciente_registrado") is not None:
-    mostrar_comprobante_principal()
 
 # --- PANEL DE DATOS SIMULADOS ---
 if es_admin:
@@ -452,7 +451,6 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 st.markdown("---")
 
 # --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
-# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
 if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
@@ -465,19 +463,22 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        with st.spinner("🚀 Registrando y generando comprobante..."):
+        with st.status("🚀 Procesando registro...", expanded=True) as status:
             try:
+                status.update(label="Verificando duplicidad de CURP...")
                 duplicado, folio_previo = verificar_curp_duplicada(
                     curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
                 )
 
                 if duplicado:
+                    status.update(label="⚠️ ¡Paciente ya registrado!", state="error", expanded=False)
                     st.session_state.paciente_duplicado_info = {
                         "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                         "folio": folio_previo
                     }
                     safe_rerun()
                 else:
+                    status.update(label="Guardando en Google Sheets y generando comprobante...")
                     fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                     comorbilidades_dict = {
@@ -511,12 +512,13 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                     st.session_state.pop("submission_id", None)
 
                     if is_duplicate:
+                        status.update(label="⚠️ Registro duplicado detectado.", state="error", expanded=False)
                         st.session_state.paciente_duplicado_info = {
                             "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "folio": existing_folio
                         }
                     else:
-                        # 1. Guardamos el estado del paciente registrado
+                        status.update(label="✅ ¡Registro exitoso!", state="complete", expanded=False)
                         st.session_state.ultimo_paciente_registrado = {
                             "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "curp_con_nacimiento": curp_con_nacimiento,
@@ -527,10 +529,10 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
                     
-                    # 2. Forzamos la recarga inmediata para que caiga directo en la vista del comprobante
                     safe_rerun()
 
             except Exception as e:
+                status.update(label="❌ Error al procesar el registro", state="error", expanded=False)
                 st.session_state.pop("submission_id", None)
                 st.error("⚠️ Error general al procesar el registro en Google Sheets:")
                 st.exception(e)
