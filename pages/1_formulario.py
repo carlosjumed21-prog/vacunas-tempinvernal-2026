@@ -218,19 +218,30 @@ def mostrar_comprobante_principal():
         if st.button("➕ Nuevo Registro", use_container_width=True, key="btn_nuevo_registro_modal"):
             st.session_state.ultimo_paciente_registrado = None
             
-            keys_a_limpiar = [
-                "input_paterno", "input_materno", "input_nombres", 
-                "sel_dia", "sel_mes", "sel_anio", "input_sexo", 
-                "input_estnac", "input_estres", "input_calle", 
-                "input_num", "input_col", "input_correo_paciente", 
-                "input_derecho", "input_ocupacion", "input_digitos",
-                "ant_cov", "ant_inf", "input_vacuna", "chk_gestante"
-            ]
-            for k in keys_a_limpiar:
-                if k in st.session_state:
-                    del st.session_state[k]
+            # En lugar de usar 'del st.session_state[k]', reiniciamos los valores 
+            # a sus estados vacíos/por defecto para que el widget reconozca el cambio de inmediato.
+            st.session_state.input_paterno = ""
+            st.session_state.input_materno = ""
+            st.session_state.input_nombres = ""
+            st.session_state.sel_dia = "Día"
+            st.session_state.sel_mes = "Mes"
+            st.session_state.sel_anio = "Año"
+            st.session_state.input_sexo = "SELECCIONE UNA OPCIÓN"
+            st.session_state.input_estnac = states_mexico[0] if "states_mexico" in globals() else "SELECCIONE UN ESTADO"
+            st.session_state.input_estres = st.session_state.input_estnac
+            st.session_state.input_calle = ""
+            st.session_state.input_num = ""
+            st.session_state.input_colonia = ""
+            st.session_state.input_correo_paciente = ""
+            st.session_state.input_derecho = "SELECCIONE UNA OPCIÓN"
+            st.session_state.input_ocupacion = lista_ocupaciones[0] if "lista_ocupaciones" in globals() else "NO APLICA"
+            st.session_state.input_digitos = ""
+            st.session_state.ant_cov = None
+            st.session_state.ant_inf = None
+            st.session_state.input_vacuna = None
+            st.session_state.chk_gestante = None
 
-            safe_rerun()
+            st.rerun()
         st.stop()
 
 
