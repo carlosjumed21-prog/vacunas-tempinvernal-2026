@@ -155,7 +155,7 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         return [], [], [], None
 
 # --------------------
-# Worker de eliminación en segundo plano
+# Worker de eliminación en segundo plano optimizado
 # --------------------
 BACKGROUND_RESULTS = {}
 
@@ -189,7 +189,6 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 except Exception:
                     pass
 
-        st.cache_data.clear() # Limpiar caché local para reflejar cambios inmediatos
         header1_r, header2_r, data_rows_r, _ = load_sheet_minimal_cached(spreadsheet_id, worksheet_name)
         BACKGROUND_RESULTS[cache_key_local] = {
             "status": "done",
@@ -422,6 +421,7 @@ def render_seccion_tabla_interactiva():
     if cache_key in BACKGROUND_RESULTS:
         result = BACKGROUND_RESULTS.pop(cache_key)
         if result.get("status") == "done":
+            st.cache_data.clear()
             st.session_state["visible_rows"] = result["data_rows"]
             st.session_state["header1"] = result["header1"]
             st.session_state["header2"] = result["header2"]
