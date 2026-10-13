@@ -45,7 +45,7 @@ meses_dict = {
 
 
 def obtener_cliente_gspread_seguro():
-    """Función unificada y segura para autenticarse con gspread sin errores de sesión."""
+    """Autenticación unificada y segura mediante diccionarios para gspread."""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
@@ -284,4 +284,36 @@ def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
     except Exception:
         consecutivo_num = 1
     
-    secuencial_str = str(con
+    secuencial_str = str(consecutivo_num).zfill(4)
+    return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
+
+
+@st.cache_data(ttl=300)
+def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
+    try:
+        gc = obtener_cliente_gspread_seguro()
+        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
+        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
+        if sufijo_js:
+            nombre_tabla += f"_{sufijo_js}"
+            
+        worksheet = sh.worksheet(nombre_tabla)
+        return worksheet.get_all_records()
+    except Exception:
+        return []
+
+
+def verificar_curp_duplicada(curp_actual, sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
+    if not curp_actual or len(curp_actual) < 10 or "COMPLETA" in curp_actual:
+        return False, None
+        
+    prefijo_actual = curp_actual[:10].upper()
+    registros = obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app)
+    
+    for reg in registros:
+        curp_registrada = str(reg.get("CURP", reg.get("curp_con_nacimiento", ""))).upper()
+        if curp_registrada and curp_registrada[:10] == prefijo_actual:
+            folio_existente = reg.get("Folio", reg.get("folio", "DESCONOCIDO"))
+            return True, folio_existente
+            
+    return False, None
