@@ -124,9 +124,14 @@ def guardar_registro_censal(
         vacuna_interes = p.get("vacuna_interes", "")
         vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""
 
-        marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
-        marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
-        marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
+        if "SELECCIONE" in vacuna_interes_str or not vacuna_interes_str:
+            marca_inf = ""
+            marca_cov = ""
+            marca_amb = ""
+        else:
+            marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
+            marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
+            marca_amb = "X" if "AMBAS" in vacuna_interes_str else ""
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
@@ -151,56 +156,4 @@ def guardar_registro_censal(
             val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app), # L (11)
             p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(), # M, N, O (12, 13, 14)
             marca_6_59m,                                                                    # P (15) - 6 A 59 MESES
-            marca_60_mas,                                                                   # Q (16) - 60 Y MÁS
-            check_activo(com.get("personas_embarazadas")),                                  # R (17) - EMBARAZADAS
-            check_activo(com.get("personal_salud_riesgo")),                                 # S (18) - PERSONAL DE SALUD
-            check_activo(com.get("vih")),                                                   # T (19) - VIH/sida
-            check_activo(com.get("diabetes")),                                              # U (20) - DIABETES MELLITUS
-            check_activo(com.get("obesidad")),                                              # V (21) - OBESIDAD MÓRBIDA
-            check_activo(com.get("cardiopatias")),                                          # W (22) - CARDIOPATÍAS AGUDAS O CRÓNICAS
-            check_activo(com.get("enfermedad_pulmonar")),                                   # X (23) - ENFERMEDAD PULMONAR CRÓNICA
-            check_activo(com.get("cancer")),                                                # Y (24) - CÁNCER
-            check_activo(com.get("cardiacas_congenitas")),                                  # Z (25) - ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS
-            check_activo(com.get("insuficiencia_renal")),                                   # AA (26) - INSUFICIENCIA RENAL
-            check_activo(com.get("inmunosupresion")),                                       # AB (27) - INMUNOSUPRESIÓN ADQUIRIDA
-            check_activo(com.get("discapacidades")),                                        # AC (28) - DISCAPACIDADES
-            check_activo(com.get("fibrosis_quistica")),                                     # AD (29) - FIBROSIS QUÍSTICA
-            check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
-            com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
-            "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
-            val_ant_cov,                                                                    # AR (42) - ANTECEDENTE COVID-19 (SÍ / NO / LO DESCONOCE)
-            val_ant_inf,                                                                    # AS (43) - ANTECEDENTE INFLUENZA (SÍ / NO / LO DESCONOCE)
-            marca_inf,                                                                      # AT (44) - INFLUENZA ("X" si se elige aislada)
-            marca_cov,                                                                      # AU (45) - COVID-19 ("X" si se elige aislada)
-            marca_amb,                                                                      # AV (46) - AMBAS ("X" si se elige aislada)
-            p.get("cuenta_derechohabiencia", ""),                                           # AW (47)
-            fecha_registro_actual,                                                          # AX (48)
-            correo_paciente_val,                                                            # AY (49)
-        ]
-
-        curp_val = p.get("curp_con_nacimiento", "").upper()
-        fila_curp = fila_destino + 1
-
-        # Petición HTTP directa vía Google Sheets API v4 utilizando rango abierto !A{fila_destino}
-        token = obtener_token_acceso()
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        }
-        body = {
-            "valueInputOption": "USER_ENTERED",
-            "data": [
-                {"range": f"{nombre_hoja}!A{fila_destino}", "values": [fila_registro_principal]},
-                {"range": f"{nombre_hoja}!C{fila_curp}", "values": [[curp_val]]},
-                {"range": f"{nombre_hoja}!AW{fila_curp}", "values": [[fecha_registro_actual]]}
-            ]
-        }
-        resp = requests.post(url, headers=headers, json=body)
-        if resp.status_code != 200:
-            raise Exception(resp.text)
-
-        return folio_asignado, False, None
-
-    except Exception as e:
-        raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
+            marca_60_mas
