@@ -30,24 +30,37 @@ st.markdown(
 # ============================================================
 # NUEVA LOGICA: CLIENTE GOOGLE CACHEADO Y LECTURA LAZY
 # ============================================================
-@st.cache_resource
-def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread utilizando credenciales de servicio explícitas."""
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-    else:
-        primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+@st.cache_data(ttl=180)
+def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
+    """
+    Lista las hojas autorizadas para un usuario, pero solo se ejecuta cuando
+    el usuario ya está autenticado y no cada rerun del script.
+    """
+    try:
+        client = obtener_client_gspread_cacheado()
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        todas_las_hojas = spreadsheet.worksheets()
+        h_autorizadas = []
+        hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        if correo_sesion == "carlosju.med21@gmail.com":
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    h_autorizadas.append(h.title)
+        else:
+            for h in todas_las_hojas:
+                if h.title not in hojas_plantillas_excluir:
+                    try:
+                        val_au4 = h.acell("AU4").value
+                        if val_au4 and val_au4.strip().lower() == correo_sesion:
+                            h_autorizadas.append(h.title)
+                    except Exception:
+                        pass
+    except Exception as e:
+        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
+        return []
 
-    # Autorización explícita compatible con gspread y google-auth
-    credentials = service_account.Credentials.from_service_account_info(
-        creds_dict, scopes=GOOGLE_SCOPES
-    )
-    return gspread.authorize(credentials)
+    return h_autorizadas
 
 @st.cache_data(ttl=120)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str):
