@@ -178,7 +178,7 @@ def guardar_registro_censal(
         ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
         ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
 
-        return folio_asignado
+        return folio_asignado, False, None
 
     except Exception as e:
         raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
