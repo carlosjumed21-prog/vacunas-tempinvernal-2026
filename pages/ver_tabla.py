@@ -99,8 +99,9 @@ def get_creds_from_secrets():
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-# --- LECTURA DIRECTA EN TIEMPO REAL (SIN CACHÉ) ---
-def load_sheet_minimal_direct(spreadsheet_id, worksheet_name):
+# --- LECTURA CACHEADA DE ALTA VELOCIDAD (TTL DE 3 SEGUNDOS) ---
+@st.cache_data(ttl=3, show_spinner=False)
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
@@ -171,7 +172,8 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
                 except Exception:
                     pass
 
-        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal_direct(spreadsheet_id, worksheet_name)
+        st.cache_data.clear()
+        header1_r, header2_r, data_rows_r, _ = load_sheet_minimal_cached(spreadsheet_id, worksheet_name)
         BACKGROUND_RESULTS[cache_key_local] = {
             "status": "done",
             "header1": header1_r,
@@ -185,7 +187,7 @@ def delete_rows_worker(spreadsheet_id, worksheet_name, filas_gs_a_borrar, cache_
             "error": str(e)
         }
 
-# --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA EN TIEMPO REAL ---
+# --- CONEXIÓN INICIAL Y OBTENCIÓN DE HOJA ---
 cache_key = build_cache_key(hoja_activa_tabla)
 
 try:
@@ -196,8 +198,7 @@ except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
     st.stop()
 
-# Forzar lectura directa fresca omitiendo estados estáticos viejos
-header1, header2, filas_tabla, ws = load_sheet_minimal_direct(GOOGLE_SHEET_ID, hoja_activa_tabla)
+header1, header2, filas_tabla, ws = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
 st.session_state["visible_rows"] = filas_tabla
 st.session_state["header1"] = header1
 st.session_state["header2"] = header2
@@ -313,7 +314,8 @@ def render_seccion_tabla_interactiva():
     with col_tit2:
         if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
             try:
-                header1_new, header2_new, filas_new, ws_new = load_sheet_minimal_direct(GOOGLE_SHEET_ID, hoja_activa_tabla)
+                st.cache_data.clear()
+                header1_new, header2_new, filas_new, ws_new = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
                 if filas_new:
                     st.session_state["visible_rows"] = filas_new
                     st.session_state["header1"] = header1_new
@@ -400,6 +402,7 @@ def render_seccion_tabla_interactiva():
     if cache_key in BACKGROUND_RESULTS:
         result = BACKGROUND_RESULTS.pop(cache_key)
         if result.get("status") == "done":
+            st.cache_data.clear()
             st.session_state["visible_rows"] = result["data_rows"]
             st.session_state["header1"] = result["header1"]
             st.session_state["header2"] = result["header2"]
