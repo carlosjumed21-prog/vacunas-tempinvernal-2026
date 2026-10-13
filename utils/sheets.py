@@ -42,19 +42,18 @@ def guardar_registro_censal(
     datos_paciente,
 ):
     """
-    Versión optimizada: lee SOLO la columna B para localizar la fila destino,
-    escribe la fila completa en una sola operación y devuelve (folio, is_duplicate, existing_folio).
+    Versión altamente optimizada: lee la columna B una sola vez y utiliza
+    batch_update para escribir tanto la fila principal como la complementaria
+    en una sola solicitud HTTP, eliminando el lag.
     """
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
         nombre_hoja = sigla_url if not sufijo_js else f"{sigla_url}_{sufijo_js}"
-        # intentar obtener la hoja
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
         except Exception:
-            # fallback: buscar hoja que contenga sigla_url o crearla
             ws = None
             for h in spreadsheet.worksheets():
                 if sigla_url.upper() in h.title.upper():
@@ -64,12 +63,11 @@ def guardar_registro_censal(
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=2000, cols=60)
 
         # --- localizar fila destino leyendo sólo la columna B (folios) ---
-        col_b = ws.col_values(2)  # devuelve lista 1-based
+        col_b = ws.col_values(2)  #[cite: 3]
         fila_destino = 14
         if len(col_b) >= 14:
-            idx = 13  # índice 13 corresponde a fila 14 (0-based en la lista)
+            idx = 13
             while idx < len(col_b):
-                # si la celda está vacía o no tiene valor en col B, usamos esa fila
                 if idx >= len(col_b) or not str(col_b[idx]).strip():
                     fila_destino = idx + 1
                     break
@@ -151,25 +149,30 @@ def guardar_registro_censal(
             "X" if vacuna_interes in ["COVID-19", "AMBAS"] else "",
             "X" if vacuna_interes == "AMBAS" else "",
             fecha_registro_actual,
-            correo_paciente_val,  # Columna AX (50)
+            correo_paciente_val,
         ]
 
-        # Escribir la fila: si fila existente, actualizar el rango; si no, append_row (más rápido)
-        if fila_destino <= len(col_b):
-            rango_celdas = f"A{fila_destino}:AX{fila_destino}"
-            ws.update(rango_celdas, [fila_registro_principal])
-        else:
-            # append_row puede ser ligeramente más lento pero es una sola operación
-            ws.append_row(fila_registro_principal)
-
-        # Escribir CURP en la fila complementaria (fila +1) columna C y fecha en AW
-        fila_curp = fila_destino + 1
         curp_val = p.get("curp_con_nacimiento", "").upper()
-        # Hacemos dos pequeñas operaciones (se pueden combinar con batch_update si falla performance)
-        ws.update(f"C{fila_curp}", [[curp_val]])
-        ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
+        fila_curp = fila_destino + 1
 
-        # Compatibilidad: devolver triple (folio, is_duplicate, existing_folio)
+        # --- OPTIMIZACIÓN CRUCIAL: USAR BATCH_UPDATE EN UNA SOLA PETICIÓN ---
+        data_a_actualizar = [
+            {
+                'range': f"A{fila_destino}:AX{fila_destino}",
+                'values': [fila_registro_principal]
+            },
+            {
+                'range': f"C{fila_curp}",
+                'values': [[curp_val]]
+            },
+            {
+                'range': f"AW{fila_curp}",
+                'values': [[fecha_registro_actual]]
+            }
+        ]
+        
+        ws.batch_update(data_a_actualizar)
+
         return folio_asignado, False, None
 
     except Exception as e:
