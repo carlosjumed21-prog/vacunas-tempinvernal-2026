@@ -1,19 +1,18 @@
 # utils/sheets.py
 import datetime
 import json
-from config import GOOGLE_SHEET_ID, GOOGLE_SCOPES
+import requests
 from google.oauth2 import service_account
+import google.auth.transport.requests
+from config import GOOGLE_SHEET_ID, GOOGLE_SCOPES
 import gspread
 import streamlit as st
 
-
+@st.cache_resource
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS en formato JSON crudo."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = (
-            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        )
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
     else:
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
@@ -21,11 +20,21 @@ def obtener_cliente_gspread():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    creds = service_account.Credentials.from_service_account_info(
-        creds_dict, scopes=GOOGLE_SCOPES
-    )
-    return gspread.authorize(creds)
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
+def obtener_token_acceso():
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+    auth_req = google.auth.transport.requests.Request()
+    creds.refresh(auth_req)
+    return creds.token
 
 def guardar_registro_censal(
     sigla_url,
@@ -35,52 +44,44 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
-    """Registra los datos del paciente respetando bloques de 2 filas por paciente
-
-    a partir de la fila 14 y colocando la CURP en la fila complementaria (Fila + 1, Columna C).
-    """
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # --- Recuperación robusta de la modalidad (prioriza session_state de la app principal) ---
-        modalidad_texto = str(st.session_state.get("modalidad", datos_paciente.get("modalidad", "INTRAMUROS"))).upper()
+        # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
+        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         
         if sufijo_js:
             nombre_hoja = f"{sigla_url}_{sufijo_js}"
-        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto or "EXTRAMUROS" in modalidad_texto:
+        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto:
             fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
             nombre_hoja = f"{sigla_url}_EXTRA_{fecha_hoja_str}"
         else:
             fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
             nombre_hoja = f"{sigla_url}_INTRA_{fecha_hoja_str}" if tipo_jornada.upper() == "I" else sigla_url
 
-        ws = None
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
         except Exception:
-            hojas_disponibles = spreadsheet.worksheets()
-            for h in hojas_disponibles:
+            ws = None
+            for h in spreadsheet.worksheets():
                 if sigla_url.upper() in h.title.upper():
                     ws = h
                     break
             if ws is None:
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=2000, cols=60)
 
-        todos_los_valores = ws.get_all_values()
-        
+        col_b = ws.col_values(2)
         fila_destino = 14
-        consecutivo = 1
-
-        if len(todos_los_valores) >= 14:
+        if len(col_b) >= 14:
             idx = 13
-            while idx < len(todos_los_valores):
-                if idx >= len(todos_los_valores) or not any(todos_los_valores[idx]) or not todos_los_valores[idx][1]:
+            while idx < len(col_b):
+                if idx >= len(col_b) or not str(col_b[idx]).strip():
                     fila_destino = idx + 1
                     break
                 idx += 2
             else:
-                fila_destino = len(todos_los_valores) + 1
+                fila_destino = len(col_b) + 1
                 if (fila_destino - 14) % 2 != 0:
                     fila_destino += 1
 
@@ -109,28 +110,7 @@ def guardar_registro_censal(
 
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
-        
-        # 6. Antecedentes Vacunales (AR para COVID-19, AS para Influenza)
-        ant_cov_val = p.get("antecedente_covid", "")
-        ant_cov_str = str(ant_cov_val).upper().strip() if ant_cov_val else ""
-        val_ant_cov = ant_cov_str if ant_cov_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
-
-        ant_inf_val = p.get("antecedente_influenza", "")
-        ant_inf_str = str(ant_inf_val).upper().strip() if ant_inf_val else ""
-        val_ant_inf = ant_inf_str if ant_inf_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
-
-        # 8. Vacuna de Interés / Solicitada (AT = INFLUENZA, AU = COVID-19, AV = AMBAS)
-        vacuna_interes = p.get("vacuna_interes", "")
-        vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""
-
-        if "SELECCIONE" in vacuna_interes_str or not vacuna_interes_str:
-            marca_inf = ""
-            marca_cov = ""
-            marca_amb = ""
-        else:
-            marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
-            marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
-            marca_amb = "X" if "AMBAS" in vacuna_interes_str else ""
+        vacuna_interes = p.get("vacuna_interes", "").upper()
 
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
@@ -172,25 +152,38 @@ def guardar_registro_censal(
             check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
             com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
             "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
-            val_ant_cov,                                                                    # AR (42) - ANTECEDENTE COVID-19 (SI/NO/LO DESCONOCE)
-            val_ant_inf,                                                                    # AS (43) - ANTECEDENTE INFLUENZA (SI/NO/LO DESCONOCE)
-            marca_inf,                                                                      # AT (44) - INFLUENZA ("X" si se elige aislada)
-            marca_cov,                                                                      # AU (45) - COVID-19 ("X" si se elige aislada)
-            marca_amb,                                                                      # AV (46) - AMBAS ("X" si se elige aislada)
-            p.get("cuenta_derechohabiencia", "NO"),                                         # AW (47)
+            p.get("antecedente_influenza", "") if p.get("antecedente_influenza") in ["SÍ", "NO", "LO DESCONOCE"] else "", # AR (42) - ANTECEDENTE INFLUENZA
+            p.get("antecedente_covid", "") if p.get("antecedente_covid") in ["SÍ", "NO", "LO DESCONOCE"] else "",         # AS (43) - ANTECEDENTE COVID
+            vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""  # Lógica exclusiva: solo se marca una "X" en la celda correspondiente a la opción elegida
+            marca_inf = "X" if vacuna_interes_str == "INFLUENZA" else ""
+            marca_cov = "X" if vacuna_interes_str in ["COVID-19", "COVID"] else ""
+            marca_amb = "X" if vacuna_interes_str == "AMBAS" else ""
+            p.get("cuenta_derechohabiencia", ""),                                           # AW (47)
             fecha_registro_actual,                                                          # AX (48)
             correo_paciente_val,                                                            # AY (49)
         ]
 
-        if fila_destino <= len(todos_los_valores):
-            rango_celdas = f"A{fila_destino}:AY{fila_destino}"
-            ws.update(rango_celdas, [fila_registro_principal])
-        else:
-            ws.append_row(fila_registro_principal)
-
+        curp_val = p.get("curp_con_nacimiento", "").upper()
         fila_curp = fila_destino + 1
-        ws.update(f"C{fila_curp}", [[p.get("curp_con_nacimiento", "").upper()]])
-        ws.update(f"AW{fila_curp}", [[fecha_registro_actual]])
+
+        # Petición HTTP directa vía Google Sheets API v4 utilizando rango abierto !A{fila_destino}
+        token = obtener_token_acceso()
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "valueInputOption": "USER_ENTERED",
+            "data": [
+                {"range": f"{nombre_hoja}!A{fila_destino}", "values": [fila_registro_principal]},
+                {"range": f"{nombre_hoja}!C{fila_curp}", "values": [[curp_val]]},
+                {"range": f"{nombre_hoja}!AW{fila_curp}", "values": [[fecha_registro_actual]]}
+            ]
+        }
+        resp = requests.post(url, headers=headers, json=body)
+        if resp.status_code != 200:
+            raise Exception(resp.text)
 
         return folio_asignado, False, None
 
