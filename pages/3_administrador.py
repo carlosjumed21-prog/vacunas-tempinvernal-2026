@@ -240,12 +240,14 @@ else:
 
                     base_url = "https://medprev-vacunas-invernal.streamlit.app"
                     fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
+                    import urllib.parse
                     resp_encoded = urllib.parse.quote(j_conf["responsable"]) if "urllib" in globals() else j_conf["responsable"]
                     js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
+                    
+                    # RUTA CORREGIDA: Se evalúa correctamente si es 20N para usar registro_20_noviembre
                     ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
 
                     link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-                    import urllib.parse
                     link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
                     link_prueba_simulacion = link_paciente + "&test=true"
 
