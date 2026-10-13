@@ -74,35 +74,44 @@ def get_creds_from_secrets():
 def load_sheet_minimal(spreadsheet, worksheet_name):
     """
     Lee cabeceras (filas 12-13) y el bloque de datos desde la primera fila de datos (14)
-    hasta la última fila con folio en la columna B. Usa batch_get para reducir llamadas.
+    hasta la última fila con folio en la columna B. Usa llamadas a la worksheet en lugar
+    de spreadsheet.batch_get para evitar errores de transporte en algunas versiones de gspread.
     """
-    worksheet = spreadsheet.worksheet(worksheet_name)
-    # Leer columna B para ubicar último folio
-    col_b = worksheet.col_values(2)
-    # Determinar última fila relevante (si no hay folios, retornamos None)
-    # La columna B puede contener cabeceras antes de la fila 14, así que contamos desde 1.
-    if len(col_b) < 14:
-        return [], [], [], worksheet  # sin pacientes
-    # Encontrar última fila con contenido en col_b
-    last_idx = len(col_b)
-    # Si las últimas filas están vacías, retroceder hasta encontrar la última no vacía
-    while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
-        last_idx -= 1
-    if last_idx < 14:
-        return [], [], [], worksheet
+    try:
+        worksheet = spreadsheet.worksheet(worksheet_name)
 
-    # Rango hasta last_idx (inclusive)
-    # Usamos AX como columna amplia para abarcar las columnas usadas (índice ~50)
-    range_headers_1 = f"A12:AX12"
-    range_headers_2 = f"A13:AX13"
-    range_data = f"A14:AX{last_idx}"
-    # batch_get en una sola llamada al servidor
-    values = spreadsheet.batch_get([range_headers_1, range_headers_2, range_data])
-    # values -> [header1_rows, header2_rows, data_rows]
-    header1 = values[0][0] if values and len(values) > 0 and values[0] else []
-    header2 = values[1][0] if values and len(values) > 1 and values[1] else []
-    data_rows = values[2] if values and len(values) > 2 else []
-    return header1, header2, data_rows, worksheet
+        # Leer columna B para ubicar último folio
+        col_b = worksheet.col_values(2)
+
+        if len(col_b) < 14:
+            return [], [], [], worksheet  # sin pacientes
+
+        # Encontrar última fila con contenido en col_b (empezando en 1)
+        last_idx = len(col_b)
+        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
+            last_idx -= 1
+        if last_idx < 14:
+            return [], [], [], worksheet
+
+        # Rango hasta last_idx (inclusive)
+        range_headers_1 = f"A12:AX12"
+        range_headers_2 = f"A13:AX13"
+        range_data = f"A14:AX{last_idx}"
+
+        # Usar worksheet.get para leer cada bloque (más compatible)
+        header1_rows = worksheet.get(range_headers_1)
+        header2_rows = worksheet.get(range_headers_2)
+        data_rows = worksheet.get(range_data)
+
+        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
+        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
+        return header1, header2, data_rows or [], worksheet
+
+    except Exception as e:
+        # Mostrar la excepción completa en la interfaz para depuración (o loguear)
+        st.error(f"Error al leer la hoja {worksheet_name}: {e}")
+        st.exception(e)
+        return [], [], [], None
 
 # --------------------
 # Carga y cache
