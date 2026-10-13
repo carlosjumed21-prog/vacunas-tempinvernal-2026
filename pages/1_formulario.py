@@ -236,8 +236,6 @@ def mostrar_comprobante_principal():
             for k in keys_a_limpiar:
                 if k in st.session_state:
                     del st.session_state[k]
-
-            safe_rerun()
         st.stop()
 
 
@@ -523,7 +521,6 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                             "correo_paciente": correo_paciente.strip(),
                             "fecha_aplicacion": fecha_aplicacion_str,
                         }
-                        safe_rerun()
 
                 except Exception as e:
                     st.session_state.pop("submission_id", None)
