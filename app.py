@@ -85,7 +85,15 @@ st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>
 # Verificación de parámetros URL institucionales
 params = st.query_params
 unidad_url = params.get("unidad", "").upper()
-jornada_url = params.get("jornada", "").upper()
+jornada_url = params.get("jornada", "I").upper()
+
+# --- EVALUACIÓN DINÁMICA DE LA MODALIDAD ---
+if jornada_url == "E":
+    modalidad_texto = "EXTRAMUROS"
+elif jornada_url == "M":
+    modalidad_texto = "BRIGADA MÓVIL"
+else:
+    modalidad_texto = "INTRAMUROS"
 
 # --- LÓGICA DE ENRUTAMIENTO DINÁMICO ---
 pagina_formulario = "pages/registro_20_noviembre.py" if unidad_url == "20N" else "pages/1_formulario.py"
@@ -94,7 +102,7 @@ if unidad_url:
     st.markdown(f"""
         <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <span style="font-weight: bold; color: #1e5b4f; font-size: 1.1rem;">🔗 Enlace Institucional Detectado</span><br>
-            <span>Unidad clave: <b>{unidad_url}</b> | Jornada: <b>{'Extramuros' if jornada_url == 'E' else 'Intramuros'}</b></span>
+            <span>Unidad clave: <b>{unidad_url}</b> | Modalidad: <b>{modalidad_texto}</b></span><br>
             <span style="font-size: 0.85rem; color: #611232;">{'✨ Redirección especializada activada para CMN 20 de Noviembre.' if unidad_url == '20N' else ''}</span>
         </div>
     """, unsafe_allow_html=True)
