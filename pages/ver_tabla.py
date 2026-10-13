@@ -239,13 +239,12 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 metricas = calcular_metricas(filas_tabla)
 
 
-# --- INTERFAZ VISUAL ORDENADA (SIN SOLAPAMIENTOS) ---
+# --- INTERFAZ VISUAL ORDENADA (USANDO WIDTH='stretch') ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-# Botones de acción organizados con espacio suficiente para evitar cortes
 col_btn_acc1, col_btn_acc2, _ = st.columns([1.2, 1.2, 2.6])
 with col_btn_acc1:
-    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
+    if st.button("🔄 Actualizar Datos", width="stretch", key="btn_reload_header"):
         st.cache_data.clear()
         st.rerun()
 
@@ -268,14 +267,13 @@ with col_btn_acc2:
             data=excel_original_bytes,
             file_name=f"{hoja_activa_tabla}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )
     except Exception as err:
         st.error(f"No se pudo descargar el archivo: {err}")
 
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-# Métricas generales
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
 with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
@@ -290,7 +288,7 @@ st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
 col_del_btn, _ = st.columns([2, 5])
 with col_del_btn:
-    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
+    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", width="stretch")
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
@@ -314,7 +312,7 @@ for col in encabezados_combinados:
 
 df_editado = st.data_editor(
     df_estilizado,
-    use_container_width=True,
+    width="stretch",
     height=550,
     hide_index=True,
     column_config=column_configs,
@@ -346,7 +344,6 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-                # Reordenar contadores en la hoja
                 datos_actualizados = ws.get_all_values()
                 if len(datos_actualizados) >= 14:
                     filas_actuales = datos_actualizados[13:]
