@@ -51,7 +51,7 @@ def obtener_client_gspread_cacheado():
 
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
     
-@st.cache_data(ttl=180)
+@st.cache_data(ttl=300)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     """
     Lista las hojas autorizadas tanto del libro general como del CMN 20 de Noviembre.
@@ -96,7 +96,7 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     return h_autorizadas
 
 
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=300)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str):
     """
     Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
@@ -439,7 +439,12 @@ else:
                     materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                     nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
-                    correo_ax_val = fila_datos[49].strip() if len(fila_datos) > 49 else ""
+                    # Extracción automática y robusta del correo desde la columna AX o cercanas
+                    correo_ax_val = ""
+                    for idx_col in [49, 50, 48, len(fila_datos) - 1]:
+                        if len(fila_datos) > idx_col and "@" in str(fila_datos[idx_col]):
+                            correo_ax_val = str(fila_datos[idx_col]).strip()
+                            break
 
                     dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
                     mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
@@ -666,10 +671,10 @@ else:
                     biologico_covid_elegido = "COVID-19"
 
                     if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
+                        # Asegurar el correo detectado antes de guardar en sesión
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
-                        # Llamada unificada pasando el sheet_id_activo correspondiente
                         exito = procesar_guardado_aplicacion(
                             worksheet_activa=worksheet_activa,
                             fila_idx=fila_idx,
