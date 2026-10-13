@@ -2,46 +2,27 @@
 import datetime
 import json
 from config import GOOGLE_SHEET_ID, GOOGLE_SCOPES
-from google.oauth2 import service_account
 import gspread
 import streamlit as st
 
 
 @st.cache_resource
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS en formato JSON crudo.
-
-    Se cachea para evitar re-autenticación y lecturas repetidas en cada rerun de Streamlit.
-    """
+    """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS de forma nativa y segura."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = (
             json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
         )
     else:
-        # Fallback a cualquier otra llave disponible
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
 
-    # Convertir los saltos de línea escapados del JSON original a saltos reales
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    creds = service_account.Credentials.from_service_account_info(
-        creds_dict, scopes=GOOGLE_SCOPES
-    )
-
-    # Compatibilidad con gspread + google-auth actual: forzar una sesión autorizada
-    # y evitar el error: 'AuthorizedSession' object has no attribute '_auth_request'
-    try:
-        from google.auth.transport.requests import AuthorizedSession
-
-        session = AuthorizedSession(creds)
-        client = gspread.Client(auth=creds)
-        client.session = session
-        return client
-    except Exception:
-        return gspread.authorize(creds)
+    # Utiliza el método oficial de gspread para evitar cualquier error de AuthorizedSession
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
 
 def guardar_registro_censal(
@@ -166,7 +147,6 @@ def guardar_registro_censal(
         curp_val = p.get("curp_con_nacimiento", "").upper()
         fila_curp = fila_destino + 1
 
-        # --- OPTIMIZACIÓN CRUCIAL: USAR BATCH_UPDATE EN UNA SOLA PETICIÓN ---
         data_a_actualizar = [
             {
                 'range': f"A{fila_destino}:AX{fila_destino}",
