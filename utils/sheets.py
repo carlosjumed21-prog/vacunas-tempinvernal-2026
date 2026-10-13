@@ -111,16 +111,16 @@ def guardar_registro_censal(
         marca_6_59m = "X" if es_menor_59m else ""
         marca_60_mas = "X" if es_mayor_60 else ""
         
-        # Validación de Antecedente Vacunal (AR y AS)
-        ant_inf_val = p.get("antecedente_influenza", "")
-        ant_inf_str = str(ant_inf_val).upper().strip() if ant_inf_val else ""
-        val_ant_inf = ant_inf_str if ant_inf_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
-
+        # 6. Antecedentes Vacunales (AR para COVID-19, AS para Influenza)
         ant_cov_val = p.get("antecedente_covid", "")
         ant_cov_str = str(ant_cov_val).upper().strip() if ant_cov_val else ""
         val_ant_cov = ant_cov_str if ant_cov_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
 
-        # Validación de Vacuna de Interés (AT, AU, AV)
+        ant_inf_val = p.get("antecedente_influenza", "")
+        ant_inf_str = str(ant_inf_val).upper().strip() if ant_inf_val else ""
+        val_ant_inf = ant_inf_str if ant_inf_str in ["SÍ", "SI", "NO", "LO DESCONOCE"] else ""
+
+        # 8. Vacuna de Interés (AT = INFLUENZA, AU = COVID-19, AV = AMBAS)
         vacuna_interes = p.get("vacuna_interes", "")
         vacuna_interes_str = str(vacuna_interes).upper().strip() if vacuna_interes else ""
 
@@ -168,11 +168,11 @@ def guardar_registro_censal(
             check_activo(com.get("hipertension")),                                          # AE (30) - HIPERTENSIÓN ARTERIAL
             com.get("texto_otro", "").upper(),                                              # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
             "", "", "", "", "", "", "", "", "", "",                                         # AG a AQ (Espacios intermedios hasta la col AR)
-            val_ant_inf,                                                                    # AR (42) - ANTECEDENTE INFLUENZA (SÍ/NO/LO DESCONOCE)
-            val_ant_cov,                                                                    # AS (43) - ANTECEDENTE COVID (SÍ/NO/LO DESCONOCE)
-            marca_inf,                                                                      # AT (44) - INFLUENZA
-            marca_cov,                                                                      # AU (45) - COVID
-            marca_amb,                                                                      # AV (46) - AMBAS
+            val_ant_cov,                                                                    # AR (42) - ANTECEDENTE COVID-19 (SÍ / NO / LO DESCONOCE)
+            val_ant_inf,                                                                    # AS (43) - ANTECEDENTE INFLUENZA (SÍ / NO / LO DESCONOCE)
+            marca_inf,                                                                      # AT (44) - INFLUENZA ("X" si se elige aislada)
+            marca_cov,                                                                      # AU (45) - COVID-19 ("X" si se elige aislada)
+            marca_amb,                                                                      # AV (46) - AMBAS ("X" si se elige aislada)
             p.get("cuenta_derechohabiencia", ""),                                           # AW (47)
             fecha_registro_actual,                                                          # AX (48)
             correo_paciente_val,                                                            # AY (49)
