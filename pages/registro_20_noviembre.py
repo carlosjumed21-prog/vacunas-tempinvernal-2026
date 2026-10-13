@@ -44,7 +44,6 @@ st.markdown(
         .card-curp { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-rfc { background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.2rem !important; margin-bottom: 15px; }
         .card-grupo { background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; text-align: center; font-weight: 800; color: #1e5b4f; font-size: 1.3rem !important; margin-bottom: 15px; }
-        .card-info-header { background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; color: #1e5b4f; font-size: 1.1rem !important; margin-bottom: 15px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.2rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1rem !important; }
         input[type="text"] { text-transform: uppercase !important; font-size: 1.1rem !important; }
         div[data-baseweb="select"] > div { font-size: 1rem !important; white-space: normal !important; }
@@ -67,7 +66,7 @@ st.session_state.nombre_unidad = f"{nombre_base_unidad} (Brigada {sufijo_js})" i
 st.session_state.tipo_jornada = params.get("jornada", "I")
 st.session_state.modalidad = modalidad_url if modalidad_url in ["INTRAMUROS", "EXTRAMUROS"] else "INTRAMUROS"
 
-# --- FECHAS Y CÁLCULO SEGURO DEL SIGUIENTE FOLIO ---
+# --- FECHAS Y CONFIGURACIÓN ---
 fecha_sistema = datetime.date.today()
 fecha_url_str = params.get("fecha", fecha_sistema.strftime("%Y-%m-%d"))
 try:
@@ -88,38 +87,6 @@ if "ant_inf" not in st.session_state:
     st.session_state.ant_inf = None
 if "input_vacuna" not in st.session_state:
     st.session_state.input_vacuna = None
-
-# Calcular de forma segura el folio proyectado en la cabecera
-try:
-    client_temp = obtener_cliente_gspread()
-    sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
-    spreadsheet_temp = client_temp.open_by_key(sheet_id_20n)
-    tipo_texto_jornada_temp = "INTRA" if st.session_state.tipo_jornada == "I" else "EXTRA"
-    nombre_hoja_temp = f"{sigla_url}_{tipo_texto_jornada_temp}{sufijo_js}_{val_fecha_app.strftime('%d%m%y')}_NOMINAL"
-    try:
-        ws_temp = spreadsheet_temp.worksheet(nombre_hoja_temp)
-    except:
-        ws_temp = spreadsheet_temp.worksheet("CENSO NOMINAL")
-    valores_temp = ws_temp.get_all_values()
-    
-    fila_dest_temp = 14
-    if len(valores_temp) >= 14:
-        idx_t = 13
-        while idx_t < len(valores_temp):
-            if idx_t >= len(valores_temp) or not any(valores_temp[idx_t]) or not valores_temp[idx_t][1]:
-                fila_dest_temp = idx_t + 1
-                break
-            idx_t += 2
-        else:
-            fila_dest_temp = len(valores_temp) + 1
-            if (fila_dest_temp - 14) % 2 != 0:
-                fila_dest_temp += 1
-    consecutivo_temp = ((fila_dest_temp - 14) // 2) + 1
-    
-    aammmdd = val_fecha_app.strftime("%y%m%d")
-    folio_proyectado = f"{aammmdd}-{st.session_state.tipo_jornada}{sigla_url}-{str(consecutivo_temp).zfill(3)}"
-except Exception:
-    folio_proyectado = f"{val_fecha_app.strftime('%y%m%d')}-{st.session_state.tipo_jornada}{sigla_url}-001"
 
 @st.dialog("🎉 ¡REGISTRO EXITOSO - TICKET DIGITAL!")
 def mostrar_modal_comprobante():
@@ -333,18 +300,8 @@ if es_admin:
                 st.session_state.chk_gestante = random.choice(["NO", "SÍ"])
             st.rerun()
 
-# --- APARTADO 1: FECHAS Y FOLIO ---
-st.markdown('<div class="section-title">1. Control de Fechas y Folio</div>', unsafe_allow_html=True)
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
-    st.markdown(f'<div class="card-info-header">📅 Fecha de Registro<br><b>{fecha_sistema.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
-with col_f2:
-    st.markdown(f'<div class="card-info-header">🗓️ Fecha de Aplicación<br><b>{val_fecha_app.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
-with col_f3:
-    st.markdown(f'<div class="card-info-header">🔖 Folio de Registro<br><b>{folio_proyectado}</b></div>', unsafe_allow_html=True)
-
 # --- DERECHOHABIENCIA Y ADSCRIPCIÓN LABORAL ---
-st.markdown('<div class="section-title">1.1 Derechohabiencia y Adscripción Laboral</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">1. Derechohabiencia y Adscripción Laboral</div>', unsafe_allow_html=True)
 cuenta_derechohabiencia = st.selectbox("¿Cuenta con derechohabiencia? *", options=["SELECCIONE", "NO", "SÍ"], key="input_derecho")
 
 tipo_dh = "NO APLICA"
