@@ -8,9 +8,9 @@ import urllib.parse
 def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_str, lotes_str, fecha_val, tipo="folio"):
     """
     Envía por correo el Ticket Digital de Registro (tipo='folio') o el Comprobante Oficial (tipo='comprobante'),
-    unificando ambas versiones en una sola función reutilizable.
+    con depuración de errores y soporte SMTP seguro adaptativo.
     """
-    if not destinatario_email or "@" not in destinatario_email:
+    if not destinatario_email or "@" not in destinatario_email or "." not in destinatario_email:
         return False, "⚠️ El correo electrónico del destinatario no es válido o está vacío."
 
     try:
@@ -19,7 +19,7 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
         remitente_email = st.secrets["SMTP_USER"]
         remitente_password = st.secrets["SMTP_PASSWORD"]
     except KeyError as e:
-        return False, f"⚠️ Falta configurar la credencial de correo en los secretos (KeyError: {e})."
+        return False, f"⚠️ Falta configurar la credencial de correo en los secretos (KeyError: {e}). Revisa tus secrets.toml."
     
     msg = MIMEMultipart('alternative')
     msg['From'] = remitente_email
@@ -200,18 +200,17 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente, folio, dosis_
     msg.attach(MIMEText(html_cuerpo, 'html'))
         
     try:
+        # Conexión SMTP robusta con manejo explícito de SSL vs TLS
         if smtp_port == 465:
-            servidor = smtplib.SMTP_SSL(smtp_server, smtp_port)
-            servidor.login(remitente_email, remitente_password)
-            servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-            servidor.quit()
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as servidor:
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
         else:
-            servidor = smtplib.SMTP(smtp_server, smtp_port)
-            servidor.starttls()
-            servidor.login(remitente_email, remitente_password)
-            servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-            servidor.quit()
+            with smtplib.SMTP(smtp_server, smtp_port) as servidor:
+                servidor.starttls()
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
 
         return True, "¡Correo enviado exitosamente!"
     except Exception as e:
-        return False, f"Error en el servidor SMTP: {str(e)}"
+        return False, f"⚠️ Error crítico en servidor SMTP: {str(e)}"
