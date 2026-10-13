@@ -48,7 +48,7 @@ def guardar_registro_censal(
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
 
-        # --- CORRECCIÓN: Construcción dinámica del nombre de la hoja según modalidad y fecha ---
+        # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
         modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         
         if sufijo_js:
@@ -59,7 +59,6 @@ def guardar_registro_censal(
         else:
             fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
             nombre_hoja = f"{sigla_url}_INTRA_{fecha_hoja_str}" if tipo_jornada.upper() == "I" else sigla_url
-        # -------------------------------------------------------------------------------------
 
         try:
             ws = spreadsheet.worksheet(nombre_hoja)
@@ -157,7 +156,7 @@ def guardar_registro_censal(
         curp_val = p.get("curp_con_nacimiento", "").upper()
         fila_curp = fila_destino + 1
 
-        # Petición HTTP directa vía Google Sheets API v4 (Bypass total de AuthorizedSession)
+        # Petición HTTP directa vía Google Sheets API v4 utilizando rango abierto !A{fila_destino}
         token = obtener_token_acceso()
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
         headers = {
@@ -167,7 +166,7 @@ def guardar_registro_censal(
         body = {
             "valueInputOption": "USER_ENTERED",
             "data": [
-                {"range": f"{nombre_hoja}!A{fila_destino}:AX{fila_destino}", "values": [fila_registro_principal]},
+                {"range": f"{nombre_hoja}!A{fila_destino}", "values": [fila_registro_principal]},
                 {"range": f"{nombre_hoja}!C{fila_curp}", "values": [[curp_val]]},
                 {"range": f"{nombre_hoja}!AW{fila_curp}", "values": [[fecha_registro_actual]]}
             ]
