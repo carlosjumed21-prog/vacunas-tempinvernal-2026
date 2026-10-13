@@ -1,4 +1,3 @@
-
 import datetime
 import urllib.parse
 import streamlit as st
@@ -129,7 +128,9 @@ def procesar_guardado_aplicacion(
         lote_final_str = " / ".join(lote_final_partes) if lote_final_partes else "N/A"
 
         dosis_str = ", ".join(dosis_aplicadas_lista) if dosis_aplicadas_lista else "Ninguna seleccionada"
-        folio_p = todos_los_datos[fila_idx - 1][1] if len(todos_los_destos[fila_idx - 1]) > 1 else ""
+        
+        # Corrección aplicada aquí (todos_los_datos en lugar de todos_los_destos)
+        folio_p = todos_los_datos[fila_idx - 1][1] if len(todos_los_datos[fila_idx - 1]) > 1 else ""
 
         st.session_state.reiniciar_busqueda = True
         st.session_state.ultimo_comprobante_vacunacion = {
