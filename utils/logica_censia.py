@@ -41,7 +41,7 @@ def procesar_guardado_aplicacion(
             st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta ingresar el número de lote.")
             error_validacion = True
         if not cad_cov_input.strip():
-            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta indicar la fecha de caducidad.")
+            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, but falta indicar la fecha de caducidad.")
             error_validacion = True
 
     if not influenza_seleccionada and not covid_seleccionada:
@@ -114,10 +114,10 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             datos_a_actualizar.append({"range": f"AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # Ejecutamos la actualización de valores en las celdas
+        # 1. Actualización segura por lotes de los valores
         worksheet_activa.batch_update(datos_a_actualizar)
 
-        # Aplicamos el formato de color de manera nativa y segura para evitar errores de sesión
+        # 2. Aplicación de formato nativo y seguro (evita por completo el fallo de _auth_request)
         worksheet_activa.format(f"A{f_actual}:AX{f_siguiente}", {
             "backgroundColor": {
                 "red": 0.831,
@@ -126,7 +126,7 @@ def procesar_guardado_aplicacion(
             }
         })
 
-        # Invalidar la caché de Streamlit para forzar la lectura fresca de Google Sheets
+        # Invalidar la caché de Streamlit para forzar lectura fresca
         st.cache_data.clear()
 
         lote_final_partes = []
