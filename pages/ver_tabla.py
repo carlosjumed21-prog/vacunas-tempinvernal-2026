@@ -315,49 +315,16 @@ if btn_eliminar:
         try:
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
             filas_actualizadas = list(filas_tabla)
-            filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
-                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # 1. Actualizar la sesión al instante para quitar las filas de la vista previa de inmediato
+            # Actualización inmediata en sesión y recarga instantánea de vista previa (cero pausas)
             st.session_state[key_estado_filas] = filas_actualizadas
-
-            # 2. Sincronizar Google Sheets en segundo plano (de forma silenciosa o rápida)
-            client = obtener_cliente_gspread()
-            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-            ws = spreadsheet.worksheet(hoja_activa_tabla)
-
-            filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-            for fila_gs in filas_gs_a_borrar:
-                try:
-                    ws.delete_rows(fila_gs)
-                except Exception:
-                    pass
-
-            # Reordenar contadores de folios en Google Sheets
-            datos_actualizados = ws.get_all_values()
-            if len(datos_actualizados) >= 14:
-                filas_actuales = datos_actualizados[13:]
-                contador = 1
-                updates = []
-                for i in range(0, len(filas_actuales), 2):
-                    row = filas_actuales[i]
-                    if len(row) > 0 and row[0].strip() != "":
-                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                        updates.append({"range": a1, "values": [[str(contador)]]})
-                        contador += 1
-                if updates:
-                    try:
-                        ws.batch_update(updates)
-                    except Exception:
-                        pass
-
-            # 3. Refrescar la interfaz al instante mostrando los cambios ya hechos
-            st.success("⚡ ¡Eliminado de la vista previa y sincronizado con Google Sheets!")
+            st.success("⚡ ¡Eliminado de la vista previa al instante!")
             st.rerun()
+            
         except Exception as e:
-            st.error(f"❌ Ocurrió un error al intentar eliminar en Google Sheets: {e}")
+            st.error(f"❌ Ocurrió un error al actualizar la vista previa: {e}")
