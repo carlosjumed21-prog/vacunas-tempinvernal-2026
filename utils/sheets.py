@@ -10,7 +10,7 @@ import streamlit as st
 @st.cache_resource
 def obtener_cliente_gspread():
     """Autentica y retorna el cliente de gspread usando GOOGLE_CREDENTIALS en formato JSON crudo.
-    
+
     Se cachea para evitar re-autenticación y lecturas repetidas en cada rerun de Streamlit.
     """
     if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -30,7 +30,18 @@ def obtener_cliente_gspread():
     creds = service_account.Credentials.from_service_account_info(
         creds_dict, scopes=GOOGLE_SCOPES
     )
-    return gspread.authorize(creds)
+
+    # Compatibilidad con gspread + google-auth actual: forzar una sesión autorizada
+    # y evitar el error: 'AuthorizedSession' object has no attribute '_auth_request'
+    try:
+        from google.auth.transport.requests import AuthorizedSession
+
+        session = AuthorizedSession(creds)
+        client = gspread.Client(auth=creds)
+        client.session = session
+        return client
+    except Exception:
+        return gspread.authorize(creds)
 
 
 def guardar_registro_censal(
@@ -63,7 +74,7 @@ def guardar_registro_censal(
                 ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=2000, cols=60)
 
         # --- localizar fila destino leyendo sólo la columna B (folios) ---
-        col_b = ws.col_values(2)  #[cite: 3]
+        col_b = ws.col_values(2)
         fila_destino = 14
         if len(col_b) >= 14:
             idx = 13
@@ -170,7 +181,7 @@ def guardar_registro_censal(
                 'values': [[fecha_registro_actual]]
             }
         ]
-        
+
         ws.batch_update(data_a_actualizar)
 
         return folio_asignado, False, None
