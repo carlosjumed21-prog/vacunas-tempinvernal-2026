@@ -452,6 +452,7 @@ st.markdown(f'<div class="card-grupo">🎯 Grupo Objetivo: {grupo_sugerido}</div
 st.markdown("---")
 
 # --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
+# --- BOTÓN DE REGISTRO DIRECTO A UN SOLO CLIC ---
 if st.button("Registrarme para la jornada", use_container_width=True, key="btn_registrar_jornada"):
     if not fecha_nacimiento:
         st.error("⚠️ Seleccione correctamente el Día, Mes y Año de Nacimiento.")
@@ -464,19 +465,23 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
     elif vacuna_interes is None:
         st.error("⚠️ Seleccione la vacuna de su interés.")
     else:
-        with st.spinner("🚀 Procesando registro y conectando con el servidor..."):
-            duplicado, folio_previo = verificar_curp_duplicada(
-                curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
-            )
+        # Usamos st.status o st.spinner para asegurar que Streamlit pinte el estado de carga
+        with st.status("🚀 Procesando registro en el servidor...", expanded=True) as status:
+            try:
+                st.write("Verificando registros previos...")
+                duplicado, folio_previo = verificar_curp_duplicada(
+                    curp_con_nacimiento, sigla_url, sufijo_js, st.session_state.tipo_jornada, val_fecha_app
+                )
 
-            if duplicado:
-                st.session_state.paciente_duplicado_info = {
-                    "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
-                    "folio": folio_previo
-                }
-                safe_rerun()
-            else:
-                try:
+                if duplicado:
+                    status.update(label="⚠️ ¡Paciente ya registrado!", state="error", expanded=True)
+                    st.session_state.paciente_duplicado_info = {
+                        "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
+                        "folio": folio_previo
+                    }
+                    safe_rerun()
+                else:
+                    st.write("Guardando datos en Google Sheets...")
                     fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                     comorbilidades_dict = {
@@ -485,7 +490,7 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                         "enfermedad_pulmonar": enfermedad_pulmonar, "cancer": cancer, "cardiacas_congenitas": cardiacas_congenitas,
                         "insuficiencia_renal": insuficiencia_renal, "inmunosupresion": inmunosupresion,
                         "discapacidades": discapacidades, "fibrosis_quistica": fibrosis_quistica,
-                        "hipertension": hipertension, "otro": otro_riesgo, "texto_otro": texto_otro_riesgo.upper() if texto_otro_riesgo else "",
+                        "hipertension": hipertension, "otro": otro_riesgo, "texto_otro": texto_otro_riesgo.upper() if otro_riesgo else "",
                     }
 
                     datos_paciente = {
@@ -507,16 +512,15 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                         val_fecha_app=val_fecha_app, nombre_unidad_completo=st.session_state.nombre_unidad, datos_paciente=datos_paciente
                     )
 
+                    status.update(label="✅ ¡Registro exitoso!", state="complete", expanded=False)
                     st.session_state.pop("submission_id", None)
-                    fecha_aplicacion_str = val_fecha_app.strftime("%d/%m/%Y")
 
                     if is_duplicate:
-                        st.warning(f"⚠️ Ya existe un registro para este paciente. Folio existente: {existing_folio}")
                         st.session_state.paciente_duplicado_info = {
                             "nombre": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
                             "folio": existing_folio
                         }
-                        mostrar_modal_duplicado()
+                        safe_rerun()
                     else:
                         st.session_state.ultimo_paciente_registrado = {
                             "nombre_completo": f"{paterno.upper()} {materno.upper()} {nombres.upper()}",
@@ -529,7 +533,8 @@ if st.button("Registrarme para la jornada", use_container_width=True, key="btn_r
                         }
                         safe_rerun()
 
-                except Exception as e:
-                    st.session_state.pop("submission_id", None)
-                    st.error("⚠️ Error general al procesar el registro en Google Sheets:")
-                    st.exception(e)
+            except Exception as e:
+                status.update(label="❌ Error en el proceso", state="error", expanded=True)
+                st.session_state.pop("submission_id", None)
+                st.error("⚠️ Error general al procesar el registro en Google Sheets:")
+                st.exception(e)
