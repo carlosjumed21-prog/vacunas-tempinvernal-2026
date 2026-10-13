@@ -32,8 +32,9 @@ st.markdown(
         .main-header { font-size: 1.6rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0rem; border-bottom: 3px solid #a57f2c; padding-bottom: 4px; }
         .fixed-top-container { position: sticky; top: -20px; z-index: 999; background-color: #ffffff; padding-top: 5px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
         
-        /* Ocultar la pantalla translúcida / barra de carga global molesta en recargas */
+        /* Ocultar elementos de carga nativos de Streamlit */
         .stStatusWidget {visibility: hidden; display: none;}
+        [data-testid="stDecoration"] {display: none;}
     </style>
 """,
     unsafe_allow_html=True,
@@ -121,7 +122,7 @@ def load_sheet_minimal(spreadsheet, worksheet_name):
         return [], [], [], None
 
 # --------------------
-# Carga y cache
+# Carga y cache con invalidación limpia
 # --------------------
 cache_key = build_cache_key(hoja_activa_tabla)
 try:
@@ -131,10 +132,8 @@ except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
     st.stop()
 
-if cache_key in st.session_state:
-    cached = st.session_state[cache_key]
-    header1, header2, filas_tabla, ws = cached["header1"], cached["header2"], cached["data_rows"], cached["worksheet"]
-else:
+# Forzar recarga si se solicita limpieza de cache
+if cache_key not in st.session_state or st.session_state.get("force_reload", False):
     header1, header2, filas_tabla, ws = load_sheet_minimal(spreadsheet, hoja_activa_tabla)
     st.session_state[cache_key] = {
         "header1": header1,
@@ -143,6 +142,10 @@ else:
         "worksheet": ws,
         "loaded_at": datetime.datetime.now().isoformat()
     }
+    st.session_state["force_reload"] = False
+else:
+    cached = st.session_state[cache_key]
+    header1, header2, filas_tabla, ws = cached["header1"], cached["header2"], cached["data_rows"], cached["worksheet"]
 
 if not filas_tabla:
     st.info("La jornada seleccionada aún no cuenta con suficientes filas de estructura o folios.")
@@ -239,10 +242,7 @@ for row in filas_principales:
         total_sin_aplicar += 1
 
     tiene_influenza = any(str(row[i]).strip().upper() == "X" for i in range(32, min(35, len(row))))
-    if len(row) > 37:
-        tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row))))
-    else:
-        tiene_covid = False
+    tiene_covid = any(str(row[i]).strip().upper() == "X" for i in range(37, min(40, len(row)))) if len(row) > 37 else False
 
     if tiene_influenza and not tiene_covid:
         total_dosis_influenza += 1
@@ -260,6 +260,7 @@ with col_tit1:
     st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 with col_tit2:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
+        st.session_state["force_reload"] = True
         if cache_key in st.session_state:
             del st.session_state[cache_key]
         st.rerun()
@@ -311,7 +312,7 @@ with col_btn1:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------
-# Render tabla interactiva
+# Render tabla interactiva aislada en fragmento
 # --------------------
 @st.fragment
 def render_seccion_tabla_interactiva():
@@ -329,22 +330,24 @@ def render_seccion_tabla_interactiva():
         if col != "Seleccionar":
             column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
+    # Clave dinámica basada en la longitud para forzar el redibujo automático inmediato al eliminar filas
+    clave_editor = f"editor_tabla_censo_{len(df_tabla_segura)}"
+
     df_editado = st.data_editor(
         df_estilizado,
         use_container_width=True,
         height=550,
         hide_index=True,
         column_config=column_configs,
-        key="editor_tabla_censo"
+        key=clave_editor
     )
 
-    # Procesar eliminación usando directamente el estado devuelto por el editor dentro del fragmento
     if btn_eliminar:
         indices_marcados = df_editado[df_editado["Seleccionar"] == True].index.tolist()
         pacientes_a_eliminar = set([idx // 2 for idx in indices_marcados])
         
         if not pacientes_a_eliminar:
-            st.warning("⚠️ No ha seleccionado ningún paciente para marcar en las casillas.")
+            st.warning("⚠️ No ha seleccionado ningún paciente para eliminar en las casillas.")
             return
 
         try:
@@ -357,7 +360,7 @@ def render_seccion_tabla_interactiva():
                     fila_fisica_2 = idx_par_real + 15
                     filas_gs_a_borrar.extend([fila_fisica_1, fila_fisica_2])
 
-            # Ordenar de mayor a menor para que al borrar en Google Sheets no se corran los índices pendientes
+            # Ordenar de mayor a menor para que el borrado múltiple en Sheets no afecte los índices previos
             filas_gs_a_borrar = sorted(list(set(filas_gs_a_borrar)), reverse=True)
             for fila_gs in filas_gs_a_borrar:
                 ws.delete_rows(fila_gs)
@@ -377,11 +380,12 @@ def render_seccion_tabla_interactiva():
                 if updates:
                     ws.batch_update(updates)
 
-            # Limpiar la caché inmediatamente para forzar la recarga de datos nuevos
+            # Invalidar la caché de forma forzosa para que lea los datos limpios de Google Sheets
             if cache_key in st.session_state:
                 del st.session_state[cache_key]
+            st.session_state["force_reload"] = True
 
-            st.success("✅ Se eliminaron correctamente los registros seleccionados y se actualizó el consecutivo.")
+            st.success("✅ Registros eliminados y tabla actualizada automáticamente.")
             st.rerun()
 
         except Exception as e:
