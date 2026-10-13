@@ -32,7 +32,7 @@ st.markdown(
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
-    """Cachea el cliente de gspread utilizando el método nativo para diccionarios."""
+    """Conexión limpia con credenciales de servicio para gspread."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -43,7 +43,6 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    # gspread maneja internamente la sesión y la autenticación mediante service_account_from_dict
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
     
 @st.cache_data(ttl=180)
