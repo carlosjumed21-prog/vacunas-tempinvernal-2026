@@ -4,10 +4,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
 import urllib.parse
+import traceback
 
 def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", folio="S/F", dosis_str="VACUNA", lotes_str="S/N", fecha_val="", tipo="folio"):
     """
-    Envía por correo el Ticket Digital o Comprobante Oficial sin enmascarar errores SMTP.
+    Envía por correo el Ticket Digital o Comprobante Oficial con captura total de errores SMTP.
     """
     if not destinatario_email or "@" not in destinatario_email:
         return False, f"⚠️ Correo inválido: '{destinatario_email}'"
@@ -18,11 +19,15 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", fo
     lotes_str = str(lotes_str or "S/N")
     fecha_val = str(fecha_val or "")
 
-    # Leer secretos
-    smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(st.secrets.get("SMTP_PORT", 465))
-    remitente_email = st.secrets["SMTP_USER"]
-    remitente_password = st.secrets["SMTP_PASSWORD"]
+    try:
+        smtp_server = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("SMTP_PORT", 465))
+        remitente_email = st.secrets["SMTP_USER"]
+        remitente_password = st.secrets["SMTP_PASSWORD"]
+    except KeyError as e:
+        error_msg = f"⚠️ Falta configurar la credencial de correo en los secretos (KeyError: {e})."
+        st.error(error_msg)
+        return False, error_msg
     
     msg = MIMEMultipart('alternative')
     msg['From'] = remitente_email
@@ -74,18 +79,24 @@ def enviar_comprobante_correo(destinatario_email, nombre_paciente="PACIENTE", fo
     </html>
     """
     
-    msg.atch = MIMEText(html_cuerpo, 'html') if hasattr(msg, 'atch') else None
     msg.attach(MIMEText(html_cuerpo, 'html'))
         
-    # SIN try-except aquí para que el error exacto truene en la pantalla de Streamlit
-    if smtp_port == 465:
-        with smtplib.SMTP_SSL(smtp_server, smtp_port) as servidor:
-            servidor.login(remitente_email, remitente_password)
-            servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
-    else:
-        with smtplib.SMTP(smtp_server, smtp_port) as servidor:
-            servidor.starttls()
-            servidor.login(remitente_email, remitente_password)
-            servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
+    try:
+        print(f"DEBUG: Intentando conectar a {smtp_server}:{smtp_port} con usuario {remitente_email}...")
+        if smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as servidor:
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_server, smtp_port) as servidor:
+                servidor.starttls()
+                servidor.login(remitente_email, remitente_password)
+                servidor.sendmail(remitente_email, destinatario_email.strip(), msg.as_string())
 
-    return True, "¡Correo enviado exitosamente!"
+        print("DEBUG: ¡Correo enviado con éxito!")
+        return True, "¡Correo enviado exitosamente!"
+    except Exception as e:
+        detalle_error = traceback.format_exc()
+        print(f"ERROR CRÍTICO SMTP:\n{detalle_error}")
+        st.error(f"❌ Error detallado al enviar correo: {str(e)}")
+        return False, f"Error SMTP: {str(e)}"
