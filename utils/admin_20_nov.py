@@ -7,7 +7,7 @@ SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas):
     """
     Crea las dos pestañas correspondientes (_NOMINAL y _CENSO) en la hoja de Google Sheets 
-    exclusiva del CMN 20 de Noviembre, insertándolas al inicio para mantener el orden.
+    exclusiva del CMN 20 de Noviembre, insertándolas al final de las pestañas existentes.
     """
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(SHEET_ID_20_NOV)
@@ -22,6 +22,9 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
         nombre_hoja_censo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_CENSO"
         
         try:
+            # Obtenemos el número total de hojas actuales para calcular el índice final
+            total_hojas = len(spreadsheet.worksheets())
+            
             # --- 1. CREACIÓN DE LA HOJA NOMINAL ---
             try:
                 copia_1 = spreadsheet.worksheet(nombre_hoja_nominal)
@@ -30,11 +33,14 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
                     plantilla_1 = spreadsheet.worksheet("CENSO NOMINAL")
                     copia_1 = spreadsheet.duplicate_sheet(
                         plantilla_1.id, 
-                        insert_sheet_index=0, 
+                        insert_sheet_index=total_hojas, 
                         new_sheet_name=nombre_hoja_nominal
                     )
                 except Exception:
-                    copia_1 = spreadsheet.add_worksheet(title=nombre_hoja_nominal, rows=1000, cols=35, index=0)
+                    copia_1 = spreadsheet.add_worksheet(title=nombre_hoja_nominal, rows=1000, cols=35, index=total_hojas)
+
+            # Recalculamos el total de hojas por si se acaba de agregar una
+            total_hojas = len(spreadsheet.worksheets())
 
             # --- 2. CREACIÓN DE LA HOJA DE CENSO TABULAR ---
             try:
@@ -44,11 +50,11 @@ def autorizar_y_crear_jornadas_20_nov(siglas_unidad, unidad_sel, jornada_sel, ti
                     plantilla_2 = spreadsheet.worksheet("CENSO")
                     spreadsheet.duplicate_sheet(
                         plantilla_2.id, 
-                        insert_sheet_index=1, 
+                        insert_sheet_index=total_hojas, 
                         new_sheet_name=nombre_hoja_censo
                     )
                 except Exception:
-                    spreadsheet.add_worksheet(title=nombre_hoja_censo, rows=1000, cols=35, index=1)
+                    spreadsheet.add_worksheet(title=nombre_hoja_censo, rows=1000, cols=35, index=total_hojas)
 
             # Actualizar datos de cabecera en la hoja nominal activa
             try:
