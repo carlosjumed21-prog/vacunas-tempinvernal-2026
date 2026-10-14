@@ -2,14 +2,13 @@ import datetime
 import requests
 import streamlit as st
 from utils.sheets import obtener_token_acceso
-from config import GOOGLE_SHEET_ID
 
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def guardar_registro_censal_20_nov(datos):
     """
-    Registra al paciente en la hoja de censo nominal activa y realiza la migración dual 
-    automática hacia la hoja 'CENSO' general del CMN 20 de Noviembre usando celdas exactas.
+    Registra al paciente en la hoja nominal activa y realiza la migración dual 
+    automática hacia la hoja 'CENSO' general del CMN 20 de Noviembre.
     """
     try:
         token = obtener_token_acceso()
@@ -18,33 +17,31 @@ def guardar_registro_censal_20_nov(datos):
             "Content-Type": "application/json"
         }
 
-        client = obtener_client_gspread_cacheado() # O tu cliente gspread activo
+        # Obtenemos el cliente gspread cacheado para interactuar con las pestañas
+        from utils.sheets_esquemas import obtener_client_gspread_cacheado # O la función que uses para tu cliente
+        client = obtener_client_gspread_cacheado()
         spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
         
-        # 1. Determinar la hoja de jornada activa (por ejemplo, la última o la seleccionada)
-        # Si tienes la hoja activa en la sesión o recuperas la última pestaña nominal:
+        # 1. Identificar la hoja de la jornada activa (última pestaña o la que corresponda)
         hojas = spreadsheet_20n.worksheets()
-        # Buscamos la hoja nominal correspondiente o la última activa
-        worksheet_activa = hojas[-1] # Ajusta esto según tu lógica de selección de jornada
+        # Filtramos para asegurarnos de tomar una hoja nominal que no sea la sábana "CENSO"
+        hojas_nominales = [h for h in hojas if h.title not in ["CENSO", "Influenza", "COVID"]]
+        worksheet_activa = hojas_nominales[-1] if hojas_nominales else hojas[0]
         nombre_hoja_activa_esc = f"'{worksheet_activa.title}'"
         
+        # 2. Hoja maestra continua
         hoja_censia_general = spreadsheet_20n.worksheet("CENSO")
         nombre_censo_esc = "'CENSO'"
 
-        # Obtener valores actuales para calcular el siguiente folio consecutivo y la siguiente fila disponible
+        # Calcular la siguiente fila disponible en la hoja CENSO general
         valores_censo = hoja_censia_general.get_all_values()
-        nueva_fila_idx = len(valores_censo) + 1 # Asumiendo que se agrega al final, o buscar la primera fila libre
+        nueva_fila_idx = len(valores_censo) + 1
         if nueva_fila_idx < 14:
             nueva_fila_idx = 14
 
-        folio_consecutivo = nueva_fila_idx - 13 # Si la fila 14 es el folio 1
+        folio_consecutivo = nueva_fila_idx - 13
 
-        # Construir los valores a insertar/actualizar para la fila
-        # Mapeo de columnas para CENSO general:
-        # B: Folio, C: RFC, D: DH, E: Tipo DH, F: Trabaja CMN, G: Num Trabajador, H: Personal Salud, 
-        # I: Categoria, J: Servicio, K: Coordinacion, L: Turno, M: Nombre, N: Paterno, O: Materno, 
-        # P: Edo Nac, Q: Muni Nac, R,S,T: Fecha Nac (D, M, A), U,V: Anios, Meses, W: Sexo, X: Embarazo
-        
+        # Construir la fila de datos (Columnas B a X)
         fila_valores = [
             "", # A
             str(folio_consecutivo), # B - Folio
@@ -72,6 +69,7 @@ def guardar_registro_censal_20_nov(datos):
             datos.get("embarazo", "NO"), # X - Embarazo
         ]
 
+        # Preparamos las actualizaciones duales para AMBAS hojas (la nominal activa y la CENSO general)
         updates_data = [
             {
                 "range": f"{nombre_censo_esc}!B{nueva_fila_idx}:X{nueva_fila_idx}",
@@ -83,17 +81,13 @@ def guardar_registro_censal_20_nov(datos):
             }
         ]
 
-        # Si el usuario seleccionó alguna vacuna de interés o dosis inicial al registrar:
+        # Si eligió vacuna de interés, marcamos las "X" correspondientes en ambas hojas
         vacuna_interes = datos.get("vacuna_interes", "AMBAS")
-        
-        # Mapeo de columnas de vacunas en CENSO general:
-        # Y: Inf 1ra, Z: Inf 2da, AA: Inf Anual, AB: Lote Inf, AC: Cad Inf
-        # AD: Cov 1ra, AE: Cov 2da, AF: Cov Anual, AG: Lote Cov, AH: Cad Cov
         
         if vacuna_interes in ["INFLUENZA", "AMBAS"]:
             updates_data.append({
                 "range": f"{nombre_censo_esc}!Y{nueva_fila_idx}:AA{nueva_fila_idx}",
-                "values": [["X", "", ""]] # O marca la dosis correspondiente
+                "values": [["X", "", ""]]
             })
             updates_data.append({
                 "range": f"{nombre_hoja_activa_esc}!Y{nueva_fila_idx}:AA{nueva_fila_idx}",
