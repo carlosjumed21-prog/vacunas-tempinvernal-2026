@@ -28,9 +28,8 @@ def procesar_guardado_aplicacion(
 ):
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
-    utilizando directamente la API REST oficial de Google Sheets. 
-    Realiza la migración dual simultánea para el 20 de Noviembre, purga caché 
-    y fuerza la recarga en todas las unidades.
+    utilizando directamente la API REST oficial de Google Sheets respetando 
+    el ID de la unidad correspondiente (CMN 20 de Noviembre u otras unidades).
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -133,7 +132,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores en la hoja nominal activa
+        # 1. Petición para actualizar los valores utilizando estrictamente el sheet_id_objetivo recibido
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -221,13 +220,11 @@ def procesar_guardado_aplicacion(
                                     ws_censo_objetivo.batch_update(updates_censo_tablero)
                             
                             migracion_20n_exitosa = True
-                        else:
-                            st.warning(f"⚠️ No se encontró el folio `{folio_paciente_actual}` en la hoja tabular de destino.")
             except Exception as e_migracion:
                 st.error(f"⚠️ Error al sincronizar con la hoja de censo dual: {e_migracion}")
                 return False
 
-        # 3. Formato visual verde en la hoja activa nominal
+        # 3. Formato visual verde en la hoja activa nominal usando el sheet_id_objetivo correcto
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
@@ -267,13 +264,6 @@ def procesar_guardado_aplicacion(
         if hasattr(st, "cache_resource"):
             st.cache_resource.clear()
 
-        # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN DUAL PARA EL 20 DE NOVIEMBRE ---
-        if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
-            if migracion_20n_exitosa:
-                st.success("🏥 **CMN 20 de Noviembre:** Sincronización dual exitosa en 'Censo Nominal' y su hoja tabular correspondiente.")
-            else:
-                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización dual requirió revisión.")
-
         lote_final_partes = []
         if lote_inf_input:
             lote_final_partes.append(f"Inf: {lote_inf_input.upper()} (Cad: {cad_i_str})")
@@ -300,4 +290,4 @@ def procesar_guardado_aplicacion(
 
     except Exception as e:
         st.error(f"Error al actualizar la base de datos en Google Sheets: {e}")
-        return
+        return False
