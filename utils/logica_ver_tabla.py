@@ -31,7 +31,7 @@ def get_creds_from_secrets():
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-@str_lib.cache_data(ttl=300, show_spinner=False)
+@str_lib.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
@@ -160,7 +160,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
-def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
+def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
     filas_actualizadas = list(filas_tabla)
@@ -173,43 +173,31 @@ def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_ma
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
     str_lib.session_state[key_estado_filas] = filas_actualizadas
-    str_lib.session_state[f"pendientes_borrar_{sheet_id}_{hoja_activa}"] = filas_gs_a_borrar
 
-def sincronizar_borrado_segundo_plano(sheet_id, hoja_activa, key_estado_filas):
-    key_pendientes = f"pendientes_borrar_{sheet_id}_{hoja_activa}"
-    if key_pendientes not in str_lib.session_state or not str_lib.session_state[key_pendientes]:
-        return
+    client = obtener_cliente_gspread()
+    spreadsheet = client.open_by_key(sheet_id)
+    ws = spreadsheet.worksheet(hoja_activa)
 
-    filas_gs_a_borrar = str_lib.session_state[key_pendientes]
-    str_lib.session_state[key_pendientes] = []
+    filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
+    for fila_gs in filas_gs_a_borrar:
+        try:
+            ws.delete_rows(fila_gs)
+        except Exception:
+            pass
 
-    try:
-        client = obtener_cliente_gspread()
-        spreadsheet = client.open_by_key(sheet_id)
-        ws = spreadsheet.worksheet(hoja_activa)
-
-        filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-        for fila_gs in filas_gs_a_borrar:
+    datos_actualizados = ws.get_all_values()
+    if len(datos_actualizados) >= 14:
+        filas_actuales = datos_actualizados[13:]
+        contador = 1
+        updates = []
+        for i in range(0, len(filas_actuales), 2):
+            row = filas_actuales[i]
+            if len(row) > 0 and row[0].strip() != "":
+                a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                updates.append({"range": a1, "values": [[str(contador)]]})
+                contador += 1
+        if updates:
             try:
-                ws.delete_rows(fila_gs)
+                ws.batch_update(updates)
             except Exception:
                 pass
-
-        datos_actualizados = ws.get_all_values()
-        if len(datos_actualizados) >= 14:
-            filas_actuales = datos_actualizados[13:]
-            contador = 1
-            updates = []
-            for i in range(0, len(filas_actuales), 2):
-                row = filas_actuales[i]
-                if len(row) > 0 and row[0].strip() != "":
-                    a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                    updates.append({"range": a1, "values": [[str(contador)]]})
-                    contador += 1
-            if updates:
-                try:
-                    ws.batch_update(updates)
-                except Exception:
-                    pass
-    except Exception:
-        pass
