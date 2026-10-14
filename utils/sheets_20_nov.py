@@ -47,28 +47,41 @@ def guardar_registro_censal(
     try:
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
         tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
-        nombre_hoja_destino = (
-            f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
-        )
+        
+        # Nombre exacto y único que debe tener la hoja de la jornada actual
+        nombre_hoja_destino = f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
 
         client = obtener_cliente_gspread()
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
 
-        # Intentar abrir la hoja del día; si no existe, crearla automáticamente o buscar respaldos
+        # 1. Intentar abrir la pestaña exacta de la jornada
+        worksheet = None
         try:
             worksheet = spreadsheet.worksheet(nombre_hoja_destino)
         except Exception:
-            try:
-                # Opcional: Crear la hoja automáticamente si no existe para mantener el flujo de la jornada
-                worksheet = spreadsheet.add_worksheet(title=nombre_hoja_destino, rows=100, cols=50)
-            except Exception:
+            # 2. Si no existe, buscamos una plantilla base para duplicarla (ej. "CENSO NOMINAL" o "CENSO")
+            plantilla_encontrada = None
+            for nombre_plantilla in ["CENSO NOMINAL", "CENSO"]:
                 try:
-                    worksheet = spreadsheet.worksheet("CENSO NOMINAL")
+                    plantilla_encontrada = spreadsheet.worksheet(nombre_plantilla)
+                    break
                 except Exception:
-                    worksheet = spreadsheet.worksheet("CENSO")
+                    continue
+            
+            if plantilla_encontrada:
+                # Duplicamos la plantilla existente para conservar formato, anchos de columna y diseño
+                nueva_hoja = spreadsheet.duplicate_sheet(
+                    source_sheet_id=plantilla_encontrada.id,
+                    insert_sheet_index=0,
+                    new_sheet_name=nombre_hoja_destino
+                )
+                worksheet = spreadsheet.worksheet(nombre_hoja_destino)
+            else:
+                # Fallback de emergencia si no hay plantillas: crear una hoja en blanco
+                worksheet = spreadsheet.add_worksheet(title=nombre_hoja_destino, rows=100, cols=50)
 
-        # Usar siempre el nombre real de la hoja obtenida (evita errores de parseo de rangos)
+        # Usar siempre el nombre real de la hoja obtenida
         nombre_real_hoja = worksheet.title
 
         columna_b = worksheet.col_values(2)
@@ -125,7 +138,6 @@ def guardar_registro_censal(
                 return "X" if val.upper() in ["SÍ", "SI", "TRUE", "1"] else ""
             return ""
 
-        # Mapeo idéntico al estándar asegurando columnas C, D, E para nombres
         fila_registro_principal = [
             str(siguiente_num),
             folio_asignado,
