@@ -26,14 +26,6 @@ st.markdown("""
             max-width: 900px;
         }
         
-        /* Contenedor flex para alinear los botones superiores */
-        .top-buttons-container {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-bottom: 1rem;
-        }
-        
         /* Estilos institucionales personalizados */
         .main-header { 
             font-size: 2.2rem !important; 
@@ -52,14 +44,14 @@ st.markdown("""
             text-align: center; 
         }
         
-        /* Tarjetas del menú niveladas con Flexbox para altura uniforme */
+        /* Tarjetas del menú con altura fija idéntica para nivelar los botones verdes */
         .card-menu { 
             background-color: #ffffff; 
             border: 2px solid #a57f2c; 
             padding: 20px; 
             border-radius: 10px; 
             text-align: center; 
-            margin-bottom: 10px; 
+            margin-bottom: 15px; 
             height: 150px; 
             display: flex;
             flex-direction: column;
@@ -160,18 +152,16 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores a la derecha
-    st.markdown('<div class="top-buttons-container">', unsafe_allow_html=True)
-    c1, c2 = st.columns([1, 1])
-    with c1:
+    # Botones superiores originales (Panel Admin y Cerrar Sesión)
+    col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
+    with col_top2:
         if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
             st.switch_page("pages/3_administrador.py")
-    with c2:
+    with col_top3:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
             st.session_state["authenticated"] = False
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
