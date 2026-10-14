@@ -146,14 +146,14 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Modificación aquí: Dividido en 3 columnas en la parte superior para Panel Admin y Cerrar Sesión
-    col_top1, col_top2, col_top3 = st.columns([3, 1, 1])
+    # Alineación perfecta de los dos botones superiores en el lado derecho usando columnas proporcionales compactas
+    _, col_admin, col_logout = st.columns([6, 2, 2])
     
-    with col_top2:
+    with col_admin:
         if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
             st.switch_page("pages/3_administrador.py")
             
-    with col_top3:
+    with col_logout:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
             st.session_state["authenticated"] = False
@@ -184,7 +184,6 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-    # Ahora el menú principal queda con 2 tarjetas (Registro Nominal y Operatividad)
     col1, col2 = st.columns(2)
 
     with col1:
