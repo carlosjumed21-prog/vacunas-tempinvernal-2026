@@ -28,7 +28,7 @@ def procesar_guardado_aplicacion(
 ):
     """
     Ejecuta las validaciones, actualiza los datos de manera dual (CENSO NOMINAL y CENSO general)
-    respetando el mapeo exacto de columnas de cada hoja.
+    respetando el mapeo exacto de columnas de cada hoja mediante cliente gspread nativo.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -124,10 +124,28 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
-        # --- 2. MIGRACIÓN DUAL AUTOMÁTICA HACIA LA HOJA "CENSO" GENERAL (USANDO SU MAPEO DE COLUMNAS Y-AH) ---
+        # --- 2. MIGRACIÓN DUAL AUTOMÁTICA HACIA LA HOJA "CENSO" GENERAL (MAPEO Y-AH) ---
         if sheet_id_objetivo == SHEET_ID_20_NOV:
             try:
-                spreadsheet_20n = worksheet_activa.spreadsheet
+                import json
+                import gspread
+                from config import GOOGLE_SCOPES
+
+                # Autenticación limpia mediante gspread service_account desde los secrets
+                if "GOOGLE_CREDENTIALS" in st.secrets:
+                    raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+                    creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+                elif "gcp_service_account" in st.secrets:
+                    creds_dict = dict(st.secrets["gcp_service_account"])
+                else:
+                    primera_llave = list(st.secrets.keys())[0]
+                    creds_dict = dict(st.secrets[primera_llave])
+
+                if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+                    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+                client_gspread = gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+                spreadsheet_20n = client_gspread.open_by_key(SHEET_ID_20_NOV)
                 hoja_censia_general = spreadsheet_20n.worksheet("CENSO")
                 nombre_censo_escapado = "'CENSO'"
                 
@@ -179,7 +197,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # Petición batchUpdate para actualizar ambas hojas
+        # Petición batchUpdate para actualizar ambas hojas simultáneamente
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
