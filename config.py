@@ -142,8 +142,8 @@ MAPA_SIGLAS_INVERSO = {
     v["sigla"]: k for k, v in UNIDADES_ISSSTE.items() if v["sigla"]
 }
 
-# --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS ---
-GOOGLE_SHEET_ID = "14U9w_IFLQmr3yfQ3Rd1nGJbp0QeHIyO283cHr1yGCp8"  # ID nuevo y nativo para las demás unidades (CLIDDA, etc.)
+# --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS (FORZADOS AL NUEVO ARCHIVO) ---
+GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDuZtQ"  # ID correcto y oficial para las demás unidades
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"  # ID exclusivo para el CMN 20 de Noviembre
 
 GOOGLE_SCOPES = [
