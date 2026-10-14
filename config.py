@@ -1,18 +1,11 @@
 import streamlit as st
 import datetime
 
-
 # --- CONFIGURACIÓN UNIVERSAL DE ESTILOS Y OCULTACIÓN DE BARRA LATERAL ---
 def aplicar_configuracion_global(
     titulo_pagina="Sistema Censo Nominal", icono="💉"
 ):
-    st.set_page_config(
-        page_title=titulo_pagina,
-        page_icon=icono,
-        layout="centered",
-        initial_sidebar_state="collapsed",
-    )
-
+    # Nota: st.set_page_config ya lo gestiona app.py directamente para evitar conflictos
     params = st.query_params
     es_enlace_personalizado = len(params) > 0
 
@@ -24,7 +17,7 @@ def aplicar_configuracion_global(
                 display: none !important;
                 visibility: hidden !important;
             }
-            .stApp { background-color: #fbf9f4; }
+            .stApp { background-color: #f7f4eb !important; }
         </style>
         """,
             unsafe_allow_html=True,
@@ -33,7 +26,7 @@ def aplicar_configuracion_global(
         st.markdown(
             """
         <style>
-            .stApp { background-color: #fbf9f4; }
+            .stApp { background-color: #f7f4eb !important; }
         </style>
         """,
             unsafe_allow_html=True,
@@ -55,7 +48,6 @@ def render_selector_fecha_compacto(label_texto, key_sufijo):
     }
     meses_op = ["Mes"] + list(meses_dict.keys())
     
-    # Rango de años de caducidad (desde el año actual hasta 10 años adelante)
     anio_actual = datetime.date.today().year
     anios_op = ["Año"] + list(range(anio_actual, anio_actual + 11))
     
