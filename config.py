@@ -1,3 +1,4 @@
+# config.py
 import streamlit as st
 import datetime
 
@@ -5,7 +6,6 @@ import datetime
 def aplicar_configuracion_global(
     titulo_pagina="Sistema Censo Nominal", icono="💉"
 ):
-    # Nota: st.set_page_config ya lo gestiona app.py directamente para evitar conflictos
     params = st.query_params
     es_enlace_personalizado = len(params) > 0
 
@@ -142,7 +142,10 @@ MAPA_SIGLAS_INVERSO = {
     v["sigla"]: k for k, v in UNIDADES_ISSSTE.items() if v["sigla"]
 }
 
-GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
+# --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS ---
+GOOGLE_SHEET_ID = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"  # ID para las demás unidades (CLIDDA, etc.)
+SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"  # ID exclusivo para el CMN 20 de Noviembre
+
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
