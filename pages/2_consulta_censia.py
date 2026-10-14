@@ -379,8 +379,7 @@ else:
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
         hoja_actual = hoja_seleccionada if hoja_seleccionada else ""
-        # CORRECCIÓN CLAVE: Se pasa el sheet_id_activo en el enlace para que ver_tabla.py sepa exactamente qué libro consultar
-        url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}&sheet_id={urllib.parse.quote(sheet_id_activo)}"
+        url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}"
 
         st.markdown(
             f"""
