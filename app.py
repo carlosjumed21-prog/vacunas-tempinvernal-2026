@@ -18,12 +18,13 @@ st.markdown("""
             padding-top: 1.5rem !important;
         }
         
-        .main-header { font-size: 2.3rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
+        .main-header { font-size: 2.3rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; text-align: center; }
         .sub-header { font-size: 1.25rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; text-align: center; }
         .card-menu { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
         .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.1rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1.1rem !important; }
         .btn-admin>button { background-color: #611232 !important; color: white !important; font-size: 0.95rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.4rem 0.8rem !important; }
-        .auth-container { max-width: 450px; margin: 2rem auto; background: #f7f4eb; padding: 30px; border-radius: 12px; border: 2px solid #a57f2c; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .auth-container { max-width: 450px; margin: 1rem auto; background: #f7f4eb; padding: 25px; border-radius: 10px; border: 2px solid #a57f2c; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .footer-text { text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem; margin-top: 3rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -36,14 +37,14 @@ if "auth_registro" not in st.session_state:
 # ===========================================================
 if not st.session_state.get("auth_registro", False) and not st.session_state.get("authenticated", False):
     
-    st.markdown('<p class="main-header" style="text-align: center;">Sistema de Jornadas de Vacunación</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">🔐 Autenticación Requerida - Registro Nominal</p>', unsafe_allow_html=True)
     
     col_centro1, col_centro2, col_centro3 = st.columns([1, 2, 1])
     
     with col_centro2:
         st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-        st.markdown("Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.")
+        st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
         
         with st.form("form_auth_principal"):
             usuario_input = st.text_input("Correo electrónico / Usuario").strip().lower()
@@ -80,6 +81,16 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                 else:
                     st.error("Correo o contraseña incorrectos. Verifique sus datos o espacios en blanco.")
         st.markdown('</div>', unsafe_allow_html=True)
+
+    # Leyenda de derechos reservados en el inicio de sesión
+    st.markdown("""
+        <div class="footer-text">
+            Subdelegación Sur ISSSTE<br>
+            Medicina Preventiva - Epidemiología<br>
+            © 2026 Carlos Ju R2 Epidemiología. Proyecto de Captura de Jornadas de Vacunación.<br>
+            Todos los derechos reservados. Prohibida su reproducción total o parcial sin autorización.
+        </div>
+    """, unsafe_allow_html=True)
 
 # ===========================================================
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
@@ -144,9 +155,8 @@ else:
         if st.button("Ir a Consulta CENSIA", use_container_width=True):
             st.switch_page("pages/2_consulta_censia.py")
 
-    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-        <div style="text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem;">
+        <div class="footer-text">
             Subdelegación Sur ISSSTE<br>
             Medicina Preventiva - Epidemiología<br>
             © 2026 Carlos Ju R2 Epidemiología. Proyecto de Captura de Jornadas de Vacunación.<br>
