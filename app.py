@@ -159,6 +159,8 @@ if not st.session_state.get("auth_registro", False):
                     st.session_state["auth_registro"] = True
                     st.session_state["es_admin"] = es_usuario_admin
                     st.session_state["correo_operativo_asignado"] = usuario_input
+                    # Sincronizar también con la variable que usa el módulo CENSIA
+                    st.session_state["autenticado_consulta"] = True
                     st.success("¡Credenciales correctas! Ingresando al sistema...")
                     st.rerun()
                 else:
@@ -188,6 +190,7 @@ else:
                 st.session_state["auth_registro"] = False
                 st.session_state["es_admin"] = False
                 st.session_state["correo_operativo_asignado"] = ""
+                st.session_state["autenticado_consulta"] = False
                 st.rerun()
     else:
         _, col_logout = st.columns([7.2, 1.2])
@@ -196,6 +199,7 @@ else:
                 st.session_state["auth_registro"] = False
                 st.session_state["es_admin"] = False
                 st.session_state["correo_operativo_asignado"] = ""
+                st.session_state["autenticado_consulta"] = False
                 st.rerun()
 
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
