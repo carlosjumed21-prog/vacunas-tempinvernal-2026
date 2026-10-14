@@ -29,6 +29,12 @@ st.markdown(
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
+        
+        /* Estilo visual sutil para filas con aplicación completada (#e2f0d9) */
+        [data-testid="stDataEditor"] tr[data-row-highlight="true"] td {
+            background-color: #e2f0d9 !important;
+            color: #111111 !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -123,7 +129,7 @@ if not filas_tabla:
     st.stop()
 
 
-# --- CONSTRUCCIÓN DEL DATASET Y MÉTRICAS ---
+# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y DETECCIÓN DE FILAS VERDES ---
 def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
@@ -152,6 +158,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     filas_procesadas = []
     mapeo_indices_pares = []
+    indices_filas_verdes = set()
 
     total_censo_registros = 0
     total_preregistros = 0
@@ -195,6 +202,11 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
+        # Detectar si la fila tiene alguna X de aplicación para marcarla en verde
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+            indices_filas_verdes.add(len(filas_procesadas))
+            indices_filas_verdes.add(len(filas_procesadas) + 1)
+
         indices_deseados = list(range(0, 12)) + list(range(32, 43))
 
         f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
@@ -221,9 +233,9 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         "total_simultaneas": total_simultaneas,
     }
 
-    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, metricas
+    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
@@ -278,7 +290,7 @@ with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simu
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO AISLADO Y ULTRA FLUIDO PARA LA TABLA Y ACCIÓN DE BORRADO ---
+# --- FRAGMENTO INTERACTIVO CON COLORES CSS Y SINCRONIZACIÓN REAL ---
 @st.fragment
 def render_bloque_interactivo_tabla():
     col_del, _ = st.columns([2, 5])
@@ -297,7 +309,6 @@ def render_bloque_interactivo_tabla():
     for col in encabezados_combinados:
         column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-    # Renderizado directo con DataFrame plano (sin Styler) para eliminar lag por completo
     df_editado = st.data_editor(
         df_tabla_segura,
         use_container_width=True,
@@ -305,6 +316,24 @@ def render_bloque_interactivo_tabla():
         hide_index=True,
         column_config=column_configs,
         key="editor_tabla_censo",
+    )
+
+    # Inyectar atributos de resaltado en las filas correspondientes usando JS ligero dentro del DOM
+    filas_verdes_js_list = list(indices_filas_verdes)
+    st.markdown(
+        f"""
+        <script>
+            const targetRows = {filas_verdes_js_list};
+            const doc = window.parent.document;
+            const rows = doc.querySelectorAll('[data-testid="stDataEditor"] tbody tr');
+            rows.forEach((row, index) => {{
+                if (targetRows.includes(index)) {{
+                    row.setAttribute('data-row-highlight', 'true');
+                }}
+            }});
+        </script>
+        """,
+        unsafe_allow_html=True,
     )
 
     if btn_eliminar:
@@ -315,7 +344,7 @@ def render_bloque_interactivo_tabla():
             st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
         else:
             try:
-                with st.spinner("Eliminando registros y actualizando Google Sheets..."):
+                with st.spinner("Eliminando registros en Google Sheets en tiempo real..."):
                     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
                     filas_actualizadas = list(filas_tabla)
                     filas_gs_a_borrar = []
@@ -326,10 +355,7 @@ def render_bloque_interactivo_tabla():
                             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-                    # 1. Actualizar estado local inmediatamente
-                    st.session_state[key_estado_filas] = filas_actualizadas
-
-                    # 2. Conectar y eliminar en Google Sheets
+                    # 1. Conectar y eliminar en Google Sheets de forma síncrona
                     client = obtener_cliente_gspread()
                     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
                     ws = spreadsheet.worksheet(hoja_activa_tabla)
@@ -341,7 +367,7 @@ def render_bloque_interactivo_tabla():
                         except Exception:
                             pass
 
-                    # 3. Reordenar contadores de folios en Google Sheets
+                    # 2. Reordenar contadores de folios en Google Sheets
                     datos_actualizados = ws.get_all_values()
                     if len(datos_actualizados) >= 14:
                         filas_actuales = datos_actualizados[13:]
@@ -359,7 +385,13 @@ def render_bloque_interactivo_tabla():
                             except Exception:
                                 pass
 
-                st.success("✅ Pacientes eliminados y registros actualizados correctamente.")
+                    # 3. Limpiar caché global para obligar a leer los datos nuevos y limpios desde Google Sheets
+                    st.cache_data.clear()
+
+                    # 4. Actualizar estado en sesión con los datos ya recalculados
+                    st.session_state[key_estado_filas] = filas_actualizadas
+
+                st.success("✅ Registros eliminados de Google Sheets con éxito.")
                 st.rerun()
 
             except Exception as e:
