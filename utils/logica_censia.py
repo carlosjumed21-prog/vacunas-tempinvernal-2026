@@ -29,8 +29,7 @@ def procesar_guardado_aplicacion(
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
-    Para el CMN 20 de Noviembre, realiza la migración conjunta y dual tanto en la 
-    hoja nominal activa como en la hoja maestra 'CENSO' mediante gspread nativo.
+    Para el CMN 20 de Noviembre, muestra una notificación explícita de sincronización dual.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -76,7 +75,6 @@ def procesar_guardado_aplicacion(
         cad_i_str = cad_inf_input.strip()
         cad_c_str = cad_cov_input.strip()
         
-        # Encerrar el nombre de la hoja entre comillas simples para evitar errores de sintaxis en la API de Sheets
         nombre_hoja_escapado = f"'{worksheet_activa.title}'"
 
         if habilitar_edicion:
@@ -94,7 +92,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-        # INFLUENZA (Columnas AG, AH, AI, AJ, AK en la hoja nominal)
+        # INFLUENZA (Columnas AG a AK en la hoja nominal)
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -111,7 +109,7 @@ def procesar_guardado_aplicacion(
         if cad_inf_input:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
-        # COVID (Columnas AL, AM, AN, AO, AP en la hoja nominal)
+        # COVID (Columnas AL a AP en la hoja nominal)
         if cov_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
@@ -134,7 +132,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores en la hoja activa del libro objetivo
+        # 1. Petición para actualizar los valores en la hoja activa
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -144,7 +142,8 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (EXCLUSIVO 20 DE NOVIEMBRE VÍA GSPREAD NATIVO)
+        # 2. MIGRACIÓN Hacia LA HOJA "CENSO" GENERAL (EXCLUSIVO 20 DE NOVIEMBRE)
+        migracion_20n_exitosa = False
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             try:
                 import json
@@ -179,36 +178,24 @@ def procesar_guardado_aplicacion(
                             break
                     
                     if fila_en_censo:
-                        # Mapeo exacto de columnas numéricas en la hoja CENSO general:
-                        # Y=25 (1ra Inf), Z=26 (2da Inf), AA=27 (Anual Inf), AB=28 (Lote Inf), AC=29 (Cad Inf)
-                        # AD=30 (1ra Cov), AE=31 (2da Cov), AF=32 (Anual Cov), AG=33 (Lote Cov), AH=34 (Cad Cov)
-                        
-                        if inf_1ra:
-                            hoja_censia_general.update_cell(fila_en_censo, 25, "X")
-                        if inf_2da:
-                            hoja_censia_general.update_cell(fila_en_censo, 26, "X")
-                        if inf_anual:
-                            hoja_censia_general.update_cell(fila_en_censo, 27, "X")
-                        if lote_inf_input:
-                            hoja_censia_general.update_cell(fila_en_censo, 28, lote_i)
-                        if cad_inf_input:
-                            hoja_censia_general.update_cell(fila_en_censo, 29, cad_i_str)
+                        if inf_1ra: hoja_censia_general.update_cell(fila_en_censo, 25, "X")
+                        if inf_2da: hoja_censia_general.update_cell(fila_en_censo, 26, "X")
+                        if inf_anual: hoja_censia_general.update_cell(fila_en_censo, 27, "X")
+                        if lote_inf_input: hoja_censia_general.update_cell(fila_en_censo, 28, lote_i)
+                        if cad_inf_input: hoja_censia_general.update_cell(fila_en_censo, 29, cad_i_str)
 
-                        if cov_1ra:
-                            hoja_censia_general.update_cell(fila_en_censo, 30, "X")
-                        if cov_2da:
-                            hoja_censia_general.update_cell(fila_en_censo, 31, "X")
-                        if cov_anual:
-                            hoja_censia_general.update_cell(fila_en_censo, 32, "X")
-                        if lote_cov_input:
-                            hoja_censia_general.update_cell(fila_en_censo, 33, lote_c)
-                        if cad_cov_input:
-                            hoja_censia_general.update_cell(fila_en_censo, 34, cad_c_str)
+                        if cov_1ra: hoja_censia_general.update_cell(fila_en_censo, 30, "X")
+                        if cov_2da: hoja_censia_general.update_cell(fila_en_censo, 31, "X")
+                        if cov_anual: hoja_censia_general.update_cell(fila_en_censo, 32, "X")
+                        if lote_cov_input: hoja_censia_general.update_cell(fila_en_censo, 33, lote_c)
+                        if cad_cov_input: hoja_censia_general.update_cell(fila_en_censo, 34, cad_c_str)
+                        
+                        migracion_20n_exitosa = True
             except Exception as e_migracion:
-                st.error(f"⚠️ Error crítico al migrar a la hoja CENSO general con gspread: {e_migracion}")
+                st.error(f"⚠️ Error al sincronizar con la hoja CENSO general: {e_migracion}")
                 return False
 
-        # 3. Petición para aplicar el formato de color de fondo verde en la fila guardada
+        # 3. Formato visual verde en la hoja activa
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
@@ -243,7 +230,15 @@ def procesar_guardado_aplicacion(
         }
         requests.post(url_spreadsheet, headers=headers, json=body_format)
 
+        # Limpieza de caché
         st.cache_data.clear()
+
+        # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN PARA EL 20 DE NOVIEMBRE ---
+        if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
+            if migracion_20n_exitosa:
+                st.success("🏥 **CMN 20 de Noviembre:** Sincronización dual exitosa en 'Censo Nominal' y sábana 'Censo'.")
+            else:
+                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización con la sábana 'Censo' requiere revisión.")
 
         lote_final_partes = []
         if lote_inf_input:
