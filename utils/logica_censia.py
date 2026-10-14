@@ -6,6 +6,8 @@ import streamlit as st
 from utils.sheets import obtener_token_acceso
 from config import GOOGLE_SHEET_ID
 
+# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
+SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def procesar_guardado_aplicacion(
     worksheet_activa,
@@ -24,8 +26,8 @@ def procesar_guardado_aplicacion(
     sheet_id_objetivo=GOOGLE_SHEET_ID
 ):
     """
-    Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
-    utilizando directamente la API REST oficial de Google Sheets.
+    Ejecuta las validaciones, actualiza los datos de manera dual (CENSO NOMINAL y CENSO 
+    si es CMN 20 de Noviembre) y pinta de verde las celdas usando la API REST de Google Sheets.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -45,7 +47,7 @@ def procesar_guardado_aplicacion(
             st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta ingresar el número de lote.")
             error_validacion = True
         if not cad_cov_input.strip():
-            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, pero falta indicar la fecha de caducidad.")
+            st.error(f"⚠️ **Error:** Seleccionó al menos una dosis de **{biologico_covid_elegido}**, but falta indicar la fecha de caducidad.")
             error_validacion = True
 
     if not influenza_seleccionada and not covid_seleccionada:
@@ -71,7 +73,6 @@ def procesar_guardado_aplicacion(
         cad_i_str = cad_inf_input.strip()
         cad_c_str = cad_cov_input.strip()
         
-        # CORRECCIÓN: Encerrar el nombre de la hoja entre comillas simples para evitar errores de sintaxis en la API de Sheets
         nombre_hoja_escapado = f"'{worksheet_activa.title}'"
 
         if habilitar_edicion:
@@ -89,7 +90,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-        # INFLUENZA (Columnas AG, AH, AI, AJ, AK)
+        # --- CONSTRUCCIÓN DE ACTUALIZACIONES PARA LA HOJA ACTIVA (CENSO NOMINAL) ---
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -106,7 +107,6 @@ def procesar_guardado_aplicacion(
         if cad_inf_input:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
-        # COVID (Columnas AL, AM, AN, AO, AP)
         if cov_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
@@ -123,13 +123,59 @@ def procesar_guardado_aplicacion(
         if cad_cov_input:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
+        # --- MIGRACIÓN DUAL AUTOMÁTICA HACIA LA HOJA "CENSO" (SI ES 20 DE NOVIEMBRE) ---
+        if sheet_id_objetivo == SHEET_ID_20_NOV:
+            import gspread
+            client_aux = worksheet_activa.spreadsheet # Ya tenemos la conexión abierta
+            try:
+                hoja_censia_general = client_aux.worksheet("CENSO")
+                nombre_censo_escapado = "'CENSO'"
+                
+                # Buscamos la misma fila en la hoja CENSO usando el folio del paciente para mayor seguridad
+                folio_actual_paciente = todos_los_datos[fila_idx - 1][1] if len(todos_los_datos[fila_idx - 1]) > 1 else ""
+                
+                fila_en_censo_general = fila_idx # Por defecto usa el mismo índice, pero validamos por folio si es posible
+                valores_censo = hoja_censia_general.get_all_values()
+                for idx_c, row_c in enumerate(valores_censo[13:], start=14):
+                    if len(row_c) > 1 and row_c[1].strip() == folio_actual_paciente.strip():
+                        fila_en_censo_general = idx_c
+                        break
+                
+                fc_actual = fila_en_censo_general
+                fc_siguiente = fila_en_censo_general + 1
+
+                # Replicar datos de vacuna en CENSO general
+                if inf_1ra:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AG{fc_actual}:AG{fc_siguiente}", "values": [["X"], ["X"]]})
+                if inf_2da:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AH{fc_actual}:AH{fc_siguiente}", "values": [["X"], ["X"]]})
+                if inf_anual:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AI{fc_actual}:AI{fc_siguiente}", "values": [["X"], ["X"]]})
+                if lote_inf_input:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AJ{fc_actual}:AJ{fc_siguiente}", "values": [[lote_i], [lote_i]]})
+                if cad_inf_input:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AK{fc_actual}:AK{fc_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+
+                if cov_1ra:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AL{fc_actual}:AL{fc_siguiente}", "values": [["X"], ["X"]]})
+                if cov_2da:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AM{fc_actual}:AM{fc_siguiente}", "values": [["X"], ["X"]]})
+                if cov_anual:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AN{fc_actual}:AN{fc_siguiente}", "values": [["X"], ["X"]]})
+                if lote_cov_input:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AO{fc_actual}:AO{fc_siguiente}", "values": [[lote_c], [lote_c]]})
+                if cad_cov_input:
+                    updates_data.append({"range": f"{nombre_censo_escapado}!AP{fc_actual}:AP{fc_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+            except Exception as e_migracion:
+                st.warning(f"⚠️ No se pudo sincronizar automáticamente con la hoja CENSO general: {e_migracion}")
+
         token = obtener_token_acceso()
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores de texto/casillas usando el ID dinámico
+        # 1. Petición batchUpdate para actualizar los valores en Google Sheets
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -139,7 +185,7 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. Petición para aplicar el formato de color de fondo verde en la fila guardada usando el ID dinámico
+        # 2. Petición para pintar de verde la fila guardada en la hoja activa
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
