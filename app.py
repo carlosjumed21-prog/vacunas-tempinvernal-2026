@@ -103,14 +103,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Inicializar estados de sesión para el control de acceso
+# Inicializar estados de sesión para el control de acceso y niveles
 if "auth_registro" not in st.session_state:
     st.session_state["auth_registro"] = False
+if "es_admin" not in st.session_state:
+    st.session_state["es_admin"] = False
 
 # ===========================================================
 # BLOQUE DE AUTENTICACIÓN INICIAL
 # ===========================================================
-if not st.session_state.get("auth_registro", False) and not st.session_state.get("authenticated", False):
+if not st.session_state.get("auth_registro", False):
     
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">🔐 Autenticación Requerida - Registro Nominal</p>', unsafe_allow_html=True)
@@ -138,16 +140,23 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                 admin_pass = st.secrets.get("ADMIN_PASSWORD", "VIGILE2026").strip()
                 
                 acceso_permitido = False
+                es_usuario_admin = False
                 
+                # Evaluación de nivel de administrador o usuario autorizado
                 if admin_pass and usuario_input == admin_user and password_input == admin_pass:
                     acceso_permitido = True
+                    es_usuario_admin = True
                 elif usuario_input in correos_autorizados and password_input == correos_autorizados[usuario_input]:
                     acceso_permitido = True
+                    # Asignar nivel de administrador si corresponde al correo principal de gestión
+                    if usuario_input == "carlosju.med21@gmail.com":
+                        es_usuario_admin = True
                 elif password_input == password_operativa and "@" in usuario_input:
                     acceso_permitido = True
                     
                 if acceso_permitido:
                     st.session_state["auth_registro"] = True
+                    st.session_state["es_admin"] = es_usuario_admin
                     st.success("¡Credenciales correctas! Ingresando al sistema...")
                     st.rerun()
                 else:
@@ -166,16 +175,24 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores juntos y aproximados hacia la esquina derecha
-    _, col_admin, col_logout = st.columns([6, 1.2, 1.2])
-    with col_admin:
-        if st.button("⚙️ Admin", use_container_width=True, key="btn_top_admin"):
-            st.switch_page("pages/3_administrador.py")
-    with col_logout:
-        if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
-            st.session_state["auth_registro"] = False
-            st.session_state["authenticated"] = False
-            st.rerun()
+    # Botones superiores dinámicos: El botón Admin solo aparece si st.session_state["es_admin"] es True
+    if st.session_state.get("es_admin", False):
+        _, col_admin, col_logout = st.columns([6, 1.2, 1.2])
+        with col_admin:
+            if st.button("⚙️ Admin", use_container_width=True, key="btn_top_admin"):
+                st.switch_page("pages/3_administrador.py")
+        with col_logout:
+            if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
+                st.session_state["auth_registro"] = False
+                st.session_state["es_admin"] = False
+                st.rerun()
+    else:
+        _, col_logout = st.columns([7.2, 1.2])
+        with col_logout:
+            if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
+                st.session_state["auth_registro"] = False
+                st.session_state["es_admin"] = False
+                st.rerun()
 
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
