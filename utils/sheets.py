@@ -33,36 +33,65 @@ def obtener_token_acceso():
     client = obtener_cliente_gspread()
     return client.auth
 
-def _obtener_worksheet_dinamica(spreadsheet, sigla_url, tipo_jornada, val_fecha_app):
+def _obtener_worksheet_jornada(spreadsheet):
     """
-    Intenta localizar la pestaña correspondiente a la jornada actual 
-    (ej. TLA_EXTRA_141026, DVN_INTRA_121026, etc.) o recurre a 'CENSO NOMINAL'.
+    Detecta automáticamente la pestaña correcta basándose en los parámetros 
+    de la URL de Streamlit (ej. unidad, jornada y fecha).
     """
-    # Construir el sufijo de modalidad (Ej: INTRA, EXTRA, MOVIL)
+    params = st.query_params
+    sigla_url = params.get("unidad", "").upper()
+    jornada_url = params.get("jornada", "I").upper()
+    fecha_url_str = params.get("fecha", "")
+
+    # Mapeo de la letra de la jornada a la nomenclatura de las pestañas
     mod_map = {"I": "INTRA", "E": "EXTRA", "M": "MOV"}
-    tipo_str = mod_map.get(tipo_jornada.upper(), "INTRA")
-    fecha_sufijo = val_fecha_app.strftime("%d%m%y")
-    
-    # Nombres posibles de pestañas basados en tu estructura operativa
-    nombres_candidatos = [
-        f"{sigla_url.upper()}_{tipo_str}_{fecha_sufijo}",
-        f"{sigla_url.upper()}_EXTRA_{fecha_sufijo}",
-        f"{sigla_url.upper()}_INTRA_{fecha_sufijo}",
-        "CENSO NOMINAL"
-    ]
-    
-    for nombre in nombres_candidatos:
+    tipo_str = mod_map.get(jornada_url, "INTRA")
+
+    # Formatear la fecha de YYYY-MM-DD a DDMMYY (ej. 2026-10-14 -> 141026)
+    fecha_sufijo = ""
+    if fecha_url_str:
         try:
-            return spreadsheet.worksheet(nombre)
-        except gspread.exceptions.WorksheetNotFound:
-            continue
-            
-    # Si ninguna de las anteriores existe, regresa la primera pestaña disponible
+            parts = fecha_url_str.split("-")
+            if len(parts) == 3:
+                anio, mes, dia = parts
+                fecha_sufijo = f"{dia}{mes}{anio[2:]}"
+        except Exception:
+            pass
+
+    # Lista de posibles nombres exactos de pestañas a buscar en orden de prioridad
+    candidatos = []
+    if sigla_url and tipo_str and fecha_sufijo:
+        candidatos.append(f"{sigla_url}_{tipo_str}_{fecha_sufijo}")
+    
+    # Intentar buscar entre las pestañas existentes del documento la que coincida
+    try:
+        hojas_existentes = [ws.title for ws in spreadsheet.worksheets()]
+        
+        # 1. Buscar coincidencia exacta con el nombre construido
+        for candidato in candidatos:
+            if candidato in hojas_existentes:
+                return spreadsheet.worksheet(candidato)
+                
+        # 2. Buscar coincidencia parcial por Unidad y Fecha si se pasaron en URL
+        if sigla_url and fecha_sufijo:
+            for hoja in hojas_existentes:
+                if sigla_url in hoja and fecha_sufijo in hoja:
+                    return spreadsheet.worksheet(hoja)
+                    
+        # 3. Si se pasó una unidad pero no fecha exacta, buscar la más reciente de esa unidad
+        if sigla_url:
+            for hoja in hojas_existentes:
+                if hoja.startswith(sigla_url):
+                    return spreadsheet.worksheet(hoja)
+    except Exception:
+        pass
+
+    # Fallback de respaldo a la primera pestaña si no encuentra ninguna coincidencia
     return spreadsheet.get_worksheet(0)
 
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """
-    Guarda el registro censal en la pestaña dinámica correspondiente a la unidad y fecha.
+    Guarda el registro censal de forma nativa en la pestaña correcta de la jornada.
     """
     client = obtener_cliente_gspread()
     
@@ -71,16 +100,16 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
     except Exception as e:
         raise Exception(f"No se pudo abrir el documento de Google Sheets (Verifica el ID o permisos): {e}")
     
-    # Seleccionar la pestaña de forma dinámica según la jornada/fecha
+    # Obtener la pestaña dinámica correcta según la URL actual
     try:
-        worksheet = _obtener_worksheet_dinamica(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
+        worksheet = _obtener_worksheet_jornada(spreadsheet)
     except Exception as e:
-        raise Exception(f"No se pudo acceder a la pestaña de registro: {e}")
+        raise Exception(f"No se pudo acceder a la pestaña operativa de la jornada: {e}")
 
     try:
         filas_existentes = worksheet.get_all_values()
     except Exception as e:
-        raise Exception(f"Error al leer los valores de la hoja de Google Sheets: {e}")
+        raise Exception(f"Error al leer los valores de la hoja (Posible bloqueo de API o respuesta vacía): {e}")
       
     conteo_actual = len(filas_existentes)
     
@@ -106,7 +135,7 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
 
 def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, fecha_aplicacion):
     """
-    Verifica duplicados consultando la pestaña dinámica activa de la jornada.
+    Verifica si una CURP ya se encuentra registrada en la pestaña activa de la jornada.
     """
     client = obtener_cliente_gspread()
     
@@ -116,7 +145,7 @@ def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, f
         raise Exception(f"No se pudo abrir el documento para verificar duplicados: {e}")
     
     try:
-        worksheet = _obtener_worksheet_dinamica(spreadsheet, sig, tipo_jornada if 'tipo_jornada' in locals() else "I", fecha_aplicacion)
+        worksheet = _obtener_worksheet_jornada(spreadsheet)
     except Exception as e:
         raise Exception(f"No se pudo acceder a la pestaña para validar duplicados: {e}")
 
