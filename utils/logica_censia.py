@@ -30,7 +30,7 @@ def procesar_guardado_aplicacion(
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
     Para el CMN 20 de Noviembre, realiza la migración conjunta y dual tanto en la 
-    hoja nominal activa como en la hoja maestra 'CENSO'.
+    hoja nominal activa como en la hoja maestra 'CENSO' mediante gspread nativo.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -144,7 +144,7 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (Exclusivo para el libro del 20 de Noviembre)
+        # 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (EXCLUSIVO 20 DE NOVIEMBRE VÍA GSPREAD NATIVO)
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             try:
                 import json
@@ -166,7 +166,6 @@ def procesar_guardado_aplicacion(
                 client_gspread = gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
                 spreadsheet_20n = client_gspread.open_by_key(SHEET_ID_20_NOV)
                 hoja_censia_general = spreadsheet_20n.worksheet("CENSO")
-                nombre_censo_escapado = "'CENSO'"
                 
                 folio_paciente_actual = todos_los_datos[fila_idx - 1][1].strip() if len(todos_los_datos[fila_idx - 1]) > 1 else ""
                 
@@ -180,44 +179,33 @@ def procesar_guardado_aplicacion(
                             break
                     
                     if fila_en_censo:
-                        fc_actual = fila_en_censo
-                        fc_siguiente = fila_en_censo + 1
-
-                        updates_censo = []
-                        # Mapeo exacto de columnas Y hasta AH en la hoja CENSO general
+                        # Mapeo exacto de columnas numéricas en la hoja CENSO general:
+                        # Y=25 (1ra Inf), Z=26 (2da Inf), AA=27 (Anual Inf), AB=28 (Lote Inf), AC=29 (Cad Inf)
+                        # AD=30 (1ra Cov), AE=31 (2da Cov), AF=32 (Anual Cov), AG=33 (Lote Cov), AH=34 (Cad Cov)
+                        
                         if inf_1ra:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!Y{fc_actual}:Y{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 25, "X")
                         if inf_2da:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!Z{fc_actual}:Z{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 26, "X")
                         if inf_anual:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AA{fc_actual}:AA{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 27, "X")
                         if lote_inf_input:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AB{fc_actual}:AB{fc_siguiente}", "values": [[lote_i], [lote_i]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 28, lote_i)
                         if cad_inf_input:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AC{fc_actual}:AC{fc_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 29, cad_i_str)
 
                         if cov_1ra:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AD{fc_actual}:AD{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 30, "X")
                         if cov_2da:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AE{fc_actual}:AE{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 31, "X")
                         if cov_anual:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AF{fc_actual}:AF{fc_siguiente}", "values": [["X"], ["X"]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 32, "X")
                         if lote_cov_input:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AG{fc_actual}:AG{fc_siguiente}", "values": [[lote_c], [lote_c]]})
+                            hoja_censia_general.update_cell(fila_en_censo, 33, lote_c)
                         if cad_cov_input:
-                            updates_censo.append({"range": f"{nombre_censo_escapado}!AH{fc_actual}:AH{fc_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
-
-                        if updates_censo:
-                            url_censo_general = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_20_NOV}/values:batchUpdate"
-                            body_censo = {
-                                "valueInputOption": "USER_ENTERED",
-                                "data": updates_censo
-                            }
-                            resp_censo = requests.post(url_censo_general, headers=headers, json=body_censo)
-                            if resp_censo.status_code != 200:
-                                st.warning(f"⚠️ Aviso al migrar a hoja CENSO general: {resp_censo.text}")
+                            hoja_censia_general.update_cell(fila_en_censo, 34, cad_c_str)
             except Exception as e_migracion:
-                st.error(f"⚠️ Error crítico al migrar a la hoja CENSO general: {e_migracion}")
+                st.error(f"⚠️ Error crítico al migrar a la hoja CENSO general con gspread: {e_migracion}")
                 return False
 
         # 3. Petición para aplicar el formato de color de fondo verde en la fila guardada
@@ -255,7 +243,6 @@ def procesar_guardado_aplicacion(
         }
         requests.post(url_spreadsheet, headers=headers, json=body_format)
 
-        # Limpieza de caché para reflejar los cambios en tiempo real
         st.cache_data.clear()
 
         lote_final_partes = []
