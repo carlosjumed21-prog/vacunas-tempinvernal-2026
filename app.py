@@ -44,7 +44,7 @@ st.markdown("""
             text-align: center; 
         }
         
-        /* Tarjetas del menú con altura fija idéntica para nivelar los botones verdes */
+        /* Tarjetas del menú con altura fija idéntica para nivelar los botones */
         .card-menu { 
             background-color: #ffffff; 
             border: 2px solid #a57f2c; 
@@ -58,7 +58,7 @@ st.markdown("""
             justify-content: center;
         }
         
-        /* Botones principales verdes institucionales (incluyendo CENSIA y Formulario) */
+        /* Botones principales verdes institucionales (incluyendo CENSIA) */
         .stButton>button { 
             background-color: #1e5b4f !important; 
             color: white !important; 
@@ -69,24 +69,17 @@ st.markdown("""
             width: 100%;
         }
         
-        /* Selector específico para los botones superiores: pequeños, rojos y juntos a la derecha */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) button,
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
+        /* Estilo específico para los botones superiores compactos y juntos a la derecha */
+        div[data-testid="column"] button {
             background-color: #ffffff !important;
-            color: #611232 !important;
-            border: 1px solid #611232 !important;
-            font-size: 0.75rem !important;
-            padding: 0.2rem 0.5rem !important;
-            font-weight: 600 !important;
-            border-radius: 4px !important;
-            width: auto !important;
-            min-height: unset !important;
+            color: #1e5b4f !important;
+            border: 1px solid #1e5b4f !important;
+            font-size: 0.8rem !important;
+            padding: 0.25rem 0.5rem !important;
         }
-        
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover,
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) button:hover {
-            background-color: #611232 !important;
-            color: #ffffff !important;
+        div[data-testid="column"] button:hover {
+            background-color: #f0f0f0 !important;
+            color: #611232 !important;
         }
         
         /* Convertir el formulario de Streamlit en la caja blanca elegante con borde dorado */
@@ -173,12 +166,12 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Agrupamos las columnas superiores a la derecha con espacio ajustado para que queden juntos
-    col_spacer, col_top1, col_top2 = st.columns([6, 1.1, 1.1])
-    with col_top1:
+    # Botones superiores juntos y aproximados hacia la esquina derecha
+    _, col_admin, col_logout = st.columns([6, 1.2, 1.2])
+    with col_admin:
         if st.button("⚙️ Admin", use_container_width=True, key="btn_top_admin"):
             st.switch_page("pages/3_administrador.py")
-    with col_top2:
+    with col_logout:
         if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
             st.session_state["authenticated"] = False
