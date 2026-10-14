@@ -135,28 +135,27 @@ def render_seccion_superior_y_tabla():
                 modal_confirmar_eliminacion(indices_marcados_temp)
 
     with col_btn3:
-        if st.button("📥 Descargar Hoja Excel", use_container_width=True, key="btn_descargar_excel_seguro"):
-            try:
-                creds = get_creds_from_secrets()
-                if not creds.valid:
-                    creds.refresh(Request())
+        try:
+            creds = get_creds_from_secrets()
+            if not creds.valid:
+                creds.refresh(Request())
 
-                url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
-                req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
+            url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
+            req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
-                with urllib.request.urlopen(req) as response:
-                    excel_original_bytes = response.read()
+            with urllib.request.urlopen(req) as response:
+                excel_original_bytes = response.read()
 
-                st.download_button(
-                    label="💾 Guardar Archivo Excel",
-                    data=excel_original_bytes,
-                    file_name=f"{hoja_activa_tabla}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="download_exec_final"
-                )
-            except Exception as err:
-                st.error(f"No se pudo descargar el archivo: {err}")
+            st.download_button(
+                label="📥 Descargar Hoja Excel",
+                data=excel_original_bytes,
+                file_name=f"{hoja_activa_tabla}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_exec_final"
+            )
+        except Exception as err:
+            st.error(f"No se pudo preparar el archivo: {err}")
 
     st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
