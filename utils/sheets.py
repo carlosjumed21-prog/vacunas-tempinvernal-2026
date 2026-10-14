@@ -5,7 +5,8 @@ from config import GOOGLE_SHEET_ID
 
 def obtener_cliente_gspread():
     """
-    Autentica y retorna el cliente de gspread utilizando los secretos de Streamlit.
+    Autentica y retorna el cliente de gspread utilizando los secretos de Streamlit
+    o un archivo local de respaldo.
     """
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -13,11 +14,15 @@ def obtener_cliente_gspread():
     ]
     
     # Cargar credenciales desde st.secrets de manera segura
-    if "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    else:
-        # Fallback local o ruta por defecto si se usa archivo json
+    try:
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        else:
+            # Fallback a archivo local si no está en st.secrets
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+    except Exception:
+        # Fallback de emergencia a archivo local
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
         
     client = gspread.authorize(creds)
@@ -26,7 +31,7 @@ def obtener_cliente_gspread():
 def obtener_token_acceso():
     """
     Retorna las credenciales o el objeto de autorización para mantener 
-    compatibilidad con módulos externos (como logica_censia.py).
+    compatibilidad con módulos externos.
     """
     client = obtener_cliente_gspread()
     return client.auth
@@ -34,7 +39,7 @@ def obtener_token_acceso():
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """
     Guarda el registro censal de forma nativa en Google Sheets utilizando gspread,
-    evitando cualquier conflicto con formatos de Office.
+    evitando conflictos con celdas o encabezados vacíos.
     """
     client = obtener_cliente_gspread()
     
@@ -47,9 +52,11 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
     except gspread.exceptions.WorksheetNotFound:
         worksheet = spreadsheet.get_worksheet(0) # Fallback a la primera pestaña
 
-    # Generación del folio único basado en los registros actuales
-    registros_existentes = worksheet.get_all_records()
-    conteo_actual = len(registros_existentes) + 1
+    # Obtener todas las filas como valores planos para evitar errores de encabezados vacíos
+    filas_existentes = worksheet.get_all_values()
+    
+    # El conteo actual considera el total de filas actuales (incluyendo cabecera)
+    conteo_actual = len(filas_existentes)
     
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     sufijo_unidad = f"-{sufijo_js}" if sufijo_js else ""
