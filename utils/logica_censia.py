@@ -87,6 +87,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
+        # INFLUENZA (Columnas AG, AH, AI, AJ, AK)
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -103,6 +104,7 @@ def procesar_guardado_aplicacion(
         if cad_inf_input:
             updates_data.append({"range": f"{nombre_hoja}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
+        # COVID (Columnas AL, AM, AN, AO, AP)
         if cov_1ra:
             updates_data.append({"range": f"{nombre_hoja}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
