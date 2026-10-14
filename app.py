@@ -26,6 +26,14 @@ st.markdown("""
             max-width: 900px;
         }
         
+        /* Contenedor flex para alinear los botones superiores */
+        .top-buttons-container {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        
         /* Estilos institucionales personalizados */
         .main-header { 
             font-size: 2.2rem !important; 
@@ -43,15 +51,21 @@ st.markdown("""
             font-weight: 700 !important; 
             text-align: center; 
         }
+        
+        /* Tarjetas del menú niveladas con Flexbox para altura uniforme */
         .card-menu { 
             background-color: #ffffff; 
             border: 2px solid #a57f2c; 
             padding: 20px; 
             border-radius: 10px; 
             text-align: center; 
-            margin-bottom: 20px; 
-            min-height: 160px;
+            margin-bottom: 10px; 
+            height: 150px; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
+        
         .stButton>button { 
             background-color: #1e5b4f !important; 
             color: white !important; 
@@ -146,18 +160,18 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores alineados a la derecha usando proporciones limpias
-    _, col_admin, col_logout = st.columns([6, 2, 2])
-    
-    with col_admin:
+    # Botones superiores a la derecha
+    st.markdown('<div class="top-buttons-container">', unsafe_allow_html=True)
+    c1, c2 = st.columns([1, 1])
+    with c1:
         if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
             st.switch_page("pages/3_administrador.py")
-            
-    with col_logout:
+    with c2:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
             st.session_state["authenticated"] = False
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
@@ -190,7 +204,7 @@ else:
         st.markdown("""
             <div class="card-menu">
                 <h3>📝 Registro Nominal</h3>
-                <p>Acceso al formulario de captura para pacientes en jornadas de vacunación.</p>
+                <p style="margin: 0; font-size: 0.9rem;">Acceso al formulario de captura para pacientes en jornadas de vacunación.</p>
             </div>
         """, unsafe_allow_html=True)
         if st.button("Ir al Formulario", use_container_width=True):
@@ -200,7 +214,7 @@ else:
         st.markdown("""
             <div class="card-menu">
                 <h3>📋 Operatividad</h3>
-                <p>Captura de dosis aplicadas, lotes y comprobantes.</p>
+                <p style="margin: 0; font-size: 0.9rem;">Captura de dosis aplicadas, lotes y comprobantes.</p>
             </div>
         """, unsafe_allow_html=True)
         if st.button("Ir a CENSIA", use_container_width=True):
