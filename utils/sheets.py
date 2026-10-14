@@ -1,3 +1,4 @@
+# utils/sheets.py
 import datetime
 import json
 import requests
@@ -111,7 +112,6 @@ def guardar_registro_censal(
         marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
 
-        # --- Modificación para que AMBAS sea independiente ---
         marca_influenza = "X" if vacuna_interes == "INFLUENZA" else ""
         marca_covid = "X" if vacuna_interes == "COVID-19" else ""
         marca_ambas = "X" if vacuna_interes == "AMBAS" else ""
@@ -119,7 +119,6 @@ def guardar_registro_censal(
         fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
         correo_paciente_val = p.get("correo_paciente", "").strip()
 
-        # Función auxiliar para validar comorbilidades de forma segura
         def check_activo(val):
             if isinstance(val, bool):
                 return "X" if val else ""
@@ -128,34 +127,34 @@ def guardar_registro_censal(
             return ""
 
         fila_registro_principal = [
-            str(consecutivo),                                                       # A (0)
-            folio_asignado,                                                         # B (1)
-            p.get("paterno", "").upper(),                                           # C (2)
-            p.get("materno", "").upper(),                                           # D (3)
-            p.get("nombres", "").upper(),                                           # E (4)
-            fn_dia, fn_mes, fn_anio,                                                # F, G, H (5, 6, 7)
-            edad_anos, edad_meses,                                                  # I, J (8, 9)
-            p.get("sexo", ""),                                                      # K (10)
-            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app), # L (11)
-            p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(), # M, N, O (12, 13, 14)
-            marca_6_59m,                                                            # P (15) - 6 A 59 MESES
-            marca_60_mas,                                                           # Q (16) - 60 Y MÁS
-            check_activo(com.get("personas_embarazadas")),                          # R (17) - EMBARAZADAS
-            check_activo(com.get("personal_salud_riesgo")),                         # S (18) - PERSONAL DE SALUD
-            check_activo(com.get("vih")),                                           # T (19) - VIH/sida
-            check_activo(com.get("diabetes")),                                      # U (20) - DIABETES MELLITUS
-            check_activo(com.get("obesidad")),                                      # V (21) - OBESIDAD MÓRBIDA
-            check_activo(com.get("cardiopatias")),                                  # W (22) - CARDIOPATÍAS AGUDAS O CRÓNICAS
-            check_activo(com.get("enfermedad_pulmonar")),                           # X (23) - ENFERMEDAD PULMONAR CRÓNICA
-            check_activo(com.get("cancer")),                                        # Y (24) - CÁNCER
-            check_activo(com.get("cardiacas_congenitas")),                          # Z (25) - ENFERMEDADES CARDIACAS O PULMONARES CONGÉNITAS
-            check_activo(com.get("insuficiencia_renal")),                           # AA (26) - INSUFICIENCIA RENAL
-            check_activo(com.get("inmunosupresion")),                               # AB (27) - INMUNOSUPRESIÓN ADQUIRIDA
-            check_activo(com.get("discapacidades")),                                # AC (28) - DISCAPACIDADES
-            check_activo(com.get("fibrosis_quistica")),                             # AD (29) - FIBROSIS QUÍSTICA
-            check_activo(com.get("hipertension")),                                  # AE (30) - HIPERTENSIÓN ARTERIAL
-            com.get("texto_otro", "").upper(),                                      # AF (31) - OTROS GRUPOS DE RIESGO (TEXTO)
-            "", "", "", "", "", "", "", "", "", "",                                 # AG a AP (Espacios vacíos intermedios si aplican)
+            str(consecutivo),
+            folio_asignado,
+            p.get("paterno", "").upper(),
+            p.get("materno", "").upper(),
+            p.get("nombres", "").upper(),
+            fn_dia, fn_mes, fn_anio,
+            edad_anos, edad_meses,
+            p.get("sexo", ""),
+            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app),
+            p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(),
+            marca_6_59m,
+            marca_60_mas,
+            check_activo(com.get("personas_embarazadas")),
+            check_activo(com.get("personal_salud_riesgo")),
+            check_activo(com.get("vih")),
+            check_activo(com.get("diabetes")),
+            check_activo(com.get("obesidad")),
+            check_activo(com.get("cardiopatias")),
+            check_activo(com.get("enfermedad_pulmonar")),
+            check_activo(com.get("cancer")),
+            check_activo(com.get("cardiacas_congenitas")),
+            check_activo(com.get("insuficiencia_renal")),
+            check_activo(com.get("inmunosupresion")),
+            check_activo(com.get("discapacidades")),
+            check_activo(com.get("fibrosis_quistica")),
+            check_activo(com.get("hipertension")),
+            com.get("texto_otro", "").upper(),
+            "", "", "", "", "", "", "", "", "", "",
             p.get("cuenta_derechohabiencia", "NO"),
             p.get("antecedente_influenza", "NO"),
             p.get("antecedente_covid", "NO"),
@@ -169,7 +168,6 @@ def guardar_registro_censal(
         curp_val = p.get("curp_con_nacimiento", "").upper()
         fila_curp = fila_destino + 1
 
-        # Petición HTTP directa vía Google Sheets API v4 utilizando rango abierto !A{fila_destino}
         token = obtener_token_acceso()
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
         headers = {
@@ -187,6 +185,11 @@ def guardar_registro_censal(
         resp = requests.post(url, headers=headers, json=body)
         if resp.status_code != 200:
             raise Exception(resp.text)
+
+        # --- Limpieza de caché y re-inicio para forzar actualización inmediata en la interfaz ---
+        st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
 
         return folio_asignado, False, None
 
