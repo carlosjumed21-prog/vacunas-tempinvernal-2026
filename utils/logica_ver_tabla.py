@@ -97,14 +97,20 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
     total_simultaneas = 0
     fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
-    # Definir los rangos de columnas para las "X" según el libro correspondiente:
-    # - Para el 20 de Noviembre: Columnas AG a AP (índices 32 al 41)
-    # - Para las demás unidades: Mantiene su estructura estándar
+    # Identificamos si el libro actual corresponde al CMN 20 de Noviembre o a las demás unidades
     es_20_nov = (str(spreadsheet_id).strip() == str(SHEET_ID_20_NOVIEMBRE).strip())
-    
-    rango_vacunas = range(32, 42) if es_20_nov else range(32, 43)
-    rango_influenza = range(32, 35) if es_20_nov else range(32, 35)
-    rango_covid = range(35, 42) if es_20_nov else range(37, 40)
+
+    # Definición de rangos de columnas para las "X" según el formato de cada libro:
+    # - 20 de Noviembre: Influenza (AG a AK -> índices 32 a 36), COVID (AL a AP -> índices 37 a 41)
+    # - Demás unidades: Bloques estándar de censo
+    if es_20_nov:
+        rango_vacunas = range(32, 42)
+        rango_influenza = range(32, 35)  # AG, AH, AI
+        rango_covid = range(35, 42)      # AL a AP
+    else:
+        rango_vacunas = range(32, 43)
+        rango_influenza = range(32, 35)
+        rango_covid = range(37, 40)
 
     for i in range(0, len(filas_tabla), 2):
         f1 = filas_tabla[i] if i < len(filas_tabla) else []
