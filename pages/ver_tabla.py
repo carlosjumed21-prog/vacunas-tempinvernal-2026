@@ -155,32 +155,18 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-# --- GESTIÓN DE ESTADO PARA EL DIÁLOGO DE CONFIRMACIÓN ---
-if "confirmar_eliminacion" not in st.session_state:
-    st.session_state.confirmar_eliminacion = False
-
-if btn_eliminar:
-    indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
-    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
-    if not pacientes_a_eliminar:
-        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-        st.session_state.confirmar_eliminacion = False
-    else:
-        st.session_state.confirmar_eliminacion = True
-        st.session_state.indices_marcados_temp = indices_marcados
-
-# --- ALERTA DE CONFIRMACIÓN DE SEGURIDAD ---
-if st.session_state.get("confirmar_eliminacion", False):
-    indices_marcados = st.session_state.get("indices_marcados_temp", [])
+# --- VENTANA MODAL DE CONFIRMACIÓN DE SEGURIDAD ---
+@st.dialog("⚠️ Confirmación de Seguridad")
+def mostrar_dialogo_eliminacion(indices_marcados):
     num_pacientes = len({idx // 2 for idx in indices_marcados})
+    st.warning(f"Está a punto de eliminar **{num_pacientes}** paciente(s) seleccionado(s) de la hoja de Google Sheets de forma permanente.")
+    st.write("¿Desea confirmar y proceder con la eliminación?")
     
-    st.warning(f"⚠️ **Alerta de Seguridad:** Está a punto de eliminar **{num_pacientes}** paciente(s) seleccionado(s) de la hoja de Google Sheets. ¿Desea confirmar esta acción?")
-    
-    c_conf1, c_conf2, _ = st.columns([1, 1, 3])
-    with c_conf1:
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
         if st.button("Sí, eliminar ahora", type="primary", use_container_width=True):
             try:
-                with st.spinner("Sincronizando con Google Sheets..."):
+                with st.spinner("Eliminando registros y sincronizando..."):
                     eliminar_pacientes_seleccionados(
                         sheet_id_tabla, 
                         hoja_activa_tabla, 
@@ -189,12 +175,18 @@ if st.session_state.get("confirmar_eliminacion", False):
                         filas_tabla, 
                         key_estado_filas
                     )
-                st.session_state.confirmar_eliminacion = False
-                st.success("✅ Paciente(s) eliminado(s) correctamente.")
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
-    with c_conf2:
+    with col_d2:
         if st.button("Cancelar", use_container_width=True):
-            st.session_state.confirmar_eliminacion = False
             st.rerun()
+
+# --- ACCIÓN DEL BOTÓN DE ELIMINAR ---
+if btn_eliminar:
+    indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+    if not pacientes_a_eliminar:
+        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+    else:
+        mostrar_dialogo_eliminacion(indices_marcados)
