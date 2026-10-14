@@ -1,30 +1,79 @@
 import streamlit as st
-from config import aplicar_configuracion_global, UNIDADES_ISSSTE
+from config import UNIDADES_ISSSTE
 
-# Aplicar configuración global (oculta la barra lateral si hay parámetros de URL)
-aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
+# Configuración inicial de la página sin depender de funciones externas restrictivas
+st.set_page_config(
+    page_title="Sistema Censo Nominal VIGILE",
+    page_icon="💉",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
 st.markdown("""
     <style>
-        /* Ocultar la barra superior y el menú de Streamlit Cloud */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
-        #MainMenu {
-            visibility: hidden !important;
-        }
-        /* Ajustar el espacio superior para que el contenido suba de forma limpia */
+        /* Ocultar elementos nativos de Streamlit Cloud */
+        header[data-testid="stHeader"] { display: none !important; }
+        #MainMenu { visibility: hidden !important; }
+        
+        /* Limpiar contenedores y márgenes */
         .block-container {
-            padding-top: 1.5rem !important;
+            padding-top: 2rem !important;
+            padding-bottom: 2rem !important;
+            max-width: 800px;
         }
         
-        .main-header { font-size: 2.3rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; text-align: center; }
-        .sub-header { font-size: 1.25rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; text-align: center; }
-        .card-menu { background-color: #f7f4eb; border: 2px solid #a57f2c; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
-        .stButton>button { background-color: #1e5b4f !important; color: white !important; font-size: 1.1rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.6rem 1.1rem !important; }
-        .btn-admin>button { background-color: #611232 !important; color: white !important; font-size: 0.95rem !important; font-weight: bold !important; border-radius: 6px !important; padding: 0.4rem 0.8rem !important; }
-        .auth-container { max-width: 450px; margin: 1rem auto; background: #f7f4eb; padding: 25px; border-radius: 10px; border: 2px solid #a57f2c; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .footer-text { text-align: center; color: #611232; font-weight: 600; font-size: 0.9rem; margin-top: 3rem; }
+        /* Estilos institucionales personalizados */
+        .main-header { 
+            font-size: 2.2rem !important; 
+            font-weight: 800 !important; 
+            color: #1e5b4f !important; 
+            margin-bottom: 0.2rem; 
+            border-bottom: 3px solid #a57f2c; 
+            padding-bottom: 10px; 
+            text-align: center; 
+        }
+        .sub-header { 
+            font-size: 1.2rem !important; 
+            color: #611232 !important; 
+            margin-bottom: 1.5rem; 
+            font-weight: 700 !important; 
+            text-align: center; 
+        }
+        .card-menu { 
+            background-color: #f7f4eb; 
+            border: 2px solid #a57f2c; 
+            padding: 20px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
+        .stButton>button { 
+            background-color: #1e5b4f !important; 
+            color: white !important; 
+            font-size: 1.1rem !important; 
+            font-weight: bold !important; 
+            border-radius: 6px !important; 
+            padding: 0.6rem 1.1rem !important; 
+            width: 100%;
+        }
+        /* Contenedor exclusivo y limpio para el login (sin marcos extraños) */
+        .auth-box { 
+            background: #f7f4eb; 
+            padding: 30px; 
+            border-radius: 12px; 
+            border: 2px solid #a57f2c; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+            margin: 0 auto;
+        }
+        .footer-text { 
+            text-align: center; 
+            color: #611232; 
+            font-weight: 600; 
+            font-size: 0.85rem; 
+            margin-top: 3rem; 
+            border-top: 1px solid #e6d194;
+            padding-top: 15px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,18 +82,19 @@ if "auth_registro" not in st.session_state:
     st.session_state["auth_registro"] = False
 
 # ===========================================================
-# BLOQUE DE AUTENTICACIÓN INICIAL (Si no ha iniciado sesión)
+# BLOQUE DE AUTENTICACIÓN INICIAL
 # ===========================================================
 if not st.session_state.get("auth_registro", False) and not st.session_state.get("authenticated", False):
     
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">🔐 Autenticación Requerida - Registro Nominal</p>', unsafe_allow_html=True)
     
-    col_centro1, col_centro2, col_centro3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 3, 1])
     
-    with col_centro2:
-        st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
+    with col2:
+        # Abrimos el contenedor limpio sin elementos vacíos arriba
+        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
         
         with st.form("form_auth_principal"):
             usuario_input = st.text_input("Correo electrónico / Usuario").strip().lower()
@@ -64,13 +114,10 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                 
                 acceso_permitido = False
                 
-                # 1. Validación de Administrador
                 if usuario_input == admin_user and password_input == admin_pass:
                     acceso_permitido = True
-                # 2. Validación de correos autorizados con su clave personal
                 elif usuario_input in correos_autorizados and password_input == correos_autorizados[usuario_input]:
                     acceso_permitido = True
-                # 3. Validación mediante contraseña operativa general
                 elif password_input == password_operativa and "@" in usuario_input:
                     acceso_permitido = True
                     
@@ -112,7 +159,6 @@ else:
     unidad_url = params.get("unidad", "").upper()
     jornada_url = params.get("jornada", "I").upper()
 
-    # --- EVALUACIÓN DINÁMICA DE LA MODALIDAD ---
     if jornada_url == "E":
         modalidad_texto = "EXTRAMUROS"
     elif jornada_url == "M":
@@ -120,7 +166,6 @@ else:
     else:
         modalidad_texto = "INTRAMUROS"
 
-    # --- LÓGICA DE ENRUTAMIENTO DINÁMICO ---
     pagina_formulario = "pages/registro_20_noviembre.py" if unidad_url == "20N" else "pages/1_formulario.py"
 
     if unidad_url:
@@ -141,7 +186,6 @@ else:
                 <p>Acceso al formulario de captura para pacientes en jornadas de vacunación.</p>
             </div>
         """, unsafe_allow_html=True)
-        
         if st.button("Ir al Formulario de Registro", use_container_width=True):
             st.switch_page(pagina_formulario)
 
