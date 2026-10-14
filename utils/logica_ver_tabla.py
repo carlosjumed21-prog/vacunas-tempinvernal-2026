@@ -57,7 +57,7 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     except Exception as e:
         return [], [], [], None, str(e)
 
-def construir_dataset_y_metricas(filas_tabla, header1, header2):
+def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=GOOGLE_SHEET_ID):
     encabezados_combinados = []
     conteo_nombres = {}
     max_cols = max(len(header1), len(header2), 50)
@@ -97,6 +97,15 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
     total_simultaneas = 0
     fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
+    # Definir los rangos de columnas para las "X" según el libro correspondiente:
+    # - Para el 20 de Noviembre: Columnas AG a AP (índices 32 al 41)
+    # - Para las demás unidades: Mantiene su estructura estándar
+    es_20_nov = (str(spreadsheet_id).strip() == str(SHEET_ID_20_NOVIEMBRE).strip())
+    
+    rango_vacunas = range(32, 42) if es_20_nov else range(32, 43)
+    rango_influenza = range(32, 35) if es_20_nov else range(32, 35)
+    rango_covid = range(35, 42) if es_20_nov else range(37, 40)
+
     for i in range(0, len(filas_tabla), 2):
         f1 = filas_tabla[i] if i < len(filas_tabla) else []
         f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
@@ -113,15 +122,14 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             else:
                 total_preregistros += 1
 
-            # Rango unificado e inclusivo que cubre tanto censo general como 20 de Noviembre (hasta la columna AP / índice 42)
-            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
+            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_vacunas if col_idx < len(f1_adj))
             if tiene_aplicacion:
                 total_aplicaciones += 1
             else:
                 total_sin_aplicar += 1
 
-            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj))))
-            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(36, min(42, len(f1_adj)))) if len(f1_adj) > 36 else False
+            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_influenza if col_idx < len(f1_adj))
+            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_covid if col_idx < len(f1_adj))
 
             if tiene_influenza and not tiene_covid:
                 total_dosis_influenza += 1
@@ -130,12 +138,11 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_vacunas if col_idx < len(f1_adj)):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-        # Índices unificados de visualización para incluir datos básicos y columnas de vacunas en ambas estructuras
-        indices_deseados = list(range(0, 12)) + list(range(32, min(43, len(encabezados_combinados))))
+        indices_deseados = list(range(0, 12)) + list(rango_vacunas)
 
         f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
         f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
@@ -147,7 +154,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         filas_procesadas.append(fila_v2)
         mapeo_indices_pares.append(i)
 
-    indices_deseados = list(range(0, 12)) + list(range(32, min(43, len(encabezados_combinados))))
+    indices_deseados = list(range(0, 12)) + list(rango_vacunas)
     encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
 
     metricas = {
