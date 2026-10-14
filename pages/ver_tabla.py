@@ -7,8 +7,7 @@ from utils.logica_ver_tabla import (
     get_creds_from_secrets,
     load_sheet_minimal_cached,
     construir_dataset_y_metricas,
-    eliminar_pacientes_seleccionados_optimista,
-    sincronizar_borrado_segundo_plano
+    eliminar_pacientes_seleccionados
 )
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA ---
@@ -47,9 +46,6 @@ if not hoja_activa_tabla:
     st.stop()
 
 key_estado_filas = f"filas_cargadas_piso_{sheet_id_tabla}_{hoja_activa_tabla}"
-
-# Sincronización transparente en segundo plano
-sincronizar_borrado_segundo_plano(sheet_id_tabla, hoja_activa_tabla, key_estado_filas)
 
 if key_estado_filas not in st.session_state:
     header1, header2, filas_tabla, gid_hoja, error_msg = load_sheet_minimal_cached(sheet_id_tabla, hoja_activa_tabla)
@@ -166,8 +162,8 @@ if btn_eliminar:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            with st.spinner("Eliminando registros y actualizando censo..."):
-                eliminar_pacientes_seleccionados_optimista(
+            with st.spinner("Sincronizando con Google Sheets..."):
+                eliminar_pacientes_seleccionados(
                     sheet_id_tabla, 
                     hoja_activa_tabla, 
                     indices_marcados, 
