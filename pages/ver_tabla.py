@@ -30,6 +30,18 @@ st.markdown(
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
+        
+        /* Botón rojo para el popover de eliminación superior */
+        div[data-testid="stPopover"] > button {
+            background-color: #dc3545 !important;
+            color: white !important;
+            border-color: #dc3545 !important;
+        }
+        div[data-testid="stPopover"] > button:hover {
+            background-color: #bb2d3b !important;
+            border-color: #b02a37 !important;
+            color: white !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -73,7 +85,9 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
+# --- BOTONES SUPERIORES: ACTUALIZAR, ELIMINAR (ROJO) Y DESCARGAR EXCEL ---
+col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.2, 1.2, 2.0])
+
 with col_btn1:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         st.cache_data.clear()
@@ -82,6 +96,37 @@ with col_btn1:
         st.rerun()
 
 with col_btn2:
+    with st.popover("🗑️ Eliminar Seleccionado(s)", use_container_width=True):
+        st.markdown("### ⚠️ Confirmación de Seguridad")
+        st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
+        
+        col_pop1, col_pop2 = st.columns(2)
+        with col_pop1:
+            if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
+                indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+                pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+                
+                if not pacientes_a_eliminar:
+                    st.warning("⚠️ No ha seleccionado ningún paciente.")
+                else:
+                    try:
+                        with st.spinner("Sincronizando con Google Sheets..."):
+                            eliminar_pacientes_seleccionados(
+                                sheet_id_tabla, 
+                                hoja_activa_tabla, 
+                                indices_marcados, 
+                                mapeo_indices_pares, 
+                                filas_tabla, 
+                                key_estado_filas
+                            )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error al intentar eliminar: {e}")
+        with col_pop2:
+            if st.button("Cancelar", use_container_width=True, key="btn_cancelar_popover"):
+                st.rerun()
+
+with col_btn3:
     try:
         creds = get_creds_from_secrets()
         if not creds.valid:
@@ -148,35 +193,3 @@ def render_tabla_con_estilos():
     )
 
 df_editado = render_tabla_con_estilos()
-
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-# --- BOTÓN DE ELIMINACIÓN Y SU MENÚ DE CONFIRMACIÓN FLOTANTE ---
-col_del, _ = st.columns([2, 5])
-with col_del:
-    with st.popover("🗑️ Eliminar Paciente(s) Seleccionado(s)", use_container_width=True):
-        st.markdown("### ⚠️ Confirmación de Seguridad")
-        st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
-        
-        col_pop1, col_pop2 = st.columns(2)
-        with col_pop1:
-            if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
-                indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
-                pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
-                
-                if not pacientes_a_eliminar:
-                    st.warning("⚠️ No ha seleccionado ningún paciente.")
-                else:
-                    try:
-                        with st.spinner("Sincronizando con Google Sheets..."):
-                            eliminar_pacientes_seleccionados(
-                                sheet_id_tabla, 
-                                hoja_activa_tabla, 
-                                indices_marcados, 
-                                mapeo_indices_pares, 
-                                filas_tabla, 
-                                key_estado_filas
-                            )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error al intentar eliminar: {e}")
