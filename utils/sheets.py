@@ -1,151 +1,201 @@
-import streamlit as st
-import gspread
+# utils/sheets.py
+import datetime
 import json
-from google.oauth2.service_account import Credentials
-from config import GOOGLE_SHEET_ID
+import requests
+from google.oauth2 import service_account
+import google.auth.transport.requests
+from config import GOOGLE_SCOPES
+import gspread
+import streamlit as st
 
+# ID exclusivo para las demás unidades
+SHEET_ID_OTRAS_UNIDADES = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
+
+@st.cache_resource
 def obtener_cliente_gspread():
-    """
-    Autentica y retorna el cliente de gspread manejando correctamente 
-    los secretos y los saltos de línea de la clave privada.
-    """
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    
-    try:
-        if "GOOGLE_CREDENTIALS" in st.secrets:
-            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
-        elif "gcp_service_account" in st.secrets:
-            creds_dict = dict(st.secrets["gcp_service_account"])
-        else:
-            primera_llave = list(st.secrets.keys())[0]
-            creds_dict = dict(st.secrets[primera_llave])
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
 
-        # Corrección crucial para los saltos de línea de la private key
-        if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\\\n", "\n").replace("\\n", "\n")
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    except Exception:
-        # Fallback a archivo local si no está en st.secrets
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
-        
-    client = gspread.authorize(creds)
-    return client
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
 def obtener_token_acceso():
-    client = obtener_cliente_gspread()
-    return client.auth
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    else:
+        primera_llave = list(st.secrets.keys())[0]
+        creds_dict = dict(st.secrets[primera_llave])
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+    auth_req = google.auth.transport.requests.Request()
+    creds.refresh(auth_req)
+    return creds.token
 
-def _obtener_worksheet_jornada(spreadsheet):
-    """
-    Detecta automáticamente la pestaña correcta basándose en los parámetros 
-    de la URL de Streamlit (ej. unidad=TLA, jornada=E, fecha=2026-10-14).
-    """
-    params = st.query_params
-    sigla_url = params.get("unidad", "").upper()
-    jornada_url = params.get("jornada", "I").upper()
-    fecha_url_str = params.get("fecha", "")
-
-    mod_map = {"I": "INTRA", "E": "EXTRA", "M": "MOV"}
-    tipo_str = mod_map.get(jornada_url, "INTRA")
-
-    fecha_sufijo = ""
-    if fecha_url_str:
-        try:
-            parts = fecha_url_str.split("-")
-            if len(parts) == 3:
-                anio, mes, dia = parts
-                fecha_sufijo = f"{dia}{mes}{anio[2:]}"
-        except Exception:
-            pass
-
+def guardar_registro_censal(
+    sigla_url,
+    sufijo_js,
+    tipo_jornada,
+    val_fecha_app,
+    nombre_unidad_completo,
+    datos_paciente,
+):
     try:
-        hojas_existentes = [ws.title for ws in spreadsheet.worksheets()]
+        client = obtener_cliente_gspread()
+        # Apuntamos al libro correcto de las demás unidades
+        spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
+
+        # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
+        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
         
-        # 1. Buscar coincidencia exacta (Ej: TLA_EXTRA_141026)
-        candidato_exacto = f"{sigla_url}_{tipo_str}_{fecha_sufijo}"
-        if candidato_exacto in hojas_existentes:
-            return spreadsheet.worksheet(candidato_exacto)
-                
-        # 2. Buscar coincidencia parcial por Unidad y Fecha
-        if sigla_url and fecha_sufijo:
-            for hoja in hojas_existentes:
-                if sigla_url in hoja and fecha_sufijo in hoja:
-                    return spreadsheet.worksheet(hoja)
-                    
-        # 3. Buscar por Unidad si existe
-        if sigla_url:
-            for hoja in hojas_existentes:
-                if hoja.startswith(sigla_url):
-                    return spreadsheet.worksheet(hoja)
-    except Exception:
-        pass
+        if sufijo_js:
+            nombre_hoja = f"{sigla_url}_{sufijo_js}"
+        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto:
+            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
+            nombre_hoja = f"{sigla_url}_EXTRA_{fecha_hoja_str}"
+        else:
+            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
+            nombre_hoja = f"{sigla_url}_INTRA_{fecha_hoja_str}" if tipo_jornada.upper() == "I" else sigla_url
 
-    # Respaldo a la primera pestaña si no encuentra ninguna
-    return spreadsheet.get_worksheet(0)
+        try:
+            ws = spreadsheet.worksheet(nombre_hoja)
+        except Exception:
+            ws = None
+            for h in spreadsheet.worksheets():
+                if sigla_url.upper() in h.title.upper():
+                    ws = h
+                    break
+            if ws is None:
+                ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=2000, cols=60)
 
-def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
-    client = obtener_cliente_gspread()
-    try:
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        col_b = ws.col_values(2)
+        fila_destino = 14
+        if len(col_b) >= 14:
+            idx = 13
+            while idx < len(col_b):
+                if idx >= len(col_b) or not str(col_b[idx]).strip():
+                    fila_destino = idx + 1
+                    break
+                idx += 2
+            else:
+                fila_destino = len(col_b) + 1
+                if (fila_destino - 14) % 2 != 0:
+                    fila_destino += 1
+
+        consecutivo = ((fila_destino - 14) // 2) + 1
+
+        fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
+        mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
+        siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
+        secuencial_str = str(consecutivo).zfill(4)
+
+        folio_asignado = f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
+
+        p = datos_paciente
+        com = p.get("comorbilidades", {})
+        fn = p.get("fecha_nacimiento")
+
+        fn_dia = str(fn.day).zfill(2) if fn else ""
+        fn_mes = str(fn.month).zfill(2) if fn else ""
+        fn_anio = str(fn.year) if fn else ""
+
+        edad_anos = str(p.get("calc_anos", 0))
+        edad_meses = str(p.get("calc_meses", 0))
+
+        es_menor_59m = (p.get("calc_anos", 0) * 12) + p.get("calc_meses", 0) <= 59
+        es_mayor_60 = p.get("calc_anos", 0) >= 60
+
+        marca_6_59m = "X" if es_menor_59m else ""
+        marca_60_mas = "X" if es_mayor_60 else ""
+        vacuna_interes = p.get("vacuna_interes", "")
+
+        marca_influenza = "X" if vacuna_interes == "INFLUENZA" else ""
+        marca_covid = "X" if vacuna_interes == "COVID-19" else ""
+        marca_ambas = "X" if vacuna_interes == "AMBAS" else ""
+
+        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
+        correo_paciente_val = p.get("correo_paciente", "").strip()
+
+        def check_activo(val):
+            if isinstance(val, bool):
+                return "X" if val else ""
+            if isinstance(val, str):
+                return "X" if val.upper() in ["SÍ", "SI", "TRUE", "1"] else ""
+            return ""
+
+        fila_registro_principal = [
+            str(consecutivo),
+            folio_asignado,
+            p.get("paterno", "").upper(),
+            p.get("materno", "").upper(),
+            p.get("nombres", "").upper(),
+            fn_dia, fn_mes, fn_anio,
+            edad_anos, edad_meses,
+            p.get("sexo", ""),
+            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app),
+            p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(),
+            marca_6_59m,
+            marca_60_mas,
+            check_activo(com.get("personas_embarazadas")),
+            check_activo(com.get("personal_salud_riesgo")),
+            check_activo(com.get("vih")),
+            check_activo(com.get("diabetes")),
+            check_activo(com.get("obesidad")),
+            check_activo(com.get("cardiopatias")),
+            check_activo(com.get("enfermedad_pulmonar")),
+            check_activo(com.get("cancer")),
+            check_activo(com.get("cardiacas_congenitas")),
+            check_activo(com.get("insuficiencia_renal")),
+            check_activo(com.get("inmunosupresion")),
+            check_activo(com.get("discapacidades")),
+            check_activo(com.get("fibrosis_quistica")),
+            check_activo(com.get("hipertension")),
+            com.get("texto_otro", "").upper(),
+            "", "", "", "", "", "", "", "", "", "",
+            p.get("cuenta_derechohabiencia", "NO"),
+            p.get("antecedente_influenza", "NO"),
+            p.get("antecedente_covid", "NO"),
+            marca_influenza,
+            marca_covid,
+            marca_ambas,
+            fecha_registro_actual,
+            correo_paciente_val,
+        ]
+
+        curp_val = p.get("curp_con_nacimiento", "").upper()
+        fila_curp = fila_destino + 1
+
+        token = obtener_token_acceso()
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_OTRAS_UNIDADES}/values:batchUpdate"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "valueInputOption": "USER_ENTERED",
+            "data": [
+                {"range": f"{nombre_hoja}!A{fila_destino}", "values": [fila_registro_principal]},
+                {"range": f"{nombre_hoja}!C{fila_curp}", "values": [[curp_val]]},
+                {"range": f"{nombre_hoja}!AW{fila_curp}", "values": [[fecha_registro_actual]]}
+            ]
+        }
+        resp = requests.post(url, headers=headers, json=body)
+        if resp.status_code != 200:
+            raise Exception(resp.text)
+
+        # --- Limpieza de caché para forzar actualización inmediata en la interfaz ---
+        st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
+
+        return folio_asignado, False, None
+
     except Exception as e:
-        raise Exception(f"No se pudo abrir el documento de Google Sheets: {e}")
-    
-    try:
-        worksheet = _obtener_worksheet_jornada(spreadsheet)
-    except Exception as e:
-        raise Exception(f"No se pudo acceder a la pestaña operativa: {e}")
-
-    try:
-        filas_existentes = worksheet.get_all_values()
-    except Exception as e:
-        raise Exception(f"Error al leer los valores de la hoja (Respuesta vacía o error de API): {e}")
-      
-    conteo_actual = len(filas_existentes)
-    fecha_str = val_fecha_app.strftime("%Y%m%d")
-    sufijo_unidad = f"-{sufijo_js}" if sufijo_js else ""
-    folio_asignado = f"{fecha_str}-{tipo_jornada}-{sigla_url}{sufijo_unidad}-{conteo_actual:04d}"
-
-    fila_a_insertar = [
-        conteo_actual,
-        folio_asignado,
-        datos_paciente.get("paterno", "").upper(),
-        datos_paciente.get("materno", "").upper(),
-        datos_paciente.get("nombres", "").upper(),
-        datos_paciente.get("correo_paciente", "")
-    ]
-
-    try:
-        worksheet.append_row(fila_a_insertar)
-    except Exception as e:
-        raise Exception(f"Error al insertar el registro en Google Sheets: {e}")
-
-    return folio_asignado, False, None
-
-def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, fecha_aplicacion):
-    client = obtener_cliente_gspread()
-    try:
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
-    except Exception as e:
-        raise Exception(f"No se pudo abrir el documento para verificar duplicados: {e}")
-    
-    try:
-        worksheet = _obtener_worksheet_jornada(spreadsheet)
-    except Exception as e:
-        raise Exception(f"No se pudo acceder a la pestaña para validar duplicados: {e}")
-
-    try:
-        registros = worksheet.get_all_values()
-    except Exception as e:
-        raise Exception(f"Error al leer los registros existentes: {e}")
-    
-    for fila in registros[1:]: 
-        if len(fila) > 1 and curp_con_nacimiento in str(fila):
-            folio_previo = fila[1] if len(fila) > 1 else "S/N"
-            return True, folio_previo
-
-    return False, None
+        raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
