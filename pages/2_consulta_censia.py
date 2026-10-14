@@ -12,12 +12,12 @@ from utils.email_sender import enviar_comprobante_correo
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
-# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS ---
+# --- OCULTAR LA BARRA SUPERIOR Y AÑADIR MARGEN INFERIOR PARA SCROLL ---
 st.markdown(
     """
     <style>
         header {visibility: hidden;}
-        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+        .block-container { padding-top: 1rem !important; padding-bottom: 5rem !important; }
         .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
         .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
         .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
