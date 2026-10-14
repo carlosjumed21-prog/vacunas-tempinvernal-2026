@@ -1,3 +1,4 @@
+# utils/sheets_20_nov.py
 import datetime
 import json
 from google.oauth2 import service_account
@@ -163,6 +164,12 @@ def guardar_registro_censal(
         ]
 
         worksheet.batch_update(datos_a_actualizar)
+
+        # --- Limpieza de caché para reflejar los cambios al instante ---
+        st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
+
         return folio_asignado
 
     except Exception as e:
@@ -223,7 +230,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         comorb = datos_paciente.get("comorbilidades", {})
         
-        # Extracción de antecedentes vacunales y vacuna de interés
         ant_inf_val = datos_paciente.get("antecedente_influenza", "")
         ant_cov_val = datos_paciente.get("antecedente_covid", "")
         vacuna_int = datos_paciente.get("vacuna_interes", "").upper()
@@ -252,7 +258,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"O{fila_nom}:O{fila_nom+1}", "values": [[datos_paciente.get('colonia','').upper()], [datos_paciente.get('colonia','').upper()]]},
             {"range": f"C{fila_nom+1}", "values": [[datos_paciente.get('curp_con_nacimiento','')]]},
             
-            # --- Mapeos solicitados (AQ, AR, AS, AT, AU, AV, AW, AX) ---
             {"range": f"AQ{fila_nom}:AQ{fila_nom+1}", "values": [[datos_paciente.get('cuenta_derechohabiencia', 'SÍ')], [datos_paciente.get('cuenta_derechohabiencia', 'SÍ')]]},
             {"range": f"AR{fila_nom}:AR{fila_nom+1}", "values": [[ant_inf_val], [ant_inf_val]]},
             {"range": f"AS{fila_nom}:AS{fila_nom+1}", "values": [[ant_cov_val], [ant_cov_val]]},
@@ -260,7 +265,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"AX{fila_nom}:AX{fila_nom+1}", "values": [[datos_paciente.get('correo_paciente', '')], [datos_paciente.get('correo_paciente', '')]]},
         ]
         
-        # Mapeo condicional para Vacuna de Interés (AT, AU, AV)
         if vacuna_int in ["INFLUENZA", "AMBAS"]:
             updates_hoja1.append({"range": f"AT{fila_nom}:AT{fila_nom+1}", "values": [["X"], ["X"]]})
         if vacuna_int in ["COVID-19", "AMBAS"]:
@@ -351,6 +355,12 @@ def guardar_registro_censal_20_nov(datos_paciente):
         ]
 
         ws_censo.batch_update(updates_censo)
+
+        # --- Limpieza de caché para reflejar los cambios al instante en el 20 de Noviembre ---
+        st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
+
         return folio_asignado
 
     except Exception as e:
