@@ -4,10 +4,7 @@ import urllib.parse
 import requests
 import streamlit as st
 from utils.sheets import obtener_token_acceso
-from config import GOOGLE_SHEET_ID
-
-# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
-SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
+from config import GOOGLE_SHEET_ID, SHEET_ID_20_NOV
 
 
 def procesar_guardado_aplicacion(
