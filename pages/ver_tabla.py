@@ -64,15 +64,17 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-# --- CARGA ROBUSTA EN TIEMPO REAL (SIN RECORTAR PARES NI USAR CACHÉ ANTIGUA) ---
+# --- CARGA 100% FRESCA (CLIENTE NUEVO Y TTL=0 PARA EVITAR GHOST DATA) ---
 @st.cache_data(ttl=0, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        client_c = obtener_cliente_gspread()
+        # Forzar la creación de un cliente gspread totalmente nuevo y fresco (sin reciclar caché)
+        creds = get_creds_from_secrets()
+        client_c = gspread.authorize(creds)
+        
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        # Traer todos los valores reales de la hoja para evitar cortes por celdas vacías en columnas específicas
         all_values = worksheet.get_all_values()
         if len(all_values) < 14:
             return [], [], [], worksheet.id
@@ -81,11 +83,9 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         header2 = all_values[12] if len(all_values) > 12 else [] # Fila 13
         data_rows = all_values[13:] # Desde la fila 14 en adelante
 
-        # Limpiar filas totalmente vacías sobrantes al final
         while data_rows and all(str(cell).strip() == "" for cell in data_rows[-1]):
             data_rows.pop()
 
-        # Garantizar estrictamente que los datos vayan en bloques pares exactos de 2 filas por paciente
         if len(data_rows) % 2 != 0:
             data_rows.append([""] * max(len(header1), 50))
 
@@ -96,7 +96,7 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         return [], [], [], None
 
 
-# Lectura directa y siempre fresca directo de Google Sheets (sin estancar en sesión)
+# Lectura directa sin pasar por estados estancados de sesión
 header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
 st.session_state[f"header1_{hoja_activa_tabla}"] = header1
 st.session_state[f"header2_{hoja_activa_tabla}"] = header2
@@ -235,7 +235,8 @@ with col_btn2:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
 
-        timestamp_cache_buster = int(datetime.datetime.now().timestamp())
+        # URL con marca de tiempo única por milisegundo para evitar caché en la descarga
+        timestamp_cache_buster = int(datetime.datetime.now().timestamp() * 1000)
         url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}&t={timestamp_cache_buster}"
         req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
@@ -323,8 +324,9 @@ if btn_eliminar:
                     idx_par_real = mapeo_indices_pares[paciente_idx]
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
 
-            # 1. Conectar y eliminar en Google Sheets en tiempo real
-            client = obtener_cliente_gspread()
+            # 1. Conectar y eliminar en Google Sheets usando un cliente fresco
+            creds = get_creds_from_secrets()
+            client = gspread.authorize(creds)
             spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
             ws = spreadsheet.worksheet(hoja_activa_tabla)
 
@@ -353,7 +355,7 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-            # 3. Purga completa de caché y sesión para forzar actualización inmediata
+            # 3. Purga absoluta de caché y sesión
             st.cache_data.clear()
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
