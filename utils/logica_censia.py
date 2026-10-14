@@ -29,8 +29,8 @@ def procesar_guardado_aplicacion(
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
-    Realiza la migración dual simultánea para el 20 de Noviembre y limpia 
-    la caché global para forzar la actualización en ambas bases de origen.
+    Realiza la migración dual simultánea para el 20 de Noviembre, purga caché 
+    y fuerza la recarga en todas las unidades.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -262,7 +262,7 @@ def procesar_guardado_aplicacion(
         }
         requests.post(url_spreadsheet, headers=headers, json=body_format)
 
-        # Limpieza completa de caché para forzar la recarga en ambas bases de origen
+        # Limpieza completa de caché para forzar la lectura en ambas bases de origen
         st.cache_data.clear()
         if hasattr(st, "cache_resource"):
             st.cache_resource.clear()
@@ -292,8 +292,12 @@ def procesar_guardado_aplicacion(
             "lotes_str": lote_final_str,
             "fecha_aplicacion": fecha_aplicacion_hoja
         }
+
+        # Forzar re-inicio de la app para asegurar la actualización inmediata en la interfaz de todas las unidades
+        st.rerun()
+
         return True
 
     except Exception as e:
         st.error(f"Error al actualizar la base de datos en Google Sheets: {e}")
-        return False
+        return
