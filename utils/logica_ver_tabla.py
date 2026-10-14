@@ -31,7 +31,8 @@ def get_creds_from_secrets():
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-@str_lib.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
+# --- SIN SPINNER MOLESTO ---
+@str_lib.cache_data(ttl=300, show_spinner=False)
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
@@ -172,14 +173,13 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-    # 1. Actualización inmediata en memoria local (eliminando el lag visual)
+    # Actualización inmediata en memoria local para respuesta visual instantánea
     str_lib.session_state[key_estado_filas] = filas_actualizadas
 
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(sheet_id)
     ws = spreadsheet.worksheet(hoja_activa)
 
-    # 2. Borrado ordenado de abajo hacia arriba para evitar desplazamientos de índices en Google Sheets
     filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
     for fila_gs in filas_gs_a_borrar:
         try:
@@ -187,7 +187,6 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
         except Exception:
             pass
 
-    # 3. Recálculo eficiente y actualización por lotes (batch) de los contadores numéricos de la columna A
     datos_actualizados = ws.get_all_values()
     if len(datos_actualizados) >= 14:
         filas_actuales = datos_actualizados[13:]
