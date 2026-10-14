@@ -7,7 +7,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
     """
     Guarda el registro censal específico del CMN '20 de Noviembre'
     en la hoja nominal de la jornada y realiza la migración conjunta y simultánea
-    hacia la hoja maestra 'CENSO' general mediante la API REST v4 de Google Sheets.
+    hacia la hoja maestra 'CENSO' general de manera robusta.
     """
     try:
         client = obtener_cliente_gspread()
@@ -58,24 +58,15 @@ def guardar_registro_censal_20_nov(datos_paciente):
         sigla_url = siglas_unidad
         folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(num_nom).zfill(3)}"
 
-        # --- 2. PREPARAR FILA DISPONIBLE EN HOJA MAESTRA "CENSO" ---
+        # --- 2. OBTENER FILA EXACTA EN HOJA MAESTRA "CENSO" ---
         try:
             ws_censo_general = spreadsheet.worksheet("CENSO")
         except:
             ws_censo_general = ws_nominal
 
-        col_b_censo = ws_censo_general.col_values(2)
-        fila_censo = 14
-        idx_c = 13
-        while idx_c < len(col_b_censo):
-            val_c = str(col_b_censo[idx_c]).strip()
-            if val_c == "" or "POR ASIGNAR" in val_c.upper() or not val_c.isdigit():
-                fila_censo = idx_c + 1
-                break
-            idx_c += 1
-        else:
-            fila_censo = max(14, len(col_b_censo) + 1)
-
+        # Determinamos la fila basándonos en el total de filas de la hoja CENSO (mínimo fila 14)
+        valores_censo_total = ws_censo_general.get_all_values()
+        fila_censo = max(14, len(valores_censo_total) + 1)
         consecutivo_censo = fila_censo - 13
 
         # Datos del paciente
@@ -87,7 +78,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         ps_val = "SÍ" if datos_paciente.get("personal_salud") == "SÍ" else "NO"
         emb_val = "SÍ" if datos_paciente.get("embarazo") == "SÍ" else "NO"
 
-        # --- 3. CONSTRUCCIÓN DE LA LISTA DE ACTUALIZACIONES CONJUNTAS (API REST v4) ---
+        # --- 3. CONSTRUCCIÓN DE LA LISTA DE ACTUALIZACIONES CONJUNTAS ---
         fecha_app_fmt = val_fecha_app.strftime("%d/%m/%Y")
         f_actual = fila_nom
         f_siguiente = fila_nom + 1
@@ -102,7 +93,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"{nombre_hoja_nominal_esc}!D9", "values": [[st.session_state.get("nombre_unidad", "CMN 20 DE NOVIEMBRE")]]},
             {"range": f"{nombre_hoja_nominal_esc}!AB9", "values": [[fecha_app_fmt]]},
             
-            # Datos principales en Hoja Nominal (f_actual y f_siguiente)
+            # Datos principales en Hoja Nominal
             {"range": f"{nombre_hoja_nominal_esc}!B{f_actual}:B{f_siguiente}", "values": [[folio_asignado], [folio_asignado]]},
             {"range": f"{nombre_hoja_nominal_esc}!C{f_actual}", "values": [[datos_paciente['paterno'].upper()]]},
             {"range": f"{nombre_hoja_nominal_esc}!D{f_actual}", "values": [[datos_paciente['materno'].upper() if datos_paciente.get('materno') else ""]]},
@@ -125,7 +116,8 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"{nombre_hoja_nominal_esc}!AW{f_actual}:AW{f_siguiente}", "values": [[datetime.date.today().strftime("%d/%m/%Y")], [datetime.date.today().strftime("%d/%m/%Y")]]},
             {"range": f"{nombre_hoja_nominal_esc}!AX{f_actual}:AX{f_siguiente}", "values": [[datos_paciente.get('correo_paciente', '')], [datos_paciente.get('correo_paciente', '')]]},
 
-            # --- MIGRACIÓN CONJUNTA A LA HOJA MAESTRA "CENSO" (B hasta AH) ---
+            # --- MIGRACIÓN CONJUNTA A LA HOJA MAESTRA "CENSO" (A hasta X) ---
+            {"range": f"{nombre_censo_esc}!A{fila_censo}", "values": [[consecutivo_censo]]},
             {"range": f"{nombre_censo_esc}!B{fila_censo}", "values": [[folio_asignado]]},
             {"range": f"{nombre_censo_esc}!C{fila_censo}", "values": [[datos_paciente.get("rfc", "")]]},
             {"range": f"{nombre_censo_esc}!D{fila_censo}", "values": [[datos_paciente.get("cuenta_derechohabiencia", "SÍ")]]},
@@ -161,7 +153,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         if vacuna_int == "AMBAS":
             updates_conjuntos.append({"range": f"{nombre_hoja_nominal_esc}!AV{f_actual}:AV{f_siguiente}", "values": [["X"], ["X"]]})
 
-        # Comorbilidades y grupos de riesgo nominal
+        # Comorbilidades
         if int(datos_paciente['anos']) < 5:
             updates_conjuntos.append({"range": f"{nombre_hoja_nominal_esc}!P{f_actual}:P{f_siguiente}", "values": [["X"], ["X"]]})
         elif int(datos_paciente['anos']) >= 60:
@@ -182,7 +174,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
             if comorb.get(k_c, False):
                 updates_conjuntos.append({"range": f"{nombre_hoja_nominal_esc}!{col_c}{f_actual}:{col_c}{f_siguiente}", "values": [["X"], ["X"]]})
 
-        # --- 4. EJECUTAR LA PETICIÓN REST API v4 ÚNICA Y CONJUNTA ---
+        # --- 4. EJECUTAR LA PETICIÓN REST API v4 ---
         token = obtener_token_acceso()
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_20n}/values:batchUpdate"
         headers = {
