@@ -39,22 +39,31 @@ def obtener_token_acceso():
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """
     Guarda el registro censal de forma nativa en Google Sheets utilizando gspread,
-    evitando conflictos con celdas o encabezados vacíos.
+    evitando conflictos con celdas o encabezados vacíos y controlando errores de API.
     """
     client = obtener_cliente_gspread()
     
     # Abrir la hoja de cálculo nativa por su ID configurado
-    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    try:
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    except Exception as e:
+        raise Exception(f"No se pudo abrir el documento de Google Sheets (Verifica el ID o permisos de la cuenta de servicio): {e}")
     
     # Seleccionar la pestaña activa o la hoja correspondiente
     try:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
     except gspread.exceptions.WorksheetNotFound:
-        worksheet = spreadsheet.get_worksheet(0) # Fallback a la primera pestaña
+        try:
+            worksheet = spreadsheet.get_worksheet(0) # Fallback a la primera pestaña
+        except Exception as e:
+            raise Exception(f"No se pudo acceder a ninguna pestaña válida en el documento: {e}")
 
     # Obtener todas las filas como valores planos para evitar errores de encabezados vacíos
-    filas_existentes = worksheet.get_all_values()
-    
+    try:
+        filas_existentes = worksheet.get_all_values()
+    except Exception as e:
+        raise Exception(f"Error al leer los valores de la hoja de Google Sheets (Posible bloqueo de API o respuesta vacía): {e}")
+      
     # El conteo actual considera el total de filas actuales (incluyendo cabecera)
     conteo_actual = len(filas_existentes)
     
@@ -73,7 +82,10 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
     ]
 
     # Insertar la fila de manera nativa
-    worksheet.append_row(fila_a_insertar)
+    try:
+        worksheet.append_row(fila_a_insertar)
+    except Exception as e:
+        raise Exception(f"Error al insertar el registro en Google Sheets: {e}")
 
     return folio_asignado, False, None
 
@@ -82,14 +94,24 @@ def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, f
     Verifica si una CURP ya se encuentra registrada en la hoja de cálculo de forma nativa.
     """
     client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    
+    try:
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    except Exception as e:
+        raise Exception(f"No se pudo abrir el documento para verificar duplicados: {e}")
     
     try:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
     except gspread.exceptions.WorksheetNotFound:
-        worksheet = spreadsheet.get_worksheet(0)
+        try:
+            worksheet = spreadsheet.get_worksheet(0)
+        except Exception as e:
+            raise Exception(f"No se pudo acceder a la pestaña para validar duplicados: {e}")
 
-    registros = worksheet.get_all_values()
+    try:
+        registros = worksheet.get_all_values()
+    except Exception as e:
+        raise Exception(f"Error al leer los registros existentes: {e}")
     
     # Búsqueda de duplicados recorriendo las filas de la hoja nativa
     for fila in registros[1:]: # Omitir cabecera
