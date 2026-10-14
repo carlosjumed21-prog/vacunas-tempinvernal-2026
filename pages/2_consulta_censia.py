@@ -2,7 +2,7 @@
 import datetime
 import json
 import urllib.parse
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+from config import GOOGLE_SCOPE, GOOGLE_SHEET_ID, aplicar_configuracion_global
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
@@ -14,6 +14,8 @@ aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
 
 # ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
+# ID de la hoja de cálculo para las demás unidades (CLIDDA, etc.)
+SHEET_ID_OTRAS = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
 
 # --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS ---
 st.markdown(
@@ -49,12 +51,13 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPE)
     
 @st.cache_data(ttl=300)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     """
-    Lista las hojas autorizadas tanto del libro general como del CMN 20 de Noviembre.
+    Lista las hojas autorizadas del libro general, del libro de las demás unidades 
+    (CLIDDA, etc.) y del CMN 20 de Noviembre.
     """
     h_autorizadas = []
     hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
@@ -63,32 +66,56 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
         client = obtener_client_gspread_cacheado()
         
         # 1. Revisar Libro General
-        spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
-        for h in spreadsheet_gen.worksheets():
-            if h.title not in hojas_plantillas_excluir:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                    except Exception:
-                        pass
+        try:
+            spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
+            for h in spreadsheet_gen.worksheets():
+                if h.title not in hojas_plantillas_excluir:
+                    if correo_sesion == "carlosju.med21@gmail.com":
+                        h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                    else:
+                        try:
+                            val_au4 = h.acell("AU4").value
+                            if val_au4 and val_au4.strip().lower() == correo_sesion:
+                                h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                        except Exception:
+                            pass
+        except Exception:
+            pass
 
-        # 2. Revisar Libro CMN 20 de Noviembre
-        spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
-        for h in spreadsheet_20n.worksheets():
-            if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                    except Exception:
-                        pass
+        # 2. Revisar Libro de las Demás Unidades (CLIDDA, etc.)
+        try:
+            spreadsheet_otras = client.open_by_key(SHEET_ID_OTRAS)
+            for h in spreadsheet_otras.worksheets():
+                if h.title not in hojas_plantillas_excluir:
+                    if correo_sesion == "carlosju.med21@gmail.com":
+                        h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_OTRAS})
+                    else:
+                        try:
+                            val_au4 = h.acell("AU4").value
+                            if val_au4 and val_au4.strip().lower() == correo_sesion:
+                                h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_OTRAS})
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # 3. Revisar Libro CMN 20 de Noviembre
+        try:
+            spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
+            for h in spreadsheet_20n.worksheets():
+                if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
+                    if correo_sesion == "carlosju.med21@gmail.com":
+                        h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
+                    else:
+                        try:
+                            val_au4 = h.acell("AU4").value
+                            if val_au4 and val_au4.strip().lower() == correo_sesion:
+                                h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     except Exception as e:
         st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
         return []
@@ -173,7 +200,6 @@ if "ultimo_comprobante_vacunacion" not in st.session_state:
 if "reiniciar_busqueda" not in st.session_state:
     st.session_state.reiniciar_busqueda = False
 
-# Control de versión de caché para forzar recargas limpias en cualquier unidad
 if "cache_buster_val" not in st.session_state:
     st.session_state.cache_buster_val = 0
 
@@ -728,6 +754,5 @@ else:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
                             
-                            # Incrementamos el cache buster para forzar lectura limpia en cualquier unidad
                             st.session_state.cache_buster_val += 1
                             st.rerun()
