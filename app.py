@@ -26,6 +26,17 @@ st.markdown("""
             max-width: 900px;
         }
         
+        /* Alineación perfecta y nivelación de los botones superiores */
+        div[data-testid="stHorizontalBlock"]:first-of-type {
+            align-items: center !important;
+            justify-content: flex-end !important;
+            margin-bottom: 0.5rem;
+        }
+        div[data-testid="stHorizontalBlock"]:first-of-type > div {
+            flex: 0 0 auto !important;
+            width: auto !important;
+        }
+        
         /* Estilos institucionales personalizados */
         .main-header { 
             font-size: 2.2rem !important; 
@@ -146,8 +157,8 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Alineación perfecta de los dos botones superiores en el lado derecho usando columnas proporcionales compactas
-    _, col_admin, col_logout = st.columns([6, 2, 2])
+    # Botones superiores perfectamente alineados a la derecha
+    col_admin, col_logout = st.columns(2)
     
     with col_admin:
         if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
