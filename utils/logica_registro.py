@@ -1,10 +1,10 @@
-# utils/logica_registro.py
 import datetime
 import random
 import unicodedata
 import json
 import streamlit as st
 import gspread
+from config import GOOGLE_SHEET_ID
 
 estados_curp = {
     "AGUASCALIENTES": "AS", "BAJA CALIFORNIA": "BC", "BAJA CALIFORNIA SUR": "BS",
@@ -43,9 +43,7 @@ meses_dict = {
     "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
 }
 
-
 def obtener_cliente_gspread_seguro():
-    """Autenticación unificada y segura mediante diccionarios para gspread."""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
@@ -64,7 +62,6 @@ def obtener_cliente_gspread_seguro():
 
     return gspread.service_account_from_dict(creds_dict, scopes=scopes)
 
-
 def calcular_edad_detallada(fecha_nac, fecha_ref):
     if not fecha_nac or not fecha_ref or fecha_nac > fecha_ref:
         return 0, 0, 0
@@ -82,13 +79,11 @@ def calcular_edad_detallada(fecha_nac, fecha_ref):
         meses += 12
     return max(0, anos), max(0, meses), max(0, dias)
 
-
 def limpiar_texto(texto):
     if not texto:
         return ""
     nfkd = unicodedata.normalize("NFKD", str(texto))
     return "".join([c for c in nfkd if not unicodedata.combining(c)]).upper().strip()
-
 
 def obtener_primera_vocal_interna(palabra):
     for letra in palabra[1:]:
@@ -96,13 +91,11 @@ def obtener_primera_vocal_interna(palabra):
             return letra
     return "X"
 
-
 def obtener_primera_consonante_interna(palabra):
     for letra in palabra[1:]:
         if letra in "BCDFGHJKLMNPQRSTVWXYZ":
             return letra
     return "X"
-
 
 def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac, digitos_extra=""):
     p = limpiar_texto(paterno)
@@ -141,18 +134,16 @@ def generar_curp_algoritmica(paterno, materno, nombres, fecha_nac, sexo, est_nac
     
     return f"{curp_16}{sufijo}"
 
-
 @st.cache_data(ttl=600)
 def obtener_recomendaciones_sheets(biologico):
     try:
         gc = obtener_cliente_gspread_seguro()
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
         nombre_hoja = "COVID" if biologico and biologico.upper() in ["COVID-19", "COVID"] else "Influenza"
         worksheet = sh.worksheet(nombre_hoja)
         return worksheet.get_all_records()
     except Exception:
         return []
-
 
 def determinar_grupo_desde_sheets(biologico, edad_meses, edad_anos, gestante, ocupacion, comorbilidades_activas):
     biologico_a_consultar = "Influenza" if biologico and biologico in ["INFLUENZA", "AMBAS"] else "COVID"
@@ -193,7 +184,6 @@ def determinar_grupo_desde_sheets(biologico, edad_meses, edad_anos, gestante, oc
                 return f"{grupo_blanco} ({categoria})"
 
     return determinar_grupo_sugerido_fallback(biologico, edad_meses, edad_anos, gestante, ocupacion, comorbilidades_activas)
-
 
 def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_anos, personas_gestantes, ocupacion, tiene_comorbilidades):
     is_personal_salud = "PERSONAL DE SALUD" in ocupacion.upper()
@@ -241,67 +231,31 @@ def determinar_grupo_sugerido_fallback(vacuna_interes, edad_total_meses, calc_an
         else:
             return f"{rango_grupo_blanco} (Población Objetivo)"
 
-
-def generar_folio_personalizado(val_fecha_app, modalidad, sigla_url):
-    fecha_str = val_fecha_app.strftime("%Y%m%d")
-    mod_str = "INT" if modalidad.upper() == "INTRAMUROS" else "EXT"
-    siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
-    
-    consecutivo_num = 1
-    try:
-        gc = obtener_cliente_gspread_seguro()
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
-        
-        worksheet = None
-        try:
-            worksheet = sh.worksheet(nombre_tabla)
-        except Exception:
-            worksheet = sh.get_worksheet(0)
-
-        if worksheet:
-            columna_b = worksheet.col_values(2)
-            max_consecutivo = 0
-            
-            for valor in columna_b:
-                folio_existente = str(valor).strip()
-                if "-" in folio_existente:
-                    try:
-                        partes = folio_existente.split("-")
-                        num_str = "".join([c for c in partes[-1] if c.isdigit()])
-                        if num_str:
-                            num_actual = int(num_str)
-                            if num_actual > max_consecutivo:
-                                max_consecutivo = num_actual
-                    except ValueError:
-                        pass
-            
-            if max_consecutivo > 0:
-                consecutivo_num = max_consecutivo + 1
-            else:
-                total_filas = len(columna_b)
-                consecutivo_num = max(1, total_filas)
-    except Exception:
-        consecutivo_num = 1
-    
-    secuencial_str = str(consecutivo_num).zfill(4)
-    return f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
-
-
 @st.cache_data(ttl=300)
 def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
     try:
         gc = obtener_cliente_gspread_seguro()
-        sh = gc.open_by_key("1jiJhSq4RQytqax7Gh1B9k8ZSglmsLroAvrCv54lEZ_k")
-        nombre_tabla = f"Censo_{sigla_url}_{val_fecha_app.strftime('%Y%m%d')}"
-        if sufijo_js:
-            nombre_tabla += f"_{sufijo_js}"
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        
+        # Búsqueda adaptativa de la hoja según los parámetros actuales de la URL
+        params = st.query_params
+        fecha_url_str = params.get("fecha", val_fecha_app.strftime("%Y-%m-%d"))
+        parts = fecha_url_str.split("-")
+        fecha_sufijo = f"{parts[2]}{parts[1]}{parts[0][2:]}" if len(parts) == 3 else val_fecha_app.strftime("%d%m%y")
+        
+        mod_map = {"I": "INTRA", "E": "EXTRA", "M": "MOV"}
+        tipo_str = mod_map.get(tipo_jornada.upper(), "INTRA")
+        
+        nombre_candidato = f"{sigla_url.upper()}_{tipo_str}_{fecha_sufijo}"
+        
+        try:
+            worksheet = sh.worksheet(nombre_candidato)
+        except Exception:
+            worksheet = sh.get_worksheet(0)
             
-        worksheet = sh.worksheet(nombre_tabla)
         return worksheet.get_all_records()
     except Exception:
         return []
-
 
 def verificar_curp_duplicada(curp_actual, sigla_url, sufijo_js, tipo_jornada, val_fecha_app):
     if not curp_actual or len(curp_actual) < 10 or "COMPLETA" in curp_actual:
