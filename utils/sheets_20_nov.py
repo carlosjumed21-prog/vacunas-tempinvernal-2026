@@ -1,7 +1,7 @@
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja nominal duplicada y en la hoja de censo correspondiente,
-    mapeando todos los campos laborales, derechohabiencia, comorbilidades y antecedentes.
+    en la hoja nominal duplicada y realiza la migración dual automática
+    hacia la hoja maestra 'CENSO' general respetando el mapeo exacto de columnas (B a AH).
     """
     try:
         client = obtener_cliente_gspread()
@@ -17,7 +17,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         sufijo_js = st.session_state.get("sufijo_js", "")
         nombre_hoja_nominal = f"{siglas_unidad}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}_NOMINAL"
 
-        # --- 1. ESCRITURA EN LA HOJA NOMINAL DINÁMICA (DUPLICADA) ---
+        # --- 1. ESCRITURA EN LA HOJA NOMINAL DINÁMICA (JORNADA) ---
         try:
             ws_nominal = spreadsheet.worksheet(nombre_hoja_nominal)
         except:
@@ -51,7 +51,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(num_nom).zfill(3)}"
 
         comorb = datos_paciente.get("comorbilidades", {})
-        
         ant_inf_val = datos_paciente.get("antecedente_influenza", "")
         ant_cov_val = datos_paciente.get("antecedente_covid", "")
         vacuna_int = datos_paciente.get("vacuna_interes", "").upper()
@@ -116,45 +115,38 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         ws_nominal.batch_update(updates_hoja1)
 
-        # --- 2. ESCRITURA EN LA HOJA DE CENSO TABULAR (SÁBANA CONTINUA) ---
-        nombre_hoja_censo = f"{siglas_unidad}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}_CENSO"
+        # --- 2. ESCRITURA EN LA HOJA MAESTRA GENERAL "CENSO" (RESPETANDO TU MAPEO B-AH) ---
         try:
-            ws_censo = spreadsheet.worksheet(nombre_hoja_censo)
+            ws_censo_general = spreadsheet.worksheet("CENSO")
         except:
-            try:
-                ws_censo = spreadsheet.worksheet("CENSO")
-            except:
-                try:
-                    plantilla_censo = spreadsheet.worksheet("CENSO NOMINAL")
-                except:
-                    plantilla_censo = ws_nominal
-                ws_censo = spreadsheet.duplicate_sheet(
-                    plantilla_censo.id, 
-                    insert_sheet_index=len(spreadsheet.worksheets()), 
-                    new_sheet_name=nombre_hoja_censo
-                )
+            ws_censo_general = ws_nominal # Fallback por seguridad
 
-        col_a_censo = ws_censo.col_values(1)
+        col_b_censo = ws_censo_general.col_values(2)
         fila_censo = 14
-        for idx_c in range(13, len(col_a_censo)):
-            val_c = str(col_a_censo[idx_c]).strip()
-            if val_c == "" or not val_c.isdigit():
+        idx_c = 13
+        while idx_c < len(col_b_censo):
+            val_c = str(col_b_censo[idx_c]).strip()
+            if val_c == "" or "POR ASIGNAR" in val_c.upper() or val_c.isdigit() == False:
                 fila_censo = idx_c + 1
                 break
+            idx_c += 1
         else:
-            fila_censo = max(14, len(col_a_censo) + 1)
+            fila_censo = max(14, len(col_b_censo) + 1)
 
         consecutivo_censo = fila_censo - 13
 
         ps_val = "SÍ" if datos_paciente.get("personal_salud") == "SÍ" else "NO"
         emb_val = "SÍ" if datos_paciente.get("embarazo") == "SÍ" else "NO"
 
+        # Mapeo exacto según tus indicaciones para la hoja CENSO:
+        # B: Folio, C: RFC, D: Cuenta DH, E: Tipo DH, F: Trabaja CMN, G: Num Trabajador, H: Personal Salud
+        # I: Categoria, J: Servicio, K: Coordinacion, L: Turno, M: Nombres, N: Paterno, O: Materno
+        # P: Edo Nac, Q: Muni Nac, R: Dia Nac, S: Mes Nac, T: Ano Nac, U: Anios, V: Meses, W: Sexo, X: Embarazo
         updates_censo = [
-            {"range": f"A{fila_censo}", "values": [[consecutivo_censo]]},
             {"range": f"B{fila_censo}", "values": [[folio_asignado]]},
             {"range": f"C{fila_censo}", "values": [[datos_paciente.get("rfc", "")]]},
             {"range": f"D{fila_censo}", "values": [[datos_paciente.get("cuenta_derechohabiencia", "SÍ")]]},
-            {"range": f"E{fila_censo}", "values": [[datos_paciente.get("tipo_dh", "TRABAJADOR")]]},
+            {"range": f"E{fila_censo}", "values": [[datos_paciente.get("tipo_dh", "TRABAJADOR ACTIVO")]]},
             {"range": f"F{fila_censo}", "values": [[datos_paciente.get("trabaja_cmn", "SÍ")]]},
             {"range": f"G{fila_censo}", "values": [[datos_paciente.get("num_trabajador", "")]]},
             {"range": f"H{fila_censo}", "values": [[ps_val]]},
@@ -165,8 +157,8 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"M{fila_censo}", "values": [[datos_paciente["nombres"].upper()]]},
             {"range": f"N{fila_censo}", "values": [[datos_paciente["paterno"].upper()]]},
             {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente.get("materno") else ""]] },
-            {"range": f"P{fila_censo}", "values": [[datos_paciente.get("estado_nacimiento", "CDMX")]]},
-            {"range": f"Q{fila_censo}", "values": [[datos_paciente.get("muni_nac", "CDMX")]]},
+            {"range": f"P{fila_censo}", "values": [[datos_paciente.get("edo_nac", "CDMX")]]},
+            {"range": f"Q{fila_censo}", "values": [[datos_paciente.get("muni_nac", "")]]},
             {"range": f"R{fila_censo}", "values": [[datos_paciente["fn_dia"]]]},
             {"range": f"S{fila_censo}", "values": [[datos_paciente["fn_mes"]]]},
             {"range": f"T{fila_censo}", "values": [[datos_paciente["fn_ano"]]]},
@@ -176,13 +168,15 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"X{fila_censo}", "values": [[emb_val]]},
         ]
 
-        # Mapeo de vacunas de interés para la hoja de Censo general (Columnas Y, Z, AA para Influenza / AD, AE, AF para COVID)
+        # Mapeo de vacunas de interés en la hoja CENSO general:
+        # Y: Influenza 1ra dosis, Z: Influenza 2da dosis, AA: Influenza Dosis anual
+        # AD: COVID 1ra dosis, AE: COVID 2da dosis, AF: COVID Dosis anual
         if vacuna_int in ["INFLUENZA", "AMBAS"]:
             updates_censo.append({"range": f"Y{fila_censo}", "values": [["X"]]})
         if vacuna_int in ["COVID-19", "AMBAS"]:
             updates_censo.append({"range": f"AD{fila_censo}", "values": [["X"]]})
 
-        ws_censo.batch_update(updates_censo)
+        ws_censo_general.batch_update(updates_censo)
         return folio_asignado
 
     except Exception as e:
