@@ -64,43 +64,59 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-# --- CARGA 100% FRESCA (CLIENTE NUEVO Y TTL=0 PARA EVITAR GHOST DATA) ---
-@st.cache_data(ttl=0, show_spinner="Sincronizando con Google Sheets...")
+# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS ---
+@st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        # Forzar la creación de un cliente gspread totalmente nuevo y fresco (sin reciclar caché)
-        creds = get_creds_from_secrets()
-        client_c = gspread.authorize(creds)
-        
+        client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        all_values = worksheet.get_all_values()
-        if len(all_values) < 14:
+        col_b = worksheet.col_values(2)
+
+        if len(col_b) < 14:
             return [], [], [], worksheet.id
 
-        header1 = all_values[11] if len(all_values) > 11 else [] # Fila 12
-        header2 = all_values[12] if len(all_values) > 12 else [] # Fila 13
-        data_rows = all_values[13:] # Desde la fila 14 en adelante
+        last_idx = len(col_b)
+        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
+            last_idx -= 1
+        if last_idx < 14:
+            return [], [], [], worksheet.id
 
-        while data_rows and all(str(cell).strip() == "" for cell in data_rows[-1]):
-            data_rows.pop()
+        filas_data_count = last_idx - 13
+        if filas_data_count % 2 != 0:
+            last_idx += 1
 
-        if len(data_rows) % 2 != 0:
-            data_rows.append([""] * max(len(header1), 50))
+        range_headers_1 = "A12:AX12"
+        range_headers_2 = "A13:AX13"
+        range_data = f"A14:AX{last_idx}"
 
-        return header1, header2, data_rows, worksheet.id
+        header1_rows = worksheet.get(range_headers_1)
+        header2_rows = worksheet.get(range_headers_2)
+        data_rows = worksheet.get(range_data)
+
+        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
+        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
+        return header1, header2, data_rows or [], worksheet.id
 
     except Exception as e:
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
         return [], [], [], None
 
 
-# Lectura directa sin pasar por estados estancados de sesión
-header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-st.session_state[f"header1_{hoja_activa_tabla}"] = header1
-st.session_state[f"header2_{hoja_activa_tabla}"] = header2
-st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
+key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
+
+if key_estado_filas not in st.session_state:
+    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+    st.session_state[key_estado_filas] = filas_tabla
+    st.session_state[f"header1_{hoja_activa_tabla}"] = header1
+    st.session_state[f"header2_{hoja_activa_tabla}"] = header2
+    st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
+else:
+    header1 = st.session_state[f"header1_{hoja_activa_tabla}"]
+    header2 = st.session_state[f"header2_{hoja_activa_tabla}"]
+    filas_tabla = st.session_state[key_estado_filas]
+    gid_hoja = st.session_state[f"gid_{hoja_activa_tabla}"]
 
 if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes.")
@@ -224,8 +240,8 @@ col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
 with col_btn1:
     if st.button("🔄 Actualizar Datos", width="stretch", key="btn_reload_header"):
         st.cache_data.clear()
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        if key_estado_filas in st.session_state:
+            del st.session_state[key_estado_filas]
         st.rerun()
 
 with col_btn2:
@@ -235,9 +251,7 @@ with col_btn2:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
 
-        # URL con marca de tiempo única por milisegundo para evitar caché en la descarga
-        timestamp_cache_buster = int(datetime.datetime.now().timestamp() * 1000)
-        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}&t={timestamp_cache_buster}"
+        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
         req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
         with urllib.request.urlopen(req) as response:
@@ -317,16 +331,20 @@ if btn_eliminar:
     else:
         try:
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
+            filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
+                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # 1. Conectar y eliminar en Google Sheets usando un cliente fresco
-            creds = get_creds_from_secrets()
-            client = gspread.authorize(creds)
+            # 1. Actualizar de inmediato el estado en sesión para limpiar la vista previa al milisegundo
+            st.session_state[key_estado_filas] = filas_actualizadas
+
+            # 2. Conectar y eliminar en Google Sheets por detrás
+            client = obtener_cliente_gspread()
             spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
             ws = spreadsheet.worksheet(hoja_activa_tabla)
 
@@ -337,7 +355,7 @@ if btn_eliminar:
                 except Exception:
                     pass
 
-            # 2. Reordenar contadores de folios en Google Sheets
+            # 3. Reordenar contadores de folios en Google Sheets
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
@@ -354,11 +372,6 @@ if btn_eliminar:
                         ws.batch_update(updates)
                     except Exception:
                         pass
-
-            # 3. Purga absoluta de caché y sesión
-            st.cache_data.clear()
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
 
             # 4. Refresco dinámico instantáneo de la interfaz
             st.rerun()
