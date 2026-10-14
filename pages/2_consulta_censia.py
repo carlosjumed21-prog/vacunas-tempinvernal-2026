@@ -96,10 +96,10 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     return h_autorizadas
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=0)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str):
     """
-    Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
+    Carga los pacientes de una hoja específica en tiempo real sin interferencias de caché.
     """
     try:
         client = obtener_client_gspread_cacheado()
@@ -400,6 +400,7 @@ else:
         with col_busq2:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Actualizar Lupa", use_container_width=True):
+                st.cache_data.clear()
                 st.rerun()
 
         if not pacientes_cargados:
@@ -436,7 +437,6 @@ else:
 
                     folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
                     
-                    # Corrección de la variable sheet_id_activo en lugar de sheet_id_objetivo
                     if sheet_id_activo == SHEET_ID_20_NOV:
                         paterno_p = fila_datos[13] if len(fila_datos) > 13 else ""
                         materno_p = fila_datos[14] if len(fila_datos) > 14 else ""
@@ -446,7 +446,6 @@ else:
                         materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
                         nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
-                    # Extracción automática y robusta del correo desde la columna AX o cercanas
                     correo_ax_val = ""
                     for idx_col in [49, 50, 48, len(fila_datos) - 1]:
                         if len(fila_datos) > idx_col and "@" in str(fila_datos[idx_col]):
@@ -699,6 +698,7 @@ else:
                         )
 
                         if exito:
+                            st.cache_data.clear()
                             comprobante_actual = st.session_state.get("ultimo_comprobante_vacunacion", {})
                             
                             if correo_ax_val and "@" in correo_ax_val:
