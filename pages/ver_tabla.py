@@ -48,7 +48,7 @@ if not hoja_activa_tabla:
 
 key_estado_filas = f"filas_cargadas_piso_{sheet_id_tabla}_{hoja_activa_tabla}"
 
-# Sincronización transparente en segundo plano con la nube
+# Sincronización silenciosa en segundo plano
 sincronizar_borrado_segundo_plano(sheet_id_tabla, hoja_activa_tabla, key_estado_filas)
 
 if key_estado_filas not in st.session_state:
@@ -83,6 +83,7 @@ with col_btn1:
         st.cache_data.clear()
         if key_estado_filas in st.session_state:
             del st.session_state[key_estado_filas]
+        st.toast("Sincronizando datos...", icon="🔄")
         st.rerun()
 
 with col_btn2:
@@ -159,14 +160,14 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-# --- ACCIÓN DE ELIMINACIÓN FLUIDA E INSTANTÁNEA ---
+# --- ACCIÓN DE ELIMINACIÓN FLUIDA E INSTANTÁNEA CON TOAST TEMPORAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     if not indices_marcados:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            # 1. Borrado visual instantáneo (Optimistic UI)
+            # 1. Eliminación inmediata en vista local
             eliminar_pacientes_seleccionados_optimista(
                 sheet_id_tabla, 
                 hoja_activa_tabla, 
@@ -175,7 +176,9 @@ if btn_eliminar:
                 filas_tabla, 
                 key_estado_filas
             )
-            # 2. Refresco inmediato de la interfaz sin pausas
+            # 2. Mensaje flotante elegante que no bloquea la pantalla
+            st.toast("✅ Paciente(s) eliminado(s). Sincronizando en segundo plano...", icon="🗑️")
+            # 3. Refresco rápido
             st.rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
