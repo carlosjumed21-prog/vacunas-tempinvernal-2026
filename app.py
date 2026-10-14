@@ -58,6 +58,7 @@ st.markdown("""
             justify-content: center;
         }
         
+        /* Botones principales verdes institucionales */
         .stButton>button { 
             background-color: #1e5b4f !important; 
             color: white !important; 
@@ -66,6 +67,19 @@ st.markdown("""
             border-radius: 6px !important; 
             padding: 0.6rem 1.1rem !important; 
             width: 100%;
+        }
+        
+        /* Estilo específico para los botones superiores de administración y cerrar sesión (pequeños y blancos) */
+        div[data-testid="column"] button {
+            background-color: #ffffff !important;
+            color: #1e5b4f !important;
+            border: 1px solid #1e5b4f !important;
+            font-size: 0.85rem !important;
+            padding: 0.3rem 0.6rem !important;
+        }
+        div[data-testid="column"] button:hover {
+            background-color: #f0f0f0 !important;
+            color: #611232 !important;
         }
         
         /* Convertir el formulario de Streamlit en la caja blanca elegante con borde dorado */
@@ -152,7 +166,7 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores originales (Panel Admin y Cerrar Sesión)
+    # Botones superiores pequeños y con fondo blanco
     col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
     with col_top2:
         if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
