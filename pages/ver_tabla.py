@@ -31,17 +31,19 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
         
-        /* Botón rojo para el popover de eliminación superior */
-        div[data-testid="stPopover"] > button {
+        /* Botón rojo fijo para el popover de eliminación cuando está ACTIVO */
+        div[data-testid="stPopover"] > button:not(:disabled) {
             background-color: #dc3545 !important;
             color: white !important;
             border-color: #dc3545 !important;
+            font-weight: 700 !important;
         }
-        div[data-testid="stPopover"] > button:hover {
+        div[data-testid="stPopover"] > button:not(:disabled):hover {
             background-color: #bb2d3b !important;
             border-color: #b02a37 !important;
             color: white !important;
         }
+        /* Estilo cuando está bloqueado/deshabilitado */
         div[data-testid="stPopover"] > button:disabled {
             background-color: #e9ecef !important;
             color: #adb5bd !important;
@@ -90,10 +92,9 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-# --- FRAGMENTO REACTIVO PRINCIPAL (Incluye botones superiores y tabla para actualización instantánea) ---
+# --- FRAGMENTO REACTIVO PRINCIPAL ---
 @st.fragment
 def render_seccion_superior_y_tabla():
-    # Detectar selecciones desde el estado del editor de la sesión
     editor_state = st.session_state.get("editor_tabla_censo", {})
     edited_rows = editor_state.get("edited_rows", {})
     
@@ -137,11 +138,17 @@ def render_seccion_superior_y_tabla():
                                     filas_tabla, 
                                     key_estado_filas
                                 )
+                            # Forzar limpieza del editor para cerrar el popover y actualizar
+                            if "editor_tabla_censo" in st.session_state:
+                                del st.session_state["editor_tabla_censo"]
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Error al intentar eliminar: {e}")
             with col_pop2:
                 if st.button("Cancelar", use_container_width=True, key="btn_cancelar_popover"):
+                    # Limpiamos el estado del editor para cerrar el popover de inmediato sin recargar pesado
+                    if "editor_tabla_censo" in st.session_state:
+                        del st.session_state["editor_tabla_censo"]
                     st.rerun()
 
     with col_btn3:
