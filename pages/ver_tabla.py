@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
-import gspread
-import json
-import io
-import datetime
 import urllib.request
-from google.oauth2 import service_account
-from utils.sheets import obtener_cliente_gspread
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
+from google.auth.transport.requests import Request
+from utils.logica_ver_tabla import (
+    obtener_sheet_id_activo,
+    get_creds_from_secrets,
+    load_sheet_minimal_cached,
+    construir_dataset_y_metricas,
+    eliminar_pacientes_seleccionados
+)
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA ---
 st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
@@ -36,75 +37,21 @@ st.markdown(
 
 params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
-unidad_param = params.get("unidad", "").strip().upper()
+unidad_param = params.get("unidad", "").strip()
 
-# --- IDENTIFICACIÓN DINÁMICA DE SHEET ID (CMN 20 DE NOVIEMBRE ACTUALIZADO) ---
-SHEET_ID_20_NOVIEMBRE = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
-
-# Validación robusta por prefijo operativo ("20N") o nombre de unidad
-if hoja_activa_tabla.upper().startswith("20N") or "20 DE NOVIEMBRE" in hoja_activa_tabla.upper() or "20_NOVIEMBRE" in unidad_param or "20 DE NOVIEMBRE" in unidad_param:
-    sheet_id_tabla = SHEET_ID_20_NOVIEMBRE
-else:
-    sheet_id_tabla = params.get("sheet_id", GOOGLE_SHEET_ID).strip()
-    if not sheet_id_tabla:
-        sheet_id_tabla = GOOGLE_SHEET_ID
+sheet_id_tabla = obtener_sheet_id_activo(hoja_activa_tabla, unidad_param)
 
 if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Abra esta vista desde el Módulo Operativo.")
     st.stop()
 
-
-# --- FUNCIÓN DE CREDENCIALES PARA DESCARGA AUTENTICADA ---
-def get_creds_from_secrets():
-    creds_dict = None
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw) if isinstance(raw, str) else raw
-    else:
-        for k in st.secrets:
-            if k != "GOOGLE_SHEET_ID":
-                creds_dict = dict(st.secrets[k])
-                break
-    if not creds_dict:
-        raise KeyError("No se encontraron credenciales de servicio válidas en st.secrets.")
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-    return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-
-
-# --- CARGA ROBUSTA Y SEGURA DE GOOGLE SHEETS ---
-@st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
-def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
-    try:
-        client_c = obtener_cliente_gspread()
-        spreadsheet_c = client_c.open_by_key(spreadsheet_id)
-        
-        nombres_hojas = [w.title for w in spreadsheet_c.worksheets()]
-        if worksheet_name not in nombres_hojas:
-            st.error(f"❌ La pestaña '{worksheet_name}' no existe en el libro de Google Sheets consultado.")
-            return [], [], [], None
-
-        worksheet = spreadsheet_c.worksheet(worksheet_name)
-        all_rows = worksheet.get_all_values()
-        
-        if len(all_rows) < 14:
-            return [], [], [], worksheet.id
-
-        header1 = all_rows[11] if len(all_rows) > 11 else [] # Fila 12 (índice 11)
-        header2 = all_rows[12] if len(all_rows) > 12 else [] # Fila 13 (índice 12)
-        data_rows = all_rows[13:] if len(all_rows) > 13 else [] # A partir de la fila 14
-
-        return header1, header2, data_rows, worksheet.id
-
-    except Exception as e:
-        st.error(f"Error al conectar o leer la hoja '{worksheet_name}': {e}")
-        return [], [], [], None
-
-
 key_estado_filas = f"filas_cargadas_piso_{sheet_id_tabla}_{hoja_activa_tabla}"
 
 if key_estado_filas not in st.session_state:
-    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(sheet_id_tabla, hoja_activa_tabla)
+    header1, header2, filas_tabla, gid_hoja, error_msg = load_sheet_minimal_cached(sheet_id_tabla, hoja_activa_tabla)
+    if error_msg:
+        st.error(error_msg)
+        st.stop()
     st.session_state[key_estado_filas] = filas_tabla
     st.session_state[f"header1_{hoja_activa_tabla}"] = header1
     st.session_state[f"header2_{hoja_activa_tabla}"] = header2
@@ -119,116 +66,9 @@ if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes o la estructura de la tabla no coincide (se esperan datos a partir de la fila 14).")
     st.stop()
 
-
-# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO ---
-def construir_dataset_y_metricas(filas_tabla, header1, header2):
-    encabezados_combinados = []
-    conteo_nombres = {}
-    max_cols = max(len(header1), len(header2), 50)
-
-    for idx in range(max_cols):
-        val1 = header1[idx].strip() if idx < len(header1) else ""
-        val2 = header2[idx].strip() if idx < len(header2) else ""
-
-        if val1 and val2 and val1 != val2:
-            col_str = f"{val1} - {val2}"
-        elif val2:
-            col_str = val2
-        elif val1:
-            col_str = val1
-        else:
-            col_str = f"Col_{idx+1}"
-
-        if col_str in conteo_nombres:
-            conteo_nombres[col_str] += 1
-            col_str = f"{col_str}_{conteo_nombres[col_str]}"
-        else:
-            conteo_nombres[col_str] = 0
-
-        encabezados_combinados.append(col_str)
-
-    filas_procesadas = []
-    mapeo_indices_pares = []
-    indices_filas_verdes = set()
-
-    total_censo_registros = 0
-    total_preregistros = 0
-    registros_nuevos_hoy = 0
-    total_aplicaciones = 0
-    total_sin_aplicar = 0
-    total_dosis_influenza = 0
-    total_dosis_covid = 0
-    total_simultaneas = 0
-    fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
-
-    for i in range(0, len(filas_tabla), 2):
-        f1 = filas_tabla[i] if i < len(filas_tabla) else []
-        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
-        
-        f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
-        f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
-
-        if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
-            total_censo_registros += 1
-
-            fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else ""
-            if fecha_fila == fecha_hoy_str:
-                registros_nuevos_hoy += 1
-            else:
-                total_preregistros += 1
-
-            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
-            if tiene_aplicacion:
-                total_aplicaciones += 1
-            else:
-                total_sin_aplicar += 1
-
-            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj))))
-            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f1_adj)))) if len(f1_adj) > 37 else False
-
-            if tiene_influenza and not tiene_covid:
-                total_dosis_influenza += 1
-            elif tiene_covid and not tiene_influenza:
-                total_dosis_covid += 1
-            elif tiene_influenza and tiene_covid:
-                total_simultaneas += 1
-
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
-            indices_filas_verdes.add(len(filas_procesadas))
-            indices_filas_verdes.add(len(filas_procesadas) + 1)
-
-        indices_deseados = list(range(0, 12)) + list(range(32, 43))
-
-        f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
-        f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
-
-        fila_v1 = [False] + f1_filtrado
-        fila_v2 = [None] + f2_filtrado
-
-        filas_procesadas.append(fila_v1)
-        filas_procesadas.append(fila_v2)
-        mapeo_indices_pares.append(i)
-
-    indices_deseados = list(range(0, 12)) + list(range(32, 43))
-    encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
-
-    metricas = {
-        "total_censo_registros": total_censo_registros,
-        "total_preregistros": total_preregistros,
-        "registros_nuevos_hoy": registros_nuevos_hoy,
-        "total_aplicaciones": total_aplicaciones,
-        "total_sin_aplicar": total_sin_aplicar,
-        "total_dosis_influenza": total_dosis_influenza,
-        "total_dosis_covid": total_dosis_covid,
-        "total_simultaneas": total_simultaneas,
-    }
-
-    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
-
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
-
 
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
@@ -245,7 +85,6 @@ with col_btn2:
     try:
         creds = get_creds_from_secrets()
         if not creds.valid:
-            from google.auth.transport.requests import Request
             creds.refresh(Request())
 
         url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
@@ -285,7 +124,6 @@ with col_del:
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-
 # --- FRAGMENTO AISLADO PARA LA TABLA ---
 @st.fragment
 def render_tabla_con_estilos():
@@ -317,57 +155,21 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-
 # --- ACCIÓN DE ELIMINACIÓN EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
-    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
-
-    if not pacientes_a_eliminar:
+    if not indices_marcados:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-            filas_actualizadas = list(filas_tabla)
-            filas_gs_a_borrar = []
-            
-            for paciente_idx in pacientes_sorted:
-                if paciente_idx < len(mapeo_indices_pares):
-                    idx_par_real = mapeo_indices_pares[paciente_idx]
-                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
-                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
-
-            st.session_state[key_estado_filas] = filas_actualizadas
-
-            client = obtener_cliente_gspread()
-            spreadsheet = client.open_by_key(sheet_id_tabla)
-            ws = spreadsheet.worksheet(hoja_activa_tabla)
-
-            filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-            for fila_gs in filas_gs_a_borrar:
-                try:
-                    ws.delete_rows(fila_gs)
-                except Exception:
-                    pass
-
-            datos_actualizados = ws.get_all_values()
-            if len(datos_actualizados) >= 14:
-                filas_actuales = datos_actualizados[13:]
-                contador = 1
-                updates = []
-                for i in range(0, len(filas_actuales), 2):
-                    row = filas_actuales[i]
-                    if len(row) > 0 and row[0].strip() != "":
-                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                        updates.append({"range": a1, "values": [[str(contador)]]})
-                        contador += 1
-                if updates:
-                    try:
-                        ws.batch_update(updates)
-                    except Exception:
-                        pass
-
+            eliminar_pacientes_seleccionados(
+                sheet_id_tabla, 
+                hoja_activa_tabla, 
+                indices_marcados, 
+                mapeo_indices_pares, 
+                filas_tabla, 
+                key_estado_filas
+            )
             st.rerun()
-
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
