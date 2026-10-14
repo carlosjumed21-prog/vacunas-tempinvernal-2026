@@ -2,7 +2,7 @@
 import datetime
 import json
 import urllib.parse
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, SHEET_ID_20_NOV, aplicar_configuracion_global
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
@@ -11,9 +11,6 @@ from utils.logica_censia import procesar_guardado_aplicacion
 from utils.email_sender import enviar_comprobante_correo
 
 aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
-
-# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
-SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 # --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS ---
 st.markdown(
@@ -62,7 +59,7 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
     try:
         client = obtener_client_gspread_cacheado()
         
-        # 1. Revisar Libro General
+        # 1. Revisar Libro General (utilizando GOOGLE_SHEET_ID de config)
         spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
         for h in spreadsheet_gen.worksheets():
             if h.title not in hojas_plantillas_excluir:
@@ -76,7 +73,7 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
                     except Exception:
                         pass
 
-        # 2. Revisar Libro CMN 20 de Noviembre
+        # 2. Revisar Libro CMN 20 de Noviembre (utilizando SHEET_ID_20_NOV de config)
         spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
         for h in spreadsheet_20n.worksheets():
             if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
@@ -98,10 +95,6 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 
 @st.cache_data(ttl=300)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str, cache_buster: int = 0):
-    """
-    Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
-    El parámetro cache_buster permite invalidar la caché instantáneamente tras un guardado.
-    """
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(sheet_id_objetivo)
@@ -129,7 +122,6 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: st
         return [], [], datetime.datetime.now().strftime("%d/%m/%Y"), None
 
 
-# --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
 @st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
 def mostrar_dialogo_cerrar_sesion():
     st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
@@ -149,7 +141,6 @@ def mostrar_dialogo_cerrar_sesion():
             st.rerun()
 
 
-# --- BOTÓN DE CIERRE DE SESIÓN EN LA CABECERA ---
 col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 1])
 with col_nav3:
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
@@ -173,7 +164,6 @@ if "ultimo_comprobante_vacunacion" not in st.session_state:
 if "reiniciar_busqueda" not in st.session_state:
     st.session_state.reiniciar_busqueda = False
 
-# Control de versión de caché para forzar recargas limpias en cualquier unidad
 if "cache_buster_val" not in st.session_state:
     st.session_state.cache_buster_val = 0
 
@@ -363,7 +353,7 @@ else:
         else:
             hoja_seleccionada = h_autorizadas[0]["titulo"]
             sheet_id_activo = h_autorizadas[0]["sheet_id"]
-            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
+            st.info(f"📋 Pestaña asignada automáticamente à tu cuenta: **{hoja_seleccionada}**")
 
     if correo_sesion != "carlosju.med21@gmail.com":
         params_url = st.query_params
@@ -728,6 +718,5 @@ else:
                             if st.session_state.get("ultimo_comprobante_vacunacion"):
                                 st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
                             
-                            # Incrementamos el cache buster para forzar lectura limpia en cualquier unidad
                             st.session_state.cache_buster_val += 1
                             st.rerun()
