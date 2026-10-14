@@ -109,9 +109,9 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: st
                     pacientes_cargados.append({
                         "fila": idx,
                         "folio": row[1].strip(),
-                        "paterno": row[2].strip() if sheet_id_objetivo != SHEET_ID_20_NOV else (row[13].strip() if len(row) > 13 else row[2].strip()),
-                        "materno": (row[3].strip() if len(row) > 3 else "") if sheet_id_objetivo != SHEET_ID_20_NOV else (row[14].strip() if len(row) > 14 else ""),
-                        "nombres": (row[4].strip() if len(row) > 4 else "") if sheet_id_objetivo != SHEET_ID_20_NOV else (row[12].strip() if len(row) > 12 else ""),
+                        "paterno": row[2].strip() if len(row) > 2 else "",
+                        "materno": row[3].strip() if len(row) > 3 else "",
+                        "nombres": row[4].strip() if len(row) > 4 else "",
                         "ya_vacunado": ya_vacunado,
                     })
 
@@ -353,7 +353,7 @@ else:
         else:
             hoja_seleccionada = h_autorizadas[0]["titulo"]
             sheet_id_activo = h_autorizadas[0]["sheet_id"]
-            st.info(f"📋 Pestaña asignada automáticamente à tu cuenta: **{hoja_seleccionada}**")
+            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
 
     if correo_sesion != "carlosju.med21@gmail.com":
         params_url = st.query_params
@@ -435,14 +435,9 @@ else:
 
                     folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
                     
-                    if sheet_id_activo == SHEET_ID_20_NOV:
-                        paterno_p = fila_datos[13] if len(fila_datos) > 13 else ""
-                        materno_p = fila_datos[14] if len(fila_datos) > 14 else ""
-                        nombres_p = fila_datos[12] if len(fila_datos) > 12 else ""
-                    else:
-                        paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
-                        materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
-                        nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+                    paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
+                    materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
+                    nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
                     correo_ax_val = ""
                     for idx_col in [49, 50, 48, len(fila_datos) - 1]:
