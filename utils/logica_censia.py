@@ -29,7 +29,7 @@ def procesar_guardado_aplicacion(
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
-    Para el CMN 20 de Noviembre, realiza la migración dual simultánea en la hoja nominal y tabular hermana (_CENSO).
+    Maneja de forma independiente el CMN 20 de Noviembre (migración dual) y las demás unidades.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -92,7 +92,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-        # INFLUENZA (Columnas AG a AK en la hoja nominal)
+        # INFLUENZA (Columnas AG a AK en la hoja nominal del 20 de Nov, ajusta si es general)
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -132,7 +132,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores en la hoja nominal activa
+        # 1. Petición principal para actualizar los valores en la hoja activa actual
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -142,9 +142,11 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. MIGRACIÓN DUAL SIMULTÁNEA HACIA LA HOJA TABULAR _CENSO CORRESPONDIENTE (EXCLUSIVO 20 DE NOVIEMBRE)
+        # 2. COMPORTAMIENTO SEGÚN LA UNIDAD (20 DE NOVIEMBRE VS OTRAS UNIDADES GENERALES)
         migracion_20n_exitosa = False
+        
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
+            # --- CASO A: CMN 20 DE NOVIEMBRE (Migración Dual Nominal + Tabular _CENSO) ---
             try:
                 import json
                 import gspread
@@ -165,7 +167,6 @@ def procesar_guardado_aplicacion(
                 client_gspread = gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
                 spreadsheet_20n = client_gspread.open_by_key(SHEET_ID_20_NOV)
                 
-                # Derivar dinámicamente la hoja hermana tabular _CENSO a partir de la nominal activa
                 nombre_hoja_nominal_activa = worksheet_activa.title
                 nombre_hoja_censo_tabulada = nombre_hoja_nominal_activa.replace("_NOMINAL", "_CENSO")
                 
@@ -177,7 +178,6 @@ def procesar_guardado_aplicacion(
                         valores_censo_tablero = ws_censo_tablero.get_all_values()
                         fila_en_censo_tablero = None
                         
-                        # Buscar la fila exacta en la hoja tabular _CENSO utilizando el Folio único (Columna B / índice 1)
                         for idx_ct, row_ct in enumerate(valores_censo_tablero[13:], start=14):
                             if len(row_ct) > 1 and row_ct[1].strip() == folio_paciente_actual:
                                 fila_en_censo_tablero = idx_ct
@@ -186,7 +186,6 @@ def procesar_guardado_aplicacion(
                         if fila_en_censo_tablero:
                             updates_censo_tablero = []
                             
-                            # Mapeo de dosis y lotes en la hoja tabular _CENSO
                             if inf_1ra: updates_censo_tablero.append({"range": f"Y{fila_en_censo_tablero}", "values": [["X"]]})
                             if inf_2da: updates_censo_tablero.append({"range": f"Z{fila_en_censo_tablero}", "values": [["X"]]})
                             if inf_anual: updates_censo_tablero.append({"range": f"AA{fila_en_censo_tablero}", "values": [["X"]]})
@@ -209,8 +208,12 @@ def procesar_guardado_aplicacion(
             except Exception as e_migracion:
                 st.error(f"⚠️ Error al sincronizar con la hoja de censo dual: {e_migracion}")
                 return False
+        else:
+            # --- CASO B: OTRAS UNIDADES (Hoja General / Estándar) ---
+            # Aquí conservan su comportamiento limpio sin disparar reglas del 20 de Noviembre
+            pass
 
-        # 3. Formato visual verde en la hoja activa nominal
+        # 3. Formato visual verde en la hoja activa actual
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
@@ -248,12 +251,14 @@ def procesar_guardado_aplicacion(
         # Limpieza de caché
         st.cache_data.clear()
 
-        # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN DUAL PARA EL 20 DE NOVIEMBRE ---
+        # Notificación diferenciada según la unidad
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             if migracion_20n_exitosa:
                 st.success("🏥 **CMN 20 de Noviembre:** Sincronización dual exitosa en 'Censo Nominal' y su hoja tabular 'Censo'.")
             else:
-                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización dual con la hoja tabular 'Censo' requirió revisión.")
+                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización con la hoja tabular 'Censo' requirió revisión.")
+        else:
+            st.success("✅ ¡Dosis y registros guardados exitosamente en la unidad seleccionada!")
 
         lote_final_partes = []
         if lote_inf_input:
