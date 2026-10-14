@@ -161,9 +161,6 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
     return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
 def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
-    """
-    Actualización instantánea en memoria local para que la vista previa elimine de inmediato.
-    """
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
     filas_actualizadas = list(filas_tabla)
@@ -179,9 +176,6 @@ def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_ma
     str_lib.session_state[f"pendientes_borrar_{sheet_id}_{hoja_activa}"] = filas_gs_a_borrar
 
 def sincronizar_borrado_segundo_plano(sheet_id, hoja_activa, key_estado_filas):
-    """
-    Sincroniza los cambios en Google Sheets de forma silenciosa.
-    """
     key_pendientes = f"pendientes_borrar_{sheet_id}_{hoja_activa}"
     if key_pendientes not in str_lib.session_state or not str_lib.session_state[key_pendientes]:
         return
