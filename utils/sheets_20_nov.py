@@ -55,13 +55,21 @@ def guardar_registro_censal(
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
 
+        # Intentar abrir la hoja del día; si no existe, crearla automáticamente o buscar respaldos
         try:
             worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-        except:
+        except Exception:
             try:
-                worksheet = spreadsheet.worksheet("CENSO NOMINAL")
-            except:
-                worksheet = spreadsheet.worksheet("CENSO")
+                # Opcional: Crear la hoja automáticamente si no existe para mantener el flujo de la jornada
+                worksheet = spreadsheet.add_worksheet(title=nombre_hoja_destino, rows=100, cols=50)
+            except Exception:
+                try:
+                    worksheet = spreadsheet.worksheet("CENSO NOMINAL")
+                except Exception:
+                    worksheet = spreadsheet.worksheet("CENSO")
+
+        # Usar siempre el nombre real de la hoja obtenida (evita errores de parseo de rangos)
+        nombre_real_hoja = worksheet.title
 
         columna_b = worksheet.col_values(2)
         fila_inicio_destino = 14
@@ -117,7 +125,7 @@ def guardar_registro_censal(
                 return "X" if val.upper() in ["SÍ", "SI", "TRUE", "1"] else ""
             return ""
 
-        # Mapeo idéntico al estándar de sheets.py asegurando columnas C, D, E para nombres
+        # Mapeo idéntico al estándar asegurando columnas C, D, E para nombres
         fila_registro_principal = [
             str(siguiente_num),
             folio_asignado,
@@ -170,9 +178,9 @@ def guardar_registro_censal(
         body = {
             "valueInputOption": "USER_ENTERED",
             "data": [
-                {"range": f"{nombre_hoja_destino}!A{f_actual}", "values": [fila_registro_principal]},
-                {"range": f"{nombre_hoja_destino}!{curp_fila}", "values": [[curp_val]]},
-                {"range": f"{nombre_hoja_destino}!{fecha_fila}", "values": [[fecha_registro_actual]]}
+                {"range": f"{nombre_real_hoja}!A{f_actual}", "values": [fila_registro_principal]},
+                {"range": f"{nombre_real_hoja}!{curp_fila}", "values": [[curp_val]]},
+                {"range": f"{nombre_real_hoja}!{fecha_fila}", "values": [[fecha_registro_actual]]}
             ]
         }
         resp = requests.post(url, headers=headers, json=body)
