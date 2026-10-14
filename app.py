@@ -246,7 +246,7 @@ else:
                 <p style="margin: 0; font-size: 0.9rem;">Captura de dosis aplicadas, lotes y comprobantes.</p>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("Ir a CENSIA", use_container_width=True):
+        if st.button("Ir a Registro de Dosis", use_container_width=True):
             st.switch_page("pages/2_consulta_censia.py")
 
     st.markdown("""
