@@ -87,99 +87,101 @@ encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_ver
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-# Detectar si hay filas seleccionadas en el estado actual del editor
-editor_df = st.session_state.get("editor_tabla_censo", df_tabla_segura)
-hay_seleccionados = False
-if isinstance(editor_df, pd.DataFrame) and "SELECCIONAR" in editor_df.columns:
-    hay_seleccionados = editor_df["SELECCIONAR"].eq(True).any()
-
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
-# --- BOTONES SUPERIORES: ACTUALIZAR, ELIMINAR (BLOQUEADO SI NO HAY SELECCIÓN) Y DESCARGAR ---
-col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.2, 1.2, 2.0])
-
-with col_btn1:
-    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
-        st.cache_data.clear()
-        if key_estado_filas in st.session_state:
-            del st.session_state[key_estado_filas]
-        st.rerun()
-
-with col_btn2:
-    with st.popover("🗑️ Eliminar Seleccionado(s)", use_container_width=True, disabled=not hay_seleccionados):
-        st.markdown("### ⚠️ Confirmación de Seguridad")
-        st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
-        
-        col_pop1, col_pop2 = st.columns(2)
-        with col_pop1:
-            if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
-                indices_marcados = []
-                if isinstance(editor_df, pd.DataFrame) and "SELECCIONAR" in editor_df.columns:
-                    indices_marcados = editor_df[editor_df["SELECCIONAR"] == True].index.tolist()
-
-                pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
-                
-                if not pacientes_a_eliminar:
-                    st.warning("⚠️ No ha seleccionado ningún paciente.")
-                else:
-                    try:
-                        with st.spinner("Sincronizando con Google Sheets..."):
-                            eliminar_pacientes_seleccionados(
-                                sheet_id_tabla, 
-                                hoja_activa_tabla, 
-                                indices_marcados, 
-                                mapeo_indices_pares, 
-                                filas_tabla, 
-                                key_estado_filas
-                            )
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error al intentar eliminar: {e}")
-        with col_pop2:
-            if st.button("Cancelar", use_container_width=True, key="btn_cancelar_popover"):
-                st.rerun()
-
-with col_btn3:
-    try:
-        creds = get_creds_from_secrets()
-        if not creds.valid:
-            creds.refresh(Request())
-
-        url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
-        req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
-
-        with urllib.request.urlopen(req) as response:
-            excel_original_bytes = response.read()
-
-        st.download_button(
-            label="📥 Descargar Hoja Excel",
-            data=excel_original_bytes,
-            file_name=f"{hoja_activa_tabla}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
-    except Exception as err:
-        st.error(f"No se pudo descargar el archivo: {err}")
-
-st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
-
-# --- TABLERO DE MÉTRICAS ARRIBA ---
-m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
-with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
-with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
-with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
-with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
-with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
-
-st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-
-# --- FRAGMENTO AISLADO PARA LA TABLA ---
+# --- FRAGMENTO REACTIVO PRINCIPAL (Incluye botones superiores y tabla para actualización instantánea) ---
 @st.fragment
-def render_tabla_con_estilos():
+def render_seccion_superior_y_tabla():
+    # Detectar selecciones desde el estado del editor de la sesión
+    editor_state = st.session_state.get("editor_tabla_censo", {})
+    edited_rows = editor_state.get("edited_rows", {})
+    
+    hay_seleccionados = False
+    indices_marcados_temp = []
+    
+    for idx_str, cols in edited_rows.items():
+        if "SELECCIONAR" in cols and cols["SELECCIONAR"] is True:
+            hay_seleccionados = True
+            indices_marcados_temp.append(int(idx_str))
+
+    # Botones superiores
+    col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.2, 1.2, 2.0])
+
+    with col_btn1:
+        if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
+            st.cache_data.clear()
+            if key_estado_filas in st.session_state:
+                del st.session_state[key_estado_filas]
+            st.rerun()
+
+    with col_btn2:
+        with st.popover("🗑️ Eliminar Seleccionado(s)", use_container_width=True, disabled=not hay_seleccionados):
+            st.markdown("### ⚠️ Confirmación de Seguridad")
+            st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
+            
+            col_pop1, col_pop2 = st.columns(2)
+            with col_pop1:
+                if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
+                    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados_temp}
+                    if not pacientes_a_eliminar:
+                        st.warning("⚠️ No ha seleccionado ningún paciente.")
+                    else:
+                        try:
+                            with st.spinner("Sincronizando con Google Sheets..."):
+                                eliminar_pacientes_seleccionados(
+                                    sheet_id_tabla, 
+                                    hoja_activa_tabla, 
+                                    indices_marcados_temp, 
+                                    mapeo_indices_pares, 
+                                    filas_tabla, 
+                                    key_estado_filas
+                                )
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error al intentar eliminar: {e}")
+            with col_pop2:
+                if st.button("Cancelar", use_container_width=True, key="btn_cancelar_popover"):
+                    st.rerun()
+
+    with col_btn3:
+        try:
+            creds = get_creds_from_secrets()
+            if not creds.valid:
+                creds.refresh(Request())
+
+            url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
+            req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
+
+            with urllib.request.urlopen(req) as response:
+                excel_original_bytes = response.read()
+
+            st.download_button(
+                label="📥 Descargar Hoja Excel",
+                data=excel_original_bytes,
+                file_name=f"{hoja_activa_tabla}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        except Exception as err:
+            st.error(f"No se pudo descargar el archivo: {err}")
+
+    st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+
+    # --- TABLERO DE MÉTRICAS ARRIBA ---
+    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+    with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
+    with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
+    with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
+    with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
+    with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
+    with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
+    with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
+    with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
+    # --- RENDERIZADO DE LA TABLA ---
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
             return ["background-color: #e2f0d9; color: #111111"] * len(row)
@@ -197,7 +199,7 @@ def render_tabla_con_estilos():
     for col in encabezados_combinados:
         column_configs[col] = st.column_config.TextColumn(col, disabled=True)
 
-    return st.data_editor(
+    st.data_editor(
         df_estilizado,
         use_container_width=True,
         height=550,
@@ -206,4 +208,4 @@ def render_tabla_con_estilos():
         key="editor_tabla_censo",
     )
 
-df_editado = render_tabla_con_estilos()
+render_seccion_superior_y_tabla()
