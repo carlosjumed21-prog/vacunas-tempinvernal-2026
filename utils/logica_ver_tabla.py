@@ -113,7 +113,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             else:
                 total_preregistros += 1
 
-            # Conteo idéntico al compartir el mismo mapeo estructurado de columnas
+            # Rango unificado e inclusivo que cubre tanto censo general como 20 de Noviembre (hasta la columna AP / índice 42)
             tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
             if tiene_aplicacion:
                 total_aplicaciones += 1
@@ -121,7 +121,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
                 total_sin_aplicar += 1
 
             tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj))))
-            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f1_adj)))) if len(f1_adj) > 37 else False
+            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(36, min(42, len(f1_adj)))) if len(f1_adj) > 36 else False
 
             if tiene_influenza and not tiene_covid:
                 total_dosis_influenza += 1
@@ -134,7 +134,8 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-        indices_deseados = list(range(0, 12)) + list(range(32, 43))
+        # Índices unificados de visualización para incluir datos básicos y columnas de vacunas en ambas estructuras
+        indices_deseados = list(range(0, 12)) + list(range(32, min(43, len(encabezados_combinados))))
 
         f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
         f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
@@ -146,7 +147,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         filas_procesadas.append(fila_v2)
         mapeo_indices_pares.append(i)
 
-    indices_deseados = list(range(0, 12)) + list(range(32, 43))
+    indices_deseados = list(range(0, 12)) + list(range(32, min(43, len(encabezados_combinados))))
     encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
 
     metricas = {
