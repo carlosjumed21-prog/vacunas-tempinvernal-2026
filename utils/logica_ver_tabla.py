@@ -172,12 +172,14 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
+    # 1. Actualización inmediata en memoria local (eliminando el lag visual)
     str_lib.session_state[key_estado_filas] = filas_actualizadas
 
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(sheet_id)
     ws = spreadsheet.worksheet(hoja_activa)
 
+    # 2. Borrado ordenado de abajo hacia arriba para evitar desplazamientos de índices en Google Sheets
     filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
     for fila_gs in filas_gs_a_borrar:
         try:
@@ -185,6 +187,7 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
         except Exception:
             pass
 
+    # 3. Recálculo eficiente y actualización por lotes (batch) de los contadores numéricos de la columna A
     datos_actualizados = ws.get_all_values()
     if len(datos_actualizados) >= 14:
         filas_actuales = datos_actualizados[13:]
