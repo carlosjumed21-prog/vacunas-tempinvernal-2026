@@ -1,23 +1,40 @@
 import streamlit as st
 import gspread
+import json
 from google.oauth2.service_account import Credentials
 from config import GOOGLE_SHEET_ID
 
 def obtener_cliente_gspread():
+    """
+    Autentica y retorna el cliente de gspread manejando correctamente 
+    los secretos y los saltos de línea de la clave privada.
+    """
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+    
     try:
-        if "gcp_service_account" in st.secrets:
+        if "GOOGLE_CREDENTIALS" in st.secrets:
+            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
+        elif "gcp_service_account" in st.secrets:
             creds_dict = dict(st.secrets["gcp_service_account"])
-            creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         else:
-            creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+            primera_llave = list(st.secrets.keys())[0]
+            creds_dict = dict(st.secrets[primera_llave])
+
+        # Corrección crucial para los saltos de línea de la private key
+        if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\\\n", "\n").replace("\\n", "\n")
+
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     except Exception:
+        # Fallback a archivo local si no está en st.secrets
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
         
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    return client
 
 def obtener_token_acceso():
     client = obtener_cliente_gspread()
