@@ -1,3 +1,4 @@
+# utils/logica_ver_tabla.py
 import streamlit as str_lib
 import pandas as pd
 import gspread
@@ -9,7 +10,7 @@ from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 SHEET_ID_20_NOVIEMBRE = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 def obtener_sheet_id_activo(hoja_activa, unidad_param=""):
-    """Determina si la hoja pertenece al CMN 20 de Noviembre o al Sheet general."""
+    """Determina si la hoja pertenece al CMN 20 de Noviembre o al Sheet general de las demás unidades."""
     if hoja_activa.upper().startswith("20N") or "20 DE NOVIEMBRE" in hoja_activa.upper() or "20_NOVIEMBRE" in unidad_param.upper() or "20 DE NOVIEMBRE" in unidad_param.upper():
         return SHEET_ID_20_NOVIEMBRE
     return GOOGLE_SHEET_ID
@@ -106,12 +107,13 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
             total_censo_registros += 1
 
-            fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else ""
+            fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else (f1_adj[11].strip() if len(f1_adj) > 11 else "")
             if fecha_fila == fecha_hoy_str:
                 registros_nuevos_hoy += 1
             else:
                 total_preregistros += 1
 
+            # Conteo idéntico al compartir el mismo mapeo estructurado de columnas
             tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
             if tiene_aplicacion:
                 total_aplicaciones += 1
