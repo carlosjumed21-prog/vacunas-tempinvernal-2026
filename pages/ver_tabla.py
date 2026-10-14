@@ -96,19 +96,11 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         return [], [], [], None
 
 
-key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
-
-if key_estado_filas not in st.session_state:
-    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
-    st.session_state[key_estado_filas] = filas_tabla
-    st.session_state[f"header1_{hoja_activa_tabla}"] = header1
-    st.session_state[f"header2_{hoja_activa_tabla}"] = header2
-    st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
-else:
-    header1 = st.session_state[f"header1_{hoja_activa_tabla}"]
-    header2 = st.session_state[f"header2_{hoja_activa_tabla}"]
-    filas_tabla = st.session_state[key_estado_filas]
-    gid_hoja = st.session_state[f"gid_{hoja_activa_tabla}"]
+# Lectura directa y siempre fresca directo de Google Sheets (sin estancar en sesión)
+header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+st.session_state[f"header1_{hoja_activa_tabla}"] = header1
+st.session_state[f"header2_{hoja_activa_tabla}"] = header2
+st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
 
 if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes.")
@@ -243,7 +235,6 @@ with col_btn2:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
 
-        # Parámetro anti-cache para evitar que la descarga entregue archivos viejos
         timestamp_cache_buster = int(datetime.datetime.now().timestamp())
         url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}&t={timestamp_cache_buster}"
         req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
@@ -325,14 +316,12 @@ if btn_eliminar:
     else:
         try:
             pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-            filas_actualizadas = list(filas_tabla)
             filas_gs_a_borrar = []
             
             for paciente_idx in pacientes_sorted:
                 if paciente_idx < len(mapeo_indices_pares):
                     idx_par_real = mapeo_indices_pares[paciente_idx]
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
-                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
             # 1. Conectar y eliminar en Google Sheets en tiempo real
             client = obtener_cliente_gspread()
