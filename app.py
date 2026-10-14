@@ -1,7 +1,6 @@
 import streamlit as st
-from config import UNIDADES_ISSSTE
 
-# Configuración inicial de la página sin depender de funciones externas restrictivas
+# Configuración de página de Streamlit
 st.set_page_config(
     page_title="Sistema Censo Nominal VIGILE",
     page_icon="💉",
@@ -14,6 +13,11 @@ st.markdown("""
         /* Ocultar elementos nativos de Streamlit Cloud */
         header[data-testid="stHeader"] { display: none !important; }
         #MainMenu { visibility: hidden !important; }
+        
+        /* Recuperar el fondo institucional elegante */
+        .stApp {
+            background-color: #f7f4eb !important;
+        }
         
         /* Limpiar contenedores y márgenes */
         .block-container {
@@ -40,7 +44,7 @@ st.markdown("""
             text-align: center; 
         }
         .card-menu { 
-            background-color: #f7f4eb; 
+            background-color: #ffffff; 
             border: 2px solid #a57f2c; 
             padding: 20px; 
             border-radius: 10px; 
@@ -56,9 +60,9 @@ st.markdown("""
             padding: 0.6rem 1.1rem !important; 
             width: 100%;
         }
-        /* Contenedor exclusivo y limpio para el login (sin marcos extraños) */
+        /* Contenedor exclusivo y limpio para el login */
         .auth-box { 
-            background: #f7f4eb; 
+            background: #ffffff; 
             padding: 30px; 
             border-radius: 12px; 
             border: 2px solid #a57f2c; 
@@ -92,7 +96,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
-        # Abrimos el contenedor limpio sin elementos vacíos arriba
         st.markdown('<div class="auth-box">', unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
         
@@ -129,7 +132,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                     st.error("Correo o contraseña incorrectos. Verifique sus datos o espacios en blanco.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Leyenda de derechos reservados en el inicio de sesión
     st.markdown("""
         <div class="footer-text">
             Subdelegación Sur ISSSTE<br>
@@ -143,7 +145,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # --- ACCESO RÁPIDO A ADMINISTRACIÓN EN LA PARTE SUPERIOR ---
     col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
     with col_top3:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
@@ -154,7 +155,6 @@ else:
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
 
-    # Verificación de parámetros URL institucionales
     params = st.query_params
     unidad_url = params.get("unidad", "").upper()
     jornada_url = params.get("jornada", "I").upper()
@@ -170,7 +170,7 @@ else:
 
     if unidad_url:
         st.markdown(f"""
-            <div style="background-color: #e8f0ec; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <div style="background-color: #ffffff; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
                 <span style="font-weight: bold; color: #1e5b4f; font-size: 1.1rem;">🔗 Enlace Institucional Detectado</span><br>
                 <span>Unidad clave: <b>{unidad_url}</b> | Modalidad: <b>{modalidad_texto}</b></span><br>
                 <span style="font-size: 0.85rem; color: #611232;">{'✨ Redirección especializada activada para CMN 20 de Noviembre.' if unidad_url == '20N' else ''}</span>
