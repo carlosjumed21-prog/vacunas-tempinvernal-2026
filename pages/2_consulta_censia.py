@@ -111,13 +111,14 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: st
         if len(all_values) >= 14:
             for idx, row in enumerate(all_values[13:], start=14):
                 if len(row) > 3 and row[1].strip() and row[2].strip():
+                    # Ajustado para abarcar el nuevo rango de columnas de la hoja CENSO (AG hasta AP -> índices 32 al 43)
                     ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
                     pacientes_cargados.append({
                         "fila": idx,
                         "folio": row[1].strip(),
-                        "paterno": row[2].strip(),
-                        "materno": row[3].strip() if len(row) > 3 else "",
-                        "nombres": row[4].strip() if len(row) > 4 else "",
+                        "paterno": row[2].strip() if sheet_id_objetivo != SHEET_ID_20_NOV else (row[13].strip() if len(row) > 13 else row[2].strip()),
+                        "materno": (row[3].strip() if len(row) > 3 else "") if sheet_id_objetivo != SHEET_ID_20_NOV else (row[14].strip() if len(row) > 14 else ""),
+                        "nombres": (row[4].strip() if len(row) > 4 else "") if sheet_id_objetivo != SHEET_ID_20_NOV else (row[12].strip() if len(row) > 12 else ""),
                         "ya_vacunado": ya_vacunado,
                     })
 
@@ -379,7 +380,6 @@ else:
             st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
 
         hoja_actual = hoja_seleccionada if hoja_seleccionada else ""
-        # CORRECCIÓN CLAVE: Se pasa el sheet_id_activo en el enlace para que ver_tabla.py sepa exactamente qué libro consultar
         url_externa = f"ver_tabla?hoja={urllib.parse.quote(hoja_actual)}&sheet_id={urllib.parse.quote(sheet_id_activo)}"
 
         st.markdown(
@@ -431,14 +431,21 @@ else:
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
 
+                    # Validación de vacunado ajustada al nuevo rango de columnas (AG hasta AP -> índices 32 al 43)
                     esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
                         st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
 
                     folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
-                    paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
-                    materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
-                    nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+                    
+                    if sheet_id_objetivo == SHEET_ID_20_NOV:
+                        paterno_p = fila_datos[13] if len(fila_datos) > 13 else ""
+                        materno_p = fila_datos[14] if len(fila_datos) > 14 else ""
+                        nombres_p = fila_datos[12] if len(fila_datos) > 12 else ""
+                    else:
+                        paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
+                        materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
+                        nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
 
                     # Extracción automática y robusta del correo desde la columna AX o cercanas
                     correo_ax_val = ""
@@ -672,7 +679,6 @@ else:
                     biologico_covid_elegido = "COVID-19"
 
                     if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
-                        # Asegurar el correo detectado antes de guardar en sesión
                         if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
                             st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
 
@@ -696,7 +702,6 @@ else:
                         if exito:
                             comprobante_actual = st.session_state.get("ultimo_comprobante_vacunacion", {})
                             
-                            # ENVÍO AUTOMÁTICO DEL CORREO OFICIAL AL GUARDAR
                             if correo_ax_val and "@" in correo_ax_val:
                                 enviado_ok, msg_correo = enviar_comprobante_correo(
                                     destinatario_email=correo_ax_val.strip(),
