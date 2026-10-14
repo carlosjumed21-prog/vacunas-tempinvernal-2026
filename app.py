@@ -146,7 +146,13 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
+    # Modificación aquí: Dividido en 3 columnas en la parte superior para Panel Admin y Cerrar Sesión
+    col_top1, col_top2, col_top3 = st.columns([3, 1, 1])
+    
+    with col_top2:
+        if st.button("⚙️ Panel Admin", use_container_width=True, key="btn_top_admin"):
+            st.switch_page("pages/3_administrador.py")
+            
     with col_top3:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
@@ -178,8 +184,8 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-    # Distribución en 3 columnas para incluir el Panel de Administración de forma directa
-    col1, col2, col3 = st.columns(3)
+    # Ahora el menú principal queda con 2 tarjetas (Registro Nominal y Operatividad)
+    col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("""
@@ -200,16 +206,6 @@ else:
         """, unsafe_allow_html=True)
         if st.button("Ir a CENSIA", use_container_width=True):
             st.switch_page("pages/2_consulta_censia.py")
-
-    with col3:
-        st.markdown("""
-            <div class="card-menu">
-                <h3>⚙️ Administración</h3>
-                <p>Gestión de jornadas, pestañas maestras y códigos QR.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("Ir al Panel Admin", use_container_width=True):
-            st.switch_page("pages/3_administrador.py")
 
     st.markdown("""
         <div class="footer-text">
