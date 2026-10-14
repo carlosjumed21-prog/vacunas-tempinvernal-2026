@@ -151,7 +151,7 @@ df_editado = render_tabla_con_estilos()
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-# --- ACCIÓN DE ELIMINACIÓN CON POPOVER FLOTANTE (SIN RELOADS INNECESARIOS) ---
+# --- BOTÓN DE ELIMINACIÓN Y SU MENÚ DE CONFIRMACIÓN FLOTANTE ---
 col_del, _ = st.columns([2, 5])
 with col_del:
     with st.popover("🗑️ Eliminar Paciente(s) Seleccionado(s)", use_container_width=True):
