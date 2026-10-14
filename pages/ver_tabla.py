@@ -155,7 +155,7 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-# --- VENTANA MODAL DE CONFIRMACIÓN DE SEGURIDAD ---
+# --- VENTANA MODAL DE CONFIRMACIÓN (Nativa, abre limpio sin recargar de más) ---
 @st.dialog("⚠️ Confirmación de Seguridad")
 def mostrar_dialogo_eliminacion(indices_marcados):
     num_pacientes = len({idx // 2 for idx in indices_marcados})
@@ -180,6 +180,7 @@ def mostrar_dialogo_eliminacion(indices_marcados):
                 st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
     with col_d2:
         if st.button("Cancelar", use_container_width=True):
+            # Cierra el diálogo limpiamente sin ejecutar ninguna acción ni recargas innecesarias
             st.rerun()
 
 # --- ACCIÓN DEL BOTÓN DE ELIMINAR ---
