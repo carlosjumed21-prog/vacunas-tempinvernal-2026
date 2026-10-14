@@ -63,43 +63,35 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS ---
+# --- CARGA ROBUSTA Y SEGURA DE GOOGLE SHEETS ---
 @st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
+        
+        # Verificar si la hoja existe exactamente en este libro
+        nombres_hojas = [w.title for w in spreadsheet_c.worksheets()]
+        if worksheet_name not in nombres_hojas:
+            st.error(f"❌ La pestaña '{worksheet_name}' no existe en el libro de Google Sheets consultado.")
+            return [], [], [], None
+
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        col_b = worksheet.col_values(2)
-
-        if len(col_b) < 14:
+        # Obtener todos los valores de forma segura sin depender exclusivamente de col_b
+        all_rows = worksheet.get_all_values()
+        
+        if len(all_rows) < 14:
             return [], [], [], worksheet.id
 
-        last_idx = len(col_b)
-        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
-            last_idx -= 1
-        if last_idx < 14:
-            return [], [], [], worksheet.id
+        header1 = all_rows[11] if len(all_rows) > 11 else [] # Fila 12 (índice 11)
+        header2 = all_rows[12] if len(all_rows) > 12 else [] # Fila 13 (índice 12)
+        data_rows = all_rows[13:] if len(all_rows) > 13 else [] # A partir de la fila 14
 
-        filas_data_count = last_idx - 13
-        if filas_data_count % 2 != 0:
-            last_idx += 1
-
-        range_headers_1 = "A12:AX12"
-        range_headers_2 = "A13:AX13"
-        range_data = f"A14:AX{last_idx}"
-
-        header1_rows = worksheet.get(range_headers_1)
-        header2_rows = worksheet.get(range_headers_2)
-        data_rows = worksheet.get(range_data)
-
-        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
-        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
-        return header1, header2, data_rows or [], worksheet.id
+        return header1, header2, data_rows, worksheet.id
 
     except Exception as e:
-        st.error(f"Error al leer la hoja {worksheet_name}: {e}")
+        st.error(f"Error al conectar o leer la hoja '{worksheet_name}': {e}")
         return [], [], [], None
 
 
@@ -112,13 +104,13 @@ if key_estado_filas not in st.session_state:
     st.session_state[f"header2_{hoja_activa_tabla}"] = header2
     st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
 else:
-    header1 = st.session_state[f"header1_{hoja_activa_tabla}"]
-    header2 = st.session_state[f"header2_{hoja_activa_tabla}"]
-    filas_tabla = st.session_state[key_estado_filas]
-    gid_hoja = st.session_state[f"gid_{hoja_activa_tabla}"]
+    header1 = st.session_state.get(f"header1_{hoja_activa_tabla}", [])
+    header2 = st.session_state.get(f"header2_{hoja_activa_tabla}", [])
+    filas_tabla = st.session_state.get(key_estado_filas, [])
+    gid_hoja = st.session_state.get(f"gid_{hoja_activa_tabla}", None)
 
 if not filas_tabla:
-    st.info("La jornada seleccionada no cuenta con registros suficientes.")
+    st.info("La jornada seleccionada no cuenta con registros suficientes o la estructura de la tabla no coincide (se esperan datos a partir de la fila 14).")
     st.stop()
 
 
