@@ -2,7 +2,7 @@
 import datetime
 import json
 import urllib.parse
-from config import GOOGLE_SCOPE, GOOGLE_SHEET_ID, aplicar_configuracion_global
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
 import gspread
 import streamlit as st
 import streamlit.components.v1 as components
@@ -51,7 +51,7 @@ def obtener_client_gspread_cacheado():
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPE)
+    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
     
 @st.cache_data(ttl=300)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
