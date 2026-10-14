@@ -36,9 +36,17 @@ st.markdown(
 
 params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
-sheet_id_tabla = params.get("sheet_id", GOOGLE_SHEET_ID).strip()
-if not sheet_id_tabla:
-    sheet_id_tabla = GOOGLE_SHEET_ID
+unidad_param = params.get("unidad", "").strip().upper()
+
+# --- UPGRADE: IDENTIFICACIÓN DINÁMICA DE SHEET ID (CMN 20 DE NOVIEMBRE) ---
+SHEET_ID_20_NOVIEMBRE = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
+
+if "20 DE NOVIEMBRE" in hoja_activa_tabla.upper() or "20_NOVIEMBRE" in unidad_param or "20 DE NOVIEMBRE" in unidad_param:
+    sheet_id_tabla = SHEET_ID_20_NOVIEMBRE
+else:
+    sheet_id_tabla = params.get("sheet_id", GOOGLE_SHEET_ID).strip()
+    if not sheet_id_tabla:
+        sheet_id_tabla = GOOGLE_SHEET_ID
 
 if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Abra esta vista desde el Módulo Operativo.")
@@ -70,15 +78,12 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         
-        # Verificar si la hoja existe exactamente en este libro
         nombres_hojas = [w.title for w in spreadsheet_c.worksheets()]
         if worksheet_name not in nombres_hojas:
             st.error(f"❌ La pestaña '{worksheet_name}' no existe en el libro de Google Sheets consultado.")
             return [], [], [], None
 
         worksheet = spreadsheet_c.worksheet(worksheet_name)
-        
-        # Obtener todos los valores de forma segura sin depender exclusivamente de col_b
         all_rows = worksheet.get_all_values()
         
         if len(all_rows) < 14:
