@@ -111,7 +111,6 @@ def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: st
         if len(all_values) >= 14:
             for idx, row in enumerate(all_values[13:], start=14):
                 if len(row) > 3 and row[1].strip() and row[2].strip():
-                    # Ajustado para abarcar el nuevo rango de columnas de la hoja CENSO (AG hasta AP -> índices 32 al 43)
                     ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
                     pacientes_cargados.append({
                         "fila": idx,
@@ -431,14 +430,14 @@ else:
                     fila_idx = int(seleccion_paciente.split("||")[1])
                     fila_datos = todos_los_datos[fila_idx - 1]
 
-                    # Validación de vacunado ajustada al nuevo rango de columnas (AG hasta AP -> índices 32 al 43)
                     esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
                     if esta_vacunado_actual:
                         st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
 
                     folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
                     
-                    if sheet_id_objetivo == SHEET_ID_20_NOV:
+                    # Corrección de la variable sheet_id_activo en lugar de sheet_id_objetivo
+                    if sheet_id_activo == SHEET_ID_20_NOV:
                         paterno_p = fila_datos[13] if len(fila_datos) > 13 else ""
                         materno_p = fila_datos[14] if len(fila_datos) > 14 else ""
                         nombres_p = fila_datos[12] if len(fila_datos) > 12 else ""
