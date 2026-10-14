@@ -48,17 +48,20 @@ def obtener_cliente_gspread_seguro():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-    elif "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-    else:
-        primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+    try:
+        if "GOOGLE_CREDENTIALS" in st.secrets:
+            raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
+            creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
+        elif "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+        else:
+            primera_llave = list(st.secrets.keys())[0]
+            creds_dict = dict(st.secrets[primera_llave])
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\\\n", "\n").replace("\\n", "\n")
+    except Exception:
+        creds_dict = {}
 
     return gspread.service_account_from_dict(creds_dict, scopes=scopes)
 
@@ -237,7 +240,6 @@ def obtener_registros_existentes_sheets(sigla_url, sufijo_js, tipo_jornada, val_
         gc = obtener_cliente_gspread_seguro()
         sh = gc.open_by_key(GOOGLE_SHEET_ID)
         
-        # Búsqueda adaptativa de la hoja según los parámetros actuales de la URL
         params = st.query_params
         fecha_url_str = params.get("fecha", val_fecha_app.strftime("%Y-%m-%d"))
         parts = fecha_url_str.split("-")
