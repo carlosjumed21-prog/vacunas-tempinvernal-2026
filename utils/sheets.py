@@ -8,8 +8,8 @@ from config import GOOGLE_SCOPES
 import gspread
 import streamlit as st
 
-# ID exclusivo para las demás unidades
-SHEET_ID_OTRAS_UNIDADES = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
+# ID exclusivo para las demás unidades (Actualizado con la hoja nativa)
+SHEET_ID_OTRAS_UNIDADES = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
 
 @st.cache_resource
 def obtener_cliente_gspread():
