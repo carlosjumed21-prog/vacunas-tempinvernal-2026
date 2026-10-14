@@ -1,763 +1,380 @@
-# pages/2_consulta_censia.py
-import datetime
-import json
-import urllib.parse
-from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID, aplicar_configuracion_global
-import gspread
 import streamlit as st
-import streamlit.components.v1 as components
-from utils.sheets_esquemas import obtener_recomendaciones_paciente
-from utils.logica_censia import procesar_guardado_aplicacion
-from utils.email_sender import enviar_comprobante_correo
+import pandas as pd
+import gspread
+import json
+import io
+import datetime
+import urllib.request
+from google.oauth2 import service_account
+from utils.sheets import obtener_cliente_gspread
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
-aplicar_configuracion_global("Guía CENSIA y Consulta Operativa", "📋")
+# --- CONFIGURACIÓN DE PANTALLA ANCHA ---
+st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
 
-# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
-SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
-
-# --- OCULTAR LA BARRA SUPERIOR NATIVA DE STREAMLIT Y AJUSTAR ESTILOS ---
 st.markdown(
     """
     <style>
         header {visibility: hidden;}
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
-        .main-header { font-size: 2.2rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.2rem; border-bottom: 3px solid #a57f2c; padding-bottom: 10px; }
-        .sub-header { font-size: 1.2rem !important; color: #611232 !important; margin-bottom: 1.5rem; font-weight: 700 !important; }
-        .section-title { font-size: 1.4rem !important; font-weight: 700 !important; color: #1e5b4f !important; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #e6d194; padding-bottom: 0.4rem; }
-        label, .stRadio label, .stCheckbox label, .stSelectbox label, .stDateInput label, .stTextInput label { font-size: 1.1rem !important; font-weight: 600 !important; color: #161a1d !important; }
-        input:disabled, select:disabled { color: #2c3e50 !important; -webkit-text-fill-color: #2c3e50 !important; background-color: #fcfcfc !important; }
+        [data-testid="stSidebar"] {display: none;}
+        .metric-card-0 { background-color: #f1f3f4; border: 2px solid #5f6368; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-1 { background-color: #eaf2f0; border: 2px solid #1e5b4f; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-2 { background-color: #e8f4fd; border: 2px solid #2980b9; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-3 { background-color: #d4edda; border: 2px solid #28a745; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-4 { background-color: #f8d7da; border: 2px solid #dc3545; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-5 { background-color: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-6 { background-color: #e1f5fe; border: 2px solid #0288d1; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-card-7 { background-color: #f3e5f5; border: 2px solid #8e24aa; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
+        .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
+        .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
     </style>
-""",
+    """,
     unsafe_allow_html=True,
 )
 
-# ============================================================
-# CLIENTE GOOGLE SEGURO Y NATIVO
-# ============================================================
-@st.cache_resource
-def obtener_client_gspread_cacheado():
-    """Autentica y retorna el cliente de gspread de forma nativa mediante service_account_from_dict."""
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-    elif "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-    else:
-        primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+if not GOOGLE_SHEET_ID:
+    st.error("❌ Falta configurar `GOOGLE_SHEET_ID` en los secretos de Streamlit.")
+    st.stop()
 
+params = st.query_params
+hoja_activa_tabla = params.get("hoja", "").strip()
+
+if not hoja_activa_tabla:
+    st.warning("⚠️ No se especificó ninguna jornada activa. Abra esta vista desde el Módulo Operativo.")
+    st.stop()
+
+
+# --- FUNCIÓN DE CREDENCIALES PARA DESCARGA AUTENTICADA ---
+def get_creds_from_secrets():
+    creds_dict = None
+    if "GOOGLE_CREDENTIALS" in st.secrets:
+        raw = st.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw) if isinstance(raw, str) else raw
+    else:
+        for k in st.secrets:
+            if k != "GOOGLE_SHEET_ID":
+                creds_dict = dict(st.secrets[k])
+                break
+    if not creds_dict:
+        raise KeyError("No se encontraron credenciales de servicio válidas en st.secrets.")
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
-    
-@st.cache_data(ttl=300)
-def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
-    """
-    Lista las hojas autorizadas tanto del libro general como del CMN 20 de Noviembre.
-    """
-    h_autorizadas = []
-    hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
+# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS ---
+@st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        client = obtener_client_gspread_cacheado()
+        client_c = obtener_cliente_gspread()
+        spreadsheet_c = client_c.open_by_key(spreadsheet_id)
+        worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        # 1. Revisar Libro General
-        spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
-        for h in spreadsheet_gen.worksheets():
-            if h.title not in hojas_plantillas_excluir:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                    except Exception:
-                        pass
+        col_b = worksheet.col_values(2)
 
-        # 2. Revisar Libro CMN 20 de Noviembre
-        spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
-        for h in spreadsheet_20n.worksheets():
-            if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                    except Exception:
-                        pass
-    except Exception as e:
-        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
-        return []
+        if len(col_b) < 14:
+            return [], [], [], worksheet.id
 
-    return h_autorizadas
+        last_idx = len(col_b)
+        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
+            last_idx -= 1
+        if last_idx < 14:
+            return [], [], [], worksheet.id
 
+        filas_data_count = last_idx - 13
+        if filas_data_count % 2 != 0:
+            last_idx += 1
 
-@st.cache_data(ttl=300)
-def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str):
-    """
-    Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
-    """
-    try:
-        client = obtener_client_gspread_cacheado()
-        spreadsheet = client.open_by_key(sheet_id_objetivo)
-        worksheet_activa = spreadsheet.worksheet(hoja_seleccionada)
-        all_values = worksheet_activa.get_all_values()
+        range_headers_1 = "A12:AX12"
+        range_headers_2 = "A13:AX13"
+        range_data = f"A14:AX{last_idx}"
 
-        pacientes_cargados = []
-        if len(all_values) >= 14:
-            for idx, row in enumerate(all_values[13:], start=14):
-                if len(row) > 3 and row[1].strip() and row[2].strip():
-                    ya_vacunado = any(str(row[i]).strip().upper() == "X" for i in range(32, min(43, len(row))))
-                    pacientes_cargados.append({
-                        "fila": idx,
-                        "folio": row[1].strip(),
-                        "paterno": row[2].strip(),
-                        "materno": row[3].strip() if len(row) > 3 else "",
-                        "nombres": row[4].strip() if len(row) > 4 else "",
-                        "ya_vacunado": ya_vacunado,
-                    })
+        header1_rows = worksheet.get(range_headers_1)
+        header2_rows = worksheet.get(range_headers_2)
+        data_rows = worksheet.get(range_data)
 
-        return pacientes_cargados, all_values, datetime.datetime.now().strftime("%d/%m/%Y"), worksheet_activa
+        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
+        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
+        return header1, header2, data_rows or [], worksheet.id
 
     except Exception as e:
-        st.error(f"Error al leer la hoja {hoja_seleccionada}: {e}")
-        return [], [], datetime.datetime.now().strftime("%d/%m/%Y"), None
+        st.error(f"Error al leer la hoja {worksheet_name}: {e}")
+        return [], [], [], None
 
 
-def crear_copia_hoja_externa(sheet_id_origen: str, nombre_hoja: str, correo_responsable: str):
-    """
-    Copia la hoja (pestaña) específica a un nuevo documento de Google Sheets propio,
-    lo renombra como 'COPIA + nombre de la hoja' y comparte permisos si es necesario.
-    Retorna la URL del nuevo documento creado.
-    """
-    try:
-        client = obtener_client_gspread_cacheado()
-        spreadsheet_origen = client.open_by_key(sheet_id_origen)
-        worksheet_origen = spreadsheet_origen.worksheet(nombre_hoja)
+key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
 
-        # Crear un nuevo libro de Google Sheets
-        nuevo_titulo = f"COPIA {nombre_hoja}"
-        nuevo_spreadsheet = client.create(nuevo_titulo)
-
-        # Copiar la pestaña de origen al nuevo libro
-        worksheet_origen.copyTo(nuevo_spreadsheet.id)
-
-        # Eliminar la pestaña por defecto que crea gspread al inicializar ("Hoja 1")
-        hoja_por_defecto = nuevo_spreadsheet.sheet1
-        if len(nuevo_spreadsheet.worksheets()) > 1:
-            nuevo_spreadsheet.del_sheet(hoja_por_defecto)
-
-        # Intentar compartir el archivo con el correo del panel si es válido
-        if correo_responsable and "@" in correo_responsable:
-            try:
-                nuevo_spreadsheet.share(correo_responsable, perm_type='user', role='writer')
-            except Exception:
-                pass
-
-        # Construir la URL pública de la nueva hoja de cálculo
-        url_nueva_hoja = f"https://docs.google.com/spreadsheets/d/{nuevo_spreadsheet.id}/edit"
-        return url_nueva_hoja
-    except Exception as e:
-        st.error(f"Error al generar la copia de la hoja en Google Drive: {e}")
-        return None
-
-
-# --- DIÁLOGO DE CONFIRMACIÓN PARA CERRAR SESIÓN ---
-@st.dialog("⚠️ ¿ESTÁS SEGURO DE SALIR?")
-def mostrar_dialogo_cerrar_sesion():
-    st.markdown("<b>Todos los datos, dosis y lotes registrados se han guardado automáticamente en Google Sheets.</b>", unsafe_allow_html=True)
-    st.markdown("¿Deseas cerrar sesión y regresar al menú principal?")
-
-    col_dlg1, col_dlg2 = st.columns(2)
-    with col_dlg1:
-        if st.button("Sí, Cerrar Sesión", use_container_width=True):
-            st.session_state.autenticado_consulta = False
-            st.session_state.correo_operativo_asignado = ""
-            st.session_state.ultimo_comprobante_vacunacion = None
-            if "input_busqueda_lupa" in st.session_state:
-                st.session_state.input_busqueda_lupa = ""
-            st.switch_page("app.py")
-    with col_dlg2:
-        if st.button("Cancelar", use_container_width=True):
-            st.rerun()
-
-
-# --- BOTÓN DE CIERRE DE SESIÓN EN LA CABECERA ---
-col_nav1, col_nav2, col_nav3 = st.columns([2, 1, 1])
-with col_nav3:
-    if st.button("🚪 Cerrar Sesión", use_container_width=True):
-        mostrar_dialogo_cerrar_sesion()
-
-st.markdown("---")
-
-if "lote_influenza_memoria" not in st.session_state:
-    st.session_state.lote_influenza_memoria = ""
-if "lote_covid_memoria" not in st.session_state:
-    st.session_state.lote_covid_memoria = ""
-
-if "autenticado_consulta" not in st.session_state:
-    st.session_state.autenticado_consulta = False
-if "correo_operativo_asignado" not in st.session_state:
-    st.session_state.correo_operativo_asignado = ""
-
-if "ultimo_comprobante_vacunacion" not in st.session_state:
-    st.session_state.ultimo_comprobante_vacunacion = None
-
-if "reiniciar_busqueda" not in st.session_state:
-    st.session_state.reiniciar_busqueda = False
-
-if st.session_state.reiniciar_busqueda:
-    st.session_state.input_busqueda_lupa = ""
-    st.session_state.reiniciar_busqueda = False
-
-
-@st.dialog("🎉 ¡VACUNACIÓN REGISTRADA - COMPROBANTE OFICIAL!")
-def mostrar_modal_comprobante_vacunacion():
-    p = st.session_state.get("ultimo_comprobante_vacunacion")
-    if p:
-        nombre_val = p.get("nombre", "PACIENTE")
-        folio_val = p.get("folio", "S/F")
-        dosis_val = p.get("dosis_str", "N/A")
-        lotes_val = p.get("lotes_str", "N/A")
-        fecha_val = p.get("fecha_aplicacion", datetime.datetime.now().strftime("%d/%m/%Y"))
-        correo_ax = p.get("correo_ax", "")
-
-        texto_qr = (
-            f"ISSSTE - COMPROBANTE OFICIAL VIGILE\n"
-            f"FOLIO: {folio_val}\n"
-            f"PACIENTE: {nombre_val}\n"
-            f"DOSIS: {dosis_val}\n"
-            f"LOTES: {lotes_val}\n"
-            f"FECHA APLICACIÓN: {fecha_val}\n"
-            f"ESTADO: VÁLIDO Y VERIFICADO"
-        )
-        url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(texto_qr)}"
-
-        html_comprobante_component = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <style>
-            body {{ font-family: sans-serif; margin: 0; padding: 0; background-color: transparent; }}
-            .card-comprobante {{ 
-                position: relative; background-color: #ffffff; border: 3px solid #1e5b4f; 
-                padding: 14px; border-radius: 10px; color: #161a1d; 
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; 
-            }}
-            .titulo-ticket {{ font-size: 0.90rem !important; font-weight: 900 !important; color: #1e5b4f !important; text-align: center; margin-top: 0; margin-bottom: 6px; z-index: 2; position: relative; }}
-            .cuerpo-ticket {{ display: flex; align-items: center; gap: 12px; z-index: 2; position: relative; }}
-            .info-container {{ flex: 1; z-index: 2; position: relative; }}
-            .qr-container {{ text-align: center; z-index: 2; position: relative; }}
-            .qr-container img {{ width: 100px; height: 100px; border: 2px solid #a57f2c; border-radius: 6px; padding: 3px; background: white; }}
-            .folio-grande {{ font-size: 1.05rem !important; font-weight: 900 !important; color: #611232 !important; text-align: center; background-color: #f7f4eb; padding: 5px; border-radius: 6px; }}
-            .info-text {{ margin: 3px 0; font-size: 0.78rem; }}
-            .watermark-overlay {{
-                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
-                pointer-events: none; z-index: 1; overflow: hidden;
-            }}
-            .watermark-row {{
-                display: flex; gap: 30px; white-space: nowrap; font-size: 0.82rem; font-weight: 900;
-                color: rgba(30, 91, 79, 0.08); text-transform: uppercase; letter-spacing: 2px; transform: rotate(-25deg);
-            }}
-
-            .btn-container {{ display: flex; gap: 8px; }}
-            .btn-img {{ width: 100%; padding: 0.65rem 0.4rem; font-size: 0.85rem; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-align: center; background-color: #1e5b4f; color: white; }}
-        </style>
-        </head>
-        <body>
-            <div id="comprobante-captura" class="card-comprobante">
-                <div class="watermark-overlay">
-                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
-                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
-                    <div class="watermark-row"><span>COMPROBANTE OFICIAL VIGILE</span><span>COMPROBANTE OFICIAL VIGILE</span></div>
-                </div>
-                <div class="titulo-ticket">COMPROBANTE DE VACUNACIÓN OFICIAL</div>
-                <div class="cuerpo-ticket">
-                    <div class="info-container">
-                        <p class="info-text"><b>Paciente:</b> {nombre_val}</p>
-                        <p class="info-text"><b>Dosis:</b> {dosis_val}</p>
-                        <p class="info-text"><b>Lotes:</b> {lotes_val}</p>
-                        <p class="info-text"><b>Fecha de Aplicación:</b> {fecha_val}</p>
-                    </div>
-                    <div class="qr-container"><img src="{url_qr_api}" alt="QR Verificación"></div>
-                </div>
-                <div class="folio-grande">Folio: {folio_val}</div>
-            </div>
-            <div class="btn-container">
-                <button class="btn-img" onclick="descargarCaptura()">📸 Descargar Comprobante</button>
-            </div>
-            <script>
-            function descargarCaptura() {{
-                const elemento = document.getElementById('comprobante-captura');
-                html2canvas(elemento, {{ scale: 2, useCORS: true }}).then(canvas => {{
-                    const enlace = document.createElement('a');
-                    enlace.download = 'Comprobante_Vacunacion_{folio_val}.png';
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }});
-            }}
-            </script>
-        </body>
-        </html>
-        """
-        components.html(html_comprobante_component, height=330)
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("##### ✉️ Enviar Comprobante por Correo Electrónico")
-        correo_destino_input = st.text_input("Correo electrónico del paciente:", value=correo_ax, placeholder="correo@ejemplo.com", key="input_correo_envio_modal")
-
-        if st.button("🚀 Enviar Comprobante por Correo", use_container_width=True, key="btn_enviar_mail_modal"):
-            if not correo_destino_input.strip():
-                st.warning("⚠️ Ingrese un correo electrónico válido.")
-            else:
-                exito, mensaje = enviar_comprobante_correo(
-                    destinatario_email=correo_destino_input.strip(),
-                    nombre_paciente=nombre_val,
-                    folio=folio_val,
-                    dosis_str=dosis_val,
-                    lotes_str=lotes_val,
-                    fecha_val=fecha_val,
-                    tipo="comprobante"
-                )
-                if exito:
-                    st.success(mensaje)
-                else:
-                    st.error(mensaje)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("✖ Cerrar Comprobante", use_container_width=True):
-            st.session_state.ultimo_comprobante_vacunacion = None
-            st.session_state.reiniciar_busqueda = True
-            st.rerun()
-
-
-if st.session_state.get("ultimo_comprobante_vacunacion") is not None:
-    mostrar_modal_comprobante_vacunacion()
-
-if not st.session_state.get("autenticado_consulta", False):
-    st.markdown('<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>', unsafe_allow_html=True)
-
-    with st.form("form_login_consulta"):
-        correo_operador_input = st.text_input("📧 Correo Electrónico Institucional:", placeholder="ejemplo@issste.gob.mx")
-        password = st.text_input("Contraseña:", type="password")
-        btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
-
-        if btn_login:
-            correo_limpio = correo_operador_input.strip().lower()
-            if not correo_limpio:
-                st.error("⚠️ Debe ingresar su correo electrónico.")
-            elif not password:
-                st.error("⚠️ Debe ingresar su contraseña.")
-            else:
-                if (correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26") or (password == "OperativoInv26"):
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_limpio
-                    st.rerun()
-                else:
-                    st.error("❌ Credenciales incorrectas. Verifique su correo y contraseña.")
+if key_estado_filas not in st.session_state:
+    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+    st.session_state[key_estado_filas] = filas_tabla
+    st.session_state[f"header1_{hoja_activa_tabla}"] = header1
+    st.session_state[f"header2_{hoja_activa_tabla}"] = header2
+    st.session_state[f"gid_{hoja_activa_tabla}"] = gid_hoja
 else:
-    st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
+    header1 = st.session_state[f"header1_{hoja_activa_tabla}"]
+    header2 = st.session_state[f"header2_{hoja_activa_tabla}"]
+    filas_tabla = st.session_state[key_estado_filas]
+    gid_hoja = st.session_state[f"gid_{hoja_activa_tabla}"]
 
-    correo_sesion = st.session_state.get("correo_operativo_asignado", "").strip().lower()
-    h_autorizadas = obtener_hojas_autorizadas_cacheadas(correo_sesion)
+if not filas_tabla:
+    st.info("La jornada seleccionada no cuenta con registros suficientes.")
+    st.stop()
 
-    if correo_sesion == "carlosju.med21@gmail.com":
-        st.markdown(f'<div class="section-title">👑 Vista Administrador Universal: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
-        opciones_select = [f"{item['titulo']}||{item['sheet_id']}" for item in h_autorizadas]
-        seleccion_jornada = st.selectbox(
-            "Seleccione la Hoja / Jornada a Operar:", 
-            options=opciones_select, 
-            format_func=lambda x: x.split("||")[0]
-        ) if opciones_select else None
+
+# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO A-L / AG-AQ ---
+def construir_dataset_y_metricas(filas_tabla, header1, header2):
+    encabezados_combinados = []
+    conteo_nombres = {}
+    max_cols = max(len(header1), len(header2), 50)
+
+    for idx in range(max_cols):
+        val1 = header1[idx].strip() if idx < len(header1) else ""
+        val2 = header2[idx].strip() if idx < len(header2) else ""
+
+        if val1 and val2 and val1 != val2:
+            col_str = f"{val1} - {val2}"
+        elif val2:
+            col_str = val2
+        elif val1:
+            col_str = val1
+        else:
+            col_str = f"Col_{idx+1}"
+
+        if col_str in conteo_nombres:
+            conteo_nombres[col_str] += 1
+            col_str = f"{col_str}_{conteo_nombres[col_str]}"
+        else:
+            conteo_nombres[col_str] = 0
+
+        encabezados_combinados.append(col_str)
+
+    filas_procesadas = []
+    mapeo_indices_pares = []
+    indices_filas_verdes = set()
+
+    total_censo_registros = 0
+    total_preregistros = 0
+    registros_nuevos_hoy = 0
+    total_aplicaciones = 0
+    total_sin_aplicar = 0
+    total_dosis_influenza = 0
+    total_dosis_covid = 0
+    total_simultaneas = 0
+    fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
+
+    for i in range(0, len(filas_tabla), 2):
+        f1 = filas_tabla[i] if i < len(filas_tabla) else []
+        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
         
-        if seleccion_jornada:
-            partes_sel = seleccion_jornada.split("||")
-            hoja_seleccionada = partes_sel[0]
-            sheet_id_activo = partes_sel[1]
-        else:
-            hoja_seleccionada = None
-            sheet_id_activo = GOOGLE_SHEET_ID
-    else:
-        st.markdown(f'<div class="section-title">1. Jornada Operativa Asignada a: <code>{correo_sesion}</code></div>', unsafe_allow_html=True)
-        if not h_autorizadas:
-            st.warning(f"⚠️ No se encontró ninguna hoja autorizada asociada al correo: **{correo_sesion}**.")
-            hoja_seleccionada = None
-            sheet_id_activo = GOOGLE_SHEET_ID
-        else:
-            hoja_seleccionada = h_autorizadas[0]["titulo"]
-            sheet_id_activo = h_autorizadas[0]["sheet_id"]
-            st.info(f"📋 Pestaña asignada automáticamente a tu cuenta: **{hoja_seleccionada}**")
+        f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
+        f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
-    if correo_sesion != "carlosju.med21@gmail.com":
-        params_url = st.query_params
-        hoja_enlace = params_url.get("hoja_activa", "")
-        if hoja_enlace:
-            for item in h_autorizadas:
-                if item["titulo"] == hoja_enlace:
-                    hoja_seleccionada = item["titulo"]
-                    sheet_id_activo = item["sheet_id"]
-                    break
+        if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
+            total_censo_registros += 1
 
-    if hoja_seleccionada:
-        try:
-            pacientes_cargados, todos_los_datos, fecha_aplicacion_hoja, worksheet_activa = cargar_pacientes_hoja_cacheada(hoja_seleccionada, sheet_id_activo)
-        except Exception as e:
-            pacientes_cargados = []
-            todos_los_datos = []
-            worksheet_activa = None
-            st.error(f"Error al leer los datos de la hoja {hoja_seleccionada}: {e}")
-
-        hoja_actual = hoja_seleccionada if hoja_seleccionada else ""
-        
-        # Generar la copia externa de la hoja y obtener su enlace personalizado al hacer clic o mediante un botón interactivo
-        col_btn_copia1, col_btn_copia2 = st.columns([2, 2])
-        with col_btn_copia1:
-            if st.button("📋 Crear Copia y Abrir en Nueva Hoja de Cálculo", use_container_width=True):
-                with st.spinner("Generando copia independiente de la hoja en Google Drive..."):
-                    url_copia_generada = crear_copia_hoja_externa(sheet_id_activo, hoja_actual, correo_sesion)
-                    if url_copia_generada:
-                        st.success("¡Copia creada exitosamente!")
-                        st.markdown(
-                            f"""
-                            <div style="margin-top: 10px; margin-bottom: 15px;">
-                                <a href="{url_copia_generada}" target="_blank" style="background-color: #a57f2c; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">
-                                    🔗 Abrir COPIA: {hoja_actual}
-                                </a>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-        st.markdown('<div class="section-title">2. Lupa de Búsqueda Rápida y Registro</div>', unsafe_allow_html=True)
-
-        col_busq1, col_busq2 = st.columns([4, 1])
-        with col_busq1:
-            query_busqueda = st.text_input("🔍 Buscar por Folio, Apellido o Nombre:", placeholder="Escriba parte del folio, apellido o nombre...", key="input_busqueda_lupa")
-        with col_busq2:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("🔄 Actualizar Lupa", use_container_width=True):
-                st.rerun()
-
-        if not pacientes_cargados:
-            st.info("La jornada seleccionada aún no cuenta con pacientes registrados en el censo.")
-        else:
-            q_clean = query_busqueda.strip().upper()
-            pacientes_filtrados = pacientes_cargados if not q_clean else [
-                p for p in pacientes_cargados if q_clean in p["folio"].upper() or q_clean in p["paterno"].upper() or q_clean in p["materno"].upper() or q_clean in p["nombres"].upper()
-            ]
-
-            if not pacientes_filtrados:
-                if q_clean:
-                    st.warning("No se encontraron pacientes que coincidan con la búsqueda.")
-                else:
-                    st.info("ℹ️ Ingrese un criterio de búsqueda (Folio, Apellido o Nombre) para localizar y evaluar al paciente.")
+            fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else ""
+            if fecha_fila == fecha_hoy_str:
+                registros_nuevos_hoy += 1
             else:
-                opciones_busqueda = [
-                    f"{p['folio']} - {p['paterno']} {p['materno']}, {p['nombres']} {'(🟢 YA VACUNADO)' if p['ya_vacunado'] else ''}||{p['fila']}"
-                    for p in pacientes_filtrados
-                ]
+                total_preregistros += 1
 
-                if not q_clean:
-                    opciones_busqueda.insert(0, "Seleccione un paciente de la lista...||0")
+            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
+            if tiene_aplicacion:
+                total_aplicaciones += 1
+            else:
+                total_sin_aplicar += 1
 
-                seleccion_paciente = st.selectbox("Seleccione del listado de coincidencias:", options=opciones_busqueda, format_func=lambda x: x.split("||")[0])
+            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj))))
+            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f1_adj)))) if len(f1_adj) > 37 else False
 
-                if seleccion_paciente and not seleccion_paciente.startswith("Seleccione un paciente"):
-                    fila_idx = int(seleccion_paciente.split("||")[1])
-                    fila_datos = todos_los_datos[fila_idx - 1]
+            if tiene_influenza and not tiene_covid:
+                total_dosis_influenza += 1
+            elif tiene_covid and not tiene_influenza:
+                total_dosis_covid += 1
+            elif tiene_influenza and tiene_covid:
+                total_simultaneas += 1
 
-                    esta_vacunado_actual = any(str(fila_datos[i]).strip().upper() == "X" for i in range(32, min(43, len(fila_datos))))
-                    if esta_vacunado_actual:
-                        st.warning("⚠️ **AVISO:** Este paciente ya tiene registrada la aplicación de su vacuna en el censo.")
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+            indices_filas_verdes.add(len(filas_procesadas))
+            indices_filas_verdes.add(len(filas_procesadas) + 1)
 
-                    folio_p = fila_datos[1] if len(fila_datos) > 1 else ""
-                    paterno_p = fila_datos[2] if len(fila_datos) > 2 else ""
-                    materno_p = fila_datos[3] if len(fila_datos) > 3 else ""
-                    nombres_p = fila_datos[4] if len(fila_datos) > 4 else ""
+        indices_deseados = list(range(0, 12)) + list(range(32, 43))
 
-                    # Extracción automática y robusta del correo desde la columna AX o cercanas
-                    correo_ax_val = ""
-                    for idx_col in [49, 50, 48, len(fila_datos) - 1]:
-                        if len(fila_datos) > idx_col and "@" in str(fila_datos[idx_col]):
-                            correo_ax_val = str(fila_datos[idx_col]).strip()
-                            break
+        f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
+        f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
 
-                    dd_n = fila_datos[5] if len(fila_datos) > 5 else "01"
-                    mm_n = fila_datos[6] if len(fila_datos) > 6 else "01"
-                    yy_n = fila_datos[7] if len(fila_datos) > 7 else "2000"
+        fila_v1 = [False] + f1_filtrado
+        fila_v2 = [None] + f2_filtrado
 
+        filas_procesadas.append(fila_v1)
+        filas_procesadas.append(fila_v2)
+        mapeo_indices_pares.append(i)
+
+    indices_deseados = list(range(0, 12)) + list(range(32, 43))
+    encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
+
+    metricas = {
+        "total_censo_registros": total_censo_registros,
+        "total_preregistros": total_preregistros,
+        "registros_nuevos_hoy": registros_nuevos_hoy,
+        "total_aplicaciones": total_aplicaciones,
+        "total_sin_aplicar": total_sin_aplicar,
+        "total_dosis_influenza": total_dosis_influenza,
+        "total_dosis_covid": total_dosis_covid,
+        "total_simultaneas": total_simultaneas,
+    }
+
+    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
+
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
+df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
+
+
+# --- INTERFAZ FIJA ---
+st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
+
+col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
+with col_btn1:
+    if st.button("🔄 Actualizar Datos", width="stretch", key="btn_reload_header"):
+        st.cache_data.clear()
+        if key_estado_filas in st.session_state:
+            del st.session_state[key_estado_filas]
+        st.rerun()
+
+with col_btn2:
+    try:
+        creds = get_creds_from_secrets()
+        if not creds.valid:
+            from google.auth.transport.requests import Request
+            creds.refresh(Request())
+
+        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+        req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
+
+        with urllib.request.urlopen(req) as response:
+            excel_original_bytes = response.read()
+
+        st.download_button(
+            label="📥 Descargar Hoja Excel",
+            data=excel_original_bytes,
+            file_name=f"{hoja_activa_tabla}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            width="stretch",
+        )
+    except Exception as err:
+        st.error(f"No se pudo descargar el archivo: {err}")
+
+st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+
+# Métricas
+m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+with m1: st.markdown(f'<div class="metric-card-0"><div class="metric-label">Censo Total</div><div class="metric-value">{metricas["total_censo_registros"]}</div></div>', unsafe_allow_html=True)
+with m2: st.markdown(f'<div class="metric-card-1"><div class="metric-label">Pre-Registros</div><div class="metric-value">{metricas["total_preregistros"]}</div></div>', unsafe_allow_html=True)
+with m3: st.markdown(f'<div class="metric-card-2"><div class="metric-label">Registros Hoy</div><div class="metric-value">{metricas["registros_nuevos_hoy"]}</div></div>', unsafe_allow_html=True)
+with m4: st.markdown(f'<div class="metric-card-3"><div class="metric-label">Aplicaciones</div><div class="metric-value">{metricas["total_aplicaciones"]}</div></div>', unsafe_allow_html=True)
+with m5: st.markdown(f'<div class="metric-card-4"><div class="metric-label">Sin Aplicar</div><div class="metric-value">{metricas["total_sin_aplicar"]}</div></div>', unsafe_allow_html=True)
+with m6: st.markdown(f'<div class="metric-card-5"><div class="metric-label">Influenza</div><div class="metric-value">{metricas["total_dosis_influenza"]}</div></div>', unsafe_allow_html=True)
+with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVID</div><div class="metric-value">{metricas["total_dosis_covid"]}</div></div>', unsafe_allow_html=True)
+with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
+
+st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
+col_del, _ = st.columns([2, 5])
+with col_del:
+    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", width="stretch")
+
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
+
+# --- FRAGMENTO AISLADO PARA LA TABLA ---
+@st.fragment
+def render_tabla_con_estilos():
+    def color_filas_completas(row):
+        if row.name in indices_filas_verdes:
+            return ["background-color: #e2f0d9; color: #111111"] * len(row)
+        return [""] * len(row)
+
+    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+    column_configs = {
+        "SELECCIONAR": st.column_config.CheckboxColumn(
+            "¿Seleccionar?",
+            help="Marque la casilla para seleccionar este paciente",
+            default=False,
+        )
+    }
+    for col in encabezados_combinados:
+        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+    return st.data_editor(
+        df_estilizado,
+        width="stretch",
+        height=550,
+        hide_index=True,
+        column_config=column_configs,
+        key="editor_tabla_censo",
+    )
+
+df_editado = render_tabla_con_estilos()
+
+
+# --- ACCIÓN DE ELIMINACIÓN: VISTA PREVIA Y GOOGLE SHEETS EN TIEMPO REAL ---
+if btn_eliminar:
+    indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+
+    if not pacientes_a_eliminar:
+        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
+    else:
+        try:
+            pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
+            filas_actualizadas = list(filas_tabla)
+            filas_gs_a_borrar = []
+            
+            for paciente_idx in pacientes_sorted:
+                if paciente_idx < len(mapeo_indices_pares):
+                    idx_par_real = mapeo_indices_pares[paciente_idx]
+                    filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
+                    del filas_actualizadas[idx_par_real:idx_par_real + 2]
+
+            # 1. Actualizar de inmediato el estado en sesión para limpiar la vista previa al milisegundo
+            st.session_state[key_estado_filas] = filas_actualizadas
+
+            # 2. Conectar y eliminar en Google Sheets por detrás
+            client = obtener_cliente_gspread()
+            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            ws = spreadsheet.worksheet(hoja_activa_tabla)
+
+            filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
+            for fila_gs in filas_gs_a_borrar:
+                try:
+                    ws.delete_rows(fila_gs)
+                except Exception:
+                    pass
+
+            # 3. Reordenar contadores de folios en Google Sheets
+            datos_actualizados = ws.get_all_values()
+            if len(datos_actualizados) >= 14:
+                filas_actuales = datos_actualizados[13:]
+                contador = 1
+                updates = []
+                for i in range(0, len(filas_actuales), 2):
+                    row = filas_actuales[i]
+                    if len(row) > 0 and row[0].strip() != "":
+                        a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                        updates.append({"range": a1, "values": [[str(contador)]]})
+                        contador += 1
+                if updates:
                     try:
-                        d_n_int = int(dd_n)
-                        m_n_int = int(mm_n)
-                        y_n_int = int(yy_n)
-                        f_nac = datetime.date(y_n_int, m_n_int, d_n_int)
-                        f_hoy = datetime.date.today()
-                        edad_meses_calc = (f_hoy.year - f_nac.year) * 12 + (f_hoy.month - f_nac.month)
-                        if f_hoy.day < f_nac.day:
-                            edad_meses_calc -= 1
-                    except:
-                        edad_meses_calc = 372
+                        ws.batch_update(updates)
+                    except Exception:
+                        pass
 
-                    sexo_p = fila_datos[10] if len(fila_datos) > 10 else "H"
-                    curp_actual = todos_los_datos[fila_idx][2].strip() if len(todos_los_datos) > fila_idx and len(todos_los_datos[fila_idx]) > 2 else ""
+            # 4. Refresco dinámico instantáneo de la interfaz
+            st.rerun()
 
-                    vacuna_registrada = "AMBAS"
-                    if len(fila_datos) > 47:
-                        at_val = fila_datos[45].strip().upper() if len(fila_datos) > 45 else ""
-                        au_val = fila_datos[46].strip().upper() if len(fila_datos) > 46 else ""
-                        av_val = fila_datos[47].strip().upper() if len(fila_datos) > 47 else ""
-                        if av_val == "X" or (at_val == "X" and au_val == "X"):
-                            vacuna_registrada = "AMBAS"
-                        elif at_val == "X":
-                            vacuna_registrada = "INFLUENZA"
-                        elif au_val == "X":
-                            vacuna_registrada = "COVID-19"
-
-                    lista_riesgos_detectados = []
-                    def tiene_equis(col_idx):
-                        return len(fila_datos) > col_idx and fila_datos[col_idx].strip().upper() == "X"
-
-                    es_riesgo = False
-                    if tiene_equis(15) or tiene_equis(16):
-                        lista_riesgos_detectados.append("6 A 59 MESES" if tiene_equis(15) else "60 AÑOS Y MAS")
-                        categoria_paciente = "POBLACIÓN OBJETIVO"
-                    else:
-                        categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                    comorb_map = {
-                        17: "EMBARAZADAS",
-                        18: "PERSONAL DE SALUD",
-                        19: "VIH",
-                        20: "DIABETES",
-                        21: "OBESIDAD",
-                        22: "CARDIOPATÍAS",
-                        23: "ENFERMEDAD PULMONAR",
-                        24: "CÁNCER",
-                        25: "CONGÉNITAS",
-                        26: "INSUFICIENCIA RENAL",
-                        27: "INMUNOSUPRESIÓN",
-                        28: "DISCAPACIDAD",
-                        29: "FIBROSIS QUÍSTICA",
-                        30: "HIPERTENSIÓN",
-                    }
-                    for idx_c, nom_c in comorb_map.items():
-                        if tiene_equis(idx_c):
-                            lista_riesgos_detectados.append(nom_c)
-                            es_riesgo = True
-
-                    if len(fila_datos) > 31 and fila_datos[31].strip():
-                        lista_riesgos_detectados.append(fila_datos[31].strip().upper())
-                        es_riesgo = True
-
-                    if es_riesgo:
-                        categoria_paciente = "POBLACIÓN DE RIESGO"
-
-                    grupo_riesgos_str = ", ".join(lista_riesgos_detectados) if lista_riesgos_detectados else "NINGUNO"
-                    grupo_detallado_vista = f"{categoria_paciente} ({grupo_riesgos_str})"
-
-                    st.markdown(f"##### 📋 Datos Generales del Paciente (Folio: `{folio_p}` — Vacuna Solicitada: **{vacuna_registrada}** — Grupo: **{grupo_detallado_vista}**)")
-
-                    habilitar_edicion = st.checkbox("🔓 Habilitar campos para edición en vivo", key=f"chk_edit_{fila_idx}")
-
-                    c_ed1, c_ed2, c_ed3 = st.columns(3)
-                    with c_ed1:
-                        ed_paterno = st.text_input("Apellido Paterno:", value=paterno_p, disabled=not habilitar_edicion, key=f"ed_pat_{fila_idx}")
-                    with c_ed2:
-                        ed_materno = st.text_input("Apellido Materno:", value=materno_p, disabled=not habilitar_edicion, key=f"ed_mat_{fila_idx}")
-                    with c_ed3:
-                        ed_nombres = st.text_input("Nombres:", value=nombres_p, disabled=not habilitar_edicion, key=f"ed_nom_{fila_idx}")
-
-                    c_ed4, c_ed5, c_ed6, c_ed7 = st.columns([1, 1, 1, 3])
-                    with c_ed4:
-                        ed_d = st.text_input("Día (Nac):", value=dd_n, disabled=not habilitar_edicion, key=f"ed_d_{fila_idx}")
-                    with c_ed5:
-                        ed_m = st.text_input("Mes (Nac):", value=mm_n, disabled=not habilitar_edicion, key=f"ed_m_{fila_idx}")
-                    with c_ed6:
-                        ed_y = st.text_input("Año (Nac):", value=yy_n, disabled=not habilitar_edicion, key=f"ed_y_{fila_idx}")
-                    with c_ed7:
-                        ed_sexo = st.selectbox("Sexo:", options=["H", "M"], index=0 if sexo_p == "H" else 1, disabled=not habilitar_edicion, key=f"ed_sex_{fila_idx}")
-
-                    ed_curp = st.text_input("CURP:", value=curp_actual, max_chars=18, disabled=not habilitar_edicion, key=f"ed_curp_{fila_idx}")
-
-                    st.markdown('<div class="section-title">3. Guía y Lineamientos CENSIA (Tarjetas de Grupos Prioritarios)</div>', unsafe_allow_html=True)
-
-                    antecedente_vacunal = "NO"
-                    matches_inf, matches_covid = obtener_recomendaciones_paciente(categoria_paciente, lista_riesgos_detectados, vacuna_registrada, edad_meses_calc, antecedente_vacunal)
-
-                    mostrar_influenza = vacuna_registrada in ["INFLUENZA", "AMBAS"]
-                    mostrar_covid = vacuna_registrada in ["COVID-19", "AMBAS"]
-
-                    match_inf_prioritario = matches_inf[0] if matches_inf else None
-                    match_cov_prioritario = matches_covid[0] if matches_covid else None
-
-                    col_card1, col_card2 = st.columns(2)
-                    with col_card1:
-                        if mostrar_influenza and match_inf_prioritario:
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #1e5b4f; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
-                                    <h4 style="color: #1e5b4f; margin-top: 0;">💉 Influenza Estacional</h4>
-                                    <p><b>Categoría:</b> {match_inf_prioritario.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos:</b> {match_inf_prioritario.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema:</b> {match_inf_prioritario.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis:</b> {match_inf_prioritario.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo:</b> {match_inf_prioritario.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación:</b> {match_inf_prioritario.get('recomendacion', 'N/A')}</p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-
-                    with col_card2:
-                        if mostrar_covid and match_cov_prioritario:
-                            st.markdown(
-                                f"""
-                                <div style="background-color: #f7f4eb; border: 2px solid #611232; padding: 15px; border-radius: 8px; margin-bottom: 15px; min-height: 280px;">
-                                    <h4 style="color: #611232; margin-top: 0;">🦠 COVID-19</h4>
-                                    <p><b>Categoría:</b> {match_cov_prioritario.get('categoria', 'N/A')}</p>
-                                    <p><b>Grupos blancos:</b> {match_cov_prioritario.get('grupos_blancos', 'N/A')}</p>
-                                    <p><b>Esquema:</b> {match_cov_prioritario.get('esquema', 'N/A')}</p>
-                                    <p><b>Dosis:</b> {match_cov_prioritario.get('dosis', 'N/A')}</p>
-                                    <p><b>Intervalo:</b> {match_cov_prioritario.get('intervalo', 'N/A')}</p>
-                                    <p><b>Recomendación:</b> {match_cov_prioritario.get('recomendacion', 'N/A')}</p>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-
-                    st.markdown('<div class="section-title">4. Registro de Dosis Aplicadas, Lotes y Caducidad</div>', unsafe_allow_html=True)
-
-                    meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-                    meses_dict_num = {
-                        "Enero": "01", "Febrero": "02", "Marzo": "03", "Abril": "04",
-                        "Mayo": "05", "Junio": "06", "Julio": "07", "Agosto": "08",
-                        "Septiembre": "09", "Octubre": "10", "Noviembre": "11", "Diciembre": "12"
-                    }
-
-                    st.markdown("##### 💉 INFLUENZA")
-                    c_inf_d1, c_inf_d2, c_inf_d3 = st.columns(3)
-                    with c_inf_d1:
-                        inf_1ra = st.checkbox("1ra dosis", key=f"chk_inf_1ra_{fila_idx}")
-                    with c_inf_d2:
-                        inf_2da = st.checkbox("2da dosis", key=f"chk_inf_2da_{fila_idx}")
-                    with c_inf_d3:
-                        inf_anual = st.checkbox("Anual", key=f"chk_inf_anual_{fila_idx}")
-
-                    tiene_dosis_influenza = inf_1ra or inf_2da or inf_anual
-
-                    c_inf_l, c_inf_c = st.columns(2)
-                    with c_inf_l:
-                        lote_inf_input = st.text_input("Lote Influenza", value=st.session_state.lote_influenza_memoria, placeholder="Ej. A1234", key=f"lote_inf_{fila_idx}", disabled=not tiene_dosis_influenza)
-                    with c_inf_c:
-                        if tiene_dosis_influenza:
-                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#1e5b4f; margin-bottom:2px;'>📅 Fecha Caducidad Influenza:</p>", unsafe_allow_html=True)
-                            c_ci1, c_ci2, c_ci3 = st.columns(3)
-                            with c_ci1:
-                                cad_i_d = st.selectbox("Día Inf", options=[str(d).zfill(2) for d in range(1, 32)], key=f"cal_inf_d_{fila_idx}", label_visibility="collapsed")
-                            with c_ci2:
-                                cad_i_m_nombre = st.selectbox("Mes Inf", options=meses_nombres, key=f"cal_inf_m_{fila_idx}", label_visibility="collapsed")
-                                cad_i_m = meses_dict_num[cad_i_m_nombre]
-                            with c_ci3:
-                                anio_actual = datetime.date.today().year
-                                cad_i_y = st.selectbox("Año Inf", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key=f"cal_inf_y_{fila_idx}", label_visibility="collapsed")
-                            cad_inf_input = f"{cad_i_d}/{cad_i_m}/{cad_i_y}"
-                        else:
-                            cad_inf_input = st.text_input("Caducidad Influenza (DD/MM/AAAA)", value="", placeholder="DD/MM/AAAA", key=f"cad_inf_disabled_{fila_idx}", disabled=True)
-
-                    if not tiene_dosis_influenza:
-                        st.info("🔒 Marque al menos una casilla de Influenza para habilitar el lote y la fecha de caducidad.")
-
-                    st.markdown("---")
-
-                    st.markdown("##### 🦠 COVID-19")
-                    c_cov_d1, c_cov_d2, c_cov_d3 = st.columns(3)
-                    with c_cov_d1:
-                        cov_1ra = st.checkbox("COVID 1ra", key=f"chk_cov_1ra_{fila_idx}")
-                    with c_cov_d2:
-                        cov_2da = st.checkbox("COVID 2da", key=f"chk_cov_2da_{fila_idx}")
-                    with c_cov_d3:
-                        cov_anual = st.checkbox("Anual", key=f"chk_cov_anual_{fila_idx}")
-
-                    tiene_dosis_covid = cov_1ra or cov_2da or cov_anual
-
-                    c_cov_l, c_cov_c = st.columns(2)
-                    with c_cov_l:
-                        lote_cov_input = st.text_input("Lote COVID-19", value=st.session_state.lote_covid_memoria, placeholder="Ej. C5678", key=f"lote_cov_{fila_idx}", disabled=not tiene_dosis_covid)
-                    with c_cov_c:
-                        if tiene_dosis_covid:
-                            st.markdown("<p style='font-size:0.85rem; font-weight:bold; color:#611232; margin-bottom:2px;'>📅 Fecha Caducidad COVID-19:</p>", unsafe_allow_html=True)
-                            c_cc1, c_cc2, c_cc3 = st.columns(3)
-                            with c_cc1:
-                                cad_c_d = st.selectbox("Día Cov", options=[str(d).zfill(2) for d in range(1, 32)], key=f"cal_cov_d_{fila_idx}", label_visibility="collapsed")
-                            with c_cc2:
-                                cad_c_m_nombre = st.selectbox("Mes Cov", options=meses_nombres, key=f"cal_cov_m_{fila_idx}", label_visibility="collapsed")
-                                cad_c_m = meses_dict_num[cad_c_m_nombre]
-                            with c_cc3:
-                                anio_actual = datetime.date.today().year
-                                cad_c_y = st.selectbox("Año Cov", options=[str(a) for a in range(anio_actual, anio_actual + 6)], key=f"cal_cov_y_{fila_idx}", label_visibility="collapsed")
-                            cad_cov_input = f"{cad_c_d}/{cad_c_m}/{cad_c_y}"
-                        else:
-                            cad_cov_input = st.text_input("Caducidad COVID (DD/MM/AAAA)", value="", placeholder="DD/MM/AAAA", key=f"cad_cov_disabled_{fila_idx}", disabled=True)
-
-                    if not tiene_dosis_covid:
-                        st.info("🔒 Marque al menos una casilla de COVID-19 para habilitar el lote y la fecha de caducidad.")
-
-                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-
-                    biologico_covid_elegido = "COVID-19"
-
-                    if st.button("💾 Guardar Aplicación y Actualizar Hoja Sheets", use_container_width=True, key=f"btn_guardar_{fila_idx}"):
-                        # Asegurar el correo detectado antes de guardar en sesión
-                        if "ultimo_comprobante_vacunacion" in st.session_state and st.session_state.ultimo_comprobante_vacunacion:
-                            st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
-
-                        exito = procesar_guardado_aplicacion(
-                            worksheet_activa=worksheet_activa,
-                            fila_idx=fila_idx,
-                            todos_los_datos=todos_los_datos,
-                            inf_1ra=inf_1ra, inf_2da=inf_2da, inf_anual=inf_anual,
-                            cov_1ra=cov_1ra, cov_2da=cov_2da, cov_anual=cov_anual,
-                            lote_inf_input=lote_inf_input, cad_inf_input=cad_inf_input,
-                            lote_cov_input=lote_cov_input, cad_cov_input=cad_cov_input,
-                            biologico_covid_elegido=biologico_covid_elegido,
-                            habilitar_edicion=habilitar_edicion,
-                            ed_paterno=ed_paterno, ed_materno=ed_materno, ed_nombres=ed_nombres,
-                            ed_d=ed_d, ed_m=ed_m, ed_y=ed_y, ed_sexo=ed_sexo, ed_curp=ed_curp,
-                            paterno_p=paterno_p, materno_p=materno_p, nombres_p=nombres_p,
-                            fecha_aplicacion_hoja=fecha_aplicacion_hoja,
-                            sheet_id_objetivo=sheet_id_activo
-                        )
-
-                        if exito:
-                            comprobante_actual = st.session_state.get("ultimo_comprobante_vacunacion", {})
-                            
-                            # ENVÍO AUTOMÁTICO DEL CORREO OFICIAL AL GUARDAR
-                            if correo_ax_val and "@" in correo_ax_val:
-                                enviado_ok, msg_correo = enviar_comprobante_correo(
-                                    destinatario_email=correo_ax_val.strip(),
-                                    nombre_paciente=comprobante_actual.get("nombre", f"{paterno_p} {materno_p}, {nombres_p}"),
-                                    folio=comprobante_actual.get("folio", folio_p),
-                                    dosis_str=comprobante_actual.get("dosis_str", "Vacunación Aplicada"),
-                                    lotes_str=comprobante_actual.get("lotes_str", "N/A"),
-                                    fecha_val=comprobante_actual.get("fecha_aplicacion", fecha_aplicacion_hoja),
-                                    tipo="comprobante"
-                                )
-                                if enviado_ok:
-                                    st.success(f"📧 Comprobante oficial enviado exitosamente a: {correo_ax_val}")
-                                else:
-                                    st.error(f"❌ Error al enviar el correo automático: {msg_correo}")
-                            else:
-                                st.warning("⚠️ El paciente no cuenta con un correo electrónico registrado en la columna AX para el envío automático.")
-
-                            if st.session_state.get("ultimo_comprobante_vacunacion"):
-                                st.session_state.ultimo_comprobante_vacunacion["correo_ax"] = correo_ax_val
-                            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
