@@ -131,6 +131,8 @@ def mostrar_dialogo_cerrar_sesion():
     with col_dlg1:
         if st.button("Sí, Cerrar Sesión", use_container_width=True):
             st.session_state.autenticado_consulta = False
+            st.session_state.auth_registro = False
+            st.session_state.es_admin = False
             st.session_state.correo_operativo_asignado = ""
             st.session_state.ultimo_comprobante_vacunacion = None
             if "input_busqueda_lupa" in st.session_state:
@@ -299,29 +301,18 @@ def mostrar_modal_comprobante_vacunacion():
 if st.session_state.get("ultimo_comprobante_vacunacion") is not None:
     mostrar_modal_comprobante_vacunacion()
 
-if not st.session_state.get("autenticado_consulta", False):
+# COMPROBACIÓN UNIFICADA DE SESIÓN CON app.py
+if not st.session_state.get("auth_registro", False) and not st.session_state.get("autenticado_consulta", False):
     st.markdown('<p class="main-header">Acceso Restringido - Módulo Operativo CENSIA</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña institucional</p>', unsafe_allow_html=True)
-
-    with st.form("form_login_consulta"):
-        correo_operador_input = st.text_input("📧 Correo Electrónico Institucional:", placeholder="ejemplo@issste.gob.mx")
-        password = st.text_input("Contraseña:", type="password")
-        btn_login = st.form_submit_button("Iniciar Sesión Operativa", use_container_width=True)
-
-        if btn_login:
-            correo_limpio = correo_operador_input.strip().lower()
-            if not correo_limpio:
-                st.error("⚠️ Debe ingresar su correo electrónico.")
-            elif not password:
-                st.error("⚠️ Debe ingresar su contraseña.")
-            else:
-                if (correo_limpio == "carlosju.med21@gmail.com" and password == "OtaniOrochi26") or (password == "OperativoInv26"):
-                    st.session_state.autenticado_consulta = True
-                    st.session_state.correo_operativo_asignado = correo_limpio
-                    st.rerun()
-                else:
-                    st.error("❌ Credenciales incorrectas. Verifique su correo y contraseña.")
+    st.markdown('<p class="sub-header">Por favor, inicie sesión desde el menú principal de acceso</p>', unsafe_allow_html=True)
+    
+    if st.button("⬅ Volver al Menú Principal (app.py)", use_container_width=True):
+        st.switch_page("app.py")
 else:
+    # Sincronizar el correo en caso de venir autenticado desde el app.py
+    if st.session_state.get("auth_registro", False) and not st.session_state.get("autenticado_consulta", False):
+        st.session_state.autenticado_consulta = True
+
     st.markdown('<p class="main-header">Módulo Operativo de Aplicación y Guía CENSIA</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Selección de jornada autorizada, evaluación clínica y registro de biológicos</p>', unsafe_allow_html=True)
 
