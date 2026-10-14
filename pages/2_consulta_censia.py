@@ -127,7 +127,8 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str, cache_buster: int = 0):
     """
     Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
-    El parámetro cache_buster permite invalidar la caché instantáneamente tras un guardado.
+    El parámetro cache_buster está incluido formalmente en el decorador para invalidar 
+    la caché al instante tras cada guardado.
     """
     try:
         client = obtener_client_gspread_cacheado()
