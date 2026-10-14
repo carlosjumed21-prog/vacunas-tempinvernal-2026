@@ -30,25 +30,6 @@ st.markdown(
         .metric-value { font-size: 1.3rem; font-weight: 800; color: #161a1d; }
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
-        
-        /* Botón rojo fijo para el popover de eliminación cuando está ACTIVO */
-        div[data-testid="stPopover"] > button:not(:disabled) {
-            background-color: #dc3545 !important;
-            color: white !important;
-            border-color: #dc3545 !important;
-            font-weight: 700 !important;
-        }
-        div[data-testid="stPopover"] > button:not(:disabled):hover {
-            background-color: #bb2d3b !important;
-            border-color: #b02a37 !important;
-            color: white !important;
-        }
-        /* Estilo cuando está bloqueado/deshabilitado */
-        div[data-testid="stPopover"] > button:disabled {
-            background-color: #e9ecef !important;
-            color: #adb5bd !important;
-            border-color: #ced4da !important;
-        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -89,6 +70,35 @@ encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_ver
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
+# --- VENTANA MODAL DE CONFIRMACIÓN (Se cierra automáticamente al confirmar o cancelar) ---
+@st.dialog("⚠️ Confirmación de Seguridad")
+def modal_confirmar_eliminacion(indices_marcados):
+    num_pacientes = len({idx // 2 for idx in indices_marcados})
+    st.warning(f"Está a punto de eliminar **{num_pacientes}** paciente(s) seleccionado(s) de la hoja de Google Sheets de forma permanente.")
+    st.write("¿Desea confirmar y proceder con la eliminación?")
+    
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        if st.button("Sí, confirmar", type="primary", use_container_width=True):
+            try:
+                with st.spinner("Eliminando registros y sincronizando..."):
+                    eliminar_pacientes_seleccionados(
+                        sheet_id_tabla, 
+                        hoja_activa_tabla, 
+                        indices_marcados, 
+                        mapeo_indices_pares, 
+                        filas_tabla, 
+                        key_estado_filas
+                    )
+                if "editor_tabla_censo" in st.session_state:
+                    del st.session_state["editor_tabla_censo"]
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
+    with col_d2:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
@@ -117,61 +127,35 @@ def render_seccion_superior_y_tabla():
             st.rerun()
 
     with col_btn2:
-        with st.popover("🗑️ Eliminar Seleccionado(s)", use_container_width=True, disabled=not hay_seleccionados):
-            st.markdown("### ⚠️ Confirmación de Seguridad")
-            st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
-            
-            col_pop1, col_pop2 = st.columns(2)
-            with col_pop1:
-                if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
-                    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados_temp}
-                    if not pacientes_a_eliminar:
-                        st.warning("⚠️ No ha seleccionado ningún paciente.")
-                    else:
-                        try:
-                            with st.spinner("Sincronizando con Google Sheets..."):
-                                eliminar_pacientes_seleccionados(
-                                    sheet_id_tabla, 
-                                    hoja_activa_tabla, 
-                                    indices_marcados_temp, 
-                                    mapeo_indices_pares, 
-                                    filas_tabla, 
-                                    key_estado_filas
-                                )
-                            # Forzar limpieza del editor para cerrar el popover y actualizar
-                            if "editor_tabla_censo" in st.session_state:
-                                del st.session_state["editor_tabla_censo"]
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Error al intentar eliminar: {e}")
-            with col_pop2:
-                if st.button("Cancelar", use_container_width=True, key="btn_cancelar_popover"):
-                    # Limpiamos el estado del editor para cerrar el popover de inmediato sin recargar pesado
-                    if "editor_tabla_censo" in st.session_state:
-                        del st.session_state["editor_tabla_censo"]
-                    st.rerun()
+        # Botón rojo dinámico que se deshabilita si no hay selección
+        if st.button("🗑️ Eliminar Seleccionado(s)", type="primary" if hay_seleccionados else "secondary", disabled=not hay_seleccionados, use_container_width=True, key="btn_abrir_modal"):
+            if hay_seleccionados:
+                modal_confirmar_eliminacion(indices_marcados_temp)
 
     with col_btn3:
-        try:
-            creds = get_creds_from_secrets()
-            if not creds.valid:
-                creds.refresh(Request())
+        # Descarga protegida para evitar errores 429
+        if st.button("📥 Descargar Hoja Excel", use_container_width=True, key="btn_descargar_excel_seguro"):
+            try:
+                creds = get_creds_from_secrets()
+                if not creds.valid:
+                    creds.refresh(Request())
 
-            url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
-            req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
+                url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
+                req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
-            with urllib.request.urlopen(req) as response:
-                excel_original_bytes = response.read()
+                with urllib.request.urlopen(req) as response:
+                    excel_original_bytes = response.read()
 
-            st.download_button(
-                label="📥 Descargar Hoja Excel",
-                data=excel_original_bytes,
-                file_name=f"{hoja_activa_tabla}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-        except Exception as err:
-            st.error(f"No se pudo descargar el archivo: {err}")
+                st.download_button(
+                    label="💾 Guardar Archivo Excel",
+                    data=excel_original_bytes,
+                    file_name=f"{hoja_activa_tabla}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_exec_final"
+                )
+            except Exception as err:
+                st.error(f"No se pudo descargar el archivo: {err}")
 
     st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
 
