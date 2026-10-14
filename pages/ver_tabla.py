@@ -66,11 +66,14 @@ if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes o la estructura de la tabla no coincide (se esperan datos a partir de la fila 14).")
     st.stop()
 
-encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(filas_tabla, header1, header2)
+# Pasamos sheet_id_tabla para que la función detecte los rangos correctos tanto para el 20 como para las unidades
+encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(
+    filas_tabla, header1, header2, spreadsheet_id=sheet_id_tabla
+)
 columnas_con_check = ["SELECCIONAR"] + encabezados_combinados
 df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 
-# --- VENTANA MODAL DE CONFIRMACIÓN (Se cierra automáticamente al confirmar o cancelar) ---
+# --- VENTANA MODAL DE CONFIRMACIÓN ---
 @st.dialog("⚠️ Confirmación de Seguridad")
 def modal_confirmar_eliminacion(indices_marcados):
     num_pacientes = len({idx // 2 for idx in indices_marcados})
@@ -127,13 +130,11 @@ def render_seccion_superior_y_tabla():
             st.rerun()
 
     with col_btn2:
-        # Botón rojo dinámico que se deshabilita si no hay selección
         if st.button("🗑️ Eliminar Seleccionado(s)", type="primary" if hay_seleccionados else "secondary", disabled=not hay_seleccionados, use_container_width=True, key="btn_abrir_modal"):
             if hay_seleccionados:
                 modal_confirmar_eliminacion(indices_marcados_temp)
 
     with col_btn3:
-        # Descarga protegida para evitar errores 429
         if st.button("📥 Descargar Hoja Excel", use_container_width=True, key="btn_descargar_excel_seguro"):
             try:
                 creds = get_creds_from_secrets()
