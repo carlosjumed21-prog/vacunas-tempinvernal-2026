@@ -70,18 +70,20 @@ def procesar_guardado_aplicacion(
 
         cad_i_str = cad_inf_input.strip()
         cad_c_str = cad_cov_input.strip()
-        nombre_hoja = worksheet_activa.title
+        
+        # CORRECCIÓN: Encerrar el nombre de la hoja entre comillas simples para evitar errores de sintaxis en la API de Sheets
+        nombre_hoja_escapado = f"'{worksheet_activa.title}'"
 
         if habilitar_edicion:
             updates_data.extend([
-                {"range": f"{nombre_hoja}!C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
-                {"range": f"{nombre_hoja}!D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
-                {"range": f"{nombre_hoja}!E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
-                {"range": f"{nombre_hoja}!F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
-                {"range": f"{nombre_hoja}!G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
-                {"range": f"{nombre_hoja}!H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
-                {"range": f"{nombre_hoja}!K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
-                {"range": f"{nombre_hoja}!C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
+                {"range": f"{nombre_hoja_escapado}!C{f_actual}:C{f_siguiente}", "values": [[ed_paterno.upper()], [ed_paterno.upper()]]},
+                {"range": f"{nombre_hoja_escapado}!D{f_actual}:D{f_siguiente}", "values": [[ed_materno.upper()], [ed_materno.upper()]]},
+                {"range": f"{nombre_hoja_escapado}!E{f_actual}:E{f_siguiente}", "values": [[ed_nombres.upper()], [ed_nombres.upper()]]},
+                {"range": f"{nombre_hoja_escapado}!F{f_actual}:F{f_siguiente}", "values": [[ed_d.strip()], [ed_d.strip()]]},
+                {"range": f"{nombre_hoja_escapado}!G{f_actual}:G{f_siguiente}", "values": [[ed_m.strip()], [ed_m.strip()]]},
+                {"range": f"{nombre_hoja_escapado}!H{f_actual}:H{f_siguiente}", "values": [[ed_y.strip()], [ed_y.strip()]]},
+                {"range": f"{nombre_hoja_escapado}!K{f_actual}:K{f_siguiente}", "values": [[ed_sexo.upper()], [ed_sexo.upper()]]},
+                {"range": f"{nombre_hoja_escapado}!C{fila_curp_idx}", "values": [[ed_curp.upper()]]}
             ])
             nombre_completo = f"{ed_paterno.upper()} {ed_materno.upper()}, {ed_nombres.upper()}"
         else:
@@ -89,37 +91,37 @@ def procesar_guardado_aplicacion(
 
         # INFLUENZA (Columnas AG, AH, AI, AJ, AK)
         if inf_1ra:
-            updates_data.append({"range": f"{nombre_hoja}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
         if inf_2da:
-            updates_data.append({"range": f"{nombre_hoja}!AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AH{f_actual}:AH{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (2da Dosis)")
         if inf_anual:
-            updates_data.append({"range": f"{nombre_hoja}!AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AI{f_actual}:AI{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (Dosis Anual)")
 
         if lote_inf_input:
             lote_i = lote_inf_input.upper()
-            updates_data.append({"range": f"{nombre_hoja}!AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AJ{f_actual}:AJ{f_siguiente}", "values": [[lote_i], [lote_i]]})
         if cad_inf_input:
-            updates_data.append({"range": f"{nombre_hoja}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
         # COVID (Columnas AL, AM, AN, AO, AP)
         if cov_1ra:
-            updates_data.append({"range": f"{nombre_hoja}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
         if cov_2da:
-            updates_data.append({"range": f"{nombre_hoja}!AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AM{f_actual}:AM{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (2da Dosis)")
         if cov_anual:
-            updates_data.append({"range": f"{nombre_hoja}!AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AN{f_actual}:AN{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (Dosis Anual)")
 
         if lote_cov_input:
             lote_c = lote_cov_input.upper()
-            updates_data.append({"range": f"{nombre_hoja}!AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AO{f_actual}:AO{f_siguiente}", "values": [[lote_c], [lote_c]]})
         if cad_cov_input:
-            updates_data.append({"range": f"{nombre_hoja}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
+            updates_data.append({"range": f"{nombre_hoja_escapado}!AP{f_actual}:AP{f_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
         token = obtener_token_acceso()
         headers = {
