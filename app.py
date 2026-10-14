@@ -58,7 +58,7 @@ st.markdown("""
             justify-content: center;
         }
         
-        /* Botones principales verdes institucionales */
+        /* Botones principales verdes institucionales (incluyendo CENSIA y Formulario) */
         .stButton>button { 
             background-color: #1e5b4f !important; 
             color: white !important; 
@@ -69,24 +69,18 @@ st.markdown("""
             width: 100%;
         }
         
-        /* Estilo discreto, pequeño y rojo para los botones superiores de administración y cerrar sesión */
-        div[data-testid="column"] button[kind="secondary"], 
-        div.row-widget.stButton button {
-            /* Aplicamos a los botones superiores específicos mediante su contenedor */
-        }
-        
-        /* Selector específico para alinear y estilizar los botones superiores en rojo discreto */
+        /* Selector específico para los botones superiores: pequeños, rojos y juntos a la derecha */
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) button,
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
             background-color: #ffffff !important;
             color: #611232 !important;
             border: 1px solid #611232 !important;
             font-size: 0.75rem !important;
-            padding: 0.2rem 0.4rem !important;
+            padding: 0.2rem 0.5rem !important;
             font-weight: 600 !important;
             border-radius: 4px !important;
             width: auto !important;
-            float: right;
+            min-height: unset !important;
         }
         
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover,
@@ -179,12 +173,12 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores pequeños, discretos y en tonos tinto/rojo institucional
-    col_top1, col_top2, col_top3 = st.columns([4, 1.2, 1.2])
-    with col_top2:
+    # Agrupamos las columnas superiores a la derecha con espacio ajustado para que queden juntos
+    col_spacer, col_top1, col_top2 = st.columns([6, 1.1, 1.1])
+    with col_top1:
         if st.button("⚙️ Admin", use_container_width=True, key="btn_top_admin"):
             st.switch_page("pages/3_administrador.py")
-    with col_top3:
+    with col_top2:
         if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
             st.session_state["auth_registro"] = False
             st.session_state["authenticated"] = False
