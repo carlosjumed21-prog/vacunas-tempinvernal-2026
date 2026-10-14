@@ -60,7 +60,8 @@ st.markdown("""
             padding: 0.6rem 1.1rem !important; 
             width: 100%;
         }
-        /* Contenedor exclusivo y limpio para el login */
+        
+        /* Contenedor unificado para que el formulario quede perfectamente blanco y encapsulado */
         .auth-box { 
             background: #ffffff; 
             padding: 30px; 
@@ -69,6 +70,14 @@ st.markdown("""
             box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
             margin: 0 auto;
         }
+        /* Ocultar el borde por defecto que Streamlit le pone a los forms para que usemos el nuestro */
+        [data-testid="stForm"] {
+            background-color: transparent;
+            border: none;
+            padding: 0;
+            box-shadow: none;
+        }
+
         .footer-text { 
             text-align: center; 
             color: #611232; 
@@ -96,6 +105,7 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
+        # Abrimos el contenedor unificado blanco con borde dorado
         st.markdown('<div class="auth-box">', unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
         
@@ -130,6 +140,7 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                     st.rerun()
                 else:
                     st.error("Correo o contraseña incorrectos. Verifique sus datos o espacios en blanco.")
+        
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("""
