@@ -1,6 +1,6 @@
 # config.py
-import streamlit as st
 import datetime
+import streamlit as st
 
 # --- CONFIGURACIÓN UNIVERSAL DE ESTILOS Y OCULTACIÓN DE BARRA LATERAL ---
 def aplicar_configuracion_global(
@@ -142,8 +142,8 @@ MAPA_SIGLAS_INVERSO = {
     v["sigla"]: k for k, v in UNIDADES_ISSSTE.items() if v["sigla"]
 }
 
-# --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS (FORZADOS AL NUEVO ARCHIVO) ---
-GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDuZtQ"  # ID correcto y oficial para las demás unidades
+# --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS ---
+GOOGLE_SHEET_ID = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDuZtQ"  # ID general
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"  # ID exclusivo para el CMN 20 de Noviembre
 
 GOOGLE_SCOPES = [
