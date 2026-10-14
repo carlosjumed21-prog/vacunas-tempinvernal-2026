@@ -1,5 +1,4 @@
 import streamlit as st
-from config import aplicar_configuracion_global, UNIDADES_ISSSTE
 
 # Configuración de página de Streamlit
 st.set_page_config(
@@ -8,9 +7,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
-
-# Aplicar configuración global del sistema
-aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
 
 st.markdown("""
     <style>
