@@ -4,9 +4,12 @@ import json
 import requests
 from google.oauth2 import service_account
 import google.auth.transport.requests
-from config import GOOGLE_SHEET_ID, GOOGLE_SCOPES
+from config import GOOGLE_SHEETS_OTRAS_UNIDADES, GOOGLE_SCOPES # O puedes usar directamente el ID
 import gspread
 import streamlit as st
+
+# ID exclusivo para las demás unidades
+SHEET_ID_OTRAS_UNIDADES = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
 
 @st.cache_resource
 def obtener_cliente_gspread():
@@ -46,7 +49,8 @@ def guardar_registro_censal(
 ):
     try:
         client = obtener_cliente_gspread()
-        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+        # Apuntamos al libro correcto de las demás unidades en lugar del 20 de Noviembre
+        spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
 
         # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
         modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
@@ -169,7 +173,7 @@ def guardar_registro_censal(
         fila_curp = fila_destino + 1
 
         token = obtener_token_acceso()
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values:batchUpdate"
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_OTRAS_UNIDADES}/values:batchUpdate"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
@@ -186,7 +190,7 @@ def guardar_registro_censal(
         if resp.status_code != 200:
             raise Exception(resp.text)
 
-        # --- Limpieza de caché y re-inicio para forzar actualización inmediata en la interfaz ---
+        # --- Limpieza de caché para forzar actualización inmediata en la interfaz ---
         st.cache_data.clear()
         if hasattr(st, "cache_resource"):
             st.cache_resource.clear()
