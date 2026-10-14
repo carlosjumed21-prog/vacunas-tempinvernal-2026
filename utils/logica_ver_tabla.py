@@ -160,7 +160,11 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
     return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
-def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
+def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
+    """
+    PASO 1: Modifica la memoria local al instante para que la vista previa 
+    desaparezca las filas seleccionadas de inmediato sin pausas.
+    """
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
     filas_actualizadas = list(filas_tabla)
@@ -172,10 +176,23 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-    # 1. ACTUALIZACIÓN INMEDIATA EN MEMORIA LOCAL (La vista se refresca al instante sin esperar la red)
+    # Actualizamos el estado local de forma instantánea
     str_lib.session_state[key_estado_filas] = filas_actualizadas
+    
+    # Guardamos los índices pendientes de borrar en la nube para ejecutarlos en segundo plano
+    str_lib.session_state[f"pendientes_borrar_{sheet_id}_{hoja_activa}"] = filas_gs_a_borrar
 
-    # 2. SINCRONIZACIÓN CON GOOGLE SHEETS EN SEGUNDO PLANO
+def sincronizar_borrado_segundo_plano(sheet_id, hoja_activa, key_estado_filas):
+    """
+    PASO 2: Sincroniza el borrado en Google Sheets de manera silenciosa en segundo plano.
+    """
+    key_pendientes = f"pendientes_borrar_{sheet_id}_{hoja_activa}"
+    if key_pendientes not in str_lib.session_state or not str_lib.session_state[key_pendientes]:
+        return
+
+    filas_gs_a_borrar = str_lib.session_state[key_pendientes]
+    str_lib.session_state[key_pendientes] = [] # Limpiamos para evitar bucles
+
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(sheet_id)
