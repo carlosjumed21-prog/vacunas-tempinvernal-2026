@@ -48,40 +48,53 @@ def guardar_registro_censal(
         fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
         tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
         
-        # Nombre exacto y único que debe tener la hoja de la jornada actual
-        nombre_hoja_destino = f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
+        # Patrones de búsqueda flexibles para encontrar la hoja existente
+        patron_busqueda_1 = f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
+        patron_busqueda_2 = f"{sigla_url}_{tipo_texto_jornada}_{fecha_str_hoja}"
 
         client = obtener_cliente_gspread()
         sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
         spreadsheet = client.open_by_key(sheet_id_20n)
 
-        # 1. Intentar abrir la pestaña exacta de la jornada
         worksheet = None
-        try:
-            worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-        except Exception:
-            # 2. Si no existe, buscamos una plantilla base para duplicarla (ej. "CENSO NOMINAL" o "CENSO")
-            plantilla_encontrada = None
-            for nombre_plantilla in ["CENSO NOMINAL", "CENSO"]:
-                try:
-                    plantilla_encontrada = spreadsheet.worksheet(nombre_plantilla)
-                    break
-                except Exception:
-                    continue
-            
-            if plantilla_encontrada:
-                # Duplicamos la plantilla existente para conservar formato, anchos de columna y diseño
-                nueva_hoja = spreadsheet.duplicate_sheet(
-                    source_sheet_id=plantilla_encontrada.id,
-                    insert_sheet_index=0,
-                    new_sheet_name=nombre_hoja_destino
-                )
-                worksheet = spreadsheet.worksheet(nombre_hoja_destino)
-            else:
-                # Fallback de emergencia si no hay plantillas: crear una hoja en blanco
-                worksheet = spreadsheet.add_worksheet(title=nombre_hoja_destino, rows=100, cols=50)
+        
+        # 1. Buscar de forma inteligente entre todas las pestañas existentes del documento
+        lista_hojas = spreadsheet.worksheets()
+        for hoja in lista_hojas:
+            titulo_hoja = hoja.title.upper()
+            # Si el título contiene la sigla, el tipo y la fecha exacta, la adoptamos como la hoja correcta
+            if sigla_url.upper() in titulo_hoja and fecha_str_hoja in titulo_hoja and tipo_texto_jornada in titulo_hoja:
+                worksheet = hoja
+                break
 
-        # Usar siempre el nombre real de la hoja obtenida
+        # 2. Si de plano no encuentra ninguna coincidencia parcial, intentamos abrirla por el nombre ideal
+        if not worksheet:
+            try:
+                worksheet = spreadsheet.worksheet(patron_busqueda_1)
+            except Exception:
+                try:
+                    worksheet = spreadsheet.worksheet(patron_busqueda_2)
+                except Exception:
+                    # 3. Si no existe ninguna, duplicamos una plantilla base ('CENSO NOMINAL' o 'CENSO')
+                    plantilla_encontrada = None
+                    for nombre_plantilla in ["CENSO NOMINAL", "CENSO"]:
+                        try:
+                            plantilla_encontrada = spreadsheet.worksheet(nombre_plantilla)
+                            break
+                        except Exception:
+                            continue
+                    
+                    if plantilla_encontrada:
+                        spreadsheet.duplicate_sheet(
+                            source_sheet_id=plantilla_encontrada.id,
+                            insert_sheet_index=0,
+                            new_sheet_name=patron_busqueda_1
+                        )
+                        worksheet = spreadsheet.worksheet(patron_busqueda_1)
+                    else:
+                        worksheet = spreadsheet.add_worksheet(title=patron_busqueda_1, rows=100, cols=50)
+
+        # Usar siempre el nombre real de la hoja detectada o seleccionada
         nombre_real_hoja = worksheet.title
 
         columna_b = worksheet.col_values(2)
