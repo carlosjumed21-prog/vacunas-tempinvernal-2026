@@ -34,12 +34,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if not GOOGLE_SHEET_ID:
-    st.error("❌ Falta configurar `GOOGLE_SHEET_ID` en los secretos de Streamlit.")
-    st.stop()
-
 params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
+sheet_id_tabla = params.get("sheet_id", GOOGLE_SHEET_ID).strip()
+if not sheet_id_tabla:
+    sheet_id_tabla = GOOGLE_SHEET_ID
 
 if not hoja_activa_tabla:
     st.warning("⚠️ No se especificó ninguna jornada activa. Abra esta vista desde el Módulo Operativo.")
@@ -104,10 +103,10 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
         return [], [], [], None
 
 
-key_estado_filas = f"filas_cargadas_piso_{hoja_activa_tabla}"
+key_estado_filas = f"filas_cargadas_piso_{sheet_id_tabla}_{hoja_activa_tabla}"
 
 if key_estado_filas not in st.session_state:
-    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(GOOGLE_SHEET_ID, hoja_activa_tabla)
+    header1, header2, filas_tabla, gid_hoja = load_sheet_minimal_cached(sheet_id_tabla, hoja_activa_tabla)
     st.session_state[key_estado_filas] = filas_tabla
     st.session_state[f"header1_{hoja_activa_tabla}"] = header1
     st.session_state[f"header2_{hoja_activa_tabla}"] = header2
@@ -123,7 +122,7 @@ if not filas_tabla:
     st.stop()
 
 
-# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO A-L / AG-AQ ---
+# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y FILTRADO ---
 def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
@@ -238,7 +237,7 @@ st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada
 
 col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
 with col_btn1:
-    if st.button("🔄 Actualizar Datos", width="stretch", key="btn_reload_header"):
+    if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         st.cache_data.clear()
         if key_estado_filas in st.session_state:
             del st.session_state[key_estado_filas]
@@ -251,7 +250,7 @@ with col_btn2:
             from google.auth.transport.requests import Request
             creds.refresh(Request())
 
-        url_export = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx&gid={gid_hoja}"
+        url_export = f"https://docs.google.com/spreadsheets/d/{sheet_id_tabla}/export?format=xlsx&gid={gid_hoja}"
         req = urllib.request.Request(url_export, headers={"Authorization": f"Bearer {creds.token}"})
 
         with urllib.request.urlopen(req) as response:
@@ -262,7 +261,7 @@ with col_btn2:
             data=excel_original_bytes,
             file_name=f"{hoja_activa_tabla}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            width="stretch",
+            use_container_width=True,
         )
     except Exception as err:
         st.error(f"No se pudo descargar el archivo: {err}")
@@ -284,7 +283,7 @@ st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 col_del, _ = st.columns([2, 5])
 with col_del:
-    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", width="stretch")
+    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
 
 st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
@@ -311,7 +310,7 @@ def render_tabla_con_estilos():
 
     return st.data_editor(
         df_estilizado,
-        width="stretch",
+        use_container_width=True,
         height=550,
         hide_index=True,
         column_config=column_configs,
@@ -321,7 +320,7 @@ def render_tabla_con_estilos():
 df_editado = render_tabla_con_estilos()
 
 
-# --- ACCIÓN DE ELIMINACIÓN: VISTA PREVIA Y GOOGLE SHEETS EN TIEMPO REAL ---
+# --- ACCIÓN DE ELIMINACIÓN EN TIEMPO REAL ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
@@ -340,12 +339,10 @@ if btn_eliminar:
                     filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
                     del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-            # 1. Actualizar de inmediato el estado en sesión para limpiar la vista previa al milisegundo
             st.session_state[key_estado_filas] = filas_actualizadas
 
-            # 2. Conectar y eliminar en Google Sheets por detrás
             client = obtener_cliente_gspread()
-            spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+            spreadsheet = client.open_by_key(sheet_id_tabla)
             ws = spreadsheet.worksheet(hoja_activa_tabla)
 
             filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
@@ -355,7 +352,6 @@ if btn_eliminar:
                 except Exception:
                     pass
 
-            # 3. Reordenar contadores de folios en Google Sheets
             datos_actualizados = ws.get_all_values()
             if len(datos_actualizados) >= 14:
                 filas_actuales = datos_actualizados[13:]
@@ -373,7 +369,6 @@ if btn_eliminar:
                     except Exception:
                         pass
 
-            # 4. Refresco dinámico instantáneo de la interfaz
             st.rerun()
 
         except Exception as e:
