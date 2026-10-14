@@ -29,8 +29,8 @@ def procesar_guardado_aplicacion(
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
-    Para el CMN 20 de Noviembre, realiza la migración dual simultánea en la hoja 
-    nominal y su hoja tabular hermana (_CENSO) o general correspondiente.
+    Realiza la migración dual simultánea para el 20 de Noviembre y limpia 
+    la caché global para forzar la actualización en ambas bases de origen.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -169,7 +169,6 @@ def procesar_guardado_aplicacion(
                 folio_paciente_actual = todos_los_datos[fila_idx - 1][1].strip() if len(todos_los_datos[fila_idx - 1]) > 1 else ""
                 
                 if folio_paciente_actual:
-                    # Intento A: S sincronizar con la hoja hermana tabular _CENSO correspondiente (ej. TURNO_X_CENSO)
                     nombre_hoja_nominal_activa = worksheet_activa.title
                     nombre_hoja_censo_tabulada = nombre_hoja_nominal_activa.replace("_NOMINAL", "_CENSO")
                     
@@ -177,7 +176,6 @@ def procesar_guardado_aplicacion(
                     try:
                         ws_censo_objetivo = spreadsheet_20n.worksheet(nombre_hoja_censo_tabulada)
                     except Exception:
-                        # Intento B: Si no existe la hoja hermana exacta, recurrir a la hoja general "CENSO"
                         try:
                             ws_censo_objetivo = spreadsheet_20n.worksheet("CENSO")
                         except Exception as e_gen:
@@ -187,17 +185,14 @@ def procesar_guardado_aplicacion(
                         valores_censo = ws_censo_objetivo.get_all_values()
                         fila_en_censo = None
                         
-                        # Buscar la fila exacta utilizando el Folio único (Columna B / índice 1)
                         for idx_ct, row_ct in enumerate(valores_censo[13:], start=14):
                             if len(row_ct) > 1 and row_ct[1].strip() == folio_paciente_actual:
                                 fila_en_censo = idx_ct
                                 break
                         
                         if fila_en_censo:
-                            # Soporta ambos esquemas de columnas tabulares (Y-AH o índices numéricos equivalentes)
                             updates_censo_tablero = []
                             if ws_censo_objetivo.title == "CENSO":
-                                # Mapeo numérico exacto para la sábana general "CENSO"
                                 if inf_1ra: ws_censo_objetivo.update_cell(fila_en_censo, 25, "X")
                                 if inf_2da: ws_censo_objetivo.update_cell(fila_en_censo, 26, "X")
                                 if inf_anual: ws_censo_objetivo.update_cell(fila_en_censo, 27, "X")
@@ -210,7 +205,6 @@ def procesar_guardado_aplicacion(
                                 if lote_cov_input: ws_censo_objetivo.update_cell(fila_en_censo, 33, lote_c)
                                 if cad_cov_input: ws_censo_objetivo.update_cell(fila_en_censo, 34, cad_c_str)
                             else:
-                                # Mapeo por rangos alfabéticos para la hoja hermana tabular _CENSO
                                 if inf_1ra: updates_censo_tablero.append({"range": f"Y{fila_en_censo}", "values": [["X"]]})
                                 if inf_2da: updates_censo_tablero.append({"range": f"Z{fila_en_censo}", "values": [["X"]]})
                                 if inf_anual: updates_censo_tablero.append({"range": f"AA{fila_en_censo}", "values": [["X"]]})
@@ -228,7 +222,7 @@ def procesar_guardado_aplicacion(
                             
                             migracion_20n_exitosa = True
                         else:
-                            st.warning(f"⚠️ No se encontró el folio `{folio_paciente_actual}` en la hoja tabular de destino para sincronizar.")
+                            st.warning(f"⚠️ No se encontró el folio `{folio_paciente_actual}` en la hoja tabular de destino.")
             except Exception as e_migracion:
                 st.error(f"⚠️ Error al sincronizar con la hoja de censo dual: {e_migracion}")
                 return False
@@ -268,8 +262,10 @@ def procesar_guardado_aplicacion(
         }
         requests.post(url_spreadsheet, headers=headers, json=body_format)
 
-        # Limpieza de caché
+        # Limpieza completa de caché para forzar la recarga en ambas bases de origen
         st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
 
         # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN DUAL PARA EL 20 DE NOVIEMBRE ---
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
