@@ -4,7 +4,7 @@ import json
 import requests
 from google.oauth2 import service_account
 import google.auth.transport.requests
-from config import GOOGLE_SHEETS_OTRAS_UNIDADES, GOOGLE_SCOPES # O puedes usar directamente el ID
+from config import GOOGLE_SCOPES
 import gspread
 import streamlit as st
 
@@ -49,7 +49,7 @@ def guardar_registro_censal(
 ):
     try:
         client = obtener_cliente_gspread()
-        # Apuntamos al libro correcto de las demás unidades en lugar del 20 de Noviembre
+        # Apuntamos al libro correcto de las demás unidades
         spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
 
         # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
