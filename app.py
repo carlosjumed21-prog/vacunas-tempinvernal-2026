@@ -61,22 +61,13 @@ st.markdown("""
             width: 100%;
         }
         
-        /* Contenedor unificado y limpio para el login con fondo blanco total */
-        .auth-box { 
-            background: #ffffff; 
-            padding: 30px; 
-            border-radius: 12px; 
-            border: 2px solid #a57f2c; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-            margin: 0 auto;
-        }
-        
-        /* Forzar que el formulario interno se integre sin bordes ni cajas separadas */
+        /* Convertir el formulario de Streamlit en la caja blanca elegante con borde dorado */
         [data-testid="stForm"] {
-            background-color: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            box-shadow: none !important;
+            background-color: #ffffff !important;
+            border: 2px solid #a57f2c !important;
+            border-radius: 12px !important;
+            padding: 30px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
         }
 
         .footer-text { 
@@ -106,11 +97,9 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
-        # Contenedor unificado blanco
-        st.markdown('<div class="auth-box">', unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
-        
         with st.form("form_auth_principal"):
+            st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
+            
             usuario_input = st.text_input("Correo electrónico / Usuario").strip().lower()
             password_input = st.text_input("Contraseña", type="password").strip()
             submitted = st.form_submit_button("Validar Acceso", use_container_width=True)
@@ -141,8 +130,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                     st.rerun()
                 else:
                     st.error("Correo o contraseña incorrectos. Verifique sus datos o espacios en blanco.")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("""
         <div class="footer-text">
