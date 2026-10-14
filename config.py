@@ -143,7 +143,7 @@ MAPA_SIGLAS_INVERSO = {
 }
 
 # --- IDENTIFICADORES OFICIALES DE GOOGLE SHEETS ---
-GOOGLE_SHEET_ID = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"  # ID para las demás unidades (CLIDDA, etc.)
+GOOGLE_SHEET_ID = "14U9w_IFLQmr3yfQ3Rd1nGJbp0QeHIyO283cHr1yGCp8"  # ID nuevo y nativo para las demás unidades (CLIDDA, etc.)
 SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"  # ID exclusivo para el CMN 20 de Noviembre
 
 GOOGLE_SCOPES = [
