@@ -7,7 +7,8 @@ from utils.logica_ver_tabla import (
     get_creds_from_secrets,
     load_sheet_minimal_cached,
     construir_dataset_y_metricas,
-    eliminar_pacientes_seleccionados
+    eliminar_pacientes_seleccionados_optimista,
+    sincronizar_borrado_segundo_plano
 )
 
 # --- CONFIGURACIÓN DE PANTALLA ANCHA ---
@@ -46,6 +47,9 @@ if not hoja_activa_tabla:
     st.stop()
 
 key_estado_filas = f"filas_cargadas_piso_{sheet_id_tabla}_{hoja_activa_tabla}"
+
+# Sincronización transparente en segundo plano con la nube
+sincronizar_borrado_segundo_plano(sheet_id_tabla, hoja_activa_tabla, key_estado_filas)
 
 if key_estado_filas not in st.session_state:
     header1, header2, filas_tabla, gid_hoja, error_msg = load_sheet_minimal_cached(sheet_id_tabla, hoja_activa_tabla)
@@ -155,14 +159,15 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-# --- ACCIÓN DE ELIMINACIÓN EN TIEMPO REAL ---
+# --- ACCIÓN DE ELIMINACIÓN FLUIDA E INSTANTÁNEA ---
 if btn_eliminar:
     indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
     if not indices_marcados:
         st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
     else:
         try:
-            eliminar_pacientes_seleccionados(
+            # 1. Borrado visual instantáneo (Optimistic UI)
+            eliminar_pacientes_seleccionados_optimista(
                 sheet_id_tabla, 
                 hoja_activa_tabla, 
                 indices_marcados, 
@@ -170,6 +175,7 @@ if btn_eliminar:
                 filas_tabla, 
                 key_estado_filas
             )
+            # 2. Refresco inmediato de la interfaz sin pausas
             st.rerun()
         except Exception as e:
             st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
