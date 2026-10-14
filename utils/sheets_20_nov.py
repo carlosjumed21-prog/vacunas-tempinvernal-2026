@@ -5,9 +5,8 @@ from utils.logica_registro import obtener_cliente_gspread_seguro
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """
-    Guarda el registro censal específico del CMN '20 de Noviembre'
-    en la hoja nominal de la jornada y realiza de forma conjunta la migración
-    exacta hacia la hoja maestra 'CENSO' general respetando el mapeo de columnas (B a AH).
+    Guarda el registro censal del CMN '20 de Noviembre' tanto en la hoja nominal 
+    de la jornada como en la hoja maestra general 'CENSO' de forma unificada.
     """
     try:
         client = obtener_cliente_gspread_seguro()
@@ -75,7 +74,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
         emb_val = "SÍ" if datos_paciente.get("embarazo") == "SÍ" else "NO"
         fecha_app_fmt = val_fecha_app.strftime("%d/%m/%Y")
 
-        # --- 3. ACTUALIZACIÓN EN HOJA NOMINAL (JORNADA) ---
+        # --- 3. ESCRITURA EN HOJA NOMINAL (JORNADA) ---
         f_actual = fila_nom
         f_siguiente = fila_nom + 1
 
@@ -138,7 +137,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
 
         ws_nominal.batch_update(updates_nominal)
 
-        # --- 4. ACTUALIZACIÓN CONJUNTA EN LA HOJA MAESTRA "CENSO" (B hasta AH) ---
+        # --- 4. ESCRITURA DIRECTA EN LA HOJA MAESTRA "CENSO" (B hasta AH) ---
         updates_censo = [
             {"range": f"A{fila_censo}", "values": [[consecutivo_censo]]},
             {"range": f"B{fila_censo}", "values": [[folio_asignado]]},
@@ -154,7 +153,7 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"L{fila_censo}", "values": [[datos_paciente.get("turno", "")]]},
             {"range": f"M{fila_censo}", "values": [[datos_paciente["nombres"].upper()]]},
             {"range": f"N{fila_censo}", "values": [[datos_paciente["paterno"].upper()]]},
-            {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente.get("materno"] else ""]]},
+            {"range": f"O{fila_censo}", "values": [[datos_paciente["materno"].upper() if datos_paciente.get("materno") else ""]]},
             {"range": f"P{fila_censo}", "values": [[datos_paciente.get("edo_nac", "CDMX")]]},
             {"range": f"Q{fila_censo}", "values": [[datos_paciente.get("muni_nac", "")]]},
             {"range": f"R{fila_censo}", "values": [[datos_paciente["fn_dia"]]]},
@@ -166,9 +165,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
             {"range": f"X{fila_censo}", "values": [[emb_val]]},
         ]
 
-        # Mapeo de vacunas de interés en la hoja CENSO general según tus columnas exactas:
-        # Y: 1ra dosis Influenza, Z: 2da dosis Influenza, AA: Dosis anual Influenza
-        # AD: 1ra dosis COVID, AE: 2da dosis COVID, AF: Dosis anual COVID
         if vacuna_int in ["INFLUENZA", "AMBAS"]:
             updates_censo.append({"range": f"Y{fila_censo}", "values": [["X"]]})
         if vacuna_int in ["COVID-19", "AMBAS"]:
