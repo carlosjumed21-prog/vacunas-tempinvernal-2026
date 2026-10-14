@@ -1,13 +1,16 @@
 import streamlit as st
-from config import UNIDADES_ISSSTE
+from config import aplicar_configuracion_global, UNIDADES_ISSSTE
 
-# Configuración inicial de la página sin depender de funciones externas restrictivas
+# Configuración de página de Streamlit
 st.set_page_config(
     page_title="Sistema Censo Nominal VIGILE",
     page_icon="💉",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# Aplicar configuración global del sistema
+aplicar_configuracion_global("Sistema Censo Nominal VIGILE", "💉")
 
 st.markdown("""
     <style>
@@ -56,7 +59,7 @@ st.markdown("""
             padding: 0.6rem 1.1rem !important; 
             width: 100%;
         }
-        /* Contenedor exclusivo y limpio para el login (sin marcos extraños) */
+        /* Contenedor exclusivo y limpio para el login */
         .auth-box { 
             background: #f7f4eb; 
             padding: 30px; 
@@ -92,7 +95,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
-        # Abrimos el contenedor limpio sin elementos vacíos arriba
         st.markdown('<div class="auth-box">', unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
         
@@ -129,7 +131,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                     st.error("Correo o contraseña incorrectos. Verifique sus datos o espacios en blanco.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Leyenda de derechos reservados en el inicio de sesión
     st.markdown("""
         <div class="footer-text">
             Subdelegación Sur ISSSTE<br>
@@ -143,7 +144,6 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # --- ACCESO RÁPIDO A ADMINISTRACIÓN EN LA PARTE SUPERIOR ---
     col_top1, col_top2, col_top3 = st.columns([2, 2, 1])
     with col_top3:
         if st.button("🚪 Cerrar Sesión", use_container_width=True, key="btn_logout"):
@@ -154,7 +154,6 @@ else:
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Módulo Principal de Acceso Institucional</p>', unsafe_allow_html=True)
 
-    # Verificación de parámetros URL institucionales
     params = st.query_params
     unidad_url = params.get("unidad", "").upper()
     jornada_url = params.get("jornada", "I").upper()
