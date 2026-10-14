@@ -22,10 +22,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Sincronizar automáticamente el estado de administrador si ya se autenticó en app.py
+if st.session_state.get("es_admin", False) and not st.session_state.get("autenticado_admin", False):
+    st.session_state.autenticado_admin = True
+    st.session_state.usuario_admin_actual = "Administrador Principal"
+
 col_nav1, col_nav2 = st.columns([1, 1])
 with col_nav1:
     if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
         st.session_state.autenticado_admin = False
+        st.session_state.es_admin = False
         st.session_state.usuario_admin_actual = ""
         st.session_state.jornada_autorizada = False
         st.session_state.hojas_creadas_recientes = []
@@ -54,7 +60,7 @@ if "hojas_creadas_recientes" not in st.session_state:
 if "historial_jornadas" not in st.session_state:
     st.session_state.historial_jornadas = []
 
-# --- VISTA DE LOGIN ---
+# --- VISTA DE LOGIN (Respaldo por acceso directo a la página) ---
 if not st.session_state.autenticado_admin:
     st.markdown('<p class="main-header">Acceso Restringido - Panel de Administración</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Ingrese su correo electrónico y contraseña de administrador</p>', unsafe_allow_html=True)
@@ -73,6 +79,7 @@ if not st.session_state.autenticado_admin:
                 exito, usuario = autenticar_administrador(correo_admin_input, password_admin)
                 if exito:
                     st.session_state.autenticado_admin = True
+                    st.session_state.es_admin = True
                     st.session_state.usuario_admin_actual = usuario
                     st.rerun()
                 else:
@@ -244,7 +251,6 @@ else:
                     resp_encoded = urllib.parse.quote(j_conf["responsable"]) if "urllib" in globals() else j_conf["responsable"]
                     js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
                     
-                    # RUTA CORREGIDA: Se evalúa correctamente si es 20N para usar registro_20_noviembre
                     ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
 
                     link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
