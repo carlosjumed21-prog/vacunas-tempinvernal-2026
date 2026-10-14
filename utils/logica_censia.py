@@ -4,10 +4,7 @@ import urllib.parse
 import requests
 import streamlit as st
 from utils.sheets import obtener_token_acceso
-from config import GOOGLE_SHEET_ID
-
-# ID de la hoja de cálculo exclusiva para el CMN 20 de Noviembre
-SHEET_ID_20_NOV = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
+from config import GOOGLE_SHEET_ID, SHEET_ID_20_NOV
 
 
 def procesar_guardado_aplicacion(
@@ -26,10 +23,6 @@ def procesar_guardado_aplicacion(
     fecha_aplicacion_hoja,
     sheet_id_objetivo=GOOGLE_SHEET_ID
 ):
-    """
-    Ejecuta las validaciones, actualiza los datos de manera dual (CENSO NOMINAL y CENSO general)
-    respetando el mapeo exacto de columnas de cada hoja mediante peticiones REST independientes.
-    """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
 
@@ -91,7 +84,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-        # --- 1. ACTUALIZACIÓN EN LA HOJA ACTIVA (CENSO NOMINAL DE JORNADA) ---
+        # --- 1. ACTUALIZACIÓN EN LA HOJA ACTIVA ---
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -130,7 +123,6 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # Ejecutamos la petición en la hoja activa
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -140,7 +132,7 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(f"Error en Google Sheets API (Valores Hoja Activa): {resp_val.text}")
 
-        # --- 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (MAPEO Y-AH) ---
+        # --- 2. MIGRACIÓN DUAL HACIA LA HOJA "CENSO" GENERAL (SI ES 20 DE NOVIEMBRE) ---
         if sheet_id_objetivo == SHEET_ID_20_NOV:
             try:
                 import json
@@ -213,41 +205,6 @@ def procesar_guardado_aplicacion(
             except Exception as e_migracion:
                 st.error(f"⚠️ Error al migrar a la hoja CENSO general: {e_migracion}")
                 return False
-
-        # --- 3. FORMATO VISUAL VERDE EN LA HOJA ACTIVA ---
-        url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
-        body_format = {
-            "requests": [
-                {
-                    "updateCells": {
-                        "range": {
-                            "sheetId": worksheet_activa.id,
-                            "startRowIndex": f_actual - 1,
-                            "endRowIndex": f_siguiente,
-                            "startColumnIndex": 0,
-                            "endColumnIndex": 50
-                        },
-                        "rows": [
-                            {
-                                "values": [
-                                    {
-                                        "userEnteredFormat": {
-                                            "backgroundColor": {
-                                                "red": 0.831,
-                                                "green": 0.929,
-                                                "blue": 0.855
-                                            }
-                                        }
-                                    } for _ in range(50)
-                                ]
-                            } for _ in range(2)
-                        ],
-                        "fields": "userEnteredFormat.backgroundColor"
-                    }
-                }
-            ]
-        }
-        requests.post(url_spreadsheet, headers=headers, json=body_format)
 
         st.cache_data.clear()
 
