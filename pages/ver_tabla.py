@@ -85,6 +85,39 @@ df_tabla_segura = pd.DataFrame(filas_procesadas, columns=columnas_con_check)
 # --- INTERFAZ FIJA ---
 st.markdown(f'<p class="main-header">📊 Censo General de Pacientes — Jornada: <code>{hoja_activa_tabla}</code></p>', unsafe_allow_html=True)
 
+# --- FRAGMENTO AISLADO PARA LA TABLA (Definido primero para que el editor guarde su estado en session_state) ---
+@st.fragment
+def render_tabla_con_estilos():
+    def color_filas_completas(row):
+        if row.name in indices_filas_verdes:
+            return ["background-color: #e2f0d9; color: #111111"] * len(row)
+        return [""] * len(row)
+
+    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
+
+    column_configs = {
+        "SELECCIONAR": st.column_config.CheckboxColumn(
+            "¿Seleccionar?",
+            help="Marque la casilla para seleccionar este paciente",
+            default=False,
+        )
+    }
+    for col in encabezados_combinados:
+        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
+
+    return st.data_editor(
+        df_estilizado,
+        use_container_width=True,
+        height=550,
+        hide_index=True,
+        column_config=column_configs,
+        key="editor_tabla_censo",
+    )
+
+df_editado = render_tabla_con_estilos()
+
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+
 # --- BOTONES SUPERIORES: ACTUALIZAR, ELIMINAR (ROJO) Y DESCARGAR EXCEL ---
 col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.2, 1.2, 2.0])
 
@@ -103,7 +136,20 @@ with col_btn2:
         col_pop1, col_pop2 = st.columns(2)
         with col_pop1:
             if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
-                indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+                # Obtenemos los índices directamente del estado actual del editor de la tabla
+                state_editor = st.session_state.get("editor_tabla_censo", {})
+                edited_rows_data = state_editor.get("edited_rows", {})
+                
+                # Evaluamos las casillas seleccionadas de forma segura
+                indices_marcados = []
+                for idx_str, cols in edited_rows_data.items():
+                    if "SELECCIONAR" in cols and cols["SELECCIONAR"] == True:
+                        indices_marcados.append(int(idx_str))
+                
+                # Respaldo usando el DataFrame editado actual
+                if not indices_marcados and df_editado is not None and "SELECCIONAR" in df_editado.columns:
+                    indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+
                 pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
                 
                 if not pacientes_a_eliminar:
@@ -148,7 +194,7 @@ with col_btn3:
     except Exception as err:
         st.error(f"No se pudo descargar el archivo: {err}")
 
-st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 # Métricas
 m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
@@ -162,34 +208,3 @@ with m7: st.markdown(f'<div class="metric-card-6"><div class="metric-label">COVI
 with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simultáneas</div><div class="metric-value">{metricas["total_simultaneas"]}</div></div>', unsafe_allow_html=True)
 
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-
-# --- FRAGMENTO AISLADO PARA LA TABLA ---
-@st.fragment
-def render_tabla_con_estilos():
-    def color_filas_completas(row):
-        if row.name in indices_filas_verdes:
-            return ["background-color: #e2f0d9; color: #111111"] * len(row)
-        return [""] * len(row)
-
-    df_estilizado = df_tabla_segura.style.apply(color_filas_completas, axis=1)
-
-    column_configs = {
-        "SELECCIONAR": st.column_config.CheckboxColumn(
-            "¿Seleccionar?",
-            help="Marque la casilla para seleccionar este paciente",
-            default=False,
-        )
-    }
-    for col in encabezados_combinados:
-        column_configs[col] = st.column_config.TextColumn(col, disabled=True)
-
-    return st.data_editor(
-        df_estilizado,
-        use_container_width=True,
-        height=550,
-        hide_index=True,
-        column_config=column_configs,
-        key="editor_tabla_censo",
-    )
-
-df_editado = render_tabla_con_estilos()
