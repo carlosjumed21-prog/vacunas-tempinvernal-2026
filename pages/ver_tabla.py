@@ -30,7 +30,7 @@ st.markdown(
         .metric-label { font-size: 0.75rem; font-weight: 700; color: #333333; text-transform: uppercase; }
         .main-header { font-size: 1.5rem !important; font-weight: 800 !important; color: #1e5b4f !important; margin-bottom: 0.5rem; border-bottom: 3px solid #a57f2c; padding-bottom: 6px; }
         
-        /* Estilo visual sutil para filas con aplicación completada (#e2f0d9) */
+        /* Estilo visual sincronizado para el par de filas del paciente con aplicación (#e2f0d9) */
         [data-testid="stDataEditor"] tr[data-row-highlight="true"] td {
             background-color: #e2f0d9 !important;
             color: #111111 !important;
@@ -61,6 +61,7 @@ def get_creds_from_secrets():
     else:
         for k in st.secrets:
             if k != "GOOGLE_SHEET_ID":
+            
                 creds_dict = dict(st.secrets[k])
                 break
     if not creds_dict:
@@ -70,40 +71,27 @@ def get_creds_from_secrets():
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
 
-# --- CARGA ULTRA RÁPIDA POR RANGOS EXACTOS ---
-@st.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
+# --- CARGA ROBUSTA RESPETANDO BLOQUES DE 2 FILAS POR PACIENTE ---
+@st.cache_data(ttl=30, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         
-        col_b = worksheet.col_values(2)
-
-        if len(col_b) < 14:
+        all_values = worksheet.get_all_values()
+        if len(all_values) < 14:
             return [], [], [], worksheet.id
 
-        last_idx = len(col_b)
-        while last_idx >= 14 and (not str(col_b[last_idx - 1]).strip()):
-            last_idx -= 1
-        if last_idx < 14:
-            return [], [], [], worksheet.id
+        header1 = all_values[11] if len(all_values) > 11 else [] # Fila 12
+        header2 = all_values[12] if len(all_values) > 12 else [] # Fila 13
+        data_rows = all_values[13:] # Desde la fila 14 en adelante
 
-        filas_data_count = last_idx - 13
-        if filas_data_count % 2 != 0:
-            last_idx += 1
+        # Garantizar estrictamente que los datos vayan en pares exactos de 2 filas por paciente
+        if len(data_rows) % 2 != 0:
+            data_rows.append([""] * max(len(header1), 50))
 
-        range_headers_1 = "A12:AX12"
-        range_headers_2 = "A13:AX13"
-        range_data = f"A14:AX{last_idx}"
-
-        header1_rows = worksheet.get(range_headers_1)
-        header2_rows = worksheet.get(range_headers_2)
-        data_rows = worksheet.get(range_data)
-
-        header1 = header1_rows[0] if header1_rows and len(header1_rows) > 0 else []
-        header2 = header2_rows[0] if header2_rows and len(header2_rows) > 0 else []
-        return header1, header2, data_rows or [], worksheet.id
+        return header1, header2, data_rows, worksheet.id
 
     except Exception as e:
         st.error(f"Error al leer la hoja {worksheet_name}: {e}")
@@ -129,7 +117,7 @@ if not filas_tabla:
     st.stop()
 
 
-# --- CONSTRUCCIÓN DEL DATASET, MÉTRICAS Y DETECCIÓN DE FILAS VERDES ---
+# --- CONSTRUCCIÓN DEL DATASET Y MÉTRICAS (BASADO EN PARES DE 2 FILAS) ---
 def construir_dataset_y_metricas(filas_tabla, header1, header2):
     encabezados_combinados = []
     conteo_nombres = {}
@@ -170,6 +158,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
     total_simultaneas = 0
     fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
+    # Recorrido estricto de 2 en 2 filas (cada iteración es un paciente completo)
     for i in range(0, len(filas_tabla), 2):
         f1 = filas_tabla[i] if i < len(filas_tabla) else []
         f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
@@ -177,7 +166,10 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
-        if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
+        # Consideramos registro válido si cualquiera de las dos filas del bloque tiene datos en sus columnas principales
+        tiene_datos_bloque = any(str(val).strip() != "" for val in f1_adj[:5]) or any(str(val).strip() != "" for val in f2_adj[:5])
+
+        if tiene_datos_bloque:
             total_censo_registros += 1
 
             fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else ""
@@ -186,14 +178,17 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             else:
                 total_preregistros += 1
 
-            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj))))
+            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))) or \
+                               any(str(f2_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f2_adj))))
             if tiene_aplicacion:
                 total_aplicaciones += 1
             else:
                 total_sin_aplicar += 1
 
-            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj))))
-            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f1_adj)))) if len(f1_adj) > 37 else False
+            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f1_adj)))) or \
+                              any(str(f2_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(35, len(f2_adj))))
+            tiene_covid = (any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f1_adj)))) if len(f1_adj) > 37 else False) or \
+                          (any(str(f2_adj[col_idx]).strip().upper() == "X" for col_idx in range(37, min(40, len(f2_adj)))) if len(f2_adj) > 37 else False)
 
             if tiene_influenza and not tiene_covid:
                 total_dosis_influenza += 1
@@ -202,8 +197,9 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
-        # Detectar si la fila tiene alguna X de aplicación para marcarla en verde
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))):
+        # Si el paciente tiene aplicación, marcamos las 2 filas correspondientes en verde
+        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f1_adj)))) or \
+           any(str(f2_adj[col_idx]).strip().upper() == "X" for col_idx in range(32, min(43, len(f2_adj)))):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
@@ -247,8 +243,9 @@ col_btn1, col_btn2, _ = st.columns([1.2, 1.2, 2.6])
 with col_btn1:
     if st.button("🔄 Actualizar Datos", use_container_width=True, key="btn_reload_header"):
         st.cache_data.clear()
-        if key_estado_filas in st.session_state:
-            del st.session_state[key_estado_filas]
+        for key in list(st.session_state.keys()):
+            if "piso" in key or "header" in key or "gid" in key:
+                del st.session_state[key]
         st.rerun()
 
 with col_btn2:
@@ -290,7 +287,7 @@ with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simu
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 
-# --- FRAGMENTO INTERACTIVO CON COLORES CSS Y SINCRONIZACIÓN REAL ---
+# --- FRAGMENTO INTERACTIVO: ELIMINACIÓN EXACTA DE BLOQUES DE 2 FILAS Y SINCRONIZACIÓN ---
 @st.fragment
 def render_bloque_interactivo_tabla():
     col_del, _ = st.columns([2, 5])
@@ -318,7 +315,6 @@ def render_bloque_interactivo_tabla():
         key="editor_tabla_censo",
     )
 
-    # Inyectar atributos de resaltado en las filas correspondientes usando JS ligero dentro del DOM
     filas_verdes_js_list = list(indices_filas_verdes)
     st.markdown(
         f"""
@@ -338,28 +334,31 @@ def render_bloque_interactivo_tabla():
 
     if btn_eliminar:
         indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+        # Cada paciente equivale a un par de filas (índice dividido entre 2)
         pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
 
         if not pacientes_a_eliminar:
             st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
         else:
             try:
-                with st.spinner("Eliminando registros en Google Sheets en tiempo real..."):
+                with st.spinner("Eliminando el bloque de 2 filas por paciente en Google Sheets..."):
                     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
-                    filas_actualizadas = list(filas_tabla)
                     filas_gs_a_borrar = []
                     
                     for paciente_idx in pacientes_sorted:
                         if paciente_idx < len(mapeo_indices_pares):
                             idx_par_real = mapeo_indices_pares[paciente_idx]
+                            # Como cada paciente ocupa estrictamente 2 filas físicas a partir de la fila 14:
+                            # Fila principal = idx_par_real + 14
+                            # Fila complementaria = idx_par_real + 15
                             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
-                            del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-                    # 1. Conectar y eliminar en Google Sheets de forma síncrona
+                    # 1. Conectar a Google Sheets
                     client = obtener_cliente_gspread()
                     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
                     ws = spreadsheet.worksheet(hoja_activa_tabla)
 
+                    # 2. Borrar las filas físicas en orden estrictamente descendente para no alterar los índices previos
                     filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
                     for fila_gs in filas_gs_a_borrar:
                         try:
@@ -367,7 +366,7 @@ def render_bloque_interactivo_tabla():
                         except Exception:
                             pass
 
-                    # 2. Reordenar contadores de folios en Google Sheets
+                    # 3. Reordenar de forma limpia los contadores de folios de los pacientes restantes (en bloques de 2)
                     datos_actualizados = ws.get_all_values()
                     if len(datos_actualizados) >= 14:
                         filas_actuales = datos_actualizados[13:]
@@ -385,13 +384,13 @@ def render_bloque_interactivo_tabla():
                             except Exception:
                                 pass
 
-                    # 3. Limpiar caché global para obligar a leer los datos nuevos y limpios desde Google Sheets
+                    # 4. Limpiar caché completa y estado para refrescar al instante con los datos reales
                     st.cache_data.clear()
+                    for key in list(st.session_state.keys()):
+                        if "piso" in key or "header" in key or "gid" in key:
+                            del st.session_state[key]
 
-                    # 4. Actualizar estado en sesión con los datos ya recalculados
-                    st.session_state[key_estado_filas] = filas_actualizadas
-
-                st.success("✅ Registros eliminados de Google Sheets con éxito.")
+                st.success("✅ Pacientes eliminados correctamente de Google Sheets en tiempo real.")
                 st.rerun()
 
             except Exception as e:
