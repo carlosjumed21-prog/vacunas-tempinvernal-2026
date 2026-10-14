@@ -1,9 +1,7 @@
-
 import streamlit as str_lib
 import pandas as pd
 import gspread
 import datetime
-import urllib.request
 from google.oauth2 import service_account
 from utils.sheets import obtener_cliente_gspread
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
