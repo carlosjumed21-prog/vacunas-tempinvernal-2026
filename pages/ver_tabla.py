@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import urllib.request
 from google.auth.transport.requests import Request
+from config import GOOGLE_SHEET_ID, SHEET_ID_20_NOV, aplicar_configuracion_global
 from utils.logica_ver_tabla import (
     obtener_sheet_id_activo,
     get_creds_from_secrets,
@@ -10,8 +11,9 @@ from utils.logica_ver_tabla import (
     eliminar_pacientes_seleccionados
 )
 
-# --- CONFIGURACIÓN DE PANTALLA ANCHA ---
+# --- CONFIGURACIÓN DE PANTALLA ANCHA Y ESTILOS GLOBALES ---
 st.set_page_config(page_title="Vista Detallada de Censo", page_icon="📊", layout="wide")
+aplicar_configuracion_global("Vista Detallada de Censo", "📊")
 
 st.markdown(
     """
@@ -66,7 +68,6 @@ if not filas_tabla:
     st.info("La jornada seleccionada no cuenta con registros suficientes o la estructura de la tabla no coincide (se esperan datos a partir de la fila 14).")
     st.stop()
 
-# Pasamos sheet_id_tabla para que la función detecte los rangos correctos tanto para el 20 como para las unidades
 encabezados_combinados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas = construir_dataset_y_metricas(
     filas_tabla, header1, header2, spreadsheet_id=sheet_id_tabla
 )
@@ -119,7 +120,6 @@ def render_seccion_superior_y_tabla():
             hay_seleccionados = True
             indices_marcados_temp.append(int(idx_str))
 
-    # Botones superiores
     col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.2, 1.2, 2.0])
 
     with col_btn1:
@@ -172,7 +172,6 @@ def render_seccion_superior_y_tabla():
 
     st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-    # --- RENDERIZADO DE LA TABLA ---
     def color_filas_completas(row):
         if row.name in indices_filas_verdes:
             return ["background-color: #e2f0d9; color: #111111"] * len(row)
