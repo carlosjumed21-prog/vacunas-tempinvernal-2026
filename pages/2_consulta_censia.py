@@ -33,6 +33,7 @@ st.markdown(
 # ============================================================
 @st.cache_resource
 def obtener_client_gspread_cacheado():
+    """Autentica y retorna el cliente de gspread de forma nativa mediante service_account_from_dict."""
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
@@ -49,41 +50,51 @@ def obtener_client_gspread_cacheado():
     
 @st.cache_data(ttl=300)
 def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
+    """
+    Lista las hojas autorizadas tanto del libro general como del CMN 20 de Noviembre con manejo seguro de errores.
+    """
     h_autorizadas = []
     hojas_plantillas_excluir = ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]
 
     try:
         client = obtener_client_gspread_cacheado()
         
-        # 1. Revisar Libro General
-        spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
-        for h in spreadsheet_gen.worksheets():
-            if h.title not in hojas_plantillas_excluir:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
-                    except Exception:
-                        pass
+        # 1. Revisar Libro General (Protegido ante posibles restricciones o 404)
+        try:
+            spreadsheet_gen = client.open_by_key(GOOGLE_SHEET_ID)
+            for h in spreadsheet_gen.worksheets():
+                if h.title not in hojas_plantillas_excluir:
+                    if correo_sesion == "carlosju.med21@gmail.com":
+                        h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                    else:
+                        try:
+                            val_au4 = h.acell("AU4").value
+                            if val_au4 and val_au4.strip().lower() == correo_sesion:
+                                h_autorizadas.append({"titulo": h.title, "sheet_id": GOOGLE_SHEET_ID})
+                        except Exception:
+                            pass
+        except Exception as e_gen:
+            st.warning(f"⚠️ Aviso: No se pudo conectar al libro general de unidades. Continuando con las jornadas disponibles...")
 
         # 2. Revisar Libro CMN 20 de Noviembre
-        spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
-        for h in spreadsheet_20n.worksheets():
-            if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
-                if correo_sesion == "carlosju.med21@gmail.com":
-                    h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                else:
-                    try:
-                        val_au4 = h.acell("AU4").value
-                        if val_au4 and val_au4.strip().lower() == correo_sesion:
-                            h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
-                    except Exception:
-                        pass
+        try:
+            spreadsheet_20n = client.open_by_key(SHEET_ID_20_NOV)
+            for h in spreadsheet_20n.worksheets():
+                if h.title not in hojas_plantillas_excluir and "_CENSO" not in h.title:
+                    if correo_sesion == "carlosju.med21@gmail.com":
+                        h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
+                    else:
+                        try:
+                            val_au4 = h.acell("AU4").value
+                            if val_au4 and val_au4.strip().lower() == correo_sesion:
+                                h_autorizadas.append({"titulo": h.title, "sheet_id": SHEET_ID_20_NOV})
+                        except Exception:
+                            pass
+        except Exception as e_20n:
+            st.warning(f"⚠️ Aviso: No se pudo conectar al libro del CMN 20 de Noviembre.")
+
     except Exception as e:
-        st.error(f"Error al conectar con Google Sheets para listar jornadas: {e}")
+        st.error(f"Error crítico al conectar con Google Sheets para listar jornadas: {e}")
         return []
 
     return h_autorizadas
@@ -91,6 +102,9 @@ def obtener_hojas_autorizadas_cacheadas(correo_sesion: str):
 
 @st.cache_data(ttl=300)
 def cargar_pacientes_hoja_cacheada(hoja_seleccionada: str, sheet_id_objetivo: str, cache_buster: int = 0):
+    """
+    Carga los pacientes de una hoja específica utilizando su sheet_id correspondiente.
+    """
     try:
         client = obtener_client_gspread_cacheado()
         spreadsheet = client.open_by_key(sheet_id_objetivo)
