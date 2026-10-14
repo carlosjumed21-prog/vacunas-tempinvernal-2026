@@ -162,8 +162,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2):
 
 def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
     """
-    PASO 1: Modifica la memoria local al instante para que la vista previa 
-    desaparezca las filas seleccionadas de inmediato sin pausas.
+    Actualización instantánea en memoria local para que la vista previa elimine de inmediato.
     """
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
@@ -176,22 +175,19 @@ def eliminar_pacientes_seleccionados_optimista(sheet_id, hoja_activa, indices_ma
             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-    # Actualizamos el estado local de forma instantánea
     str_lib.session_state[key_estado_filas] = filas_actualizadas
-    
-    # Guardamos los índices pendientes de borrar en la nube para ejecutarlos en segundo plano
     str_lib.session_state[f"pendientes_borrar_{sheet_id}_{hoja_activa}"] = filas_gs_a_borrar
 
 def sincronizar_borrado_segundo_plano(sheet_id, hoja_activa, key_estado_filas):
     """
-    PASO 2: Sincroniza el borrado en Google Sheets de manera silenciosa en segundo plano.
+    Sincroniza los cambios en Google Sheets de forma silenciosa.
     """
     key_pendientes = f"pendientes_borrar_{sheet_id}_{hoja_activa}"
     if key_pendientes not in str_lib.session_state or not str_lib.session_state[key_pendientes]:
         return
 
     filas_gs_a_borrar = str_lib.session_state[key_pendientes]
-    str_lib.session_state[key_pendientes] = [] # Limpiamos para evitar bucles
+    str_lib.session_state[key_pendientes] = []
 
     try:
         client = obtener_cliente_gspread()
