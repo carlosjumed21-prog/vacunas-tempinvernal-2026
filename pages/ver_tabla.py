@@ -38,10 +38,10 @@ params = st.query_params
 hoja_activa_tabla = params.get("hoja", "").strip()
 unidad_param = params.get("unidad", "").strip().upper()
 
-# --- IDENTIFICACIÓN DINÁMICA DE SHEET ID (CMN 20 DE NOVIEMBRE) ---
-SHEET_ID_20_NOVIEMBRE = "1Ewg24tBmAPHY8MIpZefUMEsnoqvflRIL"
+# --- IDENTIFICACIÓN DINÁMICA DE SHEET ID (CMN 20 DE NOVIEMBRE ACTUALIZADO) ---
+SHEET_ID_20_NOVIEMBRE = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
-# Validación robusta por prefijo operativo ("20N_") o nombre de unidad
+# Validación robusta por prefijo operativo ("20N") o nombre de unidad
 if hoja_activa_tabla.upper().startswith("20N") or "20 DE NOVIEMBRE" in hoja_activa_tabla.upper() or "20_NOVIEMBRE" in unidad_param or "20 DE NOVIEMBRE" in unidad_param:
     sheet_id_tabla = SHEET_ID_20_NOVIEMBRE
 else:
