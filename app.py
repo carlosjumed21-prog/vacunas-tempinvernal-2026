@@ -103,25 +103,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Inicializar estados de sesión para el control de acceso y niveles
+# Inicializar estados de sesión para el control de acceso global
 if "auth_registro" not in st.session_state:
     st.session_state["auth_registro"] = False
 if "es_admin" not in st.session_state:
     st.session_state["es_admin"] = False
+if "correo_operativo_asignado" not in st.session_state:
+    st.session_state["correo_operativo_asignado"] = ""
 
 # ===========================================================
-# BLOQUE DE AUTENTICACIÓN INICIAL
+# BLOQUE DE AUTENTICACIÓN INICIAL ÚNICO
 # ===========================================================
 if not st.session_state.get("auth_registro", False):
     
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">🔐 Autenticación Requerida - Registro Nominal</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">🔐 Autenticación Requerida - Sistema VIGILE</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
         with st.form("form_auth_principal"):
-            st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional autorizado y la contraseña operativa para acceder al sistema.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; margin-bottom: 1.2rem; color: #161a1d; font-weight: 500;'>Introduce tu correo institucional y contraseña para acceder al sistema.</p>", unsafe_allow_html=True)
             
             usuario_input = st.text_input("Correo electrónico / Usuario").strip().lower()
             password_input = st.text_input("Contraseña", type="password").strip()
@@ -142,13 +144,12 @@ if not st.session_state.get("auth_registro", False):
                 acceso_permitido = False
                 es_usuario_admin = False
                 
-                # Evaluación de nivel de administrador o usuario autorizado
+                # Evaluación de perfil
                 if admin_pass and usuario_input == admin_user and password_input == admin_pass:
                     acceso_permitido = True
                     es_usuario_admin = True
                 elif usuario_input in correos_autorizados and password_input == correos_autorizados[usuario_input]:
                     acceso_permitido = True
-                    # Asignar nivel de administrador si corresponde al correo principal de gestión
                     if usuario_input == "carlosju.med21@gmail.com":
                         es_usuario_admin = True
                 elif password_input == password_operativa and "@" in usuario_input:
@@ -157,6 +158,7 @@ if not st.session_state.get("auth_registro", False):
                 if acceso_permitido:
                     st.session_state["auth_registro"] = True
                     st.session_state["es_admin"] = es_usuario_admin
+                    st.session_state["correo_operativo_asignado"] = usuario_input
                     st.success("¡Credenciales correctas! Ingresando al sistema...")
                     st.rerun()
                 else:
@@ -175,7 +177,7 @@ if not st.session_state.get("auth_registro", False):
 # APLICACIÓN PRINCIPAL (Visible solo tras autenticarse)
 # ===========================================================
 else:
-    # Botones superiores dinámicos: El botón Admin solo aparece si st.session_state["es_admin"] es True
+    # Botones superiores dinámicos: el botón de Admin SOLO se muestra si es administrador
     if st.session_state.get("es_admin", False):
         _, col_admin, col_logout = st.columns([6, 1.2, 1.2])
         with col_admin:
@@ -185,6 +187,7 @@ else:
             if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
                 st.session_state["auth_registro"] = False
                 st.session_state["es_admin"] = False
+                st.session_state["correo_operativo_asignado"] = ""
                 st.rerun()
     else:
         _, col_logout = st.columns([7.2, 1.2])
@@ -192,6 +195,7 @@ else:
             if st.button("🚪 Salir", use_container_width=True, key="btn_logout"):
                 st.session_state["auth_registro"] = False
                 st.session_state["es_admin"] = False
+                st.session_state["correo_operativo_asignado"] = ""
                 st.rerun()
 
     st.markdown('<p class="main-header">Sistema de Jornadas de Vacunación y Censo Nominal</p>', unsafe_allow_html=True)
