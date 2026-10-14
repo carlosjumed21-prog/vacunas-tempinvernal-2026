@@ -23,7 +23,7 @@ st.markdown("""
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 2rem !important;
-            max-width: 800px;
+            max-width: 900px;
         }
         
         /* Estilos institucionales personalizados */
@@ -50,11 +50,12 @@ st.markdown("""
             border-radius: 10px; 
             text-align: center; 
             margin-bottom: 20px; 
+            min-height: 160px;
         }
         .stButton>button { 
             background-color: #1e5b4f !important; 
             color: white !important; 
-            font-size: 1.1rem !important; 
+            font-size: 1.0rem !important; 
             font-weight: bold !important; 
             border-radius: 6px !important; 
             padding: 0.6rem 1.1rem !important; 
@@ -112,12 +113,13 @@ if not st.session_state.get("auth_registro", False) and not st.session_state.get
                 
                 password_operativa = "OperativoInv26"
                 
+                # Recuperar credenciales de administrador de st.secrets de forma segura
                 admin_user = st.secrets.get("ADMIN_USER", "admin").strip().lower()
                 admin_pass = st.secrets.get("ADMIN_PASSWORD", "VIGILE2026").strip()
                 
                 acceso_permitido = False
                 
-                if usuario_input == admin_user and password_input == admin_pass:
+                if admin_pass and usuario_input == admin_user and password_input == admin_pass:
                     acceso_permitido = True
                 elif usuario_input in correos_autorizados and password_input == correos_autorizados[usuario_input]:
                     acceso_permitido = True
@@ -176,7 +178,8 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
+    # Distribución en 3 columnas para incluir el Panel de Administración de forma directa
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.markdown("""
@@ -185,7 +188,7 @@ else:
                 <p>Acceso al formulario de captura para pacientes en jornadas de vacunación.</p>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("Ir al Formulario de Registro", use_container_width=True):
+        if st.button("Ir al Formulario", use_container_width=True):
             st.switch_page(pagina_formulario)
 
     with col2:
@@ -195,8 +198,18 @@ else:
                 <p>Captura de dosis aplicadas, lotes y comprobantes.</p>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("Ir a Consulta CENSIA", use_container_width=True):
+        if st.button("Ir a CENSIA", use_container_width=True):
             st.switch_page("pages/2_consulta_censia.py")
+
+    with col3:
+        st.markdown("""
+            <div class="card-menu">
+                <h3>⚙️ Administración</h3>
+                <p>Gestión de jornadas, pestañas maestras y códigos QR.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Ir al Panel Admin", use_container_width=True):
+            st.switch_page("pages/3_administrador.py")
 
     st.markdown("""
         <div class="footer-text">
