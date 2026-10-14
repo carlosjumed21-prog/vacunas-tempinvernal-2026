@@ -23,6 +23,14 @@ def obtener_cliente_gspread():
     client = gspread.authorize(creds)
     return client
 
+def obtener_token_acceso():
+    """
+    Retorna las credenciales o el objeto de autorización para mantener 
+    compatibilidad con módulos externos (como logica_censia.py).
+    """
+    client = obtener_cliente_gspread()
+    return client.auth
+
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """
     Guarda el registro censal de forma nativa en Google Sheets utilizando gspread,
@@ -33,8 +41,7 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
     # Abrir la hoja de cálculo nativa por su ID configurado
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
     
-    # Seleccionar la pestaña activa o la hoja correspondiente (ej. "CENSO NOMINAL" o por unidad)
-    # Puedes ajustar el nombre de la hoja según tu lógica de negocio
+    # Seleccionar la pestaña activa o la hoja correspondiente
     try:
         worksheet = spreadsheet.worksheet("CENSO NOMINAL")
     except gspread.exceptions.WorksheetNotFound:
@@ -49,14 +56,12 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
     folio_asignado = f"{fecha_str}-{tipo_jornada}-{sigla_url}{sufijo_unidad}-{conteo_actual:04d}"
 
     # Estructura de datos a insertar en la fila de Google Sheets
-    # Asegúrate de alinear estos campos exactamente con las columnas de tu hoja nativa
     fila_a_insertar = [
         conteo_actual,
         folio_asignado,
         datos_paciente.get("paterno", "").upper(),
         datos_paciente.get("materno", "").upper(),
         datos_paciente.get("nombres", "").upper(),
-        # ... Agrega los demás campos requeridos por tu matriz de censo nominal ...
         datos_paciente.get("correo_paciente", "")
     ]
 
@@ -79,7 +84,7 @@ def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, f
 
     registros = worksheet.get_all_values()
     
-    # Lógica de búsqueda de duplicados recorriendo las filas de la hoja nativa
+    # Búsqueda de duplicados recorriendo las filas de la hoja nativa
     for fila in registros[1:]: # Omitir cabecera
         if len(fila) > 1 and curp_con_nacimiento in str(fila):
             folio_previo = fila[1] if len(fila) > 1 else "S/N"
