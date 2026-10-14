@@ -29,7 +29,7 @@ def procesar_guardado_aplicacion(
     """
     Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
     utilizando directamente la API REST oficial de Google Sheets. 
-    Para el CMN 20 de Noviembre, muestra una notificación explícita de sincronización dual.
+    Para el CMN 20 de Noviembre, realiza la migración dual simultánea en la hoja nominal y tabular hermana (_CENSO).
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -132,7 +132,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # 1. Petición para actualizar los valores en la hoja activa
+        # 1. Petición para actualizar los valores en la hoja nominal activa
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -142,7 +142,7 @@ def procesar_guardado_aplicacion(
         if resp_val.status_code != 200:
             raise Exception(resp_val.text)
 
-        # 2. MIGRACIÓN Hacia LA HOJA "CENSO" GENERAL (EXCLUSIVO 20 DE NOVIEMBRE)
+        # 2. MIGRACIÓN DUAL SIMULTÁNEA HACIA LA HOJA TABULAR _CENSO CORRESPONDIENTE (EXCLUSIVO 20 DE NOVIEMBRE)
         migracion_20n_exitosa = False
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             try:
@@ -164,38 +164,53 @@ def procesar_guardado_aplicacion(
 
                 client_gspread = gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
                 spreadsheet_20n = client_gspread.open_by_key(SHEET_ID_20_NOV)
-                hoja_censia_general = spreadsheet_20n.worksheet("CENSO")
+                
+                # Derivar dinámicamente la hoja hermana tabular _CENSO a partir de la nominal activa
+                nombre_hoja_nominal_activa = worksheet_activa.title
+                nombre_hoja_censo_tabulada = nombre_hoja_nominal_activa.replace("_NOMINAL", "_CENSO")
                 
                 folio_paciente_actual = todos_los_datos[fila_idx - 1][1].strip() if len(todos_los_datos[fila_idx - 1]) > 1 else ""
                 
                 if folio_paciente_actual:
-                    valores_censo_general = hoja_censia_general.get_all_values()
-                    fila_en_censo = None
-                    
-                    for idx_cg, row_cg in enumerate(valores_censo_general[13:], start=14):
-                        if len(row_cg) > 1 and row_cg[1].strip() == folio_paciente_actual:
-                            fila_en_censo = idx_cg
-                            break
-                    
-                    if fila_en_censo:
-                        if inf_1ra: hoja_censia_general.update_cell(fila_en_censo, 25, "X")
-                        if inf_2da: hoja_censia_general.update_cell(fila_en_censo, 26, "X")
-                        if inf_anual: hoja_censia_general.update_cell(fila_en_censo, 27, "X")
-                        if lote_inf_input: hoja_censia_general.update_cell(fila_en_censo, 28, lote_i)
-                        if cad_inf_input: hoja_censia_general.update_cell(fila_en_censo, 29, cad_i_str)
-
-                        if cov_1ra: hoja_censia_general.update_cell(fila_en_censo, 30, "X")
-                        if cov_2da: hoja_censia_general.update_cell(fila_en_censo, 31, "X")
-                        if cov_anual: hoja_censia_general.update_cell(fila_en_censo, 32, "X")
-                        if lote_cov_input: hoja_censia_general.update_cell(fila_en_censo, 33, lote_c)
-                        if cad_cov_input: hoja_censia_general.update_cell(fila_en_censo, 34, cad_c_str)
+                    try:
+                        ws_censo_tablero = spreadsheet_20n.worksheet(nombre_hoja_censo_tabulada)
+                        valores_censo_tablero = ws_censo_tablero.get_all_values()
+                        fila_en_censo_tablero = None
                         
-                        migracion_20n_exitosa = True
+                        # Buscar la fila exacta en la hoja tabular _CENSO utilizando el Folio único (Columna B / índice 1)
+                        for idx_ct, row_ct in enumerate(valores_censo_tablero[13:], start=14):
+                            if len(row_ct) > 1 and row_ct[1].strip() == folio_paciente_actual:
+                                fila_en_censo_tablero = idx_ct
+                                break
+                        
+                        if fila_en_censo_tablero:
+                            updates_censo_tablero = []
+                            
+                            # Mapeo de dosis y lotes en la hoja tabular _CENSO
+                            if inf_1ra: updates_censo_tablero.append({"range": f"Y{fila_en_censo_tablero}", "values": [["X"]]})
+                            if inf_2da: updates_censo_tablero.append({"range": f"Z{fila_en_censo_tablero}", "values": [["X"]]})
+                            if inf_anual: updates_censo_tablero.append({"range": f"AA{fila_en_censo_tablero}", "values": [["X"]]})
+                            if lote_inf_input: updates_censo_tablero.append({"range": f"AB{fila_en_censo_tablero}", "values": [[lote_i]]})
+                            if cad_inf_input: updates_censo_tablero.append({"range": f"AC{fila_en_censo_tablero}", "values": [[cad_i_str]]})
+
+                            if cov_1ra: updates_censo_tablero.append({"range": f"AD{fila_en_censo_tablero}", "values": [["X"]]})
+                            if cov_2da: updates_censo_tablero.append({"range": f"AE{fila_en_censo_tablero}", "values": [["X"]]})
+                            if cov_anual: updates_censo_tablero.append({"range": f"AF{fila_en_censo_tablero}", "values": [["X"]]})
+                            if lote_cov_input: updates_censo_tablero.append({"range": f"AG{fila_en_censo_tablero}", "values": [[lote_c]]})
+                            if cad_cov_input: updates_censo_tablero.append({"range": f"AH{fila_en_censo_tablero}", "values": [[cad_c_str]]})
+
+                            if updates_censo_tablero:
+                                ws_censo_tablero.batch_update(updates_censo_tablero)
+                                
+                            migracion_20n_exitosa = True
+                    except Exception as e_censo_tab:
+                        st.warning(f"⚠️ No se encontró la hoja tabular hermana `{nombre_hoja_censo_tabulada}` para sincronizar: {e_censo_tab}")
+
             except Exception as e_migracion:
-                st.error(f"⚠️ Error al sincronizar con la hoja CENSO general: {e_migracion}")
+                st.error(f"⚠️ Error al sincronizar con la hoja de censo dual: {e_migracion}")
                 return False
 
-        # 3. Formato visual verde en la hoja activa
+        # 3. Formato visual verde en la hoja activa nominal
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
@@ -233,12 +248,12 @@ def procesar_guardado_aplicacion(
         # Limpieza de caché
         st.cache_data.clear()
 
-        # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN PARA EL 20 DE NOVIEMBRE ---
+        # --- NOTIFICACIÓN EXCEPCIONAL DE SINCRONIZACIÓN DUAL PARA EL 20 DE NOVIEMBRE ---
         if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             if migracion_20n_exitosa:
-                st.success("🏥 **CMN 20 de Noviembre:** Sincronización dual exitosa en 'Censo Nominal' y sábana 'Censo'.")
+                st.success("🏥 **CMN 20 de Noviembre:** Sincronización dual exitosa en 'Censo Nominal' y su hoja tabular 'Censo'.")
             else:
-                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización con la sábana 'Censo' requiere revisión.")
+                st.warning("⚠️ Se guardó en la hoja nominal, pero la sincronización dual con la hoja tabular 'Censo' requirió revisión.")
 
         lote_final_partes = []
         if lote_inf_input:
