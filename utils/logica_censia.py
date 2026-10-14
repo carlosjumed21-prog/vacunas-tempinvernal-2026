@@ -27,8 +27,10 @@ def procesar_guardado_aplicacion(
     sheet_id_objetivo=GOOGLE_SHEET_ID
 ):
     """
-    Ejecuta las validaciones, actualiza los datos de manera dual (CENSO NOMINAL y CENSO general)
-    respetando el mapeo exacto de columnas de cada hoja mediante peticiones REST independientes.
+    Ejecuta las validaciones, actualiza los datos y pinta de verde las celdas
+    utilizando directamente la API REST oficial de Google Sheets. 
+    Para el CMN 20 de Noviembre, realiza la migración conjunta y dual tanto en la 
+    hoja nominal activa como en la hoja maestra 'CENSO'.
     """
     influenza_seleccionada = inf_1ra or inf_2da or inf_anual
     covid_seleccionada = cov_1ra or cov_2da or cov_anual
@@ -74,6 +76,7 @@ def procesar_guardado_aplicacion(
         cad_i_str = cad_inf_input.strip()
         cad_c_str = cad_cov_input.strip()
         
+        # Encerrar el nombre de la hoja entre comillas simples para evitar errores de sintaxis en la API de Sheets
         nombre_hoja_escapado = f"'{worksheet_activa.title}'"
 
         if habilitar_edicion:
@@ -91,7 +94,7 @@ def procesar_guardado_aplicacion(
         else:
             nombre_completo = f"{paterno_p} {materno_p}, {nombres_p}"
 
-        # --- 1. ACTUALIZACIÓN EN LA HOJA ACTIVA (CENSO NOMINAL DE JORNADA) ---
+        # INFLUENZA (Columnas AG, AH, AI, AJ, AK en la hoja nominal)
         if inf_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AG{f_actual}:AG{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append("Influenza (1ra Dosis)")
@@ -108,6 +111,7 @@ def procesar_guardado_aplicacion(
         if cad_inf_input:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AK{f_actual}:AK{f_siguiente}", "values": [[cad_i_str], [cad_i_str]]})
 
+        # COVID (Columnas AL, AM, AN, AO, AP en la hoja nominal)
         if cov_1ra:
             updates_data.append({"range": f"{nombre_hoja_escapado}!AL{f_actual}:AL{f_siguiente}", "values": [["X"], ["X"]]})
             dosis_aplicadas_lista.append(f"{biologico_covid_elegido} (1ra Dosis)")
@@ -130,7 +134,7 @@ def procesar_guardado_aplicacion(
             "Content-Type": "application/json"
         }
 
-        # Ejecutamos la petición en la hoja activa
+        # 1. Petición para actualizar los valores en la hoja activa del libro objetivo
         url_values = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}/values:batchUpdate"
         body_values = {
             "valueInputOption": "USER_ENTERED",
@@ -138,10 +142,10 @@ def procesar_guardado_aplicacion(
         }
         resp_val = requests.post(url_values, headers=headers, json=body_values)
         if resp_val.status_code != 200:
-            raise Exception(f"Error en Google Sheets API (Valores Hoja Activa): {resp_val.text}")
+            raise Exception(resp_val.text)
 
-        # --- 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (MAPEO Y-AH) ---
-        if sheet_id_objetivo == SHEET_ID_20_NOV:
+        # 2. MIGRACIÓN DUAL CONJUNTA HACIA LA HOJA "CENSO" GENERAL (Exclusivo para el libro del 20 de Noviembre)
+        if str(sheet_id_objetivo).strip() == str(SHEET_ID_20_NOV).strip():
             try:
                 import json
                 import gspread
@@ -180,6 +184,7 @@ def procesar_guardado_aplicacion(
                         fc_siguiente = fila_en_censo + 1
 
                         updates_censo = []
+                        # Mapeo exacto de columnas Y hasta AH en la hoja CENSO general
                         if inf_1ra:
                             updates_censo.append({"range": f"{nombre_censo_escapado}!Y{fc_actual}:Y{fc_siguiente}", "values": [["X"], ["X"]]})
                         if inf_2da:
@@ -203,18 +208,19 @@ def procesar_guardado_aplicacion(
                             updates_censo.append({"range": f"{nombre_censo_escapado}!AH{fc_actual}:AH{fc_siguiente}", "values": [[cad_c_str], [cad_c_str]]})
 
                         if updates_censo:
+                            url_censo_general = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_20_NOV}/values:batchUpdate"
                             body_censo = {
                                 "valueInputOption": "USER_ENTERED",
                                 "data": updates_censo
                             }
-                            resp_censo = requests.post(url_values, headers=headers, json=body_censo)
+                            resp_censo = requests.post(url_censo_general, headers=headers, json=body_censo)
                             if resp_censo.status_code != 200:
-                                st.warning(f"⚠️ Aviso al migrar a hoja CENSO: {resp_censo.text}")
+                                st.warning(f"⚠️ Aviso al migrar a hoja CENSO general: {resp_censo.text}")
             except Exception as e_migracion:
-                st.error(f"⚠️ Error al migrar a la hoja CENSO general: {e_migracion}")
+                st.error(f"⚠️ Error crítico al migrar a la hoja CENSO general: {e_migracion}")
                 return False
 
-        # --- 3. FORMATO VISUAL VERDE EN LA HOJA ACTIVA ---
+        # 3. Petición para aplicar el formato de color de fondo verde en la fila guardada
         url_spreadsheet = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_objetivo}:batchUpdate"
         body_format = {
             "requests": [
@@ -249,6 +255,7 @@ def procesar_guardado_aplicacion(
         }
         requests.post(url_spreadsheet, headers=headers, json=body_format)
 
+        # Limpieza de caché para reflejar los cambios en tiempo real
         st.cache_data.clear()
 
         lote_final_partes = []
