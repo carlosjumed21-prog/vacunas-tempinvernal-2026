@@ -118,12 +118,6 @@ with m8: st.markdown(f'<div class="metric-card-7"><div class="metric-label">Simu
 
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
-col_del, _ = st.columns([2, 5])
-with col_del:
-    btn_eliminar = st.button("🗑️ Eliminar Paciente(s) Seleccionado(s)", type="primary", use_container_width=True)
-
-st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
 # --- FRAGMENTO AISLADO PARA LA TABLA ---
 @st.fragment
 def render_tabla_con_estilos():
@@ -155,39 +149,34 @@ def render_tabla_con_estilos():
 
 df_editado = render_tabla_con_estilos()
 
-# --- VENTANA MODAL DE CONFIRMACIÓN (Nativa, abre limpio sin recargar de más) ---
-@st.dialog("⚠️ Confirmación de Seguridad")
-def mostrar_dialogo_eliminacion(indices_marcados):
-    num_pacientes = len({idx // 2 for idx in indices_marcados})
-    st.warning(f"Está a punto de eliminar **{num_pacientes}** paciente(s) seleccionado(s) de la hoja de Google Sheets de forma permanente.")
-    st.write("¿Desea confirmar y proceder con la eliminación?")
-    
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        if st.button("Sí, eliminar ahora", type="primary", use_container_width=True):
-            try:
-                with st.spinner("Eliminando registros y sincronizando..."):
-                    eliminar_pacientes_seleccionados(
-                        sheet_id_tabla, 
-                        hoja_activa_tabla, 
-                        indices_marcados, 
-                        mapeo_indices_pares, 
-                        filas_tabla, 
-                        key_estado_filas
-                    )
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Ocurrió un error al intentar eliminar: {e}")
-    with col_d2:
-        if st.button("Cancelar", use_container_width=True):
-            # Cierra el diálogo limpiamente sin ejecutar ninguna acción ni recargas innecesarias
-            st.rerun()
+st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-# --- ACCIÓN DEL BOTÓN DE ELIMINAR ---
-if btn_eliminar:
-    indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
-    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
-    if not pacientes_a_eliminar:
-        st.warning("⚠️ No ha seleccionado ningún paciente para eliminar.")
-    else:
-        mostrar_dialogo_eliminacion(indices_marcados)
+# --- ACCIÓN DE ELIMINACIÓN CON POPOVER FLOTANTE (SIN RELOADS INNECESARIOS) ---
+col_del, _ = st.columns([2, 5])
+with col_del:
+    with st.popover("🗑️ Eliminar Paciente(s) Seleccionado(s)", use_container_width=True):
+        st.markdown("### ⚠️ Confirmación de Seguridad")
+        st.markdown("¿Desea eliminar permanentemente los pacientes seleccionados de la hoja de Google Sheets?")
+        
+        col_pop1, col_pop2 = st.columns(2)
+        with col_pop1:
+            if st.button("Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar_popover"):
+                indices_marcados = df_editado[df_editado["SELECCIONAR"] == True].index.tolist()
+                pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+                
+                if not pacientes_a_eliminar:
+                    st.warning("⚠️ No ha seleccionado ningún paciente.")
+                else:
+                    try:
+                        with st.spinner("Sincronizando con Google Sheets..."):
+                            eliminar_pacientes_seleccionados(
+                                sheet_id_tabla, 
+                                hoja_activa_tabla, 
+                                indices_marcados, 
+                                mapeo_indices_pares, 
+                                filas_tabla, 
+                                key_estado_filas
+                            )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error al intentar eliminar: {e}")
