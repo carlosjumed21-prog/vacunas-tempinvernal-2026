@@ -13,16 +13,13 @@ def obtener_cliente_gspread():
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # Cargar credenciales desde st.secrets de manera segura
     try:
         if "gcp_service_account" in st.secrets:
             creds_dict = dict(st.secrets["gcp_service_account"])
             creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         else:
-            # Fallback a archivo local si no está en st.secrets
             creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
     except Exception:
-        # Fallback de emergencia a archivo local
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
         
     client = gspread.authorize(creds)
@@ -36,42 +33,61 @@ def obtener_token_acceso():
     client = obtener_cliente_gspread()
     return client.auth
 
+def _obtener_worksheet_dinamica(spreadsheet, sigla_url, tipo_jornada, val_fecha_app):
+    """
+    Intenta localizar la pestaña correspondiente a la jornada actual 
+    (ej. TLA_EXTRA_141026, DVN_INTRA_121026, etc.) o recurre a 'CENSO NOMINAL'.
+    """
+    # Construir el sufijo de modalidad (Ej: INTRA, EXTRA, MOVIL)
+    mod_map = {"I": "INTRA", "E": "EXTRA", "M": "MOV"}
+    tipo_str = mod_map.get(tipo_jornada.upper(), "INTRA")
+    fecha_sufijo = val_fecha_app.strftime("%d%m%y")
+    
+    # Nombres posibles de pestañas basados en tu estructura operativa
+    nombres_candidatos = [
+        f"{sigla_url.upper()}_{tipo_str}_{fecha_sufijo}",
+        f"{sigla_url.upper()}_EXTRA_{fecha_sufijo}",
+        f"{sigla_url.upper()}_INTRA_{fecha_sufijo}",
+        "CENSO NOMINAL"
+    ]
+    
+    for nombre in nombres_candidatos:
+        try:
+            return spreadsheet.worksheet(nombre)
+        except gspread.exceptions.WorksheetNotFound:
+            continue
+            
+    # Si ninguna de las anteriores existe, regresa la primera pestaña disponible
+    return spreadsheet.get_worksheet(0)
+
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """
-    Guarda el registro censal de forma nativa en Google Sheets utilizando gspread,
-    evitando conflictos con celdas o encabezados vacíos y controlando errores de API.
+    Guarda el registro censal en la pestaña dinámica correspondiente a la unidad y fecha.
     """
     client = obtener_cliente_gspread()
     
-    # Abrir la hoja de cálculo nativa por su ID configurado
     try:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
     except Exception as e:
-        raise Exception(f"No se pudo abrir el documento de Google Sheets (Verifica el ID o permisos de la cuenta de servicio): {e}")
+        raise Exception(f"No se pudo abrir el documento de Google Sheets (Verifica el ID o permisos): {e}")
     
-    # Seleccionar la pestaña activa o la hoja correspondiente
+    # Seleccionar la pestaña de forma dinámica según la jornada/fecha
     try:
-        worksheet = spreadsheet.worksheet("CENSO NOMINAL")
-    except gspread.exceptions.WorksheetNotFound:
-        try:
-            worksheet = spreadsheet.get_worksheet(0) # Fallback a la primera pestaña
-        except Exception as e:
-            raise Exception(f"No se pudo acceder a ninguna pestaña válida en el documento: {e}")
+        worksheet = _obtener_worksheet_dinamica(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
+    except Exception as e:
+        raise Exception(f"No se pudo acceder a la pestaña de registro: {e}")
 
-    # Obtener todas las filas como valores planos para evitar errores de encabezados vacíos
     try:
         filas_existentes = worksheet.get_all_values()
     except Exception as e:
-        raise Exception(f"Error al leer los valores de la hoja de Google Sheets (Posible bloqueo de API o respuesta vacía): {e}")
+        raise Exception(f"Error al leer los valores de la hoja de Google Sheets: {e}")
       
-    # El conteo actual considera el total de filas actuales (incluyendo cabecera)
     conteo_actual = len(filas_existentes)
     
     fecha_str = val_fecha_app.strftime("%Y%m%d")
     sufijo_unidad = f"-{sufijo_js}" if sufijo_js else ""
     folio_asignado = f"{fecha_str}-{tipo_jornada}-{sigla_url}{sufijo_unidad}-{conteo_actual:04d}"
 
-    # Estructura de datos a insertar en la fila de Google Sheets
     fila_a_insertar = [
         conteo_actual,
         folio_asignado,
@@ -81,7 +97,6 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
         datos_paciente.get("correo_paciente", "")
     ]
 
-    # Insertar la fila de manera nativa
     try:
         worksheet.append_row(fila_a_insertar)
     except Exception as e:
@@ -91,7 +106,7 @@ def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, n
 
 def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, fecha_aplicacion):
     """
-    Verifica si una CURP ya se encuentra registrada en la hoja de cálculo de forma nativa.
+    Verifica duplicados consultando la pestaña dinámica activa de la jornada.
     """
     client = obtener_cliente_gspread()
     
@@ -101,19 +116,15 @@ def verificar_curp_duplicada(curp_con_nacimiento, sigla, sufijo, tipo_jornada, f
         raise Exception(f"No se pudo abrir el documento para verificar duplicados: {e}")
     
     try:
-        worksheet = spreadsheet.worksheet("CENSO NOMINAL")
-    except gspread.exceptions.WorksheetNotFound:
-        try:
-            worksheet = spreadsheet.get_worksheet(0)
-        except Exception as e:
-            raise Exception(f"No se pudo acceder a la pestaña para validar duplicados: {e}")
+        worksheet = _obtener_worksheet_dinamica(spreadsheet, sig, tipo_jornada if 'tipo_jornada' in locals() else "I", fecha_aplicacion)
+    except Exception as e:
+        raise Exception(f"No se pudo acceder a la pestaña para validar duplicados: {e}")
 
     try:
         registros = worksheet.get_all_values()
     except Exception as e:
         raise Exception(f"Error al leer los registros existentes: {e}")
     
-    # Búsqueda de duplicados recorriendo las filas de la hoja nativa
     for fila in registros[1:]: # Omitir cabecera
         if len(fila) > 1 and curp_con_nacimiento in str(fila):
             folio_previo = fila[1] if len(fila) > 1 else "S/N"
