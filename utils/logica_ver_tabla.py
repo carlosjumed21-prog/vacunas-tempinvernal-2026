@@ -31,7 +31,6 @@ def get_creds_from_secrets():
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-# --- SIN SPINNER MOLESTO ---
 @str_lib.cache_data(ttl=300, show_spinner=False)
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
@@ -173,33 +172,37 @@ def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, ma
             filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
             del filas_actualizadas[idx_par_real:idx_par_real + 2]
 
-    # Actualización inmediata en memoria local para respuesta visual instantánea
+    # 1. ACTUALIZACIÓN INMEDIATA EN MEMORIA LOCAL (La vista se refresca al instante sin esperar la red)
     str_lib.session_state[key_estado_filas] = filas_actualizadas
 
-    client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(sheet_id)
-    ws = spreadsheet.worksheet(hoja_activa)
+    # 2. SINCRONIZACIÓN CON GOOGLE SHEETS EN SEGUNDO PLANO
+    try:
+        client = obtener_cliente_gspread()
+        spreadsheet = client.open_by_key(sheet_id)
+        ws = spreadsheet.worksheet(hoja_activa)
 
-    filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
-    for fila_gs in filas_gs_a_borrar:
-        try:
-            ws.delete_rows(fila_gs)
-        except Exception:
-            pass
-
-    datos_actualizados = ws.get_all_values()
-    if len(datos_actualizados) >= 14:
-        filas_actuales = datos_actualizados[13:]
-        contador = 1
-        updates = []
-        for i in range(0, len(filas_actuales), 2):
-            row = filas_actuales[i]
-            if len(row) > 0 and row[0].strip() != "":
-                a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
-                updates.append({"range": a1, "values": [[str(contador)]]})
-                contador += 1
-        if updates:
+        filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
+        for fila_gs in filas_gs_a_borrar:
             try:
-                ws.batch_update(updates)
+                ws.delete_rows(fila_gs)
             except Exception:
                 pass
+
+        datos_actualizados = ws.get_all_values()
+        if len(datos_actualizados) >= 14:
+            filas_actuales = datos_actualizados[13:]
+            contador = 1
+            updates = []
+            for i in range(0, len(filas_actuales), 2):
+                row = filas_actuales[i]
+                if len(row) > 0 and row[0].strip() != "":
+                    a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                    updates.append({"range": a1, "values": [[str(contador)]]})
+                    contador += 1
+            if updates:
+                try:
+                    ws.batch_update(updates)
+                except Exception:
+                    pass
+    except Exception:
+        pass
