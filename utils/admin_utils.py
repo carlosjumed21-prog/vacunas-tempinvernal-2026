@@ -13,6 +13,7 @@ import gspread
 import qrcode
 import streamlit as st
 
+
 def autenticar_administrador(correo, password):
     """Valida las credenciales de acceso del administrador."""
     correo_limpio = correo.strip().lower()
@@ -21,25 +22,36 @@ def autenticar_administrador(correo, password):
         return True, correo_limpio
     return False, ""
 
+
 def obtener_cliente_gspread():
     """Autentica y retorna el cliente de gspread usando los secretos de Streamlit de forma nativa y segura."""
     scope = GOOGLE_SCOPES
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
     elif "gpex" in st.secrets:
         creds_dict = dict(st.secrets["gpex"])
     else:
         primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+        valor = st.secrets[primera_llave]
+        creds_dict = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
 
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
     return gspread.service_account_from_dict(creds_dict, scopes=scope)
 
+
 def verificar_hojas_existentes(siglas_unidad, config_jornadas):
-    """Verifica si las hojas de cálculo ya existen en Google Sheets para evitar duplicados."""
+    """
+    Verifica si las hojas ya existen en Google Sheets para evitar duplicados.
+
+    Para 20N:
+      - se sigue usando el patrón con sufijo de jornada/jornada simultánea
+      - pero ya no se fuerza el sufijo _NOMINAL aquí
+    """
     try:
         client = obtener_cliente_gspread()
         sheet_id_destino = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" if siglas_unidad == "20N" else GOOGLE_SHEET_ID
@@ -49,16 +61,21 @@ def verificar_hojas_existentes(siglas_unidad, config_jornadas):
 
         for j_conf in config_jornadas:
             fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
+            tipo_texto = j_conf["tipo_texto"]
+            sufijo_hoja = j_conf.get("sufijo_hoja", "")
+
             if siglas_unidad == "20N":
-                nombre_prueba = f"{siglas_unidad}_{j_conf['tipo_texto']}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL"
+                nombre_prueba = f"{siglas_unidad}_{tipo_texto}{sufijo_hoja}_{fecha_str_val}"
             else:
-                nombre_prueba = f"{siglas_unidad}_{j_conf['tipo_texto']}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+                nombre_prueba = f"{siglas_unidad}_{tipo_texto}{sufijo_hoja}_{fecha_str_val}"
 
             if nombre_prueba in hojas_existentes:
                 duplicadas.append(nombre_prueba)
+
         return duplicadas, None
     except Exception as e:
         return [], str(e)
+
 
 def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jornada_letra, tipo_jornada_texto, config_jornadas_activas):
     """Duplica la plantilla en Google Sheets, actualiza los metadatos y genera los enlaces y códigos QR."""
@@ -74,29 +91,30 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
             fecha_str_val = j_conf["fecha"].strftime("%d%m%y")
             fecha_formato_oficial = j_conf["fecha"].strftime("%d/%m/%Y")
             fecha_url_str = j_conf["fecha"].strftime("%Y-%m-%d")
-            
+
             resp_encoded = urllib.parse.quote(j_conf["responsable"])
             js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
             ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
-            
+
             link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
-            nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}_NOMINAL" if siglas_unidad == "20N" else f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
+            nombre_hoja_objetivo = f"{siglas_unidad}_{tipo_jornada_texto}{j_conf['sufijo_hoja']}_{fecha_str_val}"
             link_operativo = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(nombre_hoja_objetivo)}"
 
             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
-            plantilla_nombre = "CENSO NOMINAL"
+            # Plantilla base para la hoja maestra
+            plantilla_nombre = "CENSO NOMINAL" if siglas_unidad == "20N" else "CENSO NOMINAL"
             plantilla = spreadsheet_maestro.worksheet(plantilla_nombre)
-            
+
             copia = spreadsheet_maestro.duplicate_sheet(
-                plantilla.id, 
-                insert_sheet_index=len(spreadsheet_maestro.worksheets()), 
+                plantilla.id,
+                insert_sheet_index=len(spreadsheet_maestro.worksheets()),
                 new_sheet_name=nombre_hoja_objetivo
             )
             hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_hoja_objetivo)
 
-            # Rellenar metadatos en la hoja de cálculo
+            # Metadatos
             hoja_activa_maestro.update_acell("D7", "CDMX")
             hoja_activa_maestro.update_acell("M7", "ISSSTE")
             hoja_activa_maestro.update_acell("T7", "Delegación Sur")
@@ -105,10 +123,11 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
             hoja_activa_maestro.update_acell("D9", unidad_sel)
             hoja_activa_maestro.update_acell("AB9", fecha_formato_oficial)
             hoja_activa_maestro.update_acell("E10", j_conf["responsable"])
+
             hoja_activa_maestro.update(values=[[j_conf["correo"]]], range_name="AU4")
             hoja_activa_maestro.update(values=[[link_paciente]], range_name="AU6")
             hoja_activa_maestro.update(values=[[link_operativo]], range_name="AU7")
-            hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option='USER_ENTERED')
+            hoja_activa_maestro.update(values=[[formula_imagen_qr]], range_name="AU8", value_input_option="USER_ENTERED")
 
             hoja_info = {
                 "nombre": nombre_hoja_objetivo,
@@ -122,13 +141,14 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
                 "fecha": j_conf["fecha"],
                 "sheet_id": sheet_id_destino,
                 "link_formulario": link_paciente,
-                "link_operativo": link_operativo
+                "link_operativo": link_operativo,
             }
             hojas_creadas_exito.append(hoja_info)
 
         return hojas_creadas_exito, None
     except Exception as e:
         return [], str(e)
+
 
 def sincronizar_historial_universal():
     """Escanea los libros maestros en Google Sheets para extraer todas las jornadas activas con sus metadatos reales."""
@@ -165,10 +185,8 @@ def sincronizar_historial_universal():
                         except:
                             fecha_leida_str = ""
 
-                        # Determinar siglas y modalidad de forma robusta
                         siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
-                        
-                        # Evaluar si es extra, intra o móvil según el título de la hoja
+
                         titulo_upper = titulo_w.upper()
                         if "EXTRA" in titulo_upper:
                             tipo_letra_h = "E"
@@ -183,7 +201,6 @@ def sincronizar_historial_universal():
                             tipo_letra_h = "I"
                             jornada_texto = "Intramuros I"
 
-                        # Parsear la fecha leída de la celda AB9 o asignar fecha actual por defecto
                         fecha_obj = datetime.date.today()
                         if fecha_leida_str:
                             try:
@@ -191,7 +208,6 @@ def sincronizar_historial_universal():
                             except:
                                 pass
 
-                        # Nombre de unidad legible
                         if not unidad_leida:
                             unidad_leida = "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica"
 
@@ -214,13 +230,15 @@ def sincronizar_historial_universal():
                             "fecha": fecha_obj,
                             "sheet_id": sheet_id_item,
                             "link_formulario": link_form_leido,
-                            "link_operativo": link_op_leido
+                            "link_operativo": link_op_leido,
                         })
             except:
                 pass
+
         return hojas_encontradas, None
     except Exception as e:
         return [], str(e)
+
 
 def generar_imagen_qr(link):
     """Genera los bytes de una imagen QR a partir de un enlace."""
