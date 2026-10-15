@@ -20,9 +20,14 @@ def obtener_cliente_gspread():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+    elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
     else:
         primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+        valor = st.secrets[primera_llave]
+        creds_dict = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
 
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
@@ -34,9 +39,14 @@ def obtener_token_acceso():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
         creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+    elif "gpex" in st.secrets:
+        creds_dict = dict(st.secrets["gpex"])
     else:
         primera_llave = list(st.secrets.keys())[0]
-        creds_dict = dict(st.secrets[primera_llave])
+        valor = st.secrets[primera_llave]
+        creds_dict = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
 
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
@@ -237,35 +247,26 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
     return celdas
 
 
-def guardar_registro_censal(
-    sigla_url,
-    sufijo_js,
-    tipo_jornada,
-    val_fecha_app,
-    nombre_unidad_completo,
-    datos_paciente,
-):
-    try:
-        client = obtener_cliente_gspread()
-        spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
+def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
+    client = obtener_cliente_gspread()
+    spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
 
-        ws = _obtener_o_crear_hoja(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
-        fila_destino = _siguiente_fila_libre(ws)
-        consecutivo = _consecutivo(fila_destino)
+    folio = _guardar_en_hoja(spreadsheet, sigla_url, "NOMINAL", tipo_jornada, val_fecha_app, datos_paciente)
+    _guardar_en_hoja(
+        spreadsheet,
+        sigla_url,
+        "CENSO",
+        tipo_jornada,
+        val_fecha_app,
+        datos_paciente,
+        folio_forzado=folio,
+    )
 
-        folio_asignado = f"{val_fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla_url}-{str(consecutivo).zfill(3)}"
+    st.cache_data.clear()
+    if hasattr(st, "cache_resource"):
+        st.cache_resource.clear()
 
-        celdas = _celdas_nominal(datos_paciente, folio_asignado, consecutivo, fila_destino, val_fecha_app)
-        _escribir_celdas(ws.title, celdas)
-
-        st.cache_data.clear()
-        if hasattr(st, "cache_resource"):
-            st.cache_resource.clear()
-
-        return folio_asignado, False, None
-
-    except Exception as e:
-        raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
+    return folio, False, None
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
