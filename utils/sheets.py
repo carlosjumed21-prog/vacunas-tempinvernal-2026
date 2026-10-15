@@ -14,7 +14,14 @@ SHEET_ID_OTRAS_UNIDADES = "1-1_BSmgN9QPnO5saVT-qQysSBm9NYMyqaMJXYRRD_Do"
 FILA_INICIAL = 14
 FILAS_POR_REGISTRO = 2
 
+# En NOMINAL: True -> C = Materno, D = Paterno (según tu última indicación)
+#             False -> C = Paterno, D = Materno
+NOMINAL_APELLIDOS_INVERTIDOS = True
 
+
+# ----------------------------------------------------------------------
+# Autenticación
+# ----------------------------------------------------------------------
 @st.cache_resource
 def obtener_cliente_gspread():
     if "GOOGLE_CREDENTIALS" in st.secrets:
@@ -57,6 +64,9 @@ def obtener_token_acceso():
     return creds.token
 
 
+# ----------------------------------------------------------------------
+# Utilidades
+# ----------------------------------------------------------------------
 def _txt(v):
     return "" if v is None else str(v).strip()
 
@@ -191,8 +201,7 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
 
     paterno = _up(p.get("paterno", ""))
     materno = _up(p.get("materno", ""))
-    c_val = materno
-    d_val = paterno
+    c_val, d_val = (materno, paterno) if NOMINAL_APELLIDOS_INVERTIDOS else (paterno, materno)
 
     ant_inf = _up(p.get("antecedente_influenza", ""))
     ant_cov = _up(p.get("antecedente_covid", ""))
@@ -248,25 +257,29 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
 
 
 def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
-    client = obtener_cliente_gspread()
-    spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
+    """Guarda en la hoja SIGLA_[INTRA|EXTRA]_DDMMAA con el mapeo NOMINAL.
+    Retorna: folio_asignado, is_duplicate, existing_folio"""
+    try:
+        client = obtener_cliente_gspread()
+        spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
 
-    folio = _guardar_en_hoja(spreadsheet, sigla_url, "NOMINAL", tipo_jornada, val_fecha_app, datos_paciente)
-    _guardar_en_hoja(
-        spreadsheet,
-        sigla_url,
-        "CENSO",
-        tipo_jornada,
-        val_fecha_app,
-        datos_paciente,
-        folio_forzado=folio,
-    )
+        ws = _obtener_o_crear_hoja(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
+        fila_destino = _siguiente_fila_libre(ws)
+        consecutivo = _consecutivo(fila_destino)
 
-    st.cache_data.clear()
-    if hasattr(st, "cache_resource"):
-        st.cache_resource.clear()
+        folio_asignado = f"{val_fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla_url}-{str(consecutivo).zfill(3)}"
 
-    return folio, False, None
+        celdas = _celdas_nominal(datos_paciente, folio_asignado, consecutivo, fila_destino, val_fecha_app)
+        _escribir_celdas(ws.title, celdas)
+
+        st.cache_data.clear()
+        if hasattr(st, "cache_resource"):
+            st.cache_resource.clear()
+
+        return folio_asignado, False, None
+
+    except Exception as e:
+        raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
@@ -280,6 +293,6 @@ def guardar_registro_censal_20_nov(datos_paciente):
         sufijo_js=sufijo_js,
         tipo_jornada=tipo_jornada,
         val_fecha_app=val_fecha_app,
-        nombre_unidad_completo=st.session_state.get("nombre_unidad", "20 DE NOVIEMBRE"),
+        nombre_unidad_completo=st.session_state.get("nombre_unidad", "CMN 20 DE NOVIEMBRE"),
         datos_paciente=datos_paciente,
     )
