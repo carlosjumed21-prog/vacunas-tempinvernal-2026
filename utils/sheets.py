@@ -8,8 +8,12 @@ from config import GOOGLE_SCOPES
 import gspread
 import streamlit as st
 
-# ID exclusivo para las demás unidades (Actualizado con la hoja nativa)
+# ID exclusivo para las demás unidades
 SHEET_ID_OTRAS_UNIDADES = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
+
+FILA_INICIAL = 14
+FILAS_POR_REGISTRO = 2
+
 
 @st.cache_resource
 def obtener_cliente_gspread():
@@ -25,6 +29,7 @@ def obtener_cliente_gspread():
 
     return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
 
+
 def obtener_token_acceso():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -32,12 +37,219 @@ def obtener_token_acceso():
     else:
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
+
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
     creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
     auth_req = google.auth.transport.requests.Request()
     creds.refresh(auth_req)
     return creds.token
+
+
+def _txt(v):
+    return "" if v is None else str(v).strip()
+
+
+def _up(v):
+    return _txt(v).upper()
+
+
+def _x(cond):
+    return "X" if cond else ""
+
+
+def _es_si(v):
+    return str(v).strip().upper() in ("TRUE", "1", "SÍ", "SI", "S", "X")
+
+
+def _nombre_hoja(sigla, tipo_jornada, fecha_app):
+    tipo = "INTRA" if tipo_jornada == "I" else "EXTRA"
+    return f"{sigla}_{tipo}_{fecha_app.strftime('%d%m%y')}"
+
+
+def _obtener_o_crear_hoja(spreadsheet, sigla, tipo_jornada, fecha_app):
+    nombre_ideal = _nombre_hoja(sigla, tipo_jornada, fecha_app)
+    tipo = "INTRA" if tipo_jornada == "I" else "EXTRA"
+    fecha_str = fecha_app.strftime("%d%m%y")
+
+    # Buscar coincidencia exacta
+    for h in spreadsheet.worksheets():
+        t = h.title.upper()
+        if t == nombre_ideal.upper():
+            return h
+
+    # Buscar coincidencia por patrón
+    for h in spreadsheet.worksheets():
+        t = h.title.upper()
+        if sigla.upper() in t and tipo in t and fecha_str in t:
+            return h
+
+    # Intentar duplicar una plantilla con nombre NOMINAL o CENSO si existe
+    for plantilla in ["NOMINAL", "CENSO NOMINAL", "CENSO"]:
+        try:
+            base = spreadsheet.worksheet(plantilla)
+            spreadsheet.duplicate_sheet(
+                source_sheet_id=base.id,
+                insert_sheet_index=0,
+                new_sheet_name=nombre_ideal,
+            )
+            return spreadsheet.worksheet(nombre_ideal)
+        except Exception:
+            continue
+
+    return spreadsheet.add_worksheet(title=nombre_ideal, rows=300, cols=60)
+
+
+def _siguiente_fila_libre(worksheet):
+    """
+    Busca el siguiente bloque libre de 2 filas revisando columna B
+    en 14,16,18...
+    """
+    col_b = worksheet.col_values(2)
+    idx = FILA_INICIAL - 1
+
+    while idx < len(col_b):
+        v = _txt(col_b[idx])
+        if v == "" or "POR ASIGNAR" in v.upper():
+            return idx + 1
+        idx += FILAS_POR_REGISTRO
+
+    fila = max(FILA_INICIAL, len(col_b) + 1)
+    if (fila - FILA_INICIAL) % FILAS_POR_REGISTRO != 0:
+        fila += 1
+    return fila
+
+
+def _consecutivo(fila):
+    return ((fila - FILA_INICIAL) // FILAS_POR_REGISTRO) + 1
+
+
+def _escribir_celdas(nombre_hoja, celdas):
+    token = obtener_token_acceso()
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_OTRAS_UNIDADES}/values:batchUpdate"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    data = [
+        {"range": f"'{nombre_hoja}'!{ref}", "values": [[valor]]}
+        for ref, valor in celdas
+    ]
+    body = {"valueInputOption": "USER_ENTERED", "data": data}
+    resp = requests.post(url, headers=headers, json=body, timeout=30)
+    if resp.status_code != 200:
+        raise Exception(resp.text)
+
+
+def _datos_comunes(p, fecha_app):
+    com = p.get("comorbilidades", {}) or {}
+    fn = p.get("fecha_nacimiento")
+    ocupacion = _up(p.get("ocupacion", ""))
+
+    personal_salud = (
+        _es_si(com.get("personal_salud_riesgo", False))
+        or _es_si(p.get("personal_salud", "NO"))
+        or "PERSONAL DE SALUD" in ocupacion
+    )
+    embarazo = _es_si(com.get("personas_embarazadas", False)) or _es_si(p.get("embarazo", "NO"))
+
+    grupo = _up(p.get("grupo_sugerido", ""))
+    meses_totales = int(p.get("calc_anos", 0) or 0) * 12 + int(p.get("calc_meses", 0) or 0)
+    if "6 A 59" in grupo:
+        g_6_59, g_60 = True, False
+    elif "60" in grupo:
+        g_6_59, g_60 = False, True
+    else:
+        g_6_59 = 6 <= meses_totales < 60
+        g_60 = meses_totales >= 60
+
+    vacuna = _up(p.get("vacuna_interes", ""))
+
+    return {
+        "com": com,
+        "fn_dia": str(fn.day).zfill(2) if fn else "",
+        "fn_mes": str(fn.month).zfill(2) if fn else "",
+        "fn_anio": str(fn.year) if fn else "",
+        "anos": str(p.get("calc_anos", 0)),
+        "meses": str(p.get("calc_meses", 0)),
+        "personal_salud": personal_salud,
+        "embarazo": embarazo,
+        "g_6_59": g_6_59,
+        "g_60": g_60,
+        "vacuna": vacuna,
+        "fecha_app_str": fecha_app.strftime("%d/%m/%Y"),
+        "fecha_registro_str": datetime.date.today().strftime("%d/%m/%Y"),
+    }
+
+
+def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
+    """
+    NOMINAL en dos filas combinadas:
+    - fila base: 14, 16, 18...
+    - CURP en C15
+    """
+    d = _datos_comunes(p, fecha_app)
+    com = d["com"]
+    f1 = fila
+    f2 = fila + 1
+
+    paterno = _up(p.get("paterno", ""))
+    materno = _up(p.get("materno", ""))
+
+    # Ajusta aquí si tu orden real es el contrario
+    c_val = materno
+    d_val = paterno
+
+    ant_inf = _up(p.get("antecedente_influenza", ""))
+    ant_cov = _up(p.get("antecedente_covid", ""))
+    vacuna = d["vacuna"]
+
+    def r(k):
+        return _es_si(com.get(k, False))
+
+    celdas = [
+        (f"A{f1}", str(consecutivo)),
+        (f"B{f1}", folio),
+        (f"C{f1}", c_val),
+        (f"D{f1}", d_val),
+        (f"E{f1}", _up(p.get("nombres", ""))),
+        (f"C{f2}", _up(p.get("curp_con_nacimiento", ""))),
+        (f"F{f1}", d["fn_dia"]),
+        (f"G{f1}", d["fn_mes"]),
+        (f"H{f1}", d["fn_anio"]),
+        (f"I{f1}", d["anos"]),
+        (f"J{f1}", d["meses"]),
+        (f"K{f1}", _txt(p.get("sexo", ""))),
+        (f"L{f1}", d["fecha_app_str"]),
+        (f"M{f1}", _up(p.get("calle", ""))),
+        (f"N{f1}", _up(p.get("numero", ""))),
+        (f"O{f1}", _up(p.get("colonia", ""))),
+        (f"P{f1}", _x(d["g_6_59"])),
+        (f"Q{f1}", _x(d["g_60"])),
+        (f"R{f1}", _x(d["embarazo"])),
+        (f"S{f1}", _x(d["personal_salud"])),
+        (f"T{f1}", _x(r("vih"))),
+        (f"U{f1}", _x(r("diabetes"))),
+        (f"V{f1}", _x(r("obesidad"))),
+        (f"W{f1}", _x(r("cardiopatias"))),
+        (f"X{f1}", _x(r("enfermedad_pulmonar"))),
+        (f"Y{f1}", _x(r("cancer"))),
+        (f"Z{f1}", _x(r("cardiacas_congenitas"))),
+        (f"AA{f1}", _x(r("insuficiencia_renal"))),
+        (f"AB{f1}", _x(r("inmunosupresion"))),
+        (f"AC{f1}", _x(r("discapacidades"))),
+        (f"AD{f1}", _x(r("fibrosis_quistica"))),
+        (f"AE{f1}", _x(r("hipertension"))),
+        (f"AF{f1}", _up(com.get("texto_otro", "")) if r("otro") else ""),
+        (f"AQ{f1}", _up(p.get("cuenta_derechohabiencia", ""))),
+        (f"AR{f1}", ant_inf),
+        (f"AS{f1}", ant_cov),
+        (f"AT{f1}", _x(vacuna == "INFLUENZA")),
+        (f"AU{f1}", _x(vacuna in ("COVID-19", "COVID"))),
+        (f"AV{f1}", _x(vacuna == "AMBAS")),
+        (f"AW{f1}", d["fecha_registro_str"]),
+        (f"AX{f1}", _txt(p.get("correo_paciente", ""))),
+    ]
+    return celdas
+
 
 def guardar_registro_censal(
     sigla_url,
@@ -47,150 +259,24 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
+    """
+    Mantiene la firma esperada por pages/1_formulario.py.
+    Guarda en hoja SIGLA_[INTRA|EXTRA]_DDMMAA con el mapeo NOMINAL.
+    Retorna: folio_asignado, is_duplicate, existing_folio
+    """
     try:
         client = obtener_cliente_gspread()
-        # Apuntamos al libro correcto de las demás unidades
         spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
 
-        # --- Construcción dinámica del nombre de la hoja según modalidad y fecha ---
-        modalidad_texto = str(datos_paciente.get("modalidad", "INTRAMUROS")).upper()
-        
-        if sufijo_js:
-            nombre_hoja = f"{sigla_url}_{sufijo_js}"
-        elif tipo_jornada.upper() == "E" or "EXTRA" in modalidad_texto:
-            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
-            nombre_hoja = f"{sigla_url}_EXTRA_{fecha_hoja_str}"
-        else:
-            fecha_hoja_str = val_fecha_app.strftime("%d%m%y") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%d%m%y")
-            nombre_hoja = f"{sigla_url}_INTRA_{fecha_hoja_str}" if tipo_jornada.upper() == "I" else sigla_url
+        ws = _obtener_o_crear_hoja(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
+        fila_destino = _siguiente_fila_libre(ws)
+        consecutivo = _consecutivo(fila_destino)
 
-        try:
-            ws = spreadsheet.worksheet(nombre_hoja)
-        except Exception:
-            ws = None
-            for h in spreadsheet.worksheets():
-                if sigla_url.upper() in h.title.upper():
-                    ws = h
-                    break
-            if ws is None:
-                ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=2000, cols=60)
+        folio_asignado = f"{val_fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla_url}-{str(consecutivo).zfill(3)}"
 
-        col_b = ws.col_values(2)
-        fila_destino = 14
-        if len(col_b) >= 14:
-            idx = 13
-            while idx < len(col_b):
-                if idx >= len(col_b) or not str(col_b[idx]).strip():
-                    fila_destino = idx + 1
-                    break
-                idx += 2
-            else:
-                fila_destino = len(col_b) + 1
-                if (fila_destino - 14) % 2 != 0:
-                    fila_destino += 1
+        celdas = _celdas_nominal(datos_paciente, folio_asignado, consecutivo, fila_destino, val_fecha_app)
+        _escribir_celdas(ws.title, celdas)
 
-        consecutivo = ((fila_destino - 14) // 2) + 1
-
-        fecha_str = val_fecha_app.strftime("%Y%m%d") if isinstance(val_fecha_app, datetime.date) else datetime.date.today().strftime("%Y%m%d")
-        mod_str = "INT" if "INTRA" in modalidad_texto else "EXT"
-        siglas_3 = sigla_url[:3].upper().ljust(3, 'X')
-        secuencial_str = str(consecutivo).zfill(4)
-
-        folio_asignado = f"{fecha_str}-{mod_str}-{siglas_3}-{secuencial_str}"
-
-        p = datos_paciente
-        com = p.get("comorbilidades", {})
-        fn = p.get("fecha_nacimiento")
-
-        fn_dia = str(fn.day).zfill(2) if fn else ""
-        fn_mes = str(fn.month).zfill(2) if fn else ""
-        fn_anio = str(fn.year) if fn else ""
-
-        edad_anos = str(p.get("calc_anos", 0))
-        edad_meses = str(p.get("calc_meses", 0))
-
-        es_menor_59m = (p.get("calc_anos", 0) * 12) + p.get("calc_meses", 0) <= 59
-        es_mayor_60 = p.get("calc_anos", 0) >= 60
-
-        marca_6_59m = "X" if es_menor_59m else ""
-        marca_60_mas = "X" if es_mayor_60 else ""
-        vacuna_interes = p.get("vacuna_interes", "")
-
-        marca_influenza = "X" if vacuna_interes == "INFLUENZA" else ""
-        marca_covid = "X" if vacuna_interes == "COVID-19" else ""
-        marca_ambas = "X" if vacuna_interes == "AMBAS" else ""
-
-        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
-        correo_paciente_val = p.get("correo_paciente", "").strip()
-
-        def check_activo(val):
-            if isinstance(val, bool):
-                return "X" if val else ""
-            if isinstance(val, str):
-                return "X" if val.upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            return ""
-
-        fila_registro_principal = [
-            str(consecutivo),
-            folio_asignado,
-            p.get("paterno", "").upper(),
-            p.get("materno", "").upper(),
-            p.get("nombres", "").upper(),
-            fn_dia, fn_mes, fn_anio,
-            edad_anos, edad_meses,
-            p.get("sexo", ""),
-            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app),
-            p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(),
-            marca_6_59m,
-            marca_60_mas,
-            check_activo(com.get("personas_embarazadas")),
-            check_activo(com.get("personal_salud_riesgo")),
-            check_activo(com.get("vih")),
-            check_activo(com.get("diabetes")),
-            check_activo(com.get("obesidad")),
-            check_activo(com.get("cardiopatias")),
-            check_activo(com.get("enfermedad_pulmonar")),
-            check_activo(com.get("cancer")),
-            check_activo(com.get("cardiacas_congenitas")),
-            check_activo(com.get("insuficiencia_renal")),
-            check_activo(com.get("inmunosupresion")),
-            check_activo(com.get("discapacidades")),
-            check_activo(com.get("fibrosis_quistica")),
-            check_activo(com.get("hipertension")),
-            com.get("texto_otro", "").upper(),
-            "", "", "", "", "", "", "", "", "", "",
-            p.get("cuenta_derechohabiencia", "NO"),
-            p.get("antecedente_influenza", "NO"),
-            p.get("antecedente_covid", "NO"),
-            marca_influenza,
-            marca_covid,
-            marca_ambas,
-            fecha_registro_actual,
-            correo_paciente_val,
-        ]
-
-        curp_val = p.get("curp_con_nacimiento", "").upper()
-        fila_curp = fila_destino + 1
-
-        token = obtener_token_acceso()
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_OTRAS_UNIDADES}/values:batchUpdate"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        }
-        body = {
-            "valueInputOption": "USER_ENTERED",
-            "data": [
-                {"range": f"{nombre_hoja}!A{fila_destino}", "values": [fila_registro_principal]},
-                {"range": f"{nombre_hoja}!C{fila_curp}", "values": [[curp_val]]},
-                {"range": f"{nombre_hoja}!AW{fila_curp}", "values": [[fecha_registro_actual]]}
-            ]
-        }
-        resp = requests.post(url, headers=headers, json=body)
-        if resp.status_code != 200:
-            raise Exception(resp.text)
-
-        # --- Limpieza de caché para forzar actualización inmediata en la interfaz ---
         st.cache_data.clear()
         if hasattr(st, "cache_resource"):
             st.cache_resource.clear()
@@ -199,3 +285,22 @@ def guardar_registro_censal(
 
     except Exception as e:
         raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
+
+
+def guardar_registro_censal_20_nov(datos_paciente):
+    """
+    Compatibilidad con otros módulos.
+    """
+    val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
+    tipo_jornada = datos_paciente.get("tipo_jornada", "I")
+    siglas_unidad = st.session_state.get("siglas_unidad", "20N")
+    sufijo_js = st.session_state.get("sufijo_js", "")
+
+    return guardar_registro_censal(
+        sigla_url=siglas_unidad,
+        sufijo_js=sufijo_js,
+        tipo_jornada=tipo_jornada,
+        val_fecha_app=val_fecha_app,
+        nombre_unidad_completo=st.session_state.get("nombre_unidad", "20 DE NOVIEMBRE"),
+        datos_paciente=datos_paciente,
+    )
