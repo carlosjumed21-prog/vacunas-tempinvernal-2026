@@ -57,7 +57,6 @@ def guardar_registro_censal(
         spreadsheet = client.open_by_key(sheet_id_20n)
 
         worksheet = None
-        plantilla_tipo_encontrada = "CENSO NOMINAL" # Por defecto
         
         # 1. Buscar de forma inteligente entre todas las pestañas existentes del documento
         lista_hojas = spreadsheet.worksheets()
@@ -80,8 +79,6 @@ def guardar_registro_censal(
                     for nombre_plantilla in ["CENSO NOMINAL", "CENSO"]:
                         try:
                             plantilla_encontrada = spreadsheet.worksheet(nombre_plantilla)
-                            if nombre_plantilla == "CENSO":
-                                plantilla_tipo_encontrada = "CENSO"
                             break
                         except Exception:
                             continue
@@ -131,125 +128,51 @@ def guardar_registro_censal(
         edad_anos = str(p.get("calc_anos", 0))
         edad_meses = str(p.get("calc_meses", 0))
 
-        # --- MAPEO ESPECÍFICO SEGÚN EL TIPO DE CENSO DETECTADO ---
-        if plantilla_tipo_encontrada == "CENSO":
-            # Procesamiento específico para plantilla "CENSO" (A hasta AP)
-            anos_int = p.get("calc_anos", 0)
-            meses_int = p.get("calc_meses", 0)
-            es_6_59_meses = (anos_int == 0 and 6 <= meses_int <= 59) or (1 <= anos_int < 5)
-            es_60_mas = anos_int >= 60
-            
-            marca_6_59m = "X" if es_6_59_meses else ""
-            marca_60mas = "X" if es_60_mas else ""
-            
-            embarazo_val = "X" if str(com.get("personas_embarazadas", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            personal_salud_val = "X" if str(com.get("personal_salud_riesgo", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] or "PERSONAL DE SALUD" in p.get("ocupacion", "").upper() else ""
-            vih_val = "X" if str(com.get("vih_sida", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            diabetes_val = "X" if str(com.get("diabetes", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            obesidad_val = "X" if str(com.get("obesidad_morbida", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            cardiopatias_val = "X" if str(com.get("cardiopatias", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            epoc_asma_val = "X" if str(com.get("epoc_asma", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            cancer_val = "X" if str(com.get("cancer", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            cardio_pulm_cong_val = "X" if str(com.get("cardio_pulmonar_congenita", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            insuf_renal_val = "X" if str(com.get("insuficiencia_renal", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            inmunosupresion_val = "X" if str(com.get("inmunosupresion", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            discapacidades_val = "X" if str(com.get("discapacidades", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            fibrosis_val = "X" if str(com.get("fibrosis_quistica", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            hipertension_val = "X" if str(com.get("hipertension", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            
-            otros_riesgos_val = p.get("otros_riesgos_texto", "")
-            derechohabiencia_val = p.get("cuenta_derechohabiencia", "NO")
+        vacuna_interes = p.get("vacuna_interes", "")
+        marca_influenza = "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else ""
+        marca_covid = "X" if vacuna_interes in ["COVID-19", "AMBAS"] else ""
 
-            fila_registro_principal = [
-                str(siguiente_num),                                   # A: # Consecutivo
-                folio_asignado,                                       # B: Folio
-                p.get("paterno", "").upper(),                         # C: Apellido Paterno
-                p.get("materno", "").upper(),                         # D: Apellido Materno
-                p.get("nombres", "").upper(),                         # E: Nombre(s)
-                fn_dia,                                               # F: FN Día
-                fn_mes,                                               # G: FN Mes
-                fn_anio,                                              # H: FN Año
-                edad_anos,                                            # I: Años
-                edad_meses,                                           # J: Meses
-                p.get("sexo", ""),                                    # K: Sexo
-                val_fecha_app.strftime("%d/%m/%Y"),                   # L: Fecha de Aplicación
-                p.get("calle", "").upper(),                           # M: Calle
-                p.get("numero_exterior", "").upper(),                 # N: No. Ext / Int
-                p.get("colonia", "").upper(),                         # O: Colonia
-                marca_6_59m,                                          # P: 6 a 59 meses
-                marca_60mas,                                          # Q: 60 y más
-                embarazo_val,                                         # R: Embarazadas
-                personal_salud_val,                                   # S: Personal de Salud
-                vih_val,                                              # T: VIH/sida
-                diabetes_val,                                         # U: Diabetes
-                obesidad_val,                                         # V: Obesidad Mórbida
-                cardiopatias_val,                                     # W: Cardiopatías
-                epoc_asma_val,                                        # X: EPOC / Asma
-                cancer_val,                                           # Y: Cáncer
-                cardio_pulm_cong_val,                                 # Z: Cardiopatías/Pulmonares congénitas
-                insuf_renal_val,                                      # AA: Insuficiencia Renal
-                inmunosupresion_val,                                  # AB: Inmunosupresión
-                discapacidades_val,                                   # AC: Discapacidades
-                fibrosis_val,                                         # AD: Fibrosis Quística
-                hipertension_val,                                     # AE: Hipertensión
-                otros_riesgos_val,                                    # AF: Otros grupos de riesgo
-                p.get("influenza_1ra_dosis", ""),                     # AG: Influenza 1ra dosis
-                p.get("influenza_2da_dosis", ""),                     # AH: Influenza 2da dosis
-                p.get("influenza_dosis_anual", ""),                   # AI: Influenza Dosis anual
-                p.get("influenza_lote", "").upper(),                  # AJ: Influenza Lote
-                p.get("influenza_caducidad", ""),                     # AK: Influenza Caducidad
-                p.get("covid_1ra_dosis", ""),                         # AL: Covid 1ra dosis
-                p.get("covid_2da_dosis", ""),                         # AM: Covid 2da dosis
-                p.get("covid_dosis_anual", ""),                       # AN: Covid Dosis anual
-                p.get("covid_lote", "").upper(),                      # AO: Covid Lote
-                p.get("covid_caducidad", "")                          # AP: Covid Caducidad
-            ]
-        else:
-            # Mapeo original predeterminado para "CENSO NOMINAL" (A hasta AH)
-            vacuna_interes = p.get("vacuna_interes", "")
-            marca_influenza = "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else ""
-            marca_covid = "X" if vacuna_interes in ["COVID-19", "AMBAS"] else ""
+        curp_val = p.get("curp_con_nacimiento", "").upper()
+        personal_salud_activo = "SÍ" if str(com.get("personal_salud_riesgo", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] or "PERSONAL DE SALUD" in p.get("ocupacion", "").upper() else "NO"
+        embarazo_val = "SÍ" if str(com.get("personas_embarazadas", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else "NO"
 
-            curp_val = p.get("curp_con_nacimiento", "").upper()
-            personal_salud_activo = "SÍ" if str(com.get("personal_salud_riesgo", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] or "PERSONAL DE SALUD" in p.get("ocupacion", "").upper() else "NO"
-            embarazo_val = "SÍ" if str(com.get("personas_embarazadas", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else "NO"
-
-            fila_registro_principal = [
-                str(siguiente_num),                                   # A: #
-                folio_asignado,                                       # B: Folio
-                curp_val,                                             # C: RFC (CURP calculada)
-                p.get("cuenta_derechohabiencia", "NO"),               # D: Derechohabiencia al ISSSTE
-                "",                                                   # E: Tipo de DH
-                "NO",                                                 # F: Trabaja CMN
-                "",                                                   # G: # Trabajador
-                personal_salud_activo,                                # H: Personal de Salud
-                "",                                                   # I: Categoría
-                "",                                                   # J: Servicio
-                "",                                                   # K: Coordinación
-                "",                                                   # L: Turno
-                p.get("nombres", "").upper(),                         # M: Nombre(s)
-                p.get("paterno", "").upper(),                         # N: Paterno
-                p.get("materno", "").upper(),                         # O: Materno
-                p.get("estado_nacimiento", "").upper(),               # P: Edo Nac
-                "",                                                   # Q: Muni Nac
-                fn_dia,                                               # R: FN Día
-                fn_mes,                                               # S: FN Mes
-                fn_anio,                                              # T: FN Año
-                edad_anos,                                            # U: Años
-                edad_meses,                                           # V: Meses
-                p.get("sexo", ""),                                    # W: Sexo
-                embarazo_val,                                         # X: Embarazo
-                "",                                                   # Y: Influenza 1ra dosis
-                "",                                                   # Z: Influenza 2da dosis
-                marca_influenza,                                      # AA: Influenza Dosis anual
-                "",                                                   # AB: Influenza No. lote
-                "",                                                   # AC: Influenza Caducidad
-                "",                                                   # AD: Covid 1ra dosis
-                "",                                                   # AE: Covid 2da dosis
-                marca_covid,                                          # AF: Covid Dosis anual
-                "",                                                   # AG: Covid No. lote
-                ""                                                    # AH: Covid Caducidad
-            ]
+        # Mapeo exacto de columnas de la A hasta la AH (Fila 14 inicial)
+        fila_registro_principal = [
+            str(siguiente_num),                                   # A: #
+            folio_asignado,                                       # B: Folio
+            curp_val,                                             # C: RFC (CURP calculada)
+            p.get("cuenta_derechohabiencia", "NO"),               # D: Derechohabiencia al ISSSTE
+            "",                                                   # E: Tipo de DH
+            "NO",                                                 # F: Trabaja CMN
+            "",                                                   # G: # Trabajador
+            personal_salud_activo,                                # H: Personal de Salud
+            "",                                                   # I: Categoría
+            "",                                                   # J: Servicio
+            "",                                                   # K: Coordinación
+            "",                                                   # L: Turno
+            p.get("nombres", "").upper(),                         # M: Nombre(s)
+            p.get("paterno", "").upper(),                         # N: Paterno
+            p.get("materno", "").upper(),                         # O: Materno
+            p.get("estado_nacimiento", "").upper(),               # P: Edo Nac
+            "",                                                   # Q: Muni Nac
+            fn_dia,                                               # R: FN Día
+            fn_mes,                                               # S: FN Mes
+            fn_anio,                                              # T: FN Año
+            edad_anos,                                            # U: Años
+            edad_meses,                                           # V: Meses
+            p.get("sexo", ""),                                    # W: Sexo
+            embarazo_val,                                         # X: Embarazo
+            "",                                                   # Y: Influenza 1ra dosis
+            "",                                                   # Z: Influenza 2da dosis
+            marca_influenza,                                      # AA: Influenza Dosis anual
+            "",                                                   # AB: Influenza No. lote
+            "",                                                   # AC: Influenza Caducidad
+            "",                                                   # AD: Covid 1ra dosis
+            "",                                                   # AE: Covid 2da dosis
+            marca_covid,                                          # AF: Covid Dosis anual
+            "",                                                   # AG: Covid No. lote
+            ""                                                    # AH: Covid Caducidad
+        ]
 
         token = obtener_token_acceso()
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_20n}/values:batchUpdate"
@@ -279,7 +202,7 @@ def guardar_registro_censal(
 
 def guardar_registro_censal_20_nov(datos_paciente):
     """Guarda el registro censal específico del CMN '20 de Noviembre'
-    utilizando el mapeo correspondiente a la plantilla activa.
+    utilizando el mapeo estándar unificado.
     """
     try:
         val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
