@@ -1,4 +1,3 @@
-# utils/sheets_20_nov.py
 import datetime
 import json
 from google.oauth2 import service_account
@@ -8,14 +7,14 @@ import gspread
 import streamlit as st
 from config import GOOGLE_SCOPES
 
+SHEET_ID_20N = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
+
+
 def obtener_cliente_gspread():
-    """Autentica y retorna el cliente de gspread utilizando los secretos del proyecto."""
     scope = GOOGLE_SCOPES
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = (
-            json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-        )
+        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
     elif "gpex" in st.secrets:
         creds_dict = dict(st.secrets["gpex"])
     else:
@@ -27,6 +26,7 @@ def obtener_cliente_gspread():
 
     return gspread.service_account_from_dict(creds_dict, scopes=scope)
 
+
 def obtener_token_acceso():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
@@ -34,190 +34,286 @@ def obtener_token_acceso():
     else:
         primera_llave = list(st.secrets.keys())[0]
         creds_dict = dict(st.secrets[primera_llave])
+
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
     creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
     auth_req = google.auth.transport.requests.Request()
     creds.refresh(auth_req)
     return creds.token
 
-def guardar_registro_censal(
-    sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
-):
+
+def _normalizar(v):
+    return "" if v is None else str(v).strip()
+
+
+def _normalizar_mayus(v):
+    return _normalizar(v).upper()
+
+
+def _obtener_spreadsheet():
+    client = obtener_cliente_gspread()
+    return client.open_by_key(SHEET_ID_20N)
+
+
+def _obtener_o_crear_worksheet(spreadsheet, nombre_hoja):
     try:
-        fecha_str_hoja = val_fecha_app.strftime("%d%m%y")
-        tipo_texto_jornada = "INTRA" if tipo_jornada == "I" else "EXTRA"
-        
-        # Patrones de búsqueda flexibles para encontrar la hoja existente
-        patron_busqueda_1 = f"{sigla_url}_{tipo_texto_jornada}{sufijo_js}_{fecha_str_hoja}"
-        patron_busqueda_2 = f"{sigla_url}_{tipo_texto_jornada}_{fecha_str_hoja}"
+        return spreadsheet.worksheet(nombre_hoja)
+    except Exception:
+        pass
 
-        client = obtener_cliente_gspread()
-        sheet_id_20n = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
-        spreadsheet = client.open_by_key(sheet_id_20n)
+    for plantilla in ["CENSO NOMINAL", "CENSO"]:
+        try:
+            base = spreadsheet.worksheet(plantilla)
+            spreadsheet.duplicate_sheet(
+                source_sheet_id=base.id,
+                insert_sheet_index=0,
+                new_sheet_name=nombre_hoja,
+            )
+            return spreadsheet.worksheet(nombre_hoja)
+        except Exception:
+            continue
 
-        worksheet = None
-        
-        # 1. Buscar de forma inteligente entre todas las pestañas existentes del documento
-        lista_hojas = spreadsheet.worksheets()
-        for hoja in lista_hojas:
-            titulo_hoja = hoja.title.upper()
-            if sigla_url.upper() in titulo_hoja and fecha_str_hoja in titulo_hoja and tipo_texto_jornada in titulo_hoja:
-                worksheet = hoja
-                break
+    return spreadsheet.add_worksheet(title=nombre_hoja, rows=200, cols=80)
 
-        # 2. Si no encuentra ninguna coincidencia parcial, intentamos abrirla por el nombre ideal
-        if not worksheet:
-            try:
-                worksheet = spreadsheet.worksheet(patron_busqueda_1)
-            except Exception:
-                try:
-                    worksheet = spreadsheet.worksheet(patron_busqueda_2)
-                except Exception:
-                    # 3. Si no existe ninguna, duplicamos una plantilla base ('CENSO NOMINAL' o 'CENSO')
-                    plantilla_encontrada = None
-                    for nombre_plantilla in ["CENSO NOMINAL", "CENSO"]:
-                        try:
-                            plantilla_encontrada = spreadsheet.worksheet(nombre_plantilla)
-                            break
-                        except Exception:
-                            continue
-                    
-                    if plantilla_encontrada:
-                        spreadsheet.duplicate_sheet(
-                            source_sheet_id=plantilla_encontrada.id,
-                            insert_sheet_index=0,
-                            new_sheet_name=patron_busqueda_1
-                        )
-                        worksheet = spreadsheet.worksheet(patron_busqueda_1)
-                    else:
-                        worksheet = spreadsheet.add_worksheet(title=patron_busqueda_1, rows=100, cols=50)
 
-        # Usar siempre el nombre real de la hoja detectada o seleccionada
-        nombre_real_hoja = worksheet.title
+def _siguiente_fila_disponible(worksheet, columna=2, fila_inicio=14):
+    valores = worksheet.col_values(columna)
+    idx = fila_inicio - 1
 
-        columna_b = worksheet.col_values(2)
-        fila_inicio_destino = 14
-        
-        idx = 13
-        while idx < len(columna_b):
-            val_actual = str(columna_b[idx]).strip()
-            if val_actual == "" or "POR ASIGNAR" in val_actual.upper():
-                fila_inicio_destino = idx + 1
-                break
-            idx += 2
-        else:
-            fila_inicio_destino = max(14, len(columna_b) + 1)
-            if (fila_inicio_destino - 14) % 2 != 0:
-                fila_inicio_destino += 1
+    while idx < len(valores):
+        actual = _normalizar(valores[idx])
+        if actual == "" or "POR ASIGNAR" in actual.upper():
+            return idx + 1
+        idx += 2
 
-        siguiente_num = ((fila_inicio_destino - 14) // 2) + 1
-        aammmdd = val_fecha_app.strftime("%y%m%d")
-        folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
+    fila = max(fila_inicio, len(valores) + 1)
+    if (fila - fila_inicio) % 2 != 0:
+        fila += 1
+    return fila
 
-        f_actual = fila_inicio_destino
 
-        p = datos_paciente
-        com = p.get("comorbilidades", {})
-        fn = p.get("fecha_nacimiento")
+def _folio_consecutivo(fila_inicio, fila_base=14):
+    return ((fila_inicio - fila_base) // 2) + 1
 
-        fn_dia = str(fn.day).zfill(2) if fn else ""
-        fn_mes = str(fn.month).zfill(2) if fn else ""
-        fn_anio = str(fn.year) if fn else ""
 
-        edad_anos = str(p.get("calc_anos", 0))
-        edad_meses = str(p.get("calc_meses", 0))
+def _marcar_x(condicion):
+    return "X" if condicion else ""
 
-        vacuna_interes = p.get("vacuna_interes", "")
-        marca_influenza = "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else ""
-        marca_covid = "X" if vacuna_interes in ["COVID-19", "AMBAS"] else ""
 
-        curp_val = p.get("curp_con_nacimiento", "").upper()
-        personal_salud_activo = "SÍ" if str(com.get("personal_salud_riesgo", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] or "PERSONAL DE SALUD" in p.get("ocupacion", "").upper() else "NO"
-        embarazo_val = "SÍ" if str(com.get("personas_embarazadas", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else "NO"
+def _nombre_hoja(sigla_url, tipo_jornada, fecha_app, sufijo):
+    fecha_str = fecha_app.strftime("%d%m%y")
+    tipo_texto = "INTRA" if tipo_jornada == "I" else "EXTRA"
+    return f"{sigla_url}_{tipo_texto}_{fecha_str}_{sufijo}"
 
-        # Mapeo exacto de columnas de la A hasta la AH (Fila 14 inicial)
-        fila_registro_principal = [
-            str(siguiente_num),                                   # A: #
-            folio_asignado,                                       # B: Folio
-            curp_val,                                             # C: RFC (CURP calculada)
-            p.get("cuenta_derechohabiencia", "NO"),               # D: Derechohabiencia al ISSSTE
-            "",                                                   # E: Tipo de DH
-            "NO",                                                 # F: Trabaja CMN
-            "",                                                   # G: # Trabajador
-            personal_salud_activo,                                # H: Personal de Salud
-            "",                                                   # I: Categoría
-            "",                                                   # J: Servicio
-            "",                                                   # K: Coordinación
-            "",                                                   # L: Turno
-            p.get("nombres", "").upper(),                         # M: Nombre(s)
-            p.get("paterno", "").upper(),                         # N: Paterno
-            p.get("materno", "").upper(),                         # O: Materno
-            p.get("estado_nacimiento", "").upper(),               # P: Edo Nac
-            "",                                                   # Q: Muni Nac
-            fn_dia,                                               # R: FN Día
-            fn_mes,                                               # S: FN Mes
-            fn_anio,                                              # T: FN Año
-            edad_anos,                                            # U: Años
-            edad_meses,                                           # V: Meses
-            p.get("sexo", ""),                                    # W: Sexo
-            embarazo_val,                                         # X: Embarazo
-            "",                                                   # Y: Influenza 1ra dosis
-            "",                                                   # Z: Influenza 2da dosis
-            marca_influenza,                                      # AA: Influenza Dosis anual
-            "",                                                   # AB: Influenza No. lote
-            "",                                                   # AC: Influenza Caducidad
-            "",                                                   # AD: Covid 1ra dosis
-            "",                                                   # AE: Covid 2da dosis
-            marca_covid,                                          # AF: Covid Dosis anual
-            "",                                                   # AG: Covid No. lote
-            ""                                                    # AH: Covid Caducidad
-        ]
 
-        token = obtener_token_acceso()
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_20n}/values:batchUpdate"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        }
-        body = {
-            "valueInputOption": "USER_ENTERED",
-            "data": [
-                {"range": f"{nombre_real_hoja}!A{f_actual}", "values": [fila_registro_principal]}
-            ]
-        }
-        resp = requests.post(url, headers=headers, json=body)
-        if resp.status_code != 200:
-            raise Exception(resp.text)
+def _mapear_nominal(datos_paciente, folio):
+    fecha_nacimiento = datos_paciente.get("fecha_nacimiento")
+    val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
+
+    fn_dia = str(fecha_nacimiento.day).zfill(2) if fecha_nacimiento else ""
+    fn_mes = str(fecha_nacimiento.month).zfill(2) if fecha_nacimiento else ""
+    fn_anio = str(fecha_nacimiento.year) if fecha_nacimiento else ""
+
+    edad_anos = str(datos_paciente.get("calc_anos", 0))
+    edad_meses = str(datos_paciente.get("calc_meses", 0))
+
+    grupo = _normalizar_mayus(datos_paciente.get("grupo_sugerido", ""))
+    grupo_6_59 = "6 A 59" in grupo
+    grupo_60 = "60 Y MÁS" in grupo or "60 Y MAS" in grupo
+
+    com = datos_paciente.get("comorbilidades", {}) or {}
+    personal_salud = str(com.get("personal_salud_riesgo", False)).lower() in ["true", "1", "sí", "si"]
+    embarazo = str(com.get("personas_embarazadas", False)).lower() in ["true", "1", "sí", "si"]
+
+    vacuna = _normalizar_mayus(datos_paciente.get("vacuna_interes", ""))
+    ant_inf = _normalizar_mayus(datos_paciente.get("antecedente_influenza", ""))
+    ant_cov = _normalizar_mayus(datos_paciente.get("antecedente_covid", ""))
+
+    fila = [
+        "",  # A
+        folio,  # B
+        _normalizar_mayus(datos_paciente.get("curp_con_nacimiento", "")),  # C
+        _normalizar(datos_paciente.get("cuenta_derechohabiencia", "")),  # D
+        "",  # E
+        "",  # F
+        "",  # G
+        "SÍ" if personal_salud else "NO",  # H
+        "",  # I
+        "",  # J
+        "",  # K
+        "",  # L
+        _normalizar_mayus(datos_paciente.get("nombres", "")),  # M
+        _normalizar_mayus(datos_paciente.get("paterno", "")),  # N
+        _normalizar_mayus(datos_paciente.get("materno", "")),  # O
+        _normalizar_mayus(datos_paciente.get("estado_nacimiento", "")),  # P
+        "",  # Q
+        fn_dia,  # R
+        fn_mes,  # S
+        fn_anio,  # T
+        edad_anos,  # U
+        edad_meses,  # V
+        _normalizar(datos_paciente.get("sexo", "")),  # W
+        "SÍ" if embarazo else "NO",  # X
+        "",  # Y
+        "",  # Z
+        "",  # AA
+        "",  # AB
+        "",  # AC
+        "",  # AD
+        "",  # AE
+        "",  # AF
+        "",  # AG
+        "",  # AH
+        "",  # AI
+        "",  # AJ
+        "",  # AK
+        "",  # AL
+        "",  # AM
+        "",  # AN
+        "",  # AO
+        "",  # AP
+        _normalizar(datos_paciente.get("cuenta_derechohabiencia", "")),  # AQ
+        _marcar_x(ant_inf == "SÍ"),  # AR
+        _marcar_x(ant_cov == "SÍ"),  # AS
+        _marcar_x(vacuna == "INFLUENZA"),  # AT
+        _marcar_x(vacuna == "COVID-19"),  # AU
+        _marcar_x(vacuna == "AMBAS"),  # AV
+        val_fecha_app.strftime("%d/%m/%Y"),  # AW
+        _normalizar(datos_paciente.get("correo_paciente", "")),  # AX
+    ]
+
+    fila[16] = _marcar_x(grupo_6_59)  # P
+    fila[17] = _marcar_x(grupo_60)    # Q
+
+    return fila
+
+
+def _mapear_censo(datos_paciente, folio):
+    fecha_nacimiento = datos_paciente.get("fecha_nacimiento")
+
+    fn_dia = str(fecha_nacimiento.day).zfill(2) if fecha_nacimiento else ""
+    fn_mes = str(fecha_nacimiento.month).zfill(2) if fecha_nacimiento else ""
+    fn_anio = str(fecha_nacimiento.year) if fecha_nacimiento else ""
+
+    fila = [
+        "",  # A
+        folio,  # B
+        _normalizar_mayus(datos_paciente.get("rfc", "")),  # C
+        _normalizar(datos_paciente.get("cuenta_derechohabiencia", "")),  # D
+        _normalizar(datos_paciente.get("tipo_dh", "NO APLICA")),  # E
+        _normalizar(datos_paciente.get("trabaja_cmn", "NO")),  # F
+        _normalizar(datos_paciente.get("num_trabajador", "")),  # G
+        _normalizar(datos_paciente.get("personal_salud", "NO")),  # H
+        _normalizar(datos_paciente.get("categoria", "")),  # I
+        _normalizar(datos_paciente.get("servicio", "")),  # J
+        _normalizar(datos_paciente.get("coordinacion", "")),  # K
+        _normalizar(datos_paciente.get("turno", "")),  # L
+        _normalizar_mayus(datos_paciente.get("nombres", "")),  # M
+        _normalizar_mayus(datos_paciente.get("paterno", "")),  # N
+        _normalizar_mayus(datos_paciente.get("materno", "")),  # O
+        _normalizar_mayus(datos_paciente.get("estado_nacimiento", "")),  # P
+        _normalizar_mayus(datos_paciente.get("muni_nac", "")),  # Q
+        fn_dia,  # R
+        fn_mes,  # S
+        fn_anio,  # T
+        str(datos_paciente.get("calc_anos", 0)),  # U
+        str(datos_paciente.get("calc_meses", 0)),  # V
+        _normalizar(datos_paciente.get("sexo", "")),  # W
+        _normalizar(datos_paciente.get("embarazo", "NO")),  # X
+        "",  # Y
+        "",  # Z
+        "",  # AA
+        "",  # AB
+        "",  # AC
+        "",  # AD
+        "",  # AE
+        "",  # AF
+        "",  # AG
+        "",  # AH
+    ]
+
+    return fila
+
+
+def _guardar_en_hoja(spreadsheet, sigla_url, sufijo, tipo_jornada, val_fecha_app, datos_paciente):
+    nombre_hoja = _nombre_hoja(sigla_url, tipo_jornada, val_fecha_app, sufijo)
+    worksheet = _obtener_o_crear_worksheet(spreadsheet, nombre_hoja)
+
+    fila_inicio = _siguiente_fila_disponible(worksheet, columna=2, fila_inicio=14)
+    consecutivo = _folio_consecutivo(fila_inicio, fila_base=14)
+    folio = f"{val_fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla_url}-{str(consecutivo).zfill(3)}"
+
+    fila = _mapear_nominal(datos_paciente, folio) if sufijo == "NOMINAL" else _mapear_censo(datos_paciente, folio)
+    fila[0] = str(consecutivo)
+
+    token = obtener_token_acceso()
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_20N}/values:batchUpdate"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "valueInputOption": "USER_ENTERED",
+        "data": [
+            {"range": f"{worksheet.title}!A{fila_inicio}", "values": [fila]}
+        ],
+    }
+
+    resp = requests.post(url, headers=headers, json=body)
+    if resp.status_code != 200:
+        raise Exception(resp.text)
+
+    return folio
+
+
+def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
+    try:
+        spreadsheet = _obtener_spreadsheet()
+
+        folio = _guardar_en_hoja(
+            spreadsheet=spreadsheet,
+            sigla_url=sigla_url,
+            sufijo="NOMINAL",
+            tipo_jornada=tipo_jornada,
+            val_fecha_app=val_fecha_app,
+            datos_paciente=datos_paciente,
+        )
+
+        _guardar_en_hoja(
+            spreadsheet=spreadsheet,
+            sigla_url=sigla_url,
+            sufijo="CENSO",
+            tipo_jornada=tipo_jornada,
+            val_fecha_app=val_fecha_app,
+            datos_paciente=datos_paciente,
+        )
 
         st.cache_data.clear()
         if hasattr(st, "cache_resource"):
             st.cache_resource.clear()
 
-        return folio_asignado
+        return folio
 
     except Exception as e:
         raise e
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
-    """Guarda el registro censal específico del CMN '20 de Noviembre'
-    utilizando el mapeo estándar unificado.
-    """
     try:
         val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
         tipo_jornada = datos_paciente.get("tipo_jornada", "I")
         siglas_unidad = st.session_state.get("siglas_unidad", "20N")
         sufijo_js = st.session_state.get("sufijo_js", "")
-        
+
         return guardar_registro_censal(
             sigla_url=siglas_unidad,
             sufijo_js=sufijo_js,
             tipo_jornada=tipo_jornada,
             val_fecha_app=val_fecha_app,
             nombre_unidad_completo=st.session_state.get("nombre_unidad", "CMN 20 DE NOVIEMBRE"),
-            datos_paciente=datos_paciente
+            datos_paciente=datos_paciente,
         )
-
     except Exception as e:
         raise e
