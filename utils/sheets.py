@@ -1,298 +1,294 @@
-# utils/sheets.py
+import streamlit as str_lib
+import pandas as pd
+import gspread
 import datetime
-import json
-import requests
 from google.oauth2 import service_account
 import google.auth.transport.requests
-from config import GOOGLE_SCOPES
-import gspread
-import streamlit as st
+import json
+from utils.sheets import obtener_cliente_gspread
+from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
-# ID exclusivo para las demás unidades
-SHEET_ID_OTRAS_UNIDADES = "1-1_BSmgN9QPnO5saVT-qQysSBm9NYMyqaMJXYRRD_Do"
-
-FILA_INICIAL = 14
-FILAS_POR_REGISTRO = 2
-
-# En NOMINAL: True -> C = Materno, D = Paterno (según tu última indicación)
-#             False -> C = Paterno, D = Materno
-NOMINAL_APELLIDOS_INVERTIDOS = True
+SHEET_ID_20_NOVIEMBRE = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
 
-# ----------------------------------------------------------------------
-# Autenticación
-# ----------------------------------------------------------------------
-@st.cache_resource
-def obtener_cliente_gspread():
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-    elif "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-    elif "gpex" in st.secrets:
-        creds_dict = dict(st.secrets["gpex"])
+def obtener_sheet_id_activo(hoja_activa, unidad_param=""):
+    """Determina si la hoja pertenece al CMN 20 de Noviembre o al Sheet general de las demás unidades."""
+    if (
+        hoja_activa.upper().startswith("20N")
+        or "20 DE NOVIEMBRE" in hoja_activa.upper()
+        or "20_NOVIEMBRE" in unidad_param.upper()
+        or "20 DE NOVIEMBRE" in unidad_param.upper()
+    ):
+        return SHEET_ID_20_NOVIEMBRE
+    return GOOGLE_SHEET_ID
+
+
+def _obtener_creds_dict_desde_secrets():
+    """
+    Obtiene un dict de credenciales de cuenta de servicio desde st.secrets.
+    Prioriza llaves conocidas y evita convertir strings arbitrarios con dict(...),
+    que provoca: 'dictionary update sequence element #0 has length 1; 2 is required'
+    """
+    creds_dict = None
+
+    if "GOOGLE_CREDENTIALS" in str_lib.secrets:
+        raw = str_lib.secrets["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(raw) if isinstance(raw, str) else dict(raw)
+
+    elif "gcp_service_account" in str_lib.secrets:
+        creds_dict = dict(str_lib.secrets["gcp_service_account"])
+
+    elif "gpex" in str_lib.secrets:
+        creds_dict = dict(str_lib.secrets["gpex"])
+
     else:
-        primera_llave = list(st.secrets.keys())[0]
-        valor = st.secrets[primera_llave]
-        creds_dict = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
+        # Fallback seguro: buscar una sección tipo mapping con campos de service account
+        for k in str_lib.secrets:
+            valor = str_lib.secrets[k]
+            if hasattr(valor, "keys"):
+                val_dict = dict(valor)
+                if "private_key" in val_dict and "client_email" in val_dict and "token_uri" in val_dict:
+                    creds_dict = val_dict
+                    break
+
+        # Último recurso: primer valor parseable JSON con estructura de service account
+        if not creds_dict and len(str_lib.secrets.keys()) > 0:
+            primera_llave = list(str_lib.secrets.keys())[0]
+            valor = str_lib.secrets[primera_llave]
+            if isinstance(valor, str):
+                maybe = json.loads(valor)
+                if isinstance(maybe, dict) and "private_key" in maybe:
+                    creds_dict = maybe
+
+    if not creds_dict:
+        raise KeyError("No se encontraron credenciales de servicio válidas en st.secrets.")
 
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    return gspread.service_account_from_dict(creds_dict, scopes=GOOGLE_SCOPES)
+    return creds_dict
 
 
-def obtener_token_acceso():
-    if "GOOGLE_CREDENTIALS" in st.secrets:
-        raw_creds = st.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else raw_creds
-    elif "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-    elif "gpex" in st.secrets:
-        creds_dict = dict(st.secrets["gpex"])
-    else:
-        primera_llave = list(st.secrets.keys())[0]
-        valor = st.secrets[primera_llave]
-        creds_dict = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
+def get_creds_from_secrets():
+    """
+    Devuelve Credentials de service account con los scopes configurados.
+    Compatible con exportación de Google Sheets (xlsx) y gspread.
+    """
+    creds_dict = _obtener_creds_dict_desde_secrets()
+    return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
 
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
-    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+def get_access_token_from_secrets():
+    """
+    Genera y devuelve un access token OAuth2 válido.
+    Útil para requests HTTP directos (ej. export de hoja a xlsx).
+    """
+    creds = get_creds_from_secrets()
     auth_req = google.auth.transport.requests.Request()
     creds.refresh(auth_req)
     return creds.token
 
 
-# ----------------------------------------------------------------------
-# Utilidades
-# ----------------------------------------------------------------------
-def _txt(v):
-    return "" if v is None else str(v).strip()
-
-
-def _up(v):
-    return _txt(v).upper()
-
-
-def _x(cond):
-    return "X" if cond else ""
-
-
-def _es_si(v):
-    return str(v).strip().upper() in ("TRUE", "1", "SÍ", "SI", "S", "X")
-
-
-def _nombre_hoja(sigla, tipo_jornada, fecha_app):
-    tipo = "INTRA" if tipo_jornada == "I" else "EXTRA"
-    return f"{sigla}_{tipo}_{fecha_app.strftime('%d%m%y')}"
-
-
-def _obtener_o_crear_hoja(spreadsheet, sigla, tipo_jornada, fecha_app):
-    nombre_ideal = _nombre_hoja(sigla, tipo_jornada, fecha_app)
-    tipo = "INTRA" if tipo_jornada == "I" else "EXTRA"
-    fecha_str = fecha_app.strftime("%d%m%y")
-
-    for h in spreadsheet.worksheets():
-        t = h.title.upper()
-        if t == nombre_ideal.upper():
-            return h
-
-    for h in spreadsheet.worksheets():
-        t = h.title.upper()
-        if sigla.upper() in t and tipo in t and fecha_str in t:
-            return h
-
-    for plantilla in ["NOMINAL", "CENSO NOMINAL", "CENSO"]:
-        try:
-            base = spreadsheet.worksheet(plantilla)
-            spreadsheet.duplicate_sheet(
-                source_sheet_id=base.id,
-                insert_sheet_index=0,
-                new_sheet_name=nombre_ideal,
-            )
-            return spreadsheet.worksheet(nombre_ideal)
-        except Exception:
-            continue
-
-    return spreadsheet.add_worksheet(title=nombre_ideal, rows=300, cols=60)
-
-
-def _siguiente_fila_libre(worksheet):
-    col_b = worksheet.col_values(2)
-    idx = FILA_INICIAL - 1
-
-    while idx < len(col_b):
-        v = _txt(col_b[idx])
-        if v == "" or "POR ASIGNAR" in v.upper():
-            return idx + 1
-        idx += FILAS_POR_REGISTRO
-
-    fila = max(FILA_INICIAL, len(col_b) + 1)
-    if (fila - FILA_INICIAL) % FILAS_POR_REGISTRO != 0:
-        fila += 1
-    return fila
-
-
-def _consecutivo(fila):
-    return ((fila - FILA_INICIAL) // FILAS_POR_REGISTRO) + 1
-
-
-def _escribir_celdas(nombre_hoja, celdas):
-    token = obtener_token_acceso()
-    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID_OTRAS_UNIDADES}/values:batchUpdate"
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    data = [
-        {"range": f"'{nombre_hoja}'!{ref}", "values": [[valor]]}
-        for ref, valor in celdas
-    ]
-    body = {"valueInputOption": "USER_ENTERED", "data": data}
-    resp = requests.post(url, headers=headers, json=body, timeout=30)
-    if resp.status_code != 200:
-        raise Exception(resp.text)
-
-
-def _datos_comunes(p, fecha_app):
-    com = p.get("comorbilidades", {}) or {}
-    fn = p.get("fecha_nacimiento")
-    ocupacion = _up(p.get("ocupacion", ""))
-
-    personal_salud = (
-        _es_si(com.get("personal_salud_riesgo", False))
-        or _es_si(p.get("personal_salud", "NO"))
-        or "PERSONAL DE SALUD" in ocupacion
-    )
-    embarazo = _es_si(com.get("personas_embarazadas", False)) or _es_si(p.get("embarazo", "NO"))
-
-    grupo = _up(p.get("grupo_sugerido", ""))
-    meses_totales = int(p.get("calc_anos", 0) or 0) * 12 + int(p.get("calc_meses", 0) or 0)
-    if "6 A 59" in grupo:
-        g_6_59, g_60 = True, False
-    elif "60" in grupo:
-        g_6_59, g_60 = False, True
-    else:
-        g_6_59 = 6 <= meses_totales < 60
-        g_60 = meses_totales >= 60
-
-    vacuna = _up(p.get("vacuna_interes", ""))
-
-    return {
-        "com": com,
-        "fn_dia": str(fn.day).zfill(2) if fn else "",
-        "fn_mes": str(fn.month).zfill(2) if fn else "",
-        "fn_anio": str(fn.year) if fn else "",
-        "anos": str(p.get("calc_anos", 0)),
-        "meses": str(p.get("calc_meses", 0)),
-        "personal_salud": personal_salud,
-        "embarazo": embarazo,
-        "g_6_59": g_6_59,
-        "g_60": g_60,
-        "vacuna": vacuna,
-        "fecha_app_str": fecha_app.strftime("%d/%m/%Y"),
-        "fecha_registro_str": datetime.date.today().strftime("%d/%m/%Y"),
-    }
-
-
-def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
-    d = _datos_comunes(p, fecha_app)
-    com = d["com"]
-    f1 = fila
-    f2 = fila + 1
-
-    paterno = _up(p.get("paterno", ""))
-    materno = _up(p.get("materno", ""))
-    c_val, d_val = (materno, paterno) if NOMINAL_APELLIDOS_INVERTIDOS else (paterno, materno)
-
-    ant_inf = _up(p.get("antecedente_influenza", ""))
-    ant_cov = _up(p.get("antecedente_covid", ""))
-    vacuna = d["vacuna"]
-
-    def r(k):
-        return _es_si(com.get(k, False))
-
-    celdas = [
-        (f"A{f1}", str(consecutivo)),
-        (f"B{f1}", folio),
-        (f"C{f1}", c_val),
-        (f"D{f1}", d_val),
-        (f"E{f1}", _up(p.get("nombres", ""))),
-        (f"C{f2}", _up(p.get("curp_con_nacimiento", ""))),
-        (f"F{f1}", d["fn_dia"]),
-        (f"G{f1}", d["fn_mes"]),
-        (f"H{f1}", d["fn_anio"]),
-        (f"I{f1}", d["anos"]),
-        (f"J{f1}", d["meses"]),
-        (f"K{f1}", _txt(p.get("sexo", ""))),
-        (f"L{f1}", d["fecha_app_str"]),
-        (f"M{f1}", _up(p.get("calle", ""))),
-        (f"N{f1}", _up(p.get("numero", ""))),
-        (f"O{f1}", _up(p.get("colonia", ""))),
-        (f"P{f1}", _x(d["g_6_59"])),
-        (f"Q{f1}", _x(d["g_60"])),
-        (f"R{f1}", _x(d["embarazo"])),
-        (f"S{f1}", _x(d["personal_salud"])),
-        (f"T{f1}", _x(r("vih"))),
-        (f"U{f1}", _x(r("diabetes"))),
-        (f"V{f1}", _x(r("obesidad"))),
-        (f"W{f1}", _x(r("cardiopatias"))),
-        (f"X{f1}", _x(r("enfermedad_pulmonar"))),
-        (f"Y{f1}", _x(r("cancer"))),
-        (f"Z{f1}", _x(r("cardiacas_congenitas"))),
-        (f"AA{f1}", _x(r("insuficiencia_renal"))),
-        (f"AB{f1}", _x(r("inmunosupresion"))),
-        (f"AC{f1}", _x(r("discapacidades"))),
-        (f"AD{f1}", _x(r("fibrosis_quistica"))),
-        (f"AE{f1}", _x(r("hipertension"))),
-        (f"AF{f1}", _up(com.get("texto_otro", "")) if r("otro") else ""),
-        (f"AQ{f1}", _up(p.get("cuenta_derechohabiencia", ""))),
-        (f"AR{f1}", ant_inf),
-        (f"AS{f1}", ant_cov),
-        (f"AT{f1}", _x(vacuna == "INFLUENZA")),
-        (f"AU{f1}", _x(vacuna in ("COVID-19", "COVID"))),
-        (f"AV{f1}", _x(vacuna == "AMBAS")),
-        (f"AW{f1}", d["fecha_registro_str"]),
-        (f"AX{f1}", _txt(p.get("correo_paciente", ""))),
-    ]
-    return celdas
-
-
-def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
-    """Guarda en la hoja SIGLA_[INTRA|EXTRA]_DDMMAA con el mapeo NOMINAL.
-    Retorna: folio_asignado, is_duplicate, existing_folio"""
+@str_lib.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
+def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
-        client = obtener_cliente_gspread()
-        spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
+        client_c = obtener_cliente_gspread()
+        spreadsheet_c = client_c.open_by_key(spreadsheet_id)
 
-        ws = _obtener_o_crear_hoja(spreadsheet, sigla_url, tipo_jornada, val_fecha_app)
-        fila_destino = _siguiente_fila_libre(ws)
-        consecutivo = _consecutivo(fila_destino)
+        nombres_hojas = [w.title for w in spreadsheet_c.worksheets()]
+        if worksheet_name not in nombres_hojas:
+            return [], [], [], None, f"❌ La pestaña '{worksheet_name}' no existe en el libro consultado."
 
-        folio_asignado = f"{val_fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla_url}-{str(consecutivo).zfill(3)}"
+        worksheet = spreadsheet_c.worksheet(worksheet_name)
+        all_rows = worksheet.get_all_values()
 
-        celdas = _celdas_nominal(datos_paciente, folio_asignado, consecutivo, fila_destino, val_fecha_app)
-        _escribir_celdas(ws.title, celdas)
+        if len(all_rows) < 14:
+            return [], [], [], worksheet.id, None
 
-        st.cache_data.clear()
-        if hasattr(st, "cache_resource"):
-            st.cache_resource.clear()
+        header1 = all_rows[11] if len(all_rows) > 11 else []
+        header2 = all_rows[12] if len(all_rows) > 12 else []
+        data_rows = all_rows[13:] if len(all_rows) > 13 else []
 
-        return folio_asignado, False, None
+        return header1, header2, data_rows, worksheet.id, None
 
     except Exception as e:
-        raise Exception(f"Error al guardar el registro en Google Sheets: {e}")
+        return [], [], [], None, str(e)
 
 
-def guardar_registro_censal_20_nov(datos_paciente):
-    val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
-    tipo_jornada = datos_paciente.get("tipo_jornada", "I")
-    siglas_unidad = st.session_state.get("siglas_unidad", "20N")
-    sufijo_js = st.session_state.get("sufijo_js", "")
+def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=GOOGLE_SHEET_ID):
+    encabezados_combinados = []
+    conteo_nombres = {}
+    max_cols = max(len(header1), len(header2), 50)
 
-    return guardar_registro_censal(
-        sigla_url=siglas_unidad,
-        sufijo_js=sufijo_js,
-        tipo_jornada=tipo_jornada,
-        val_fecha_app=val_fecha_app,
-        nombre_unidad_completo=st.session_state.get("nombre_unidad", "CMN 20 DE NOVIEMBRE"),
-        datos_paciente=datos_paciente,
-    )
+    for idx in range(max_cols):
+        val1 = header1[idx].strip() if idx < len(header1) else ""
+        val2 = header2[idx].strip() if idx < len(header2) else ""
+
+        if val1 and val2 and val1 != val2:
+            col_str = f"{val1} - {val2}"
+        elif val2:
+            col_str = val2
+        elif val1:
+            col_str = val1
+        else:
+            col_str = f"Col_{idx+1}"
+
+        if col_str in conteo_nombres:
+            conteo_nombres[col_str] += 1
+            col_str = f"{col_str}_{conteo_nombres[col_str]}"
+        else:
+            conteo_nombres[col_str] = 0
+
+        encabezados_combinados.append(col_str)
+
+    filas_procesadas = []
+    mapeo_indices_pares = []
+    indices_filas_verdes = set()
+
+    total_censo_registros = 0
+    total_preregistros = 0
+    registros_nuevos_hoy = 0
+    total_aplicaciones = 0
+    total_sin_aplicar = 0
+    total_dosis_influenza = 0
+    total_dosis_covid = 0
+    total_simultaneas = 0
+    fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
+
+    # Identificamos si el libro actual corresponde al CMN 20 de Noviembre o a las demás unidades
+    es_20_nov = str(spreadsheet_id).strip() == str(SHEET_ID_20_NOVIEMBRE).strip()
+
+    # Definición de rangos de columnas para las "X" según el formato de cada libro:
+    # - 20 de Noviembre: Influenza (AG a AI -> índices 32 a 34), COVID (AJ a AP -> índices 35 a 41)
+    # - Demás unidades: Bloques estándar de censo
+    if es_20_nov:
+        rango_vacunas = range(32, 42)
+        rango_influenza = range(32, 35)  # AG, AH, AI
+        rango_covid = range(35, 42)      # AJ a AP
+    else:
+        rango_vacunas = range(32, 43)
+        rango_influenza = range(32, 35)
+        rango_covid = range(37, 40)
+
+    for i in range(0, len(filas_tabla), 2):
+        f1 = filas_tabla[i] if i < len(filas_tabla) else []
+        f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
+
+        f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
+        f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
+
+        if len(f1_adj) > 0 and str(f1_adj[0]).strip() != "":
+            total_censo_registros += 1
+
+            fecha_fila = f1_adj[48].strip() if len(f1_adj) > 48 else (f1_adj[11].strip() if len(f1_adj) > 11 else "")
+            if fecha_fila == fecha_hoy_str:
+                registros_nuevos_hoy += 1
+            else:
+                total_preregistros += 1
+
+            tiene_aplicacion = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_vacunas
+                if col_idx < len(f1_adj)
+            )
+            if tiene_aplicacion:
+                total_aplicaciones += 1
+            else:
+                total_sin_aplicar += 1
+
+            tiene_influenza = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_influenza
+                if col_idx < len(f1_adj)
+            )
+            tiene_covid = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_covid
+                if col_idx < len(f1_adj)
+            )
+
+            if tiene_influenza and not tiene_covid:
+                total_dosis_influenza += 1
+            elif tiene_covid and not tiene_influenza:
+                total_dosis_covid += 1
+            elif tiene_influenza and tiene_covid:
+                total_simultaneas += 1
+
+        if any(
+            str(f1_adj[col_idx]).strip().upper() == "X"
+            for col_idx in rango_vacunas
+            if col_idx < len(f1_adj)
+        ):
+            indices_filas_verdes.add(len(filas_procesadas))
+            indices_filas_verdes.add(len(filas_procesadas) + 1)
+
+        indices_deseados = list(range(0, 12)) + list(rango_vacunas)
+
+        f1_filtrado = [f1_adj[idx] if idx < len(f1_adj) else "" for idx in indices_deseados]
+        f2_filtrado = [f2_adj[idx] if idx < len(f2_adj) else "" for idx in indices_deseados]
+
+        fila_v1 = [False] + f1_filtrado
+        fila_v2 = [None] + f2_filtrado
+
+        filas_procesadas.append(fila_v1)
+        filas_procesadas.append(fila_v2)
+        mapeo_indices_pares.append(i)
+
+    indices_deseados = list(range(0, 12)) + list(rango_vacunas)
+    encabezados_filtrados = [encabezados_combinados[idx] for idx in indices_deseados if idx < len(encabezados_combinados)]
+
+    metricas = {
+        "total_censo_registros": total_censo_registros,
+        "total_preregistros": total_preregistros,
+        "registros_nuevos_hoy": registros_nuevos_hoy,
+        "total_aplicaciones": total_aplicaciones,
+        "total_sin_aplicar": total_sin_aplicar,
+        "total_dosis_influenza": total_dosis_influenza,
+        "total_dosis_covid": total_dosis_covid,
+        "total_simultaneas": total_simultaneas,
+    }
+
+    return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
+
+
+def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
+    pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
+    pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
+    filas_actualizadas = list(filas_tabla)
+    filas_gs_a_borrar = []
+
+    for paciente_idx in pacientes_sorted:
+        if paciente_idx < len(mapeo_indices_pares):
+            idx_par_real = mapeo_indices_pares[paciente_idx]
+            filas_gs_a_borrar.extend([idx_par_real + 14, idx_par_real + 15])
+            del filas_actualizadas[idx_par_real:idx_par_real + 2]
+
+    str_lib.session_state[key_estado_filas] = filas_actualizadas
+
+    client = obtener_cliente_gspread()
+    spreadsheet = client.open_by_key(sheet_id)
+    ws = spreadsheet.worksheet(hoja_activa)
+
+    filas_gs_a_borrar = sorted(set(filas_gs_a_borrar), reverse=True)
+    for fila_gs in filas_gs_a_borrar:
+        try:
+            ws.delete_rows(fila_gs)
+        except Exception:
+            pass
+
+    datos_actualizados = ws.get_all_values()
+    if len(datos_actualizados) >= 14:
+        filas_actuales = datos_actualizados[13:]
+        contador = 1
+        updates = []
+        for i in range(0, len(filas_actuales), 2):
+            row = filas_actuales[i]
+            if len(row) > 0 and row[0].strip() != "":
+                a1 = gspread.utils.rowcol_to_a1(i + 14, 1)
+                updates.append({"range": a1, "values": [[str(contador)]]})
+                contador += 1
+        if updates:
+            try:
+                ws.batch_update(updates)
+            except Exception:
+                pass
