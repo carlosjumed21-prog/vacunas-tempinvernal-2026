@@ -1,4 +1,3 @@
-# utils/admin_utils.py
 import datetime
 import io
 import json
@@ -13,6 +12,14 @@ import gspread
 import qrcode
 import streamlit as st
 
+# ==========================================
+# CONFIGURACIÓN DE ACCESOS ADMINISTRATIVOS
+# ==========================================
+ADMINS_AUTORIZADOS = [
+    "carlosju.med21@gmail.com",
+    "wendy.hernandeza@issste.gob.mx"
+]
+
 
 def autenticar_administrador(correo, password):
     """Valida las credenciales de acceso del administrador."""
@@ -21,6 +28,13 @@ def autenticar_administrador(correo, password):
        (correo_limpio == "wendy.hernandeza@issste.gob.mx" and password == "MedPrev26"):
         return True, correo_limpio
     return False, ""
+
+
+def es_administrador_autorizado(correo):
+    """Verifica si un correo cuenta con permisos administrativos activos."""
+    if not correo:
+        return False
+    return correo.strip().lower() in ADMINS_AUTORIZADOS
 
 
 def obtener_cliente_gspread():
