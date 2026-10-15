@@ -1,50 +1,107 @@
-# utils/logica_ver_tabla.py
 import streamlit as str_lib
 import pandas as pd
 import gspread
 import datetime
 from google.oauth2 import service_account
+import google.auth.transport.requests
+import json
 from utils.sheets import obtener_cliente_gspread
 from config import GOOGLE_SCOPES, GOOGLE_SHEET_ID
 
 SHEET_ID_20_NOVIEMBRE = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
 
+
 def obtener_sheet_id_activo(hoja_activa, unidad_param=""):
     """Determina si la hoja pertenece al CMN 20 de Noviembre o al Sheet general de las demás unidades."""
-    if hoja_activa.upper().startswith("20N") or "20 DE NOVIEMBRE" in hoja_activa.upper() or "20_NOVIEMBRE" in unidad_param.upper() or "20 DE NOVIEMBRE" in unidad_param.upper():
+    if (
+        hoja_activa.upper().startswith("20N")
+        or "20 DE NOVIEMBRE" in hoja_activa.upper()
+        or "20_NOVIEMBRE" in unidad_param.upper()
+        or "20 DE NOVIEMBRE" in unidad_param.upper()
+    ):
         return SHEET_ID_20_NOVIEMBRE
     return GOOGLE_SHEET_ID
 
-def get_creds_from_secrets():
-    import json
+
+def _obtener_creds_dict_desde_secrets():
+    """
+    Obtiene un dict de credenciales de cuenta de servicio desde st.secrets.
+    Prioriza llaves conocidas y evita convertir strings arbitrarios con dict(...),
+    que provoca: 'dictionary update sequence element #0 has length 1; 2 is required'
+    """
     creds_dict = None
+
     if "GOOGLE_CREDENTIALS" in str_lib.secrets:
         raw = str_lib.secrets["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(raw) if isinstance(raw, str) else raw
+        creds_dict = json.loads(raw) if isinstance(raw, str) else dict(raw)
+
+    elif "gcp_service_account" in str_lib.secrets:
+        creds_dict = dict(str_lib.secrets["gcp_service_account"])
+
+    elif "gpex" in str_lib.secrets:
+        creds_dict = dict(str_lib.secrets["gpex"])
+
     else:
+        # Fallback seguro: buscar una sección tipo mapping con campos de service account
         for k in str_lib.secrets:
-            if k != "GOOGLE_SHEET_ID":
-                creds_dict = dict(str_lib.secrets[k])
-                break
+            valor = str_lib.secrets[k]
+            if hasattr(valor, "keys"):
+                val_dict = dict(valor)
+                if "private_key" in val_dict and "client_email" in val_dict and "token_uri" in val_dict:
+                    creds_dict = val_dict
+                    break
+
+        # Último recurso: primer valor parseable JSON con estructura de service account
+        if not creds_dict and len(str_lib.secrets.keys()) > 0:
+            primera_llave = list(str_lib.secrets.keys())[0]
+            valor = str_lib.secrets[primera_llave]
+            if isinstance(valor, str):
+                maybe = json.loads(valor)
+                if isinstance(maybe, dict) and "private_key" in maybe:
+                    creds_dict = maybe
+
     if not creds_dict:
         raise KeyError("No se encontraron credenciales de servicio válidas en st.secrets.")
+
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    return creds_dict
+
+
+def get_creds_from_secrets():
+    """
+    Devuelve Credentials de service account con los scopes configurados.
+    Compatible con exportación de Google Sheets (xlsx) y gspread.
+    """
+    creds_dict = _obtener_creds_dict_desde_secrets()
     return service_account.Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
+
+
+def get_access_token_from_secrets():
+    """
+    Genera y devuelve un access token OAuth2 válido.
+    Útil para requests HTTP directos (ej. export de hoja a xlsx).
+    """
+    creds = get_creds_from_secrets()
+    auth_req = google.auth.transport.requests.Request()
+    creds.refresh(auth_req)
+    return creds.token
+
 
 @str_lib.cache_data(ttl=300, show_spinner="Sincronizando con Google Sheets...")
 def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
     try:
         client_c = obtener_cliente_gspread()
         spreadsheet_c = client_c.open_by_key(spreadsheet_id)
-        
+
         nombres_hojas = [w.title for w in spreadsheet_c.worksheets()]
         if worksheet_name not in nombres_hojas:
             return [], [], [], None, f"❌ La pestaña '{worksheet_name}' no existe en el libro consultado."
 
         worksheet = spreadsheet_c.worksheet(worksheet_name)
         all_rows = worksheet.get_all_values()
-        
+
         if len(all_rows) < 14:
             return [], [], [], worksheet.id, None
 
@@ -56,6 +113,7 @@ def load_sheet_minimal_cached(spreadsheet_id, worksheet_name):
 
     except Exception as e:
         return [], [], [], None, str(e)
+
 
 def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=GOOGLE_SHEET_ID):
     encabezados_combinados = []
@@ -98,15 +156,15 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
     fecha_hoy_str = datetime.datetime.now().strftime("%d/%m/%Y")
 
     # Identificamos si el libro actual corresponde al CMN 20 de Noviembre o a las demás unidades
-    es_20_nov = (str(spreadsheet_id).strip() == str(SHEET_ID_20_NOVIEMBRE).strip())
+    es_20_nov = str(spreadsheet_id).strip() == str(SHEET_ID_20_NOVIEMBRE).strip()
 
     # Definición de rangos de columnas para las "X" según el formato de cada libro:
-    # - 20 de Noviembre: Influenza (AG a AK -> índices 32 a 36), COVID (AL a AP -> índices 37 a 41)
+    # - 20 de Noviembre: Influenza (AG a AI -> índices 32 a 34), COVID (AJ a AP -> índices 35 a 41)
     # - Demás unidades: Bloques estándar de censo
     if es_20_nov:
         rango_vacunas = range(32, 42)
         rango_influenza = range(32, 35)  # AG, AH, AI
-        rango_covid = range(35, 42)      # AL a AP
+        rango_covid = range(35, 42)      # AJ a AP
     else:
         rango_vacunas = range(32, 43)
         rango_influenza = range(32, 35)
@@ -115,7 +173,7 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
     for i in range(0, len(filas_tabla), 2):
         f1 = filas_tabla[i] if i < len(filas_tabla) else []
         f2 = filas_tabla[i + 1] if i + 1 < len(filas_tabla) else []
-        
+
         f1_adj = f1 + [""] * max(0, len(encabezados_combinados) - len(f1))
         f2_adj = f2 + [""] * max(0, len(encabezados_combinados) - len(f2))
 
@@ -128,14 +186,26 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
             else:
                 total_preregistros += 1
 
-            tiene_aplicacion = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_vacunas if col_idx < len(f1_adj))
+            tiene_aplicacion = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_vacunas
+                if col_idx < len(f1_adj)
+            )
             if tiene_aplicacion:
                 total_aplicaciones += 1
             else:
                 total_sin_aplicar += 1
 
-            tiene_influenza = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_influenza if col_idx < len(f1_adj))
-            tiene_covid = any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_covid if col_idx < len(f1_adj))
+            tiene_influenza = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_influenza
+                if col_idx < len(f1_adj)
+            )
+            tiene_covid = any(
+                str(f1_adj[col_idx]).strip().upper() == "X"
+                for col_idx in rango_covid
+                if col_idx < len(f1_adj)
+            )
 
             if tiene_influenza and not tiene_covid:
                 total_dosis_influenza += 1
@@ -144,7 +214,11 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
             elif tiene_influenza and tiene_covid:
                 total_simultaneas += 1
 
-        if any(str(f1_adj[col_idx]).strip().upper() == "X" for col_idx in rango_vacunas if col_idx < len(f1_adj)):
+        if any(
+            str(f1_adj[col_idx]).strip().upper() == "X"
+            for col_idx in rango_vacunas
+            if col_idx < len(f1_adj)
+        ):
             indices_filas_verdes.add(len(filas_procesadas))
             indices_filas_verdes.add(len(filas_procesadas) + 1)
 
@@ -176,12 +250,13 @@ def construir_dataset_y_metricas(filas_tabla, header1, header2, spreadsheet_id=G
 
     return encabezados_filtrados, filas_procesadas, mapeo_indices_pares, indices_filas_verdes, metricas
 
+
 def eliminar_pacientes_seleccionados(sheet_id, hoja_activa, indices_marcados, mapeo_indices_pares, filas_tabla, key_estado_filas):
     pacientes_a_eliminar = {idx // 2 for idx in indices_marcados}
     pacientes_sorted = sorted(pacientes_a_eliminar, reverse=True)
     filas_actualizadas = list(filas_tabla)
     filas_gs_a_borrar = []
-    
+
     for paciente_idx in pacientes_sorted:
         if paciente_idx < len(mapeo_indices_pares):
             idx_par_real = mapeo_indices_pares[paciente_idx]
