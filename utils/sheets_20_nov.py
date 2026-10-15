@@ -9,10 +9,10 @@ import streamlit as st
 from config import GOOGLE_SCOPES
 
 SHEET_ID_20N = "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"
-FILA_INICIAL = 14          # primer registro
-FILAS_POR_REGISTRO = 2     # cada registro ocupa 2 filas (14-15, 16-17, ...)
+FILA_INICIAL = 14
+FILAS_POR_REGISTRO = 2
 
-# En NOMINAL: True -> C = Materno, D = Paterno (según tu última indicación)
+# En NOMINAL: True -> C = Materno, D = Paterno
 #             False -> C = Paterno, D = Materno
 NOMINAL_APELLIDOS_INVERTIDOS = True
 
@@ -24,11 +24,15 @@ def _credenciales_dict():
     if "GOOGLE_CREDENTIALS" in st.secrets:
         raw = st.secrets["GOOGLE_CREDENTIALS"]
         creds = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    elif "gcp_service_account" in st.secrets:
+        creds = dict(st.secrets["gcp_service_account"])
     elif "gpex" in st.secrets:
         creds = dict(st.secrets["gpex"])
     else:
         primera = list(st.secrets.keys())[0]
-        creds = dict(st.secrets[primera])
+        valor = st.secrets[primera]
+        creds = dict(valor) if hasattr(valor, "keys") else json.loads(valor)
+
     if "private_key" in creds and isinstance(creds["private_key"], str):
         creds["private_key"] = creds["private_key"].replace("\\n", "\n")
     return creds
@@ -81,8 +85,7 @@ def _obtener_o_crear_hoja(spreadsheet, sigla, tipo_jornada, fecha_app, sufijo):
     hojas = spreadsheet.worksheets()
     for h in hojas:
         t = h.title.upper()
-        if (sigla.upper() in t and fecha_str in t and tipo in t
-                and t.endswith(sufijo.upper())):
+        if (sigla.upper() in t and fecha_str in t and tipo in t and t.endswith(sufijo.upper())):
             return h
 
     for h in hojas:
@@ -186,13 +189,13 @@ def _datos_comunes(p, fecha_app):
 
 
 # ----------------------------------------------------------------------
-# Mapeo NOMINAL (celdas combinadas verticalmente en 2 filas)
+# Mapeo NOMINAL
 # ----------------------------------------------------------------------
 def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
     d = _datos_comunes(p, fecha_app)
     com = d["com"]
-    f1 = fila          # primera fila del bloque (14, 16, ...)
-    f2 = fila + 1      # segunda fila del bloque (15, 17, ...)
+    f1 = fila
+    f2 = fila + 1
 
     paterno = _up(p.get("paterno", ""))
     materno = _up(p.get("materno", ""))
@@ -211,7 +214,7 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
         (f"C{f1}", c_val),
         (f"D{f1}", d_val),
         (f"E{f1}", _up(p.get("nombres", ""))),
-        (f"C{f2}", _up(p.get("curp_con_nacimiento", ""))),   # bloque C15:E15
+        (f"C{f2}", _up(p.get("curp_con_nacimiento", ""))),
         (f"F{f1}", d["fn_dia"]),
         (f"G{f1}", d["fn_mes"]),
         (f"H{f1}", d["fn_anio"]),
@@ -222,10 +225,8 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
         (f"M{f1}", _up(p.get("calle", ""))),
         (f"N{f1}", _up(p.get("numero", ""))),
         (f"O{f1}", _up(p.get("colonia", ""))),
-        # Grupo objetivo
         (f"P{f1}", _x(d["g_6_59"])),
         (f"Q{f1}", _x(d["g_60"])),
-        # Grupos de riesgo
         (f"R{f1}", _x(d["embarazo"])),
         (f"S{f1}", _x(d["personal_salud"])),
         (f"T{f1}", _x(r("vih"))),
@@ -241,12 +242,9 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
         (f"AD{f1}", _x(r("fibrosis_quistica"))),
         (f"AE{f1}", _x(r("hipertension"))),
         (f"AF{f1}", _up(com.get("texto_otro", "")) if r("otro") else ""),
-        # AG:AP (dosis, lotes, caducidades) las llena el vacunador -> se dejan vacías
         (f"AQ{f1}", _up(p.get("cuenta_derechohabiencia", ""))),
-        # Antecedente vacunal (SI / NO / LO DESCONOCE)
         (f"AR{f1}", ant_inf),
         (f"AS{f1}", ant_cov),
-        # Vacuna solicitada
         (f"AT{f1}", _x(vacuna == "INFLUENZA")),
         (f"AU{f1}", _x(vacuna in ("COVID-19", "COVID"))),
         (f"AV{f1}", _x(vacuna == "AMBAS")),
@@ -257,7 +255,7 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
 
 
 # ----------------------------------------------------------------------
-# Mapeo CENSO (A:AH, fila inicial 14, bloques de 2 filas)
+# Mapeo CENSO
 # ----------------------------------------------------------------------
 def _celdas_censo(p, folio, consecutivo, fila, fecha_app):
     d = _datos_comunes(p, fecha_app)
@@ -292,7 +290,6 @@ def _celdas_censo(p, folio, consecutivo, fila, fecha_app):
         (f"V{f1}", d["meses"]),
         (f"W{f1}", _txt(p.get("sexo", ""))),
         (f"X{f1}", "SÍ" if d["embarazo"] else "NO"),
-        # Y:AH (dosis, lotes, caducidades de Influenza y COVID) -> vacunador
     ]
     return celdas
 
@@ -305,9 +302,7 @@ def _guardar_en_hoja(spreadsheet, sigla, sufijo, tipo_jornada, fecha_app, p, fol
     fila = _siguiente_fila_libre(ws)
     consecutivo = _consecutivo(fila)
 
-    folio = folio_forzado or (
-        f"{fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla}-{str(consecutivo).zfill(3)}"
-    )
+    folio = folio_forzado or f"{fecha_app.strftime('%y%m%d')}-{tipo_jornada}{sigla}-{str(consecutivo).zfill(3)}"
 
     if sufijo == "NOMINAL":
         celdas = _celdas_nominal(p, folio, consecutivo, fila, fecha_app)
@@ -318,18 +313,19 @@ def _guardar_en_hoja(spreadsheet, sigla, sufijo, tipo_jornada, fecha_app, p, fol
     return folio
 
 
-def guardar_registro_censal(
-    sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente
-):
+def guardar_registro_censal(sigla_url, sufijo_js, tipo_jornada, val_fecha_app, nombre_unidad_completo, datos_paciente):
     """Guarda el registro en las dos hojas: ..._NOMINAL y ..._CENSO."""
     client = obtener_cliente_gspread()
     spreadsheet = client.open_by_key(SHEET_ID_20N)
 
-    folio = _guardar_en_hoja(
-        spreadsheet, sigla_url, "NOMINAL", tipo_jornada, val_fecha_app, datos_paciente
-    )
+    folio = _guardar_en_hoja(spreadsheet, sigla_url, "NOMINAL", tipo_jornada, val_fecha_app, datos_paciente)
     _guardar_en_hoja(
-        spreadsheet, sigla_url, "CENSO", tipo_jornada, val_fecha_app, datos_paciente,
+        spreadsheet,
+        sigla_url,
+        "CENSO",
+        tipo_jornada,
+        val_fecha_app,
+        datos_paciente,
         folio_forzado=folio,
     )
 
@@ -341,7 +337,6 @@ def guardar_registro_censal(
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
-    """Punto de entrada usado por pages/registro_20_noviembre.py"""
     val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
     tipo_jornada = datos_paciente.get("tipo_jornada", "I")
     siglas_unidad = st.session_state.get("siglas_unidad", "20N")
