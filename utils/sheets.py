@@ -9,7 +9,7 @@ import gspread
 import streamlit as st
 
 # ID exclusivo para las demás unidades
-SHEET_ID_OTRAS_UNIDADES = "1zWcat4vd3QrDRSeZwaSqij4gyVnVhEtrCGQbrTDoZtQ"
+SHEET_ID_OTRAS_UNIDADES = "1-1_BSmgN9QPnO5saVT-qQysSBm9NYMyqaMJXYRRD_Do"
 
 FILA_INICIAL = 14
 FILAS_POR_REGISTRO = 2
@@ -73,19 +73,16 @@ def _obtener_o_crear_hoja(spreadsheet, sigla, tipo_jornada, fecha_app):
     tipo = "INTRA" if tipo_jornada == "I" else "EXTRA"
     fecha_str = fecha_app.strftime("%d%m%y")
 
-    # Buscar coincidencia exacta
     for h in spreadsheet.worksheets():
         t = h.title.upper()
         if t == nombre_ideal.upper():
             return h
 
-    # Buscar coincidencia por patrón
     for h in spreadsheet.worksheets():
         t = h.title.upper()
         if sigla.upper() in t and tipo in t and fecha_str in t:
             return h
 
-    # Intentar duplicar una plantilla con nombre NOMINAL o CENSO si existe
     for plantilla in ["NOMINAL", "CENSO NOMINAL", "CENSO"]:
         try:
             base = spreadsheet.worksheet(plantilla)
@@ -102,10 +99,6 @@ def _obtener_o_crear_hoja(spreadsheet, sigla, tipo_jornada, fecha_app):
 
 
 def _siguiente_fila_libre(worksheet):
-    """
-    Busca el siguiente bloque libre de 2 filas revisando columna B
-    en 14,16,18...
-    """
     col_b = worksheet.col_values(2)
     idx = FILA_INICIAL - 1
 
@@ -181,11 +174,6 @@ def _datos_comunes(p, fecha_app):
 
 
 def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
-    """
-    NOMINAL en dos filas combinadas:
-    - fila base: 14, 16, 18...
-    - CURP en C15
-    """
     d = _datos_comunes(p, fecha_app)
     com = d["com"]
     f1 = fila
@@ -193,8 +181,6 @@ def _celdas_nominal(p, folio, consecutivo, fila, fecha_app):
 
     paterno = _up(p.get("paterno", ""))
     materno = _up(p.get("materno", ""))
-
-    # Ajusta aquí si tu orden real es el contrario
     c_val = materno
     d_val = paterno
 
@@ -259,11 +245,6 @@ def guardar_registro_censal(
     nombre_unidad_completo,
     datos_paciente,
 ):
-    """
-    Mantiene la firma esperada por pages/1_formulario.py.
-    Guarda en hoja SIGLA_[INTRA|EXTRA]_DDMMAA con el mapeo NOMINAL.
-    Retorna: folio_asignado, is_duplicate, existing_folio
-    """
     try:
         client = obtener_cliente_gspread()
         spreadsheet = client.open_by_key(SHEET_ID_OTRAS_UNIDADES)
@@ -288,9 +269,6 @@ def guardar_registro_censal(
 
 
 def guardar_registro_censal_20_nov(datos_paciente):
-    """
-    Compatibilidad con otros módulos.
-    """
     val_fecha_app = datos_paciente.get("val_fecha_app", datetime.date.today())
     tipo_jornada = datos_paciente.get("tipo_jornada", "I")
     siglas_unidad = st.session_state.get("siglas_unidad", "20N")
