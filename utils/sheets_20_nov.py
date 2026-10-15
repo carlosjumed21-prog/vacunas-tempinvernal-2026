@@ -62,12 +62,11 @@ def guardar_registro_censal(
         lista_hojas = spreadsheet.worksheets()
         for hoja in lista_hojas:
             titulo_hoja = hoja.title.upper()
-            # Si el título contiene la sigla, el tipo y la fecha exacta, la adoptamos como la hoja correcta
             if sigla_url.upper() in titulo_hoja and fecha_str_hoja in titulo_hoja and tipo_texto_jornada in titulo_hoja:
                 worksheet = hoja
                 break
 
-        # 2. Si de plano no encuentra ninguna coincidencia parcial, intentamos abrirla por el nombre ideal
+        # 2. Si no encuentra ninguna coincidencia parcial, intentamos abrirla por el nombre ideal
         if not worksheet:
             try:
                 worksheet = spreadsheet.worksheet(patron_busqueda_1)
@@ -117,7 +116,6 @@ def guardar_registro_censal(
         folio_asignado = f"{aammmdd}-{tipo_jornada}{sigla_url}-{str(siguiente_num).zfill(3)}"
 
         f_actual = fila_inicio_destino
-        f_siguiente = fila_inicio_destino + 1
 
         p = datos_paciente
         com = p.get("comorbilidades", {})
@@ -130,69 +128,51 @@ def guardar_registro_censal(
         edad_anos = str(p.get("calc_anos", 0))
         edad_meses = str(p.get("calc_meses", 0))
 
-        es_menor_59m = (p.get("calc_anos", 0) * 12) + p.get("calc_meses", 0) <= 59
-        es_mayor_60 = p.get("calc_anos", 0) >= 60
-
-        marca_6_59m = "X" if es_menor_59m else ""
-        marca_60_mas = "X" if es_mayor_60 else ""
         vacuna_interes = p.get("vacuna_interes", "")
-
-        marca_influenza = "X" if vacuna_interes == "INFLUENZA" else ""
-        marca_covid = "X" if vacuna_interes == "COVID-19" else ""
-        marca_ambas = "X" if vacuna_interes == "AMBAS" else ""
-
-        fecha_registro_actual = datetime.date.today().strftime("%d/%m/%Y")
-        correo_paciente_val = p.get("correo_paciente", "").strip()
-
-        def check_activo(val):
-            if isinstance(val, bool):
-                return "X" if val else ""
-            if isinstance(val, str):
-                return "X" if val.upper() in ["SÍ", "SI", "TRUE", "1"] else ""
-            return ""
-
-        fila_registro_principal = [
-            str(siguiente_num),
-            folio_asignado,
-            p.get("paterno", "").upper(),
-            p.get("materno", "").upper(),
-            p.get("nombres", "").upper(),
-            fn_dia, fn_mes, fn_anio,
-            edad_anos, edad_meses,
-            p.get("sexo", ""),
-            val_fecha_app.strftime("%d/%m/%Y") if isinstance(val_fecha_app, datetime.date) else str(val_fecha_app),
-            p.get("calle", "").upper(), p.get("numero", "").upper(), p.get("colonia", "").upper(),
-            marca_6_59m,
-            marca_60_mas,
-            check_activo(com.get("personas_embarazadas")),
-            check_activo(com.get("personal_salud_riesgo")),
-            check_activo(com.get("vih")),
-            check_activo(com.get("diabetes")),
-            check_activo(com.get("obesidad")),
-            check_activo(com.get("cardiopatias")),
-            check_activo(com.get("enfermedad_pulmonar")),
-            check_activo(com.get("cancer")),
-            check_activo(com.get("cardiacas_congenitas")),
-            check_activo(com.get("insuficiencia_renal")),
-            check_activo(com.get("inmunosupresion")),
-            check_activo(com.get("discapacidades")),
-            check_activo(com.get("fibrosis_quistica")),
-            check_activo(com.get("hipertension")),
-            com.get("texto_otro", "").upper(),
-            "", "", "", "", "", "", "", "", "", "",
-            p.get("cuenta_derechohabiencia", "NO"),
-            p.get("antecedente_influenza", "NO"),
-            p.get("antecedente_covid", "NO"),
-            marca_influenza,
-            marca_covid,
-            marca_ambas,
-            fecha_registro_actual,
-            correo_paciente_val,
-        ]
+        marca_influenza = "X" if vacuna_interes in ["INFLUENZA", "AMBAS"] else ""
+        marca_covid = "X" if vacuna_interes in ["COVID-19", "AMBAS"] else ""
 
         curp_val = p.get("curp_con_nacimiento", "").upper()
-        curp_fila = f"C{f_siguiente}"
-        fecha_fila = f"AW{f_siguiente}"
+        personal_salud_activo = "SÍ" if str(com.get("personal_salud_riesgo", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] or "PERSONAL DE SALUD" in p.get("ocupacion", "").upper() else "NO"
+        embarazo_val = "SÍ" if str(com.get("personas_embarazadas", "NO")).upper() in ["SÍ", "SI", "TRUE", "1"] else "NO"
+
+        # Mapeo exacto de columnas de la A hasta la AH (Fila 14 inicial)
+        fila_registro_principal = [
+            str(siguiente_num),                                   # A: #
+            folio_asignado,                                       # B: Folio
+            curp_val,                                             # C: RFC (CURP calculada)
+            p.get("cuenta_derechohabiencia", "NO"),               # D: Derechohabiencia al ISSSTE
+            "",                                                   # E: Tipo de DH
+            "NO",                                                 # F: Trabaja CMN
+            "",                                                   # G: # Trabajador
+            personal_salud_activo,                                # H: Personal de Salud
+            "",                                                   # I: Categoría
+            "",                                                   # J: Servicio
+            "",                                                   # K: Coordinación
+            "",                                                   # L: Turno
+            p.get("nombres", "").upper(),                         # M: Nombre(s)
+            p.get("paterno", "").upper(),                         # N: Paterno
+            p.get("materno", "").upper(),                         # O: Materno
+            p.get("estado_nacimiento", "").upper(),               # P: Edo Nac
+            "",                                                   # Q: Muni Nac
+            fn_dia,                                               # R: FN Día
+            fn_mes,                                               # S: FN Mes
+            fn_anio,                                              # T: FN Año
+            edad_anos,                                            # U: Años
+            edad_meses,                                           # V: Meses
+            p.get("sexo", ""),                                    # W: Sexo
+            embarazo_val,                                         # X: Embarazo
+            "",                                                   # Y: Influenza 1ra dosis
+            "",                                                   # Z: Influenza 2da dosis
+            marca_influenza,                                      # AA: Influenza Dosis anual
+            "",                                                   # AB: Influenza No. lote
+            "",                                                   # AC: Influenza Caducidad
+            "",                                                   # AD: Covid 1ra dosis
+            "",                                                   # AE: Covid 2da dosis
+            marca_covid,                                          # AF: Covid Dosis anual
+            "",                                                   # AG: Covid No. lote
+            ""                                                    # AH: Covid Caducidad
+        ]
 
         token = obtener_token_acceso()
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id_20n}/values:batchUpdate"
@@ -203,9 +183,7 @@ def guardar_registro_censal(
         body = {
             "valueInputOption": "USER_ENTERED",
             "data": [
-                {"range": f"{nombre_real_hoja}!A{f_actual}", "values": [fila_registro_principal]},
-                {"range": f"{nombre_real_hoja}!{curp_fila}", "values": [[curp_val]]},
-                {"range": f"{nombre_real_hoja}!{fecha_fila}", "values": [[fecha_registro_actual]]}
+                {"range": f"{nombre_real_hoja}!A{f_actual}", "values": [fila_registro_principal]}
             ]
         }
         resp = requests.post(url, headers=headers, json=body)
