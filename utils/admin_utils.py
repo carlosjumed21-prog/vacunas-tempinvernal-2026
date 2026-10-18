@@ -78,10 +78,7 @@ def verificar_hojas_existentes(siglas_unidad, config_jornadas):
             tipo_texto = j_conf["tipo_texto"]
             sufijo_hoja = j_conf.get("sufijo_hoja", "")
 
-            if siglas_unidad == "20N":
-                nombre_prueba = f"{siglas_unidad}_{tipo_texto}{sufijo_hoja}_{fecha_str_val}"
-            else:
-                nombre_prueba = f"{siglas_unidad}_{tipo_texto}{sufijo_hoja}_{fecha_str_val}"
+            nombre_prueba = f"{siglas_unidad}_{tipo_texto}{sufijo_hoja}_{fecha_str_val}"
 
             if nombre_prueba in hojas_existentes:
                 duplicadas.append(nombre_prueba)
@@ -117,8 +114,7 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
             url_qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_paciente)}"
             formula_imagen_qr = f'=IMAGE("{url_qr_api}")'
 
-            # Plantilla base para la hoja maestra
-            plantilla_nombre = "CENSO NOMINAL" if siglas_unidad == "20N" else "CENSO NOMINAL"
+            plantilla_nombre = "CENSO NOMINAL"
             plantilla = spreadsheet_maestro.worksheet(plantilla_nombre)
 
             copia = spreadsheet_maestro.duplicate_sheet(
@@ -128,7 +124,6 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
             )
             hoja_activa_maestro = spreadsheet_maestro.worksheet(nombre_hoja_objetivo)
 
-            # Metadatos
             hoja_activa_maestro.update_acell("D7", "CDMX")
             hoja_activa_maestro.update_acell("M7", "ISSSTE")
             hoja_activa_maestro.update_acell("T7", "Delegación Sur")
@@ -164,91 +159,101 @@ def autorizar_y_crear_jornadas(siglas_unidad, unidad_sel, jornada_sel, tipo_jorn
         return [], str(e)
 
 
-def sincronizar_historial_universal():
-    """Escanea los libros maestros en Google Sheets para extraer todas las jornadas activas con sus metadatos reales."""
+@st.cache_data(ttl=60, show_spinner=False)
+def _sincronizar_historial_universal_cache():
+    client = obtener_cliente_gspread()
+    ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
+    hojas_encontradas = []
+    base_url = "https://medprev-vacunas-invernal.streamlit.app"
+
+    for sheet_id_item in ids_a_revisar:
+        try:
+            sp_item = client.open_by_key(sheet_id_item)
+            for ws in sp_item.worksheets():
+                titulo_w = ws.title
+                if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
+                    try:
+                        val_au4 = ws.acell("AU4").value
+                    except Exception:
+                        val_au4 = ""
+                    try:
+                        link_form_leido = ws.acell("AU6").value
+                    except Exception:
+                        link_form_leido = ""
+                    try:
+                        link_op_leido = ws.acell("AU7").value
+                    except Exception:
+                        link_op_leido = ""
+                    try:
+                        unidad_leida = ws.acell("D9").value
+                    except Exception:
+                        unidad_leida = ""
+                    try:
+                        fecha_leida_str = ws.acell("AB9").value
+                    except Exception:
+                        fecha_leida_str = ""
+
+                    siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
+
+                    titulo_upper = titulo_w.upper()
+                    if "EXTRA" in titulo_upper:
+                        tipo_letra_h = "E"
+                        jornada_texto = "Extramuros E"
+                    elif "INTRA" in titulo_upper:
+                        tipo_letra_h = "I"
+                        jornada_texto = "Intramuros I"
+                    elif "MOVIL" in titulo_upper or "MÓVIL" in titulo_upper:
+                        tipo_letra_h = "M"
+                        jornada_texto = "Brigada Móvil M"
+                    else:
+                        tipo_letra_h = "I"
+                        jornada_texto = "Intramuros I"
+
+                    fecha_obj = datetime.date.today()
+                    if fecha_leida_str:
+                        try:
+                            fecha_obj = datetime.datetime.strptime(fecha_leida_str.strip(), "%d/%m/%Y").date()
+                        except Exception:
+                            pass
+
+                    if not unidad_leida:
+                        unidad_leida = "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica"
+
+                    if not link_form_leido or not link_form_leido.startswith("http"):
+                        ruta_form = "registro_20_noviembre" if siglas_h == "20N" else "formulario"
+                        link_form_leido = f"{base_url}/{ruta_form}?unidad={siglas_h}&jornada={tipo_letra_h}"
+
+                    if not link_op_leido or not link_op_leido.startswith("http"):
+                        link_op_leido = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
+
+                    hojas_encontradas.append({
+                        "nombre": titulo_w,
+                        "gid": str(ws.id),
+                        "unidad": unidad_leida,
+                        "siglas_unidad": siglas_h,
+                        "tipo_jornada": jornada_texto,
+                        "tipo_jornada_letra": tipo_letra_h,
+                        "responsable": "PERSONAL OPERATIVO",
+                        "correo": val_au4.strip().lower() if val_au4 else "No asignado",
+                        "fecha": fecha_obj,
+                        "sheet_id": sheet_id_item,
+                        "link_formulario": link_form_leido,
+                        "link_operativo": link_op_leido,
+                    })
+        except Exception:
+            pass
+
+    return hojas_encontradas
+
+
+def sincronizar_historial_universal(force_refresh=False):
+    """Escanea los libros maestros en Google Sheets y devuelve las jornadas activas.
+    Usa caché temporal para reducir el tiempo de carga en la interfaz.
+    """
     try:
-        client = obtener_cliente_gspread()
-        ids_a_revisar = [GOOGLE_SHEET_ID, "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE"]
-        hojas_encontradas = []
-        base_url = "https://medprev-vacunas-invernal.streamlit.app"
-
-        for sheet_id_item in ids_a_revisar:
-            try:
-                sp_item = client.open_by_key(sheet_id_item)
-                for ws in sp_item.worksheets():
-                    titulo_w = ws.title
-                    if titulo_w not in ["CENSO NOMINAL", "CENSO", "Influenza", "COVID"]:
-                        try:
-                            val_au4 = ws.acell("AU4").value
-                        except:
-                            val_au4 = ""
-                        try:
-                            link_form_leido = ws.acell("AU6").value
-                        except:
-                            link_form_leido = ""
-                        try:
-                            link_op_leido = ws.acell("AU7").value
-                        except:
-                            link_op_leido = ""
-                        try:
-                            unidad_leida = ws.acell("D9").value
-                        except:
-                            unidad_leida = ""
-                        try:
-                            fecha_leida_str = ws.acell("AB9").value
-                        except:
-                            fecha_leida_str = ""
-
-                        siglas_h = "20N" if "20N_" in titulo_w or sheet_id_item == "1PQhYZeGROAiXXtsRexyifuDJ5nOnADaTJnKHKCeV7gE" else "GEN"
-
-                        titulo_upper = titulo_w.upper()
-                        if "EXTRA" in titulo_upper:
-                            tipo_letra_h = "E"
-                            jornada_texto = "Extramuros E"
-                        elif "INTRA" in titulo_upper:
-                            tipo_letra_h = "I"
-                            jornada_texto = "Intramuros I"
-                        elif "MOVIL" in titulo_upper or "MÓVIL" in titulo_upper:
-                            tipo_letra_h = "M"
-                            jornada_texto = "Brigada Móvil M"
-                        else:
-                            tipo_letra_h = "I"
-                            jornada_texto = "Intramuros I"
-
-                        fecha_obj = datetime.date.today()
-                        if fecha_leida_str:
-                            try:
-                                fecha_obj = datetime.datetime.strptime(fecha_leida_str.strip(), "%d/%m/%Y").date()
-                            except:
-                                pass
-
-                        if not unidad_leida:
-                            unidad_leida = "CMN 20 DE NOVIEMBRE" if siglas_h == "20N" else "Unidad Médica"
-
-                        if not link_form_leido or not link_form_leido.startswith("http"):
-                            ruta_form = "registro_20_noviembre" if siglas_h == "20N" else "formulario"
-                            link_form_leido = f"{base_url}/{ruta_form}?unidad={siglas_h}&jornada={tipo_letra_h}"
-
-                        if not link_op_leido or not link_op_leido.startswith("http"):
-                            link_op_leido = f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(titulo_w)}"
-
-                        hojas_encontradas.append({
-                            "nombre": titulo_w,
-                            "gid": str(ws.id),
-                            "unidad": unidad_leida,
-                            "siglas_unidad": siglas_h,
-                            "tipo_jornada": jornada_texto,
-                            "tipo_jornada_letra": tipo_letra_h,
-                            "responsable": "PERSONAL OPERATIVO",
-                            "correo": val_au4.strip().lower() if val_au4 else "No asignado",
-                            "fecha": fecha_obj,
-                            "sheet_id": sheet_id_item,
-                            "link_formulario": link_form_leido,
-                            "link_operativo": link_op_leido,
-                        })
-            except:
-                pass
-
+        if force_refresh:
+            _sincronizar_historial_universal_cache.clear()
+        hojas_encontradas = _sincronizar_historial_universal_cache()
         return hojas_encontradas, None
     except Exception as e:
         return [], str(e)
