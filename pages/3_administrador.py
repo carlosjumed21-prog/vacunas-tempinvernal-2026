@@ -27,21 +27,6 @@ if st.session_state.get("es_admin", False) and not st.session_state.get("autenti
     st.session_state.autenticado_admin = True
     st.session_state.usuario_admin_actual = "Administrador Principal"
 
-col_nav1, col_nav2 = st.columns([1, 1])
-with col_nav1:
-    if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
-        st.session_state.autenticado_admin = False
-        st.session_state.es_admin = False
-        st.session_state.usuario_admin_actual = ""
-        st.session_state.jornada_autorizada = False
-        st.session_state.hojas_creadas_recientes = []
-        st.rerun()
-with col_nav2:
-    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
-        st.switch_page("app.py")
-
-st.markdown("---")
-
 # Inicialización de variables de sesión
 if "autenticado_admin" not in st.session_state:
     st.session_state.autenticado_admin = False
@@ -59,6 +44,24 @@ if "hojas_creadas_recientes" not in st.session_state:
     st.session_state.hojas_creadas_recientes = []
 if "historial_jornadas" not in st.session_state:
     st.session_state.historial_jornadas = []
+if "historial_cargado_manual" not in st.session_state:
+    st.session_state.historial_cargado_manual = False
+
+col_nav1, col_nav2 = st.columns([1, 1])
+with col_nav1:
+    if st.button("🚪 Cerrar Sesión de Administrador", use_container_width=True):
+        st.session_state.autenticado_admin = False
+        st.session_state.es_admin = False
+        st.session_state.usuario_admin_actual = ""
+        st.session_state.jornada_autorizada = False
+        st.session_state.hojas_creadas_recientes = []
+        st.session_state.historial_cargado_manual = False
+        st.rerun()
+with col_nav2:
+    if st.button("🏠 Volver al Menú Principal", use_container_width=True):
+        st.switch_page("app.py")
+
+st.markdown("---")
 
 # --- VISTA DE LOGIN (Respaldo por acceso directo a la página) ---
 if not st.session_state.autenticado_admin:
@@ -132,7 +135,7 @@ else:
                 st.markdown('<div class="card-simultanea">', unsafe_allow_html=True)
                 resp_unico = st.text_input("👤 Nombre del responsable de vacunación:", placeholder="Escriba el nombre completo...")
                 correo_resp_unico = st.text_input("📧 Correo electrónico del responsable:", placeholder="ejemplo@issste.gob.mx", key="correo_resp_unico")
-                
+
                 col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
                     f_app = st.date_input("Fecha de Aplicación:", value=datetime.date.today(), format="DD/MM/YYYY", key="f_app_unica")
@@ -237,7 +240,7 @@ else:
                 )
 
                 st.markdown(
-                    '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">3. Generador de Enlaces y Códigos QR (Públicos y Operativos)</div>',
+                    '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">4. Enlaces Públicos, Operativos y Códigos QR</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -250,7 +253,7 @@ else:
                     import urllib.parse
                     resp_encoded = urllib.parse.quote(j_conf["responsable"]) if "urllib" in globals() else j_conf["responsable"]
                     js_param = f"&js={j_conf['sufijo_qr']}" if j_conf["sufijo_qr"] else ""
-                    
+
                     ruta_formulario = "registro_20_noviembre" if siglas_unidad == "20N" else "formulario"
 
                     link_paciente = f"{base_url}/{ruta_formulario}?unidad={siglas_unidad}&jornada={tipo_jornada_letra}&fecha={fecha_url_str}&resp={resp_encoded}{js_param}"
@@ -290,19 +293,20 @@ else:
         col_hist_tit, col_hist_btn = st.columns([3, 1])
         with col_hist_tit:
             st.markdown(
-                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">Historial General y Acceso Universal</div>',
+                '<div class="section-title" style="font-size: 1.4rem; font-weight: 800; color: #1e5b4f; margin-top: 1.5rem; margin-bottom: 0.8rem; border-bottom: 2px solid #a57f2c; padding-bottom: 0.4rem;">📋 Historial Universal de Jornadas</div>',
                 unsafe_allow_html=True,
             )
         with col_hist_btn:
             st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Actualizar Historial Universal", use_container_width=True, help="Escanear y mostrar todas las hojas existentes en Google Sheets"):
-                hojas_encontradas, error_sync = sincronizar_historial_universal()
+                with st.spinner("Sincronizando jornadas activas..."):
+                    hojas_encontradas, error_sync = sincronizar_historial_universal(force_refresh=True)
                 if error_sync:
                     st.error(f"Error al sincronizar con Google Sheets: {error_sync}")
                 elif hojas_encontradas:
                     st.session_state.historial_jornadas = hojas_encontradas
+                    st.session_state.historial_cargado_manual = True
                     st.success(f"✅ ¡Historial universal sincronizado! Se detectaron {len(hojas_encontradas)} hojas activas.")
-                    st.rerun()
                 else:
                     st.warning("⚠️ No se encontraron hojas activas en Google Sheets.")
 
@@ -330,7 +334,7 @@ else:
                 with col_h1:
                     url_sheet_universal = f"https://docs.google.com/spreadsheets/d/{h_item['sheet_id']}/edit?usp=sharing"
                     st.markdown(f"📊 **Libro Maestro:** [Abrir Google Sheets]({url_sheet_universal})")
-                    
+
                     link_form_val = h_item.get("link_formulario", base_url)
                     st.markdown("🔹 **Enlace Formulario Público:**")
                     st.code(link_form_val, language="text")
@@ -339,7 +343,7 @@ else:
                     link_op_val = h_item.get("link_operativo", f"{base_url}/consulta_censia?hoja_activa={urllib.parse.quote(h_item['nombre'])}")
                     st.markdown("🔹 **Enlace Operativo Personalizado:**")
                     st.code(link_op_val, language="text")
-                
+
                 with col_h2:
                     link_qr_generar = h_item.get("link_formulario", base_url)
                     byte_im_h = generar_imagen_qr(link_qr_generar)
